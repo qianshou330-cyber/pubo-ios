@@ -193,6 +193,8 @@ struct AuthView: View {
         PUBOAccountField(title: "用户名", suffix: "@bolubo.com", prefix: "@") {
             TextField("用户名", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .textContentType(.username).accessibilityIdentifier("auth.username")
+                .submitLabel(registration ? .next : .continue)
+                .onSubmit { if !registration && usernameValid && !busy { loginPasswordStep = true; message = nil } }
         }
     }
     private var loginFields: some View {
@@ -205,6 +207,8 @@ struct AuthView: View {
                 Button("更换账号") { loginPasswordStep = false; needOTP = false; password = ""; otp = ""; message = nil }
                     .font(.footnote).disabled(busy).accessibilityIdentifier("auth.changeAccount")
                 PUBOPasswordField(title: "密码", value: $password, identifier: "auth.password")
+                    .submitLabel(.go)
+                    .onSubmit { if !busy && !password.isEmpty && (!needOTP || !otp.isEmpty) { Task { await submit() } } }
                 if needOTP {
                     PUBOAccountField(title: "两步验证代码", symbol: "lock.shield") {
                         TextField("两步验证代码", text: $otp).textContentType(.oneTimeCode).keyboardType(.numberPad).accessibilityIdentifier("auth.otp")

@@ -34,19 +34,21 @@ struct PUBOPasswordField: View {
     @FocusState private var focused: Bool
     var body: some View {
         PUBOAccountField(title: title, symbol: "lock") {
-            Group {
-                if visible { TextField(title, text: $value) }
-                else { SecureField(title, text: $value) }
-            }.textContentType(newPassword ? .newPassword : .password)
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                .focused($focused).accessibilityIdentifier(identifier)
-            Button {
-                visible.toggle(); focused = true
-            } label: {
-                Image(systemName: visible ? "eye.slash" : "eye")
-                    .frame(width: 44, height: 44).foregroundStyle(PUBOTheme.secondary)
-            }.buttonStyle(.plain).accessibilityLabel(visible ? "隐藏密码" : "显示密码")
-                .accessibilityIdentifier(identifier + ".visibility")
+            HStack(spacing: 0) {
+                Group {
+                    if visible { TextField(title, text: $value) }
+                    else { SecureField(title, text: $value) }
+                }.textContentType(newPassword ? .newPassword : .password)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .focused($focused).accessibilityIdentifier(identifier)
+                Button {
+                    visible.toggle(); focused = true
+                } label: {
+                    Image(systemName: visible ? "eye.slash" : "eye")
+                        .frame(width: 44, height: 44).foregroundStyle(PUBOTheme.secondary)
+                }.buttonStyle(.plain).accessibilityLabel(visible ? "隐藏密码" : "显示密码")
+                    .accessibilityIdentifier(identifier + ".visibility")
+            }
         }
     }
 }
