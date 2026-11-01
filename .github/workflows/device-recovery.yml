@@ -1,0 +1,48 @@
+name: Recover validated unsigned iPhone package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  VALIDATED_SOURCE_REF: 6707a090e3065f95cb117606f9d8c93d26dba0d9
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VALIDATED_SOURCE_REF }}
+      - name: Confirm exact tested source and tools
+        run: |
+          test "$(git rev-parse HEAD)" = "$VALIDATED_SOURCE_REF"
+          xcodebuild -version
+          brew install xcodegen
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Build unsigned iPhone device Release
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+      - name: Verify platform and package IPA
+        run: env GITHUB_SHA="$VALIDATED_SOURCE_REF" python3 scripts/package-device.py
+      - name: Upload device package
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: pubo-iphone-unsigned-${{ env.VALIDATED_SOURCE_REF }}
+          path: |
+            build/unsigned/*.ipa
+            build/device-package.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retry transfer if artifact service failed
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pubo-iphone-unsigned-retry-${{ env.VALIDATED_SOURCE_REF }}
+          path: |
+            build/unsigned/*.ipa
+            build/device-package.json
+          if-no-files-found: error
+          retention-days: 7
