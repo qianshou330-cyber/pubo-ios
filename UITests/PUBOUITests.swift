@@ -172,20 +172,27 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(launch.waitForNonExistence(timeout: 5))
     }
 
-    func testPullRefreshAndForegroundRefreshWithoutHeaderButtons() {
+    func testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
         let newest = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "刷新样例 ")).firstMatch
         XCTAssertTrue(newest.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["刷新首页"].exists)
         XCTAssertFalse(app.buttons["我的资料"].exists)
         let before = Int(newest.label.split(separator: " ").last ?? "0") ?? 0
-        app.collectionViews.firstMatch.swipeDown(velocity: .slow)
+        // The short default swipe only partially reveals UIRefreshControl on SE.
+        // Pull from below the header to above the tab bar, through the row gutter.
+        let list = app.collectionViews.firstMatch
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.20))
+            .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.86)))
         // Old rows remain in the list by design. Query the new row instead of
         // holding the original accessibility element and expecting its label to mutate.
         let refreshed = app.staticTexts["刷新样例 \(before + 1)"]
         XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
         capture(app, "home-pull-to-refresh")
-        XCUIDevice.shared.press(.home); app.activate()
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertTrue(app.staticTexts["刷新样例 \(before + 2)"].waitForExistence(timeout: 10))
         app.tabBars.buttons["我的"].tap()
         XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
