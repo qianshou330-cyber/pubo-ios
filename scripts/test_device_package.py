@@ -16,6 +16,14 @@ def binary(platform=2, signature=False):
 
 
 class DevicePackageTests(unittest.TestCase):
+    def test_project_and_target_versions_must_match(self):
+        project = 'MARKETING_VERSION: 0.2.0\nCURRENT_PROJECT_VERSION: 21\n  MARKETING_VERSION: 0.2.0\n  CURRENT_PROJECT_VERSION: 21\n'
+        self.assertEqual(module.project_version(project), ('0.2.0', '21'))
+        with self.assertRaisesRegex(ValueError, 'build numbers disagree'):
+            module.project_version(project.replace('  CURRENT_PROJECT_VERSION: 21', '  CURRENT_PROJECT_VERSION: 20'))
+        with self.assertRaisesRegex(ValueError, 'marketing versions disagree'):
+            module.project_version(project.replace('  MARKETING_VERSION: 0.2.0', '  MARKETING_VERSION: 0.1.0'))
+
     def test_unsigned_device(self):
         self.assertEqual(module.inspect_macho(binary())['platformID'], 2)
 

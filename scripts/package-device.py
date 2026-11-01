@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import stat
 import struct
 import subprocess
@@ -41,11 +42,20 @@ def inspect_macho(data):
     return {'architecture': 'arm64', 'platform': 'iOS', 'platformID': 2, 'signed': False}
 
 
+def project_version(project):
+    versions = re.findall(r'^\s*MARKETING_VERSION:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$', project, re.MULTILINE)
+    builds = re.findall(r'^\s*CURRENT_PROJECT_VERSION:\s*([0-9]+)\s*$', project, re.MULTILINE)
+    require(len(versions) == 2 and len(set(versions)) == 1, 'Project marketing versions disagree')
+    require(len(builds) == 2 and len(set(builds)) == 1, 'Project build numbers disagree')
+    return versions[0], builds[0]
+
+
 def main():
     app = Path('build/device/Build/Products/Release-iphoneos/PUBO.app')
     info = plistlib.loads((app / 'Info.plist').read_bytes())
-    expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.2.0',
-                'CFBundleVersion': '19', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1],
+    version, build = project_version(Path('project.yml').read_text())
+    expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': version,
+                'CFBundleVersion': build, 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1],
                 'CFBundleSupportedPlatforms': ['iPhoneOS'], 'DTPlatformName': 'iphoneos'}
     for key, value in expected.items():
         require(info.get(key) == value, f'Wrong device metadata: {key}')
@@ -72,7 +82,7 @@ def main():
     architectures = subprocess.check_output(['lipo', '-archs', str(executable)], text=True).strip()
     require(architectures == 'arm64', 'Unexpected architecture')
     output = Path('build/unsigned'); output.mkdir(parents=True, exist_ok=True)
-    ipa = (output / 'PUBO-0.2.0-19-iphoneos-arm64-unsigned.ipa').resolve()
+    ipa = (output / f'PUBO-{version}-{build}-iphoneos-arm64-unsigned.ipa').resolve()
     require(not ipa.exists(), 'Refusing to overwrite existing IPA')
     with tempfile.TemporaryDirectory(prefix='pubo-device-') as temporary:
         payload = Path(temporary) / 'Payload'; payload.mkdir()
