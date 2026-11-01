@@ -22,6 +22,7 @@ struct ComposeView: View {
     var onSent: () -> Void
     @State private var draft = ComposeDraft()
     @State private var selected: [PhotosPickerItem] = []
+    @State private var showingPhotoPicker = false
     @State private var busy = false
     @State private var error: String?
     @State private var restored = false
@@ -90,6 +91,7 @@ struct ComposeView: View {
                 .onChange(of: selected) { _, values in uploadTask = Task { await upload(values) } }
                 .onDisappear { uploadTask?.cancel() }
                 .sheet(isPresented: $choosingEmoji) { ReactionPicker { draft.text += $0 }.environment(\.dynamicTypeSize, typeSize) }
+                .photosPicker(isPresented: $showingPhotoPicker, selection: $selected, maxSelectionCount: max(1, 16 - draft.files.count), matching: .any(of: [.images, .videos]))
                 .confirmationDialog("只有确认原帖未发布时才重新提交，否则可能产生重复帖子。", isPresented: $confirmRetry) { Button("确认恢复手动提交") { draft.outcome = "ready"; save() } }
         }.interactiveDismissDisabled(busy)
     }
@@ -122,8 +124,8 @@ struct ComposeView: View {
 
     private var editorTools: some View {
         HStack(spacing: 0) {
-            PhotosPicker(selection: $selected, maxSelectionCount: max(1, 16 - draft.files.count), matching: .any(of: [.images, .videos])) {
-                Image(systemName: "photo.badge.plus").frame(width: 44, height: 44)
+            Button { showingPhotoPicker = true } label: {
+                Image(systemName: "photo.badge.plus").frame(width: 44, height: 44).contentShape(Rectangle())
             }.disabled(!editable || draft.files.count >= 16).accessibilityLabel("添加图片或视频")
             Button { draft.useCW.toggle() } label: { Image(systemName: "eye.slash").frame(width: 44, height: 44).foregroundStyle(draft.useCW ? PUBOTheme.accent : PUBOTheme.secondary) }
                 .disabled(!editable).accessibilityLabel("内容警告").accessibilityValue(draft.useCW ? "已开启" : "已关闭").accessibilityIdentifier("compose.toggleCW")

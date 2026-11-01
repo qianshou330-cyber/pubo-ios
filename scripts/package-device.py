@@ -45,7 +45,7 @@ def main():
     app = Path('build/device/Build/Products/Release-iphoneos/PUBO.app')
     info = plistlib.loads((app / 'Info.plist').read_bytes())
     expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.1.2',
-                'CFBundleVersion': '4', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1],
+                'CFBundleVersion': '5', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1],
                 'CFBundleSupportedPlatforms': ['iPhoneOS'], 'DTPlatformName': 'iphoneos'}
     for key, value in expected.items():
         require(info.get(key) == value, f'Wrong device metadata: {key}')
@@ -67,7 +67,7 @@ def main():
     architectures = subprocess.check_output(['lipo', '-archs', str(executable)], text=True).strip()
     require(architectures == 'arm64', 'Unexpected architecture')
     output = Path('build/unsigned'); output.mkdir(parents=True, exist_ok=True)
-    ipa = (output / 'PUBO-0.1.2-4-iphoneos-arm64-unsigned.ipa').resolve()
+    ipa = (output / 'PUBO-0.1.2-5-iphoneos-arm64-unsigned.ipa').resolve()
     require(not ipa.exists(), 'Refusing to overwrite existing IPA')
     with tempfile.TemporaryDirectory(prefix='pubo-device-') as temporary:
         payload = Path(temporary) / 'Payload'; payload.mkdir()
