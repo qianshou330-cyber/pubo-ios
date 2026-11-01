@@ -101,7 +101,8 @@ struct AuthView: View {
                     }
                     if !registration || registrationForm { authorizationOptions(registration: registration) }
                 }.padding(24).frame(maxWidth: 500).frame(maxWidth: .infinity)
-            }.background(PUBOTheme.panel).puboScreen().scrollDismissesKeyboard(.interactively)
+            }.id("\(registration)-\(registrationForm)-\(loginPasswordStep)")
+                .background(PUBOTheme.panel).puboScreen().scrollDismissesKeyboard(.interactively)
                 .navigationTitle(registration ? "注册 PUBO" : "登录 PUBO")
                 .toolbar(.visible, for: .navigationBar)
                 .toolbar {
