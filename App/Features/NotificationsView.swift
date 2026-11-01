@@ -21,13 +21,13 @@ struct NotificationsView: View {
                             if let id = item["note"]["id"].string { NavigationLink("查看帖子") { NoteDetailView(noteID: id) }.font(.caption) }
                             else if !item.user.id.isEmpty { NavigationLink("查看用户") { ProfileView(userID: item.user.id) } }
                         }
-                        if !item["isRead"].bool { Circle().fill(.green).frame(width: 7, height: 7).accessibilityLabel("未读") }
-                    }
+                        if !item["isRead"].bool { Circle().fill(PUBOTheme.accent).frame(width: 7, height: 7).accessibilityLabel("未读") }
+                    }.puboCard().puboListRow()
                 }
                 if items.isEmpty && !loading { Text("暂无通知") }
                 if loading { ProgressView() }
                 if hasMore && !items.isEmpty { Button("加载更多") { Task { await load(older: true) } }.disabled(loading) }
-            }.navigationTitle("通知").toolbar { Button("全部已读") { Task { await markRead() } } }
+            }.puboList().navigationTitle("通知").toolbar { Button("全部已读") { Task { await markRead() } } }
                 .task { await load() }.refreshable { await load() }
                 .task(id: session.streamRevision) { if session.selectedTab == 1 { try? await Task.sleep(for: .milliseconds(700)); if !Task.isCancelled { await load() } } }
         }

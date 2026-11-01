@@ -19,6 +19,8 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--logged-out"]
         app.launch()
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 10))
+        app.buttons["auth.openLogin"].tap()
         let username = app.textFields["auth.username"]
         XCTAssertTrue(username.waitForExistence(timeout: 10)); username.tap(); username.typeText("fixture")
         let password = app.secureTextFields["auth.password"]; password.tap(); password.typeText("synthetic-only")
@@ -41,6 +43,7 @@ final class PUBOUITests: XCTestCase {
 
     func testSlowEmojiDoesNotBlockLogin() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out", "--slow"]; app.launch()
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
         XCTAssertTrue(app.buttons["auth.submit"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["auth.username"].isEnabled)
     }
@@ -103,5 +106,54 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(confirmLogout.waitForExistence(timeout: 5)); confirmLogout.tap()
         XCTAssertTrue(app.images["pubo.shell"].waitForExistence(timeout: 10))
         capture(app, "dark-logged-out")
+    }
+
+    func testWelcomeRegistrationSheetCanCloseAndLogin() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out"]; app.launch()
+        let signup = app.buttons["auth.openRegister"]
+        XCTAssertTrue(signup.waitForExistence(timeout: 10)); XCTAssertTrue(signup.isHittable)
+        XCTAssertTrue(app.buttons["auth.openLogin"].isHittable)
+        capture(app, "web-style-welcome-light")
+        signup.tap()
+        XCTAssertTrue(app.navigationBars["注册 PUBO"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.secureTextFields["再次输入密码"].exists)
+        XCTAssertTrue(app.textFields["手机号码"].exists)
+        capture(app, "web-style-registration")
+        app.buttons["auth.close"].tap()
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
+        XCTAssertTrue(app.navigationBars["登录 PUBO"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.secureTextFields["再次输入密码"].exists)
+    }
+
+    func testWebStyleFeedsAndChatsInBothThemes() {
+        for dark in [false, true] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview"] + (dark ? ["--dark"] : [])
+            app.launch()
+            XCTAssertTrue(app.buttons["timeline.global"].waitForExistence(timeout: 10)); app.buttons["timeline.global"].tap()
+            XCTAssertTrue(app.buttons["内容提示"].waitForExistence(timeout: 5))
+            capture(app, dark ? "web-style-feed-dark" : "web-style-feed-light")
+            app.tabBars.buttons["通知"].tap(); XCTAssertTrue(app.staticTexts["测试朋友 关注了你"].waitForExistence(timeout: 5))
+            capture(app, dark ? "web-style-notifications-dark" : "web-style-notifications-light")
+            app.tabBars.buttons["私信"].tap(); XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5))
+            capture(app, dark ? "web-style-conversations-dark" : "web-style-conversations-light")
+            app.staticTexts["测试朋友"].firstMatch.tap()
+            XCTAssertTrue(app.staticTexts["你好，欢迎来到 PUBO。"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["收到，我们在这里聊天。"].exists)
+            XCTAssertTrue(app.buttons["发送消息"].exists)
+            XCTAssertFalse(app.buttons["chat.send"].isEnabled)
+            capture(app, dark ? "web-style-chat-dark" : "web-style-chat-light")
+            app.terminate()
+        }
+    }
+
+    func testLargeTextChatKeepsInputAndActionsReachable() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text", "--chat-preview"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5)); app.staticTexts["测试朋友"].firstMatch.tap()
+        let input = app.textFields["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("draft")
+        let send = app.buttons["chat.send"]
+        XCTAssertTrue(send.isHittable); XCTAssertTrue(send.isEnabled)
+        XCTAssertEqual(input.value as? String, "draft")
+        capture(app, "web-style-chat-large-keyboard")
     }
 }

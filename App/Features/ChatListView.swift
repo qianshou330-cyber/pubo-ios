@@ -17,21 +17,21 @@ struct ChatListView: View {
                     let user = Record(row["user"])
                     NavigationLink { ChatView(peer: user) } label: {
                         HStack {
-                            Avatar(user: user)
+                            Avatar(user: user, size: 48)
                             VStack(alignment: .leading) {
                                 HStack { Text(user.displayName).font(.headline); if !row["pinnedAt"].isNull { Image(systemName: "pin.fill").font(.caption) }; if row["isMuted"].bool { Image(systemName: "bell.slash").font(.caption) } }
                                 Text(row["lastMessage"]["text"].string ?? "[附件]").font(.callout).lineLimit(1).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if row["unreadCount"].int > 0 { Text("\(row["unreadCount"].int)").font(.caption).padding(6).background(row["isMuted"].bool ? Color.gray : Color.green, in: Capsule()).foregroundStyle(.white) }
+                            if row["unreadCount"].int > 0 { Text("\(row["unreadCount"].int)").font(.caption).padding(6).background(row["isMuted"].bool ? Color.gray : PUBOTheme.accent, in: Capsule()).foregroundStyle(.white) }
                         }
-                    }.swipeActions(edge: .leading) { Button(row["isMuted"].bool ? "恢复提醒" : "免打扰") { Task { await settings(user.id, "isMuted", !row["isMuted"].bool) } }.tint(.gray) }
-                    .swipeActions { Button(row["pinnedAt"].isNull ? "置顶" : "取消置顶") { Task { await settings(user.id, "pinned", row["pinnedAt"].isNull) } }.tint(.green) }
+                    }.padding(14).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius)).puboListRow().swipeActions(edge: .leading) { Button(row["isMuted"].bool ? "恢复提醒" : "免打扰") { Task { await settings(user.id, "isMuted", !row["isMuted"].bool) } }.tint(.gray) }
+                    .swipeActions { Button(row["pinnedAt"].isNull ? "置顶" : "取消置顶") { Task { await settings(user.id, "pinned", row["pinnedAt"].isNull) } }.tint(PUBOTheme.accent) }
                 }
                 if conversations.isEmpty && !busy { Text("暂无私信，点击右上角开始聊天。") }
                 if busy { ProgressView() }
                 if hasMore && !conversations.isEmpty { Button("加载更多会话") { Task { await load(older: true) } } }
-            }.navigationTitle("私信").toolbar { Button { search = true } label: { Image(systemName: "square.and.pencil") }.accessibilityLabel("新私信") }
+            }.puboList().navigationTitle("私信").toolbar { Button { search = true } label: { Image(systemName: "square.and.pencil") }.accessibilityLabel("新私信") }
                 .sheet(isPresented: $search) { UserSearchView() }
                 .task { await load() }.refreshable { await load() }
                 .task(id: session.streamRevision) { if session.selectedTab == 2 { try? await Task.sleep(for: .milliseconds(700)); if !Task.isCancelled { await load() } } }
@@ -72,7 +72,7 @@ struct UserSearchView: View {
             List {
                 ForEach(users.filter { $0.id != session.user?.id }) { user in NavigationLink { ChatView(peer: user) } label: { HStack { Avatar(user: user); Text(user.displayName) } } }
                 if let error { Text(error).foregroundStyle(.secondary) }
-            }.searchable(text: $query, prompt: "输入本站用户名").navigationTitle("开始私信").toolbar { Button("关闭") { dismiss() } }
+            }.puboList().searchable(text: $query, prompt: "输入本站用户名").navigationTitle("开始私信").toolbar { Button("关闭") { dismiss() } }
                 .task(id: query) {
                     guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { users = []; return }
                     do {

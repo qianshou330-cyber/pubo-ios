@@ -22,36 +22,29 @@ struct ChatView: View {
     @State private var restored = false
     @State private var ownerID: String?
     @State private var preview: PrivatePreviewItem?
+    @State private var choosingEmoji = false
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
-                        ForEach(messages) { message in bubble(message).id(message.id) }
-                        ForEach(pending) { item in pendingBubble(item) }
-                        Color.clear.frame(height: 1).id("bottom")
-                    }.padding()
-                }.onChange(of: messages.last?.id) { _, _ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 18) {
+                    if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
+                    ForEach(messages) { message in bubble(message).id(message.id) }
+                    ForEach(pending) { item in pendingBubble(item) }
+                    Color.clear.frame(height: 1).id("bottom")
+                }.padding(16)
+            }.scrollDismissesKeyboard(.interactively)
+                .onChange(of: messages.last?.id) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+                .onChange(of: pending.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+        }.safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
+            .puboScreen().navigationTitle(peer.displayName)
+            .toolbar(.hidden, for: .tabBar)
+            .toolbar {
+                ToolbarItem(placement: .principal) { HStack(spacing: 8) { Avatar(user: peer, size: 32); Text(peer.displayName).font(.headline).lineLimit(1) } }
+                ToolbarItem(placement: .topBarTrailing) { Menu { Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis") }.accessibilityLabel("聊天选项") }
             }
-            if let error { Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal).accessibilityIdentifier("chat.error") }
-            if let reply { HStack { Text("回复：" + reply.text).lineLimit(1); Spacer(); Button("取消回复") { self.reply = nil } }.font(.caption).padding(.horizontal) }
-            if !attachments.isEmpty { ScrollView(.horizontal) { HStack { ForEach(attachments) { file in HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button { attachments.removeAll { $0.id == file.id }; saveDraft() } label: { Image(systemName: "xmark.circle") } }.font(.caption).padding(6).background(.quaternary, in: Capsule()) } } }.padding(.horizontal) }
-            HStack(alignment: .bottom) {
-                Menu {
-                    Button("选择文件") { importing = true }
-                    Button(recorder.recording ? "结束并添加语音" : "录制语音（最多60秒）") { Task { await voice() } }
-                    if recorder.recording { Button("取消录音", role: .cancel) { recorder.cancel() } }
-                } label: { Image(systemName: recorder.recording ? "mic.fill" : "plus.circle").font(.title2).foregroundStyle(recorder.recording ? .red : .primary) }.disabled(busy)
-                PhotosPicker(selection: $photos, maxSelectionCount: max(1, 10 - attachments.count), matching: .any(of: [.images, .videos])) { Image(systemName: "photo").font(.title2) }.disabled(busy || attachments.count >= 10)
-                TextField("发送消息", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).accessibilityIdentifier("chat.input")
-                Button { Task { await sendNew() } } label: { if busy { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title) } }.disabled(busy || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)).accessibilityLabel("发送消息").accessibilityIdentifier("chat.send")
-            }.padding().background(.bar)
-        }.navigationTitle(peer.displayName).navigationBarTitleDisplayMode(.inline)
-            .toolbar { Menu { Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("聊天选项") }
             .task {
                 session.stream.showChat(peer.id)
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
@@ -63,33 +56,74 @@ struct ChatView: View {
             .onChange(of: scenePhase) { _, phase in if phase != .active { recorder.cancel(); saveDraft() } else { Task { await load() } } }
             .onDisappear { recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
+            .sheet(isPresented: $choosingEmoji) { ReactionPicker { text += $0 } }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
+    }
+    private var inputBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.error") }
+            if let reply { HStack { Text("回复：" + reply.text).lineLimit(2); Spacer(); Button("取消回复") { self.reply = nil } }.font(.caption).padding(8).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)) }
+            if !attachments.isEmpty {
+                ScrollView(.horizontal) { HStack { ForEach(attachments) { file in
+                    HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button { attachments.removeAll { $0.id == file.id }; saveDraft() } label: { Image(systemName: "xmark.circle") }.accessibilityLabel("移除附件") }.font(.caption).padding(8).background(PUBOTheme.button, in: Capsule())
+                } } }
+            }
+            TextField("在此输入信息", text: $text, axis: .vertical).lineLimit(1...5).padding(.vertical, 10).accessibilityIdentifier("chat.input")
+            HStack(spacing: 6) {
+                Menu {
+                    Button("选择文件") { importing = true }
+                    Button(recorder.recording ? "结束并添加语音" : "录制语音（最多60秒）") { Task { await voice() } }
+                    if recorder.recording { Button("取消录音", role: .cancel) { recorder.cancel() } }
+                } label: { Image(systemName: recorder.recording ? "mic.fill" : "paperclip").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy).accessibilityLabel("文件与语音")
+                PhotosPicker(selection: $photos, maxSelectionCount: max(1, 10 - attachments.count), matching: .any(of: [.images, .videos])) { Image(systemName: "photo").frame(width: 44, height: 44) }.disabled(busy || attachments.count >= 10).accessibilityLabel("添加图片或视频")
+                Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.accessibilityLabel("插入表情")
+                Spacer(minLength: 0)
+                Button { Task { await sendNew() } } label: {
+                    Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44)
+                }.disabled(busy || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)).accessibilityLabel("发送消息").accessibilityIdentifier("chat.send")
+            }.buttonStyle(.borderless)
+        }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
+            .background(PUBOTheme.panel).overlay(alignment: .top) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
     private func bubble(_ message: Record) -> some View {
         let own = message["fromUserId"].string == session.user?.id
-        return HStack {
-            if own { Spacer(minLength: 40) }
-            VStack(alignment: .leading, spacing: 7) {
-                if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(.secondary) }
-                else {
-                    if let quoted = message["replyTo"]["text"].string { Text("回复：" + quoted).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
-                    if !message.text.isEmpty { NoteText(text: message.text) }
-                    ForEach(Record.list(message["attachments"])) { file in Button { preview = PrivatePreviewItem(attachment: file) } label: { Label(file["kind"].string == "voice" ? "语音消息" : (file["name"].string ?? "附件"), systemImage: file["kind"].string == "voice" ? "waveform" : "paperclip") } }
-                    if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
-                }
-                if own { Text(message["readState"].string == "read" ? "已读" : "已发送").font(.caption2).foregroundStyle(.secondary) }
-            }.padding(12).background(own ? Color.green.opacity(0.17) : Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-                .contextMenu { Button("引用回复") { reply = message }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
-                .task { if !own && scenePhase == .active { await markRead(message) } }
-            if !own { Spacer(minLength: 40) }
+        return HStack(alignment: .top, spacing: 8) {
+            if own { Spacer(minLength: 40) } else { Avatar(user: peer, size: 42) }
+            VStack(alignment: own ? .trailing : .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 7) {
+                    if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(PUBOTheme.secondary) }
+                    else {
+                        if let quoted = message["replyTo"]["text"].string { Text("回复：" + quoted).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6)) }
+                        if !message.text.isEmpty { NoteText(text: message.text, expands: false) }
+                        ForEach(Record.list(message["attachments"])) { file in Button { preview = PrivatePreviewItem(attachment: file) } label: { Label(file["kind"].string == "voice" ? "语音消息" : (file["name"].string ?? "附件"), systemImage: file["kind"].string == "voice" ? "waveform" : "paperclip") } }
+                        if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
+                    }
+                }.padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
+                    .contextMenu { Button("引用回复") { reply = message }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
+                HStack(spacing: 6) {
+                    if let date = puboDate(message["createdAt"].string) { Text(date, style: .time) }
+                    if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
+                }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
+            }.task { if !own && scenePhase == .active { await markRead(message) } }
+            if !own { Spacer(minLength: 28) }
         }
     }
     private func pendingBubble(_ item: PendingChat) -> some View {
-        VStack(alignment: .trailing, spacing: 7) {
-            Text(item.text.isEmpty ? "[附件]" : item.text).padding(12).background(Color.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 16))
-            Text(item.state == .uncertain ? APIError.uncertain.message : APIError.message(for: item.errorCode ?? "PENDING", status: 400)).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.pending.error")
-            HStack { Spacer(); Button(item.state == .uncertain ? "核对发送结果" : "手动重试") { Task { await retry(item) } }.disabled(busy); Button("移除待发") { pending.removeAll { $0.id == item.id }; persist() } }.font(.caption)
-        }.frame(maxWidth: .infinity, alignment: .trailing)
+        VStack(alignment: .trailing, spacing: 8) {
+            Text(item.text.isEmpty ? "[附件]" : item.text).padding(.horizontal, 14).padding(.vertical, 10).background(PUBOTheme.ownBubble, in: PUBOChatBubble(own: true))
+            Text(item.state == .uncertain ? APIError.uncertain.message : APIError.message(for: item.errorCode ?? "PENDING", status: 400)).font(.caption).foregroundStyle(PUBOTheme.secondary).multilineTextAlignment(.trailing).accessibilityIdentifier("chat.pending.error")
+            ViewThatFits(in: .horizontal) {
+                HStack { retryButton(item); removeButton(item) }
+                VStack(alignment: .trailing) { retryButton(item); removeButton(item) }
+            }.font(.caption)
+        }.padding(.leading, 40).frame(maxWidth: .infinity, alignment: .trailing)
+    }
+    private func retryButton(_ item: PendingChat) -> some View {
+        Button(item.state == .uncertain ? "核对发送结果" : "手动重试") { Task { await retry(item) } }.disabled(busy).frame(minHeight: 44)
+    }
+    private func removeButton(_ item: PendingChat) -> some View {
+        Button("移除待发") { pending.removeAll { $0.id == item.id }; persist() }.frame(minHeight: 44)
     }
     private func restore() {
         guard let account = session.user?.id else { return }
@@ -215,7 +249,7 @@ struct PrivateAttachmentView: View {
                 else if let localURL, attachment["mime"].string?.hasPrefix("audio/") == true || attachment["mime"].string?.hasPrefix("video/") == true { MediaPlayer(url: localURL) }
                 else if let localURL { ShareLink("保存或打开此文件", item: localURL) }
                 else { ProgressView("正在验证附件权限…") }
-            }.navigationTitle(attachment["name"].string ?? "私信附件").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { dismiss() } }
+            }.puboScreen().navigationTitle(attachment["name"].string ?? "私信附件").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { dismiss() } }
                 .task {
                     do {
                         guard let token = session.token else { throw APIError.invalidResponse }

@@ -21,15 +21,15 @@ struct TimelineView: View {
     var body: some View {
         NavigationStack {
             List {
-                Picker("时间线", selection: $timeline) { Text("关注").tag("home"); Text("本站").tag("local"); Text("全球").tag("global") }.pickerStyle(.segmented)
+                PUBOTimelineSelector(selection: $timeline).puboListRow()
                 if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
                 ForEach(notes) { note in NoteCard(note: note) }
                 if loading { ProgressView().frame(maxWidth: .infinity) }
                 if notes.isEmpty && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
                 if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
-            }.listStyle(.plain).navigationTitle("动态")
-                .toolbar { Button { composer = true } label: { Image(systemName: "square.and.pencil") }.accessibilityLabel("发帖") }
+            }.puboList().navigationTitle("动态")
+                .toolbar { Button { composer = true } label: { Label("发帖", systemImage: "square.and.pencil") }.buttonStyle(PUBOButtonStyle(kind: .publish)).accessibilityLabel("发帖") }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } } }
                 .refreshable { await load() }
                 .task(id: timeline) {
@@ -79,7 +79,7 @@ struct NoteCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             NavigationLink { ProfileView(userID: shown.user.id) } label: {
-                HStack { Avatar(user: shown.user); VStack(alignment: .leading) { Text(shown.user.displayName).font(.headline); Text("@" + (shown.user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) }; Spacer() }
+                HStack { Avatar(user: shown.user, size: 42); VStack(alignment: .leading) { Text(shown.user.displayName).font(.headline); Text("@" + (shown.user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) }; Spacer(); if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1) } }
             }.buttonStyle(.plain)
             if let cw = shown["cw"].string { Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye") } }
             if shown["cw"].isNull || revealCW {
@@ -88,20 +88,20 @@ struct NoteCard: View {
                 if !shown["poll"].isNull || shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
             }
             if !detail { NavigationLink("查看帖子与回复") { NoteDetailView(noteID: shown.id) }.font(.caption) }
-            HStack(spacing: 24) {
-                Button { replying = true } label: { Label("回复", systemImage: "bubble") }
+            HStack(spacing: 12) {
+                Button { replying = true } label: { Image(systemName: "arrowshape.turn.up.left").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
                 Menu {
                     Button("转发") { Task { await renote() } }
                     Button("引用转发") { quoting = true }
-                } label: { Image(systemName: "arrow.2.squarepath") }
-                Button { reactionPicker = true } label: { Image(systemName: "face.smiling") }.accessibilityLabel("添加表情反应")
+                } label: { Image(systemName: "arrow.2.squarepath").frame(minWidth: 44, minHeight: 44) }
+                Button { reactionPicker = true } label: { Image(systemName: "face.smiling").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("添加表情反应")
                 if !shown["myReaction"].isNull { Button("取消反应") { Task { await react(nil) } }.font(.caption) }
-            }.buttonStyle(.borderless).disabled(busy)
+            }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.secondary).disabled(busy)
             if !shown["reactions"].object.isEmpty {
-                Text(shown["reactions"].object.keys.sorted().map { "\($0) \(shown["reactions"][$0].int)" }.joined(separator: "  ")).font(.caption).foregroundStyle(.secondary)
+                ScrollView(.horizontal) { HStack(spacing: 8) { ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in Text("\(reaction) \(shown["reactions"][reaction].int)").font(.caption).padding(.horizontal, 10).padding(.vertical, 6).background(PUBOTheme.button, in: Capsule()) } } }
             }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
-        }.padding(.vertical, 10)
+        }.puboCard().puboListRow()
             .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
             .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { } }
@@ -134,7 +134,7 @@ struct NoteDetailView: View {
             if let note { NoteCard(note: note, detail: true) }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
             Section("回复") { ForEach(replies) { NoteCard(note: $0) } }
-        }.navigationTitle("帖子").task { await load() }.refreshable { await load() }
+        }.puboList().navigationTitle("帖子").task { await load() }.refreshable { await load() }
     }
     private func load() async {
         do {

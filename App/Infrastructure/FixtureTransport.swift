@@ -11,6 +11,14 @@ actor FixtureTransport: HTTPTransport {
     static let peer: JSONValue = .object(["id": .string("syntheticpeer"), "username": .string("friend"), "name": .string("测试朋友"), "host": .null])
     private var sent: [JSONValue] = []
     private var counter = 0
+    init() {
+        if ProcessInfo.processInfo.arguments.contains("--chat-preview") {
+            sent = [
+                .object(["id": .string("chatpreview001"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("你好，欢迎来到 PUBO。"), "createdAt": .string("2026-11-01T10:00:00.000Z"), "attachments": .array([])]),
+                .object(["id": .string("chatpreview002"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": .string("收到，我们在这里聊天。"), "createdAt": .string("2026-11-01T10:01:00.000Z"), "attachments": .array([]), "readState": .string("read")])
+            ]
+        }
+    }
     private var posts: [JSONValue] = [
         .object(["id": .string("fixturepost002"), "user": FixtureTransport.me, "text": .string("欢迎来到 PUBO。原生界面测试 :test:"), "cw": .null, "files": .array([]), "reactions": .object(["❤️": .number(1)])]),
         .object(["id": .string("fixturepost001"), "user": FixtureTransport.peer, "text": .string("这段文字需要展开内容警告后查看"), "cw": .string("内容提示"), "files": .array([]), "reactions": .object([:])])

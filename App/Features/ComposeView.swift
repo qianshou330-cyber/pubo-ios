@@ -36,16 +36,16 @@ struct ComposeView: View {
                 if let replyTo { Section("回复 \(replyTo.user.displayName)") { Text(replyTo.text).lineLimit(3) } }
                 if let renote { Section("引用转发") { Text(renote.text).lineLimit(3) } }
                 Section {
-                    TextEditor(text: $draft.text).frame(minHeight: 160).accessibilityIdentifier("compose.text")
+                    TextEditor(text: $draft.text).scrollContentBackground(.hidden).frame(minHeight: 160).accessibilityIdentifier("compose.text")
                     Button("插入表情") { choosingEmoji = true }
                     Picker("可见范围", selection: $draft.visibility) { Text("公开").tag("public"); Text("首页").tag("home"); Text("关注者").tag("followers") }
                     Toggle("内容警告", isOn: $draft.useCW)
                     if draft.useCW { TextField("内容提示", text: $draft.cw) }
                     PhotosPicker(selection: $selected, maxSelectionCount: max(0, 16 - draft.files.count), matching: .any(of: [.images, .videos])) { Label("添加图片或视频", systemImage: "photo.on.rectangle") }.disabled(busy || draft.files.count >= 16 || draft.outcome != "ready")
                     ForEach(draft.files) { file in
-                        HStack { Text(file["name"].string ?? "已上传附件"); Spacer(); Button("移除") { draft.files.removeAll { $0.id == file.id }; save() }.disabled(busy || draft.outcome != "ready") }
+                        HStack { Text(file["name"].string ?? "已上传附件"); Spacer(); Button("移除") { draft.files.removeAll { $0.id == file.id }; save() }.listRowBackground(PUBOTheme.panel).disabled(busy || draft.outcome != "ready") }
                     }
-                }.disabled(busy || draft.outcome != "ready")
+                }.listRowBackground(PUBOTheme.panel).disabled(busy || draft.outcome != "ready")
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 if draft.outcome != "ready" {
                     Section("发送结果待确认") {
@@ -54,10 +54,10 @@ struct ComposeView: View {
                         Button("已核对记录，恢复手动提交") { confirmRetry = true }
                     }
                 }
-            }.navigationTitle(replyTo == nil ? "发布帖子" : "回复帖子")
+            }.puboForm().navigationTitle(replyTo == nil ? "发布帖子" : "回复帖子")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("保存并关闭") { if save() { dismiss() } }.disabled(busy) }
-                    ToolbarItem(placement: .confirmationAction) { Button("发布") { Task { await send() } }.disabled(busy || draft.outcome != "ready" || (draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && draft.files.isEmpty && renote == nil)).accessibilityIdentifier("compose.send") }
+                    ToolbarItem(placement: .confirmationAction) { Button("发布") { Task { await send() } }.buttonStyle(PUBOButtonStyle(kind: .publish)).disabled(busy || draft.outcome != "ready" || (draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && draft.files.isEmpty && renote == nil)).accessibilityIdentifier("compose.send") }
                 }
                 .overlay { if busy { ProgressView().padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
                 .task {

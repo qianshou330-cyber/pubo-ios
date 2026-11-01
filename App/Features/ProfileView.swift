@@ -36,7 +36,7 @@ struct ProfileView: View {
             }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
             Section("帖子") { ForEach(notes) { NoteCard(note: $0) }; if hasMore && !notes.isEmpty { Button("加载更多") { Task { await loadNotes(older: true) } }.disabled(busy) } }
-        }.navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
+        }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
             .sheet(isPresented: $reporting) { ReportView(userID: userID) }
             .sheet(isPresented: $editing) { EditProfileView { Task { await load() } } }
     }
@@ -79,7 +79,7 @@ struct FollowListView: View {
             }
             if let error { ErrorBanner(message: error) }
             if hasMore { Button("加载更多") { Task { await load() } } }
-        }.navigationTitle(followers ? "关注者" : "关注").task { await load() }
+        }.puboForm().navigationTitle(followers ? "关注者" : "关注").task { await load() }
     }
     private func load() async {
         do {
@@ -101,8 +101,8 @@ struct EditProfileView: View {
     @State private var busy = false
     var body: some View {
         NavigationStack {
-            Form { TextField("昵称", text: $name); TextEditor(text: $description).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
-                .navigationTitle("编辑资料").toolbar {
+            Form { TextField("昵称", text: $name); TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
+                .puboForm().navigationTitle("编辑资料").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("保存") { Task { await save() } }.disabled(busy) }
                 }.task { name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? "" }
@@ -124,8 +124,8 @@ struct ReportView: View {
     @State private var busy = false
     var body: some View {
         NavigationStack {
-            Form { Text("请描述需要管理员核查的问题，并提供相关帖子链接。"); TextEditor(text: $comment).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
-                .navigationTitle("举报用户").toolbar {
+            Form { Text("请描述需要管理员核查的问题，并提供相关帖子链接。"); TextEditor(text: $comment).scrollContentBackground(.hidden).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
+                .puboForm().navigationTitle("举报用户").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("提交") { Task { busy = true; defer { busy = false }; do { _ = try await session.call("users/report-abuse", ["userId": .string(userID), "comment": .string(comment)], mutation: true); dismiss() } catch { self.error = error.localizedDescription } } }.disabled(busy || comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
                 }
@@ -149,14 +149,17 @@ struct MyAccountView: View {
                     Text("仅相互关注：未互相关注的人可发送一条文字留言，回复后可继续聊天。").font(.footnote).foregroundStyle(.secondary)
                     Button("保存接收设置") { Task { do { _ = try await session.call("i/update", ["chatScope": .string(chatScope)], mutation: true); try await session.refreshUser(); error = "设置已保存" } catch { self.error = error.localizedDescription } } }
                 }
+                .listRowBackground(PUBOTheme.panel)
                 Section("账号") {
                     Link("更多安全设置", destination: Endpoint.origin.appendingPathComponent("settings/security"))
                     NavigationLink("删除账号") { DeleteAccountView() }
                     Button("退出登录", role: .destructive) { confirmLogout = true }
                 }
-                Section("关于") { Text("PUBO iPhone · 0.1.0"); Text("通知在 App 内更新，当前版本不提供锁屏推送。").font(.footnote); Link("公开源码", destination: URL(string: "https://github.com/qianshou330-cyber/pubo-ios")!) }
+                .listRowBackground(PUBOTheme.panel)
+                Section("关于") { Text("PUBO iPhone · 0.1.1"); Text("通知在 App 内更新，当前版本不提供锁屏推送。").font(.footnote); Link("公开源码", destination: URL(string: "https://github.com/qianshou330-cyber/pubo-ios")!) }
+                .listRowBackground(PUBOTheme.panel)
                 if let error { Text(error).foregroundStyle(.secondary) }
-            }.navigationTitle("我的").task { chatScope = session.user?["chatScope"].string ?? "mutual" }
+            }.puboForm().navigationTitle("我的").task { chatScope = session.user?["chatScope"].string ?? "mutual" }
                 .confirmationDialog("退出后清除本机登录信息、草稿与聊天待发记录。", isPresented: $confirmLogout) { Button("退出登录", role: .destructive) { do { try session.logout() } catch { self.error = error.localizedDescription } } }
         }
     }
@@ -177,7 +180,7 @@ struct DeleteAccountView: View {
             Link("使用网页删除账号", destination: Endpoint.origin.appendingPathComponent("settings/other"))
             Button("申请永久删除账号", role: .destructive) { confirmed = true }.disabled(password.isEmpty || busy)
             if let error { Text(error).foregroundStyle(.red) }
-        }.navigationTitle("删除账号").confirmationDialog("确认删除你的 PUBO 账号？", isPresented: $confirmed) {
+        }.puboForm().navigationTitle("删除账号").confirmationDialog("确认删除你的 PUBO 账号？", isPresented: $confirmed) {
             Button("确认永久删除", role: .destructive) { Task { busy = true; defer { busy = false; password = ""; otp = "" }; do { var body: [String: JSONValue] = ["password": .string(password)]; if !otp.isEmpty { body["token"] = .string(otp) }; _ = try await session.call("i/delete-account", body, mutation: true); try session.logout() } catch { self.error = error.localizedDescription } } }
         }.onDisappear { password = ""; otp = "" }
     }

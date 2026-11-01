@@ -9,7 +9,7 @@ struct ErrorBanner: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(message, systemImage: "exclamationmark.circle").font(.callout)
             if let retry { Button("重试", action: retry) }
-        }.foregroundStyle(.secondary).padding().frame(maxWidth: .infinity, alignment: .leading).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+        }.foregroundStyle(.secondary).padding().frame(maxWidth: .infinity, alignment: .leading).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
     }
 }
 
@@ -54,6 +54,7 @@ struct NoteText: View {
     @Environment(AppSession.self) private var session
     let text: String
     var remoteEmojis: JSONValue = .null
+    var expands = true
     @State private var emojiStore = InlineEmojiStore.shared
     private var parts: [String] {
         let pattern = try! NSRegularExpression(pattern: ":[a-zA-Z0-9_]+:")
@@ -82,7 +83,7 @@ struct NoteText: View {
         }
     }
     var body: some View {
-        rendered.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+        rendered.textSelection(.enabled).frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
             .task(id: urls.keys.sorted().joined()) { await emojiStore.load(urls) }
     }
 }
@@ -140,9 +141,19 @@ struct ReactionPicker: View {
                         }
                     }
                 }.padding()
-            }.searchable(text: $search, prompt: "搜索表情").navigationTitle("选择表情").toolbar { Button("关闭") { dismiss() } }
+            }.puboScreen().searchable(text: $search, prompt: "搜索表情").navigationTitle("选择表情").toolbar { Button("关闭") { dismiss() } }
         }
     }
 }
 
 extension JSONValue { var selfID: String { self["id"].string ?? self["name"].string ?? "unknown" } }
+
+/// Server dates can include fractional seconds. Missing dates stay absent.
+func puboDate(_ value: String?) -> Date? {
+    guard let value else { return nil }
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: value) { return date }
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: value)
+}
