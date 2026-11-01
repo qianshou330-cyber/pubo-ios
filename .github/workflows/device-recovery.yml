@@ -1,6 +1,8 @@
 name: Recover validated unsigned iPhone package
 on:
   workflow_dispatch:
+  push:
+    branches: [device-package-recovery-20261101]
 permissions:
   contents: read
 env:
