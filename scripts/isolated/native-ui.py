@@ -14,11 +14,17 @@ try:
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
  assert summary.get('passedTests',0)==3 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All three real-backend UI tests must actually run'
- subprocess.run(['xcrun','xcresulttool','export','attachments','--path','build/integration-ui.xcresult','--output-path','build/integration-screenshots'],check=True,timeout=120)
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)
  raise
 finally:
+ if (root/'integration-ui.xcresult').exists():
+  try:
+   summary=subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult'],timeout=60)
+   (root/'integration-test-summary.json').write_bytes(summary)
+   subprocess.run(['xcrun','xcresulttool','export','attachments','--path','build/integration-ui.xcresult','--output-path','build/integration-screenshots'],check=True,timeout=120)
+  except Exception as error:
+   result['evidenceError']=type(error).__name__+': '+str(error)
  subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
  (root/'integration-result.json').write_text(json.dumps(result,indent=2))

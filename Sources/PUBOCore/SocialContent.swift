@@ -18,6 +18,10 @@ public struct PollDraft: Codable, Equatable, Sendable {
 }
 
 public enum SocialContent {
+    /// Match the existing chat backend's emoji selector normalization; ZWJ sequences stay intact.
+    public static func chatReactionKey(_ reaction: String) -> String {
+        reaction.unicodeScalars.contains { $0.value == 0x200D } ? reaction : reaction.replacingOccurrences(of: "\u{FE0F}", with: "")
+    }
     public static func pollReceipt(_ poll: JSONValue, request: JSONValue?) -> Bool {
         guard let request, !request.isNull else { return poll.isNull }
         guard poll["choices"].array.map({ $0["text"].string }) == request["choices"].array.map(\.string),

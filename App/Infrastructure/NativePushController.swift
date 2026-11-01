@@ -79,6 +79,7 @@ enum NativePushDestination: Identifiable {
 
     func enable() async {
         guard !busy, let session, !session.testMode, session.meta["nativePushAvailable"].bool, let owner = session.user?.id else { return }
+        epoch = UUID(); registrationTask?.cancel(); registrationTask = nil
         let generation = epoch
         busy = true; defer { busy = false }
         do {
@@ -116,15 +117,17 @@ enum NativePushDestination: Identifiable {
     func disable() async {
         guard let session, let owner = session.user?.id else { return }
         UserDefaults.standard.set(false, forKey: preference(owner)); enabled = false; epoch = UUID()
+        let generation = epoch
         let fields = operation()
         registrationTask?.cancel(); registrationTask = nil
+        registeredOwner = nil; registeredToken = nil; registeredDeviceToken = nil; lastRegistration = nil
         UIApplication.shared.unregisterForRemoteNotifications()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         do {
             _ = try await session.call("native-push/unregister", fields, mutation: true)
+            guard generation == epoch, session.user?.id == owner else { return }
             status = "锁屏推送已关闭。"
-        } catch { status = "本机已停止接收；服务器注销结果待确认，请联网后重试关闭。" }
-        registeredOwner = nil; registeredToken = nil; registeredDeviceToken = nil; lastRegistration = nil
+        } catch { if generation == epoch, session.user?.id == owner { status = "本机已停止接收；服务器注销结果待确认，请联网后重试关闭。" } }
     }
 
     /// Clear local delivery immediately; a bounded best-effort request uses the old authorization only.

@@ -2,6 +2,7 @@ import XCTest
 
 /// Exercises the native UI against the pinned real backend on this runner's loopback network.
 @MainActor final class PUBOIntegrationTests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false }
     private func context() async throws -> [String: String] {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:61913/context")!)
         request.timeoutInterval = 2
@@ -28,7 +29,7 @@ import XCTest
         let app = launch(try await context())
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
         app.buttons["搜索"].tap()
-        let field = app.searchFields.firstMatch; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
+        let field = app.textFields["search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
         XCTAssertTrue(app.staticTexts["PUBO joint proof #PUBO"].waitForExistence(timeout: 15))
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 10)); capture(app,"joint-real-search-favorite")
@@ -60,6 +61,12 @@ import XCTest
         app.staticTexts["真实隔离后端私信"].press(forDuration: 1); app.buttons["消息反应／举报"].tap()
         XCTAssertTrue(app.buttons["添加反应"].waitForExistence(timeout: 10)); app.buttons["添加反应"].tap()
         XCTAssertTrue(app.buttons["❤️"].waitForExistence(timeout: 10)); app.buttons["❤️"].tap()
-        XCTAssertTrue(app.buttons["取消 ❤️"].waitForExistence(timeout: 10)); capture(app,"joint-real-chat-reaction")
+        let remove = app.buttons["chat.reaction.remove.❤"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 10)); capture(app,"joint-real-chat-reaction")
+        let reacted = try await proof("reacted"); XCTAssertTrue(reacted)
+        remove.tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: remove)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 10), .completed)
+        let unreacted = try await proof("unreacted"); XCTAssertTrue(unreacted)
     }
 }

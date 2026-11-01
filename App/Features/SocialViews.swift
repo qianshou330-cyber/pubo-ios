@@ -15,6 +15,15 @@ struct SearchView: View {
     @State private var searched = false
     var body: some View {
         List {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("搜索帖子、用户或话题", text: $query)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.search)
+                    .accessibilityIdentifier("search.query")
+                Button("搜索") { Task { await search(reset: true) } }
+                    .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
+                    .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+            }
             Picker("搜索类型", selection: $category) { Text("帖子").tag("notes"); Text("用户").tag("users"); Text("话题").tag("tags") }.pickerStyle(.segmented)
             if let error { ErrorBanner(message: error) { Task { await search(reset: true) } } }
             if category == "notes" { ForEach(records) { NoteCard(note: $0) } }
@@ -29,7 +38,7 @@ struct SearchView: View {
             if busy { ProgressView() }
             else if more { Button("加载更多") { Task { await search(reset: false) } } }
             else if searched && records.isEmpty && tags.isEmpty && error == nil { Text("没有找到相关内容").foregroundStyle(.secondary) }
-        }.puboList().navigationTitle("搜索").searchable(text: $query, prompt: "搜索帖子、用户或话题")
+        }.puboList().navigationTitle("搜索").scrollDismissesKeyboard(.interactively)
             .onSubmit(of: .search) { Task { await search(reset: true) } }
             .onChange(of: category) { _, _ in Task { await search(reset: true) } }
             .onChange(of: query) { _, _ in searchID = UUID(); busy = false; searched = false; records = []; tags = []; offset = 0; more = false; error = nil }

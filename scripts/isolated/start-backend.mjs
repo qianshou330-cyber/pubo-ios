@@ -39,7 +39,9 @@ const control=createServer(async(req,res)=>{
    const favorites=await api('i/favorites',{limit:100},alice.token);
    const vote=await api('notes/show',{noteId:poll.createdNote.id},alice.token);
    const message=await api('chat/messages/show',{messageId:sent.id},alice.token);
-   res.setHeader('content-type','application/json');res.end(JSON.stringify({favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited'),recalled:message.recalledAt!=null}));return;
+   const reactionMessage=await api('chat/messages/show',{messageId:received.id},alice.token);
+   const reacted=reactionMessage.reactions.some(x=>x.user.id===alice.id&&x.reaction.replace(/\ufe0f/g,'')==='❤');
+   res.setHeader('content-type','application/json');res.end(JSON.stringify({favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted}));return;
   }
   res.writeHead(404);res.end();
  }catch{res.writeHead(500);res.end('Synthetic control failed');}

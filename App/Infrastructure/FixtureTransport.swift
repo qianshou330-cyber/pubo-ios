@@ -106,7 +106,10 @@ actor FixtureTransport: HTTPTransport {
             response = .object(["messages": .array(sent.filter { ids.contains($0["id"].string ?? "") }), "missingIds": .strings(ids.filter { id in !sent.contains { $0["id"].string == id } })])
         case "chat/messages/update":
             if let index = sent.firstIndex(where: { $0["id"] == body["messageId"] }) {
-                if sent[index]["revision"].int != body["expectedRevision"].int || args.contains("--edit-conflict") { status = 400; response = .object(["error": .object(["code": .string("MESSAGE_CONFLICT")])]) }
+                if args.contains("--edit-conflict") && sent[index]["revision"].int == 0 {
+                    var value = sent[index].object; value["revision"] = .number(1); value["text"] = .string("另一台设备已编辑"); sent[index] = .object(value)
+                }
+                if sent[index]["revision"].int != body["expectedRevision"].int { status = 400; response = .object(["error": .object(["code": .string("MESSAGE_CONFLICT")])]) }
                 else {
                     var value = sent[index].object; value["text"] = body["text"]; value["revision"] = .number(Double(sent[index]["revision"].int + 1)); value["editedAt"] = .string(ISO8601DateFormatter().string(from: Date())); sent[index] = .object(value); response = sent[index]
                     if args.contains("--lost-edit-response") { throw URLError(.networkConnectionLost) }
@@ -117,8 +120,9 @@ actor FixtureTransport: HTTPTransport {
         case "chat/messages/react", "chat/messages/unreact":
             if let index = sent.firstIndex(where: { $0["id"] == body["messageId"] }) {
                 var value = sent[index].object; var reactions = sent[index]["reactions"].array
-                if path.hasSuffix("/react") { reactions.append(.object(["user": Self.me, "reaction": body["reaction"]])) }
-                else { reactions.removeAll { $0["user"]["id"] == Self.me["id"] && $0["reaction"] == body["reaction"] } }
+                let reaction = SocialContent.chatReactionKey(body["reaction"].string ?? "")
+                if path.hasSuffix("/react") { reactions.append(.object(["user": Self.me, "reaction": .string(reaction)])) }
+                else { reactions.removeAll { $0["user"]["id"] == Self.me["id"] && SocialContent.chatReactionKey($0["reaction"].string ?? "") == reaction } }
                 value["reactions"] = .array(reactions); sent[index] = .object(value)
             }; response = .null
         case "chat/messages/create-to-user":

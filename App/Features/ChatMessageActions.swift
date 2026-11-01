@@ -48,7 +48,7 @@ struct ChatMessageActions: View {
                 if alive && !own {
                     Section("表情反应") {
                         Button("添加反应") { reactionPicker = true }.disabled(!loaded || busy)
-                        ForEach(myReactions, id: \.self) { reaction in Button("取消 " + reaction) { Task { await react(reaction, remove: true) } }.disabled(busy) }
+                        ForEach(myReactions, id: \.self) { reaction in Button("取消 " + reaction) { Task { await react(reaction, remove: true) } }.disabled(busy).accessibilityIdentifier("chat.reaction.remove." + SocialContent.chatReactionKey(reaction)) }
                     }
                 }
                 if !own { Button("举报这条私信") { reporting = true } }
@@ -122,7 +122,7 @@ struct ChatMessageActions: View {
         do {
             _ = try await fetch()
             guard alive else { return }
-            let exists = myReactions.contains(reaction)
+            let exists = myReactions.contains { SocialContent.chatReactionKey($0) == SocialContent.chatReactionKey(reaction) }
             if exists == remove { _ = try await session.call(remove ? "chat/messages/unreact" : "chat/messages/react", ["messageId": .string(message.id), "reaction": .string(reaction)], mutation: true) }
             _ = try await fetch(); error = nil
         } catch { self.error = error.localizedDescription; _ = try? await fetch() }

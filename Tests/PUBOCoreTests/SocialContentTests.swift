@@ -2,6 +2,12 @@ import XCTest
 @testable import PUBOCore
 
 final class SocialContentTests: XCTestCase {
+    func testChatReactionMatchesServerVariationSelectors() {
+        XCTAssertEqual(SocialContent.chatReactionKey("❤️"), SocialContent.chatReactionKey("❤"))
+        XCTAssertEqual(SocialContent.chatReactionKey("👩‍❤️‍👩"), "👩‍❤️‍👩")
+        XCTAssertEqual(SocialContent.chatReactionKey(":pubo:"), ":pubo:")
+        XCTAssertNotEqual(SocialContent.chatReactionKey("❤️"), SocialContent.chatReactionKey("💚"))
+    }
     func testPollRejectsDuplicatesEmptyOversizeAndExpired() throws {
         var poll = PollDraft()
         for choices in [["A", " A "], ["", "B"], [String(repeating: "中", count: 51), "B"], Array(repeating: "A", count: 11)] {

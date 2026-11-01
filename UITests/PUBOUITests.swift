@@ -411,7 +411,7 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
         app.buttons["搜索"].tap()
-        let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("PUBO\n")
+        let search = app.textFields["search.query"]; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("PUBO\n")
         XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5))
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 5)); capture(app, "social-search-favorite")
@@ -420,7 +420,8 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "social-favorites")
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["删除帖子"].tap()
         app.buttons["删除帖子"].firstMatch.tap()
-        XCTAssertFalse(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 2))
+        let deleted = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"])
+        XCTAssertEqual(XCTWaiter.wait(for: [deleted], timeout: 5), .completed)
     }
 
     func testPollVoteAndComposePoll() {
@@ -455,9 +456,11 @@ final class PUBOUITests: XCTestCase {
         received.press(forDuration: 1); app.buttons["消息反应／举报"].tap()
         XCTAssertTrue(app.buttons["添加反应"].waitForExistence(timeout: 5)); app.buttons["添加反应"].tap()
         XCTAssertTrue(app.buttons["❤️"].waitForExistence(timeout: 5)); app.buttons["❤️"].tap()
-        XCTAssertTrue(app.buttons["取消 ❤️"].waitForExistence(timeout: 5)); capture(app, "social-chat-reaction")
-        app.buttons["取消 ❤️"].tap()
-        XCTAssertFalse(app.buttons["取消 ❤️"].waitForExistence(timeout: 2))
+        let remove = app.buttons["chat.reaction.remove.❤"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 5)); capture(app, "social-chat-reaction")
+        remove.tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: remove)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
     }
 
     func testPermissionFailureOffersAuthorizationWithoutLoggingOut() {
@@ -467,6 +470,32 @@ final class PUBOUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         let authorize = app.buttons["重新授权（保留草稿）"]; for _ in 0..<5 where !authorize.isHittable { app.swipeUp() }
         XCTAssertTrue(authorize.isHittable); capture(app, "social-reauthorization-entry")
+    }
+
+    func testChatEditConflictAndLostResponseKeepDraftUntilManualResolution() {
+        for conflict in [true, false] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview", conflict ? "--edit-conflict" : "--lost-edit-response"]; app.launch()
+            XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+            app.staticTexts["测试朋友"].firstMatch.tap()
+            let sent = app.staticTexts["收到，我们在这里聊天。"]
+            XCTAssertTrue(sent.waitForExistence(timeout: 5)); sent.press(forDuration: 1)
+            app.buttons["编辑／撤回消息"].tap(); XCTAssertTrue(app.buttons["编辑文字"].waitForExistence(timeout: 5)); app.buttons["编辑文字"].tap()
+            let editor = app.textViews["chat.edit.text"]; editor.tap(); editor.typeText(" Draft")
+            let save = app.buttons["chat.edit.save"]; for _ in 0..<4 where !save.isHittable { app.swipeUp() }; save.tap()
+            let error = app.staticTexts["chat.action.error"]; XCTAssertTrue(error.waitForExistence(timeout: 5))
+            XCTAssertTrue((editor.value as? String)?.contains("Draft") == true)
+            XCTAssertFalse(save.exists)
+            capture(app, conflict ? "social-chat-edit-conflict" : "social-chat-edit-uncertain")
+            if conflict {
+                XCTAssertTrue(app.staticTexts["另一台设备已编辑"].exists)
+                XCTAssertTrue(app.buttons["以当前版本继续编辑"].exists)
+            } else {
+                let check = app.buttons["核对最新状态"]; for _ in 0..<4 where !check.isHittable { app.swipeUp() }; check.tap()
+                XCTAssertTrue(app.staticTexts["已核对，编辑已生效。"].waitForExistence(timeout: 5))
+                XCTAssertFalse(editor.exists)
+            }
+            app.terminate()
+        }
     }
 
     func testLargeTextChatKeepsInputAndActionsReachable() {
