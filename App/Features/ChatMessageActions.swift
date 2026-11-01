@@ -23,6 +23,7 @@ struct ChatMessageActions: View {
     @State private var reactionPicker = false
     @State private var reporting = false
     @State private var loaded = false
+    @FocusState private var editingText: Bool
     private var shown: Record { current ?? message }
     private var own: Bool { shown["fromUserId"].string == session.user?.id }
     private var alive: Bool { shown["recalledAt"].isNull }
@@ -35,11 +36,11 @@ struct ChatMessageActions: View {
                 Section("服务器当前消息") { Text(alive ? shown.text : "消息已撤回"); if !shown["editedAt"].isNull { Text("已编辑 · 版本 \(shown["revision"].int)").font(.caption) } }
                 if let draft {
                     Section("我的编辑") {
-                        TextEditor(text: Binding(get: { self.draft?.text ?? "" }, set: { self.draft?.text = $0; saveDraft() })).frame(minHeight: 120).disabled(busy || draft.uncertain).accessibilityIdentifier("chat.edit.text")
+                        TextEditor(text: Binding(get: { self.draft?.text ?? "" }, set: { self.draft?.text = $0; saveDraft() })).frame(minHeight: 120).focused($editingText).disabled(busy || draft.uncertain).accessibilityIdentifier("chat.edit.text")
                         if draft.uncertain { Text("上次编辑结果待确认。先核对服务器消息，不会自动重发。").font(.footnote) }
                         if canEdit && !draft.uncertain && draft.revision == shown["revision"].int {
                             Button("保存编辑") { Task { await edit() } }.disabled(busy || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("chat.edit.save")
-                        } else if canEdit && loaded {
+                        } else if canEdit && loaded && !draft.uncertain {
                             Button("以当前版本继续编辑") { self.draft?.revision = shown["revision"].int; self.draft?.uncertain = false; saveDraft() }.disabled(busy)
                         }
                         Button("放弃这份编辑", role: .destructive) { self.draft = nil; saveDraft() }.disabled(busy)
@@ -53,10 +54,18 @@ struct ChatMessageActions: View {
                     }
                 }
                 if !own { Button("举报这条私信") { reporting = true } }
-                if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("chat.action.error") }
-                if let feedback { Text(feedback).foregroundStyle(.secondary) }
-                Button("核对最新状态") { Task { await refresh() } }.disabled(busy)
-            }.puboForm().navigationTitle("消息操作").toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() }.disabled(busy) } }
+                if draft?.uncertain != true { Button("核对最新状态") { Task { await refresh() } }.disabled(busy) }
+            }.puboForm().navigationTitle("消息操作")
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if error != nil || feedback != nil || draft?.uncertain == true {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("chat.action.error") }
+                            if let feedback { Text(feedback).foregroundStyle(.secondary) }
+                            if draft?.uncertain == true { Button("核对最新状态") { Task { await refresh() } }.disabled(busy).frame(minHeight: 44) }
+                        }.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel)
+                    }
+                }
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() }.disabled(busy) } }
                 .task {
                     if !loaded {
                         if let account = session.user?.id { draft = (try? session.store?.read(MessageEditDraft.self, account: account, key: key)) ?? nil }
@@ -95,6 +104,7 @@ struct ChatMessageActions: View {
     }
     private func edit() async {
         guard !busy, let draft, !draft.uncertain, canEdit else { return }
+        editingText = false
         let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty && text.unicodeScalars.count <= 2_000 else { error = "消息需要 1～2000 个字符。"; return }
         busy = true; defer { busy = false }

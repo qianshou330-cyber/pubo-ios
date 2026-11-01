@@ -302,7 +302,10 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
         capture(app, "dark-large-text-profile")
         let logout = app.buttons["退出登录"]
-        for _ in 0..<7 where !logout.isHittable { app.swipeUp() }
+        // Extra account features make this form longer at accessibility text sizes.
+        for _ in 0..<18 where !logout.isHittable {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.78)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38)))
+        }
         XCTAssertTrue(logout.isHittable); logout.tap()
         let confirmLogout = app.sheets.buttons["退出登录"]
         XCTAssertTrue(confirmLogout.waitForExistence(timeout: 5)); confirmLogout.tap()
@@ -490,6 +493,7 @@ final class PUBOUITests: XCTestCase {
                 XCTAssertTrue(app.staticTexts["另一台设备已编辑"].exists)
                 XCTAssertTrue(app.buttons["以当前版本继续编辑"].exists)
             } else {
+                XCTAssertFalse(app.buttons["以当前版本继续编辑"].exists)
                 let check = app.buttons["核对最新状态"]; for _ in 0..<4 where !check.isHittable { app.swipeUp() }; check.tap()
                 XCTAssertTrue(app.staticTexts["已核对，编辑已生效。"].waitForExistence(timeout: 5))
                 XCTAssertFalse(editor.exists)
