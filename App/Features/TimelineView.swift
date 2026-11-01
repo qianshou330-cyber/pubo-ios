@@ -80,6 +80,8 @@ struct TimelineView: View {
         HStack(spacing: 0) {
             PUBOTimelineSelector(selection: $timeline, available: choices, compact: true)
             Menu {
+                NavigationLink("搜索") { SearchView() }
+                NavigationLink("我的收藏") { FavoritesView() }
                 Link("在网页查看时间线", destination: Endpoint.origin)
                 Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
                 Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
@@ -117,8 +119,13 @@ struct NoteCard: View {
     @State private var error: String?
     @State private var current: Record?
     @State private var busy = false
+    @State private var reporting = false
+    @State private var confirmDelete = false
+    @State private var confirmBlock = false
     private var shown: Record { let n = current ?? note; return n.text.isEmpty && !n["renote"].isNull ? Record(n["renote"]) : n }
-    var body: some View {
+    private var ownDeleteID: String? { note.user.id == session.user?.id ? note.id : shown.user.id == session.user?.id ? shown.id : nil }
+    var body: some View { if !session.deletedNoteIDs.contains(note.id) && !session.deletedNoteIDs.contains(shown.id) { content } }
+    private var content: some View {
         VStack(alignment: .leading, spacing: 6) {
             NavigationLink { ProfileView(userID: shown.user.id) } label: {
                 HStack(alignment: .top, spacing: 8) {
@@ -139,8 +146,9 @@ struct NoteCard: View {
             if shown["cw"].isNull || revealCW {
                 if detail { NoteText(text: shown.text, remoteEmojis: shown["emojis"]) }
                 else { NavigationLink { NoteDetailView(noteID: shown.id) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情") }
-                ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file) }
-                if !shown["poll"].isNull || shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
+                ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file, noteID: shown.id) }
+                if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id) }
+                if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
             }
             HStack(spacing: 12) {
                 Button { replying = true } label: { HStack(spacing: 4) { Image(systemName: "arrowshape.turn.up.left"); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(.caption) } }.frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
@@ -150,6 +158,14 @@ struct NoteCard: View {
                 } label: { Image(systemName: "arrow.2.squarepath").frame(minWidth: 44, minHeight: 44) }
                 Button { reactionPicker = true } label: { Image(systemName: "face.smiling").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("添加表情反应")
                 if !shown["myReaction"].isNull { Button("取消反应") { Task { await react(nil) } }.font(.caption) }
+                Spacer(minLength: 0)
+                Menu {
+                    Button("收藏帖子") { Task { await favorite(true) } }
+                    Button("取消收藏") { Task { await favorite(false) } }
+                    if ownDeleteID != nil { Button("删除帖子", role: .destructive) { confirmDelete = true } }
+                    if shown.user.id != session.user?.id { Button("举报帖子") { reporting = true }; Button("屏蔽作者", role: .destructive) { confirmBlock = true } }
+                    Link("在网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id))
+                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作")
             }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.secondary).disabled(busy)
             if !shown["reactions"].object.isEmpty {
                 ScrollView(.horizontal) { HStack(spacing: 8) { ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in Text("\(reaction) \(shown["reactions"][reaction].int)").font(.caption).padding(.horizontal, 10).padding(.vertical, 6).background(PUBOTheme.button, in: Capsule()) } } }
@@ -160,6 +176,27 @@ struct NoteCard: View {
             .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
             .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
+            .sheet(isPresented: $reporting) { ReportView(userID: shown.user.id, context: Endpoint.origin.appendingPathComponent("notes/" + shown.id).absoluteString) }
+            .confirmationDialog("删除后无法恢复这条帖子。", isPresented: $confirmDelete) { Button("删除帖子", role: .destructive) { Task { await deleteNote() } } }
+            .confirmationDialog("屏蔽此用户？", isPresented: $confirmBlock) { Button("屏蔽", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(shown.user.id)], mutation: true); error = "已屏蔽" } catch { self.error = error.localizedDescription } } } }
+    }
+    private func favorite(_ wanted: Bool) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do {
+            let state = try await session.call("notes/state", ["noteId": .string(shown.id)])
+            if state["isFavorited"].bool != wanted { _ = try await session.call(wanted ? "notes/favorites/create" : "notes/favorites/delete", ["noteId": .string(shown.id)], mutation: true) }
+            error = wanted ? "已收藏" : "已取消收藏"
+        } catch { self.error = error.localizedDescription }
+    }
+    private func deleteNote() async {
+        guard !busy, let id = ownDeleteID else { return }; busy = true; defer { busy = false }
+        do { _ = try await session.call("notes/delete", ["noteId": .string(id)], mutation: true); session.deletedNoteIDs.insert(id) }
+        catch {
+            if (error as? APIError)?.code == "OUTCOME_UNKNOWN" {
+                do { _ = try await session.call("notes/show", ["noteId": .string(id)]); self.error = APIError.uncertain.message }
+                catch { if (error as? APIError)?.code == "NO_SUCH_NOTE" { session.deletedNoteIDs.insert(id) } else { self.error = error.localizedDescription } }
+            } else { self.error = error.localizedDescription }
+        }
     }
     private func react(_ value: String?) async {
         busy = true; defer { busy = false }
@@ -183,17 +220,23 @@ struct NoteDetailView: View {
     @State private var note: Record?
     @State private var replies: [Record] = []
     @State private var error: String?
+    @State private var more = true
+    @State private var busy = false
     var body: some View {
         List {
             if let note { NoteCard(note: note, detail: true) }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
-            Section("回复") { ForEach(replies) { NoteCard(note: $0) } }
+            Section("回复") { ForEach(replies) { NoteCard(note: $0) }; if more { Button("加载更多回复") { Task { await load(older: true) } }.disabled(busy) } }
         }.puboList().navigationTitle("帖子").task { await load() }.refreshable { await load() }
     }
-    private func load() async {
+    private func load(older: Bool = false) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
         do {
-            note = Record(try await session.call("notes/show", ["noteId": .string(noteID)]))
-            replies = Record.list(try await session.call("notes/replies", ["noteId": .string(noteID), "limit": .number(30)])); error = nil
+            if !older { note = Record(try await session.call("notes/show", ["noteId": .string(noteID)])) }
+            var fields: [String: JSONValue] = ["noteId": .string(noteID), "limit": .number(30)]
+            if older, let id = replies.last?.id { fields["untilId"] = .string(id) }
+            let result = Record.list(try await session.call("notes/replies", fields))
+            replies = older ? Records.merge(replies, result, limit: 10_000) : result; more = result.count == 30; error = nil
         } catch { self.error = error.localizedDescription }
     }
 }

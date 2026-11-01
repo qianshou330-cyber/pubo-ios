@@ -11,6 +11,7 @@ struct ComposeDraft: Codable {
     var files: [Record] = []
     var outcome = "ready"
     var lastFailure: String?
+    var poll: PollDraft?
 }
 
 struct ComposeView: View {
@@ -31,10 +32,11 @@ struct ComposeView: View {
     @State private var uploadTask: Task<Void, Never>?
     @State private var choosingEmoji = false
     @State private var showingPreview = false
+    @State private var choosingDrive = false
     @FocusState private var editingText: Bool
     private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? "new") }
     private var editable: Bool { !busy && draft.outcome == "ready" }
-    private var canSend: Bool { editable && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil) }
+    private var canSend: Bool { editable && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
     private var submitTitle: String { replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
     private var submitIcon: String { replyTo != nil ? "arrowshape.turn.up.left" : renote != nil ? "quote.opening" : "paperplane" }
     private var visibilityTitle: String { draft.visibility == "home" ? "首页" : draft.visibility == "followers" ? "关注者" : "公开" }
@@ -61,6 +63,10 @@ struct ComposeView: View {
                         ForEach(draft.files) { file in
                             HStack { Image(systemName: "paperclip"); Text(file["name"].string ?? "已上传附件").lineLimit(2); Spacer(); Button("移除") { draft.files.removeAll { $0.id == file.id }; save() } }
                                 .font(.subheadline).padding(10).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)).disabled(!editable)
+                        }
+                        if draft.poll != nil {
+                            PollEditor(draft: Binding(get: { draft.poll ?? PollDraft() }, set: { draft.poll = $0; save() })).disabled(!editable)
+                            Button("移除投票", role: .destructive) { draft.poll = nil; save() }.disabled(!editable)
                         }
                         if !typeSize.isAccessibilitySize { editorTools }
                         if showingPreview { preview }
@@ -91,6 +97,7 @@ struct ComposeView: View {
                 .onChange(of: selected) { _, values in uploadTask = Task { await upload(values) } }
                 .onDisappear { uploadTask?.cancel() }
                 .sheet(isPresented: $choosingEmoji) { ReactionPicker { draft.text += $0 }.environment(\.dynamicTypeSize, typeSize) }
+                .sheet(isPresented: $choosingDrive) { DrivePicker { file in if draft.files.count < 16 && !draft.files.contains(where: { $0.id == file.id }) { draft.files.append(file); save() } }.environment(\.dynamicTypeSize, typeSize) }
                 .photosPicker(isPresented: $showingPhotoPicker, selection: $selected, maxSelectionCount: max(1, 16 - draft.files.count), matching: .any(of: [.images, .videos]))
                 .confirmationDialog("只有确认原帖未发布时才重新提交，否则可能产生重复帖子。", isPresented: $confirmRetry) { Button("确认恢复手动提交") { draft.outcome = "ready"; save() } }
         }.interactiveDismissDisabled(busy)
@@ -112,6 +119,8 @@ struct ComposeView: View {
                     .disabled(!editable).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
                 Menu {
                     Toggle("预览", isOn: $showingPreview)
+                    Button("从网盘选择") { choosingDrive = true }.disabled(!editable || draft.files.count >= 16)
+                    Button("添加投票") { draft.poll = PollDraft(); save() }.disabled(!editable || draft.poll != nil)
                     Button("保存并关闭") { if save() { dismiss() } }
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                     .disabled(busy).accessibilityLabel("更多").accessibilityIdentifier("compose.more")
@@ -144,6 +153,7 @@ struct ComposeView: View {
             if draft.useCW { Label(draft.cw.isEmpty ? "内容警告" : draft.cw, systemImage: "eye.slash").font(.subheadline) }
             else { NoteText(text: draft.text).font(.subheadline) }
             if !draft.files.isEmpty { Text("\(draft.files.count) 个附件").font(.caption) }
+            if let poll = draft.poll { Text("投票 · \(poll.choices.count) 个选项").font(.caption) }
         }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8))
     }
 
@@ -172,9 +182,12 @@ struct ComposeView: View {
     }
     private func send() async {
         guard !busy, draft.outcome == "ready" else { return }
+        let poll: JSONValue?
+        do { poll = try draft.poll?.request() } catch { self.error = error.localizedDescription; return }
         busy = true; draft.outcome = "sending"; defer { busy = false }
         guard save() else { draft.outcome = "ready"; return }
         var body: [String: JSONValue] = ["visibility": .string(draft.visibility)]
+        if let poll { body["poll"] = poll }
         if !draft.files.isEmpty { body["fileIds"] = .strings(draft.files.map(\.id)) }
         if !draft.text.isEmpty { body["text"] = .string(draft.text.trimmingCharacters(in: .whitespacesAndNewlines)) }
         if draft.useCW { body["cw"] = .string(draft.cw) }

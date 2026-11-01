@@ -90,12 +90,12 @@ struct NoteText: View {
 
 struct PublicMedia: View {
     let file: Record
-    @State private var revealed = false
+    let noteID: String
     @State private var playing = false
     var body: some View {
         Group {
-            if file["isSensitive"].bool && !revealed {
-                Button("敏感媒体 · 点击显示") { revealed = true }.frame(maxWidth: .infinity, minHeight: 100).background(.quaternary)
+            if file["isSensitive"].bool {
+                VStack(spacing: 8) { Label("敏感媒体不在 App 内显示", systemImage: "eye.slash"); Link("在网页查看原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + noteID)) }.font(.callout).frame(maxWidth: .infinity, minHeight: 100).background(PUBOTheme.button)
             } else if let url = safeMediaURL(file["url"].string) {
                 if file["type"].string?.hasPrefix("image/") == true {
                     AsyncImage(url: safeMediaURL(file["thumbnailUrl"].string) ?? url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView().frame(height: 100) }

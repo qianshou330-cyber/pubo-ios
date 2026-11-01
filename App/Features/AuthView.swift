@@ -233,6 +233,7 @@ struct AuthView: View {
     private func authorizationOptions(registration: Bool) -> some View {
         VStack(spacing: 18) {
             HStack { Rectangle().frame(height: 1); Text("或者").font(.footnote).fixedSize(); Rectangle().frame(height: 1) }.foregroundStyle(PUBOTheme.divider)
+            Link("忘记密码？", destination: Endpoint.origin.appendingPathComponent("reset-password"))
             Button { Task { await authorize() } } label: { Label("通过本站网页安全登录", systemImage: "key") }
                 .buttonStyle(PUBOButtonStyle()).disabled(busy)
             Text("通行密钥或网页安全验证，可通过本站授权窗口完成。").font(.footnote).foregroundStyle(PUBOTheme.secondary).multilineTextAlignment(.center)

@@ -12,7 +12,13 @@ actor FixtureTransport: HTTPTransport {
     private var sent: [JSONValue] = []
     private var counter = 0
     private var timelineReads = 0
+    private var favorites = Set<String>()
+    private var profile = FixtureTransport.me
+    private let driveFile: JSONValue = .object(["id": .string("fixturefile"), "name": .string("测试图片.png"), "type": .string("image/png"), "size": .number(128), "isSensitive": .bool(false)])
     init() {
+        if ProcessInfo.processInfo.arguments.contains("--social-preview") {
+            posts.insert(.object(["id": .string("fixturepoll003"), "user": Self.peer, "text": .string("测试投票"), "cw": .null, "files": .array([]), "reactions": .object([:]), "poll": .object(["multiple": .bool(false), "expiresAt": .null, "choices": .array([.object(["text": .string("选项 A"), "votes": .number(2), "isVoted": .bool(false)]), .object(["text": .string("选项 B"), "votes": .number(0), "isVoted": .bool(false)])])])]), at: 0)
+        }
         if ProcessInfo.processInfo.arguments.contains("--chat-preview") {
             sent = [
                 .object(["id": .string("chatpreview001"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("你好，欢迎来到 PUBO。"), "createdAt": .string("2026-11-01T10:00:00.000Z"), "attachments": .array([])]),
@@ -37,15 +43,36 @@ actor FixtureTransport: HTTPTransport {
         if args.contains("--failed-home-panels"), path == "announcements" || path == "music-charts/kpop-summary" { throw URLError(.timedOut) }
         var response: JSONValue = .object([:])
         var status = 200
+        if args.contains("--permission-denied"), ["i/favorites", "notes/favorites/create", "notes/polls/vote"].contains(path) {
+            return (try JSONEncoder().encode(JSONValue.object(["error": .object(["code": .string("PERMISSION_DENIED")])])), HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!)
+        }
         switch path {
         case "meta": response = .object(["name": .string("PUBO"), "disableRegistration": .bool(false), "emailRequiredForSignup": .bool(false)])
         case "emojis": response = .object(["emojis": .array([])])
-        case "i": response = Self.me
+        case "i": response = profile
+        case "i/update": var values = profile.object; for (key, value) in body.object where key != "i" { values[key] = value }; profile = .object(values); response = profile
         case "signin-flow": response = .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup/request-phone-code": response = .null
         case "users/show": response = body["userId"].string == "syntheticself" ? Self.me : Self.peer
         case "users/search": response = .array([Self.peer])
+        case "notes/search": response = .array(posts.filter { ($0["text"].string ?? "").localizedCaseInsensitiveContains(body["query"].string ?? "") })
+        case "hashtags/search": response = .strings(["PUBO", "A2OLITE"])
+        case "notes/search-by-tag": response = .array(posts)
+        case "drive/folders": response = body["folderId"].isNull ? .array([.object(["id": .string("fixturefolder"), "name": .string("测试文件夹")])]) : .array([])
+        case "drive/files": response = .array([driveFile])
+        case "notes/state": response = .object(["isFavorited": .bool(favorites.contains(body["noteId"].string ?? ""))])
+        case "notes/favorites/create": favorites.insert(body["noteId"].string ?? ""); response = .null
+        case "notes/favorites/delete": favorites.remove(body["noteId"].string ?? ""); response = .null
+        case "i/favorites": response = .array(posts.filter { favorites.contains($0["id"].string ?? "") }.map { .object(["id": .string("saved-" + ($0["id"].string ?? "")), "note": $0]) })
+        case "notes/delete": posts.removeAll { $0["id"] == body["noteId"] }; response = .null
+        case "notes/polls/vote":
+            if let index = posts.firstIndex(where: { $0["id"] == body["noteId"] }) {
+                var post = posts[index].object; var poll = post["poll"]!.object; var choices = poll["choices"]!.array
+                let choice = body["choice"].int
+                if choices.indices.contains(choice) { var value = choices[choice].object; value["votes"] = .number(Double(choices[choice]["votes"].int + 1)); value["isVoted"] = .bool(true); choices[choice] = .object(value) }
+                poll["choices"] = .array(choices); post["poll"] = .object(poll); posts[index] = .object(post)
+            }; response = .null
         case "users/following": response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
         case "users/followers": response = .array([.object(["id": .string("relation1"), "follower": Self.peer])])
         case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes":
@@ -66,12 +93,34 @@ actor FixtureTransport: HTTPTransport {
         case "notes/replies": response = .array([])
         case "notes/create":
             counter += 1
-            let note = JSONValue.object(["id": .string("newpost\(counter)"), "user": Self.me, "text": body["text"], "cw": body["cw"], "visibility": body["visibility"], "replyId": body["replyId"], "renoteId": body["renoteId"], "files": .array([]), "reactions": .object([:])])
+            let poll: JSONValue = body["poll"].isNull ? .null : .object(["choices": .array(body["poll"]["choices"].array.map { .object(["text": $0, "votes": .number(0), "isVoted": .bool(false)]) }), "multiple": body["poll"]["multiple"], "expiresAt": body["poll"]["expiresAt"].isNull ? .null : .string(ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(body["poll"]["expiresAt"].int) / 1000)))])
+            let note = JSONValue.object(["id": .string("newpost\(counter)"), "user": Self.me, "text": body["text"], "cw": body["cw"], "visibility": body["visibility"], "replyId": body["replyId"], "renoteId": body["renoteId"], "files": .array(body["fileIds"].array.map { .object(["id": $0, "name": .string("测试图片.png")]) }), "reactions": .object([:]), "poll": poll])
             posts.insert(note, at: 0); response = .object(["createdNote": note])
             if args.contains("--lost-post-response") { throw URLError(.networkConnectionLost) }
         case "i/notifications": response = .array([.object(["id": .string("notice1"), "type": .string("follow"), "user": Self.peer, "isRead": .bool(false)])])
         case "chat/conversations": response = .array([.object(["user": Self.peer, "lastMessage": .object(["id": .string("seedmessage"), "text": .string("点击开始聊天")]), "unreadCount": .number(0), "isMuted": .bool(false), "pinnedAt": .null])])
         case "chat/messages/user-timeline": response = .array(sent)
+        case "chat/messages/show": response = sent.first { $0["id"] == body["messageId"] } ?? .null
+        case "chat/messages/state":
+            let ids = body["messageIds"].array.compactMap(\.string)
+            response = .object(["messages": .array(sent.filter { ids.contains($0["id"].string ?? "") }), "missingIds": .strings(ids.filter { id in !sent.contains { $0["id"].string == id } })])
+        case "chat/messages/update":
+            if let index = sent.firstIndex(where: { $0["id"] == body["messageId"] }) {
+                if sent[index]["revision"].int != body["expectedRevision"].int || args.contains("--edit-conflict") { status = 400; response = .object(["error": .object(["code": .string("MESSAGE_CONFLICT")])]) }
+                else {
+                    var value = sent[index].object; value["text"] = body["text"]; value["revision"] = .number(Double(sent[index]["revision"].int + 1)); value["editedAt"] = .string(ISO8601DateFormatter().string(from: Date())); sent[index] = .object(value); response = sent[index]
+                    if args.contains("--lost-edit-response") { throw URLError(.networkConnectionLost) }
+                }
+            }
+        case "chat/messages/delete":
+            if let index = sent.firstIndex(where: { $0["id"] == body["messageId"] }) { var value = sent[index].object; value["text"] = .null; value["attachments"] = .array([]); value["reactions"] = .array([]); value["recalledAt"] = .string(ISO8601DateFormatter().string(from: Date())); value["revision"] = .number(Double(sent[index]["revision"].int + 1)); sent[index] = .object(value) }; response = .null
+        case "chat/messages/react", "chat/messages/unreact":
+            if let index = sent.firstIndex(where: { $0["id"] == body["messageId"] }) {
+                var value = sent[index].object; var reactions = sent[index]["reactions"].array
+                if path.hasSuffix("/react") { reactions.append(.object(["user": Self.me, "reaction": body["reaction"]])) }
+                else { reactions.removeAll { $0["user"]["id"] == Self.me["id"] && $0["reaction"] == body["reaction"] } }
+                value["reactions"] = .array(reactions); sent[index] = .object(value)
+            }; response = .null
         case "chat/messages/create-to-user":
             if let previous = sent.first(where: { $0["clientMessageId"] == body["clientMessageId"] }) { response = previous }
             else if !sent.isEmpty || args.contains("--reply-required") { status = 400; response = .object(["error": .object(["code": .string("CHAT_REPLY_REQUIRED")])]) }
@@ -81,7 +130,7 @@ actor FixtureTransport: HTTPTransport {
                 sent.append(response)
                 if args.contains("--lost-chat-response") { throw URLError(.networkConnectionLost) }
             }
-        case "chat/attachments/create": status = 400; response = .object(["error": .object(["code": .string("CHAT_FIRST_MESSAGE_TEXT_ONLY")])])
+        case "chat/attachments/create", "chat/attachments/import-drive": status = 400; response = .object(["error": .object(["code": .string("CHAT_FIRST_MESSAGE_TEXT_ONLY")])])
         default: response = .null
         }
         let data = try JSONEncoder().encode(response)

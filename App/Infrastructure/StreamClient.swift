@@ -10,6 +10,8 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
 
 @MainActor final class StreamClient {
     var onChange: (() -> Void)?
+    var onConnect: (() -> Void)?
+    var onChatEvent: ((String) -> Void)?
     private var task: Task<Void, Never>?
     private var socket: URLSessionWebSocketTask?
     private var session: URLSession?
@@ -56,13 +58,18 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                         let packet: JSONValue = .object(["type": .string("connect"), "body": .object(["channel": .string(channel), "id": .string(channel), "params": .object(parameters)])])
                         try await socket.send(.data(try JSONEncoder().encode(packet)))
                     }
-                    self.notify()
+                    self.onConnect?(); self.notify()
                     while !Task.isCancelled {
                         let message = try await socket.receive()
                         let data: Data
                         switch message { case .data(let value): data = value; case .string(let value): data = Data(value.utf8); @unknown default: continue }
                         if let packet = try? JSONDecoder().decode(JSONValue.self, from: data), packet["type"].string == "channel" {
                             backoff = 1
+                            if packet["body"]["id"].string == "chatUser" {
+                                let event = packet["body"]["body"]
+                                if let id = event["messageId"].string ?? event["id"].string { self.onChatEvent?(id) }
+                                for id in event["messageIds"].array.compactMap(\.string) { self.onChatEvent?(id) }
+                            }
                             self.notify()
                         }
                     }

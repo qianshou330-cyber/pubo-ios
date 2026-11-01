@@ -10,6 +10,7 @@ public enum NoteReceipt {
             note["cw"].string == request["cw"]?.string &&
             note["replyId"].string == request["replyId"]?.string &&
             note["renoteId"].string == request["renoteId"]?.string &&
-            note["files"].array.compactMap { $0["id"].string } == (request["fileIds"]?.array.compactMap(\.string) ?? [])
+            note["files"].array.compactMap { $0["id"].string } == (request["fileIds"]?.array.compactMap(\.string) ?? []) &&
+            SocialContent.pollReceipt(note["poll"], request: request["poll"])
     }
 }

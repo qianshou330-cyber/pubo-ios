@@ -12,7 +12,7 @@ import PUBOCore
         activeID = identifier
         defer { session = nil; continuation = nil; activeID = nil }
         var url = URLComponents(string: "https://bolubo.com/miauth/\(identifier)")!
-        let permissions = ["read:account", "write:account", "read:blocks", "write:blocks", "read:drive", "write:drive", "read:following", "write:following", "write:notes", "read:notifications", "write:notifications", "read:reactions", "write:reactions", "read:chat", "write:chat", "write:report-abuse"]
+        let permissions = ["read:account", "write:account", "read:blocks", "write:blocks", "read:drive", "write:drive", "read:following", "write:following", "write:notes", "read:notifications", "write:notifications", "read:reactions", "write:reactions", "read:chat", "write:chat", "write:report-abuse", "read:favorites", "write:favorites", "write:votes"]
         url.queryItems = [URLQueryItem(name: "name", value: "PUBO iPhone"), URLQueryItem(name: "callback", value: "pubonative://auth"), URLQueryItem(name: "permission", value: permissions.joined(separator: ","))]
         let callback: URL = try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation

@@ -13,7 +13,11 @@ final class AppSession {
     var restoring = true
     var selectedTab = 0
     var streamRevision = 0
+    var connectionRevision = 0
+    var changedChatIDs = Set<String>()
     var testMode = false
+    var authorizationRequired = false
+    var deletedNoteIDs = Set<String>()
     private var started = false
     let store: ProtectedStore?
     let stream = StreamClient()
@@ -31,6 +35,12 @@ final class AppSession {
         testMode = testing
         if !testing { try? PrivateFiles.clear() }
         stream.onChange = { [weak self] in self?.streamRevision += 1 }
+        stream.onConnect = { [weak self] in self?.connectionRevision += 1 }
+        stream.onChatEvent = { [weak self] id in
+            guard let self else { return }
+            self.changedChatIDs.insert(id)
+            if self.changedChatIDs.count > 2_000 { self.changedChatIDs = []; self.connectionRevision += 1 }
+        }
     }
 
     func start() async {
@@ -65,15 +75,23 @@ final class AppSession {
         let epoch = generation
         let account = Record(try await api.call("i", token: token))
         guard !account.id.isEmpty, epoch == generation else { throw CancellationError() }
+        guard user == nil || user?.id == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "请授权当前账号。原账号和草稿已保留；换号请先退出登录。") }
         if !testMode { try KeychainStore.save(LoginSecret(token: token, userID: account.id)) }
-        self.token = token; user = account; error = nil
+        self.token = token; user = account; error = nil; authorizationRequired = false
         resumeStream()
     }
     func call(_ path: String, _ fields: [String: JSONValue] = [:], mutation: Bool = false) async throws -> JSONValue {
         let epoch = generation
-        let result = try await api.call(path, body: fields, token: token, mutation: mutation)
-        guard epoch == generation else { throw CancellationError() }
-        return result
+        let credential = token
+        do {
+            let result = try await api.call(path, body: fields, token: credential, mutation: mutation)
+            guard epoch == generation else { throw CancellationError() }
+            guard credential == token else { if mutation { throw APIError.uncertain }; throw CancellationError() }
+            return result
+        } catch {
+            if epoch == generation && credential == token && (error as? APIError)?.code == "PERMISSION_DENIED" { authorizationRequired = true }
+            throw error
+        }
     }
     func upload(data: Data, name: String, mime: String, peer: String? = nil, voice: Bool = false) async throws -> Record {
         guard let token else { throw APIError(code: "CREDENTIAL_REQUIRED", message: "请先登录。") }
@@ -86,7 +104,7 @@ final class AppSession {
     }
     func logout() throws {
         if !testMode { try KeychainStore.clear() }
-        generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0
+        generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
         InlineEmojiStore.shared.clear()
         if !testMode { do { try store?.clear(); try PrivateFiles.clear() } catch { self.error = "账号已退出，但本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
         URLCache.shared.removeAllCachedResponses()

@@ -59,9 +59,9 @@ for index, template in enumerate(selected):
             except subprocess.TimeoutExpired:
                 elapsed = round(time.monotonic() - started)
                 print(f'UI runner {index}: {elapsed}s elapsed; waiting for actual test result', flush=True)
-                if elapsed >= 1200:
+                if elapsed >= 1800:
                     record['tests'] = 'TIMEOUT'
-                    raise TimeoutError('UI runner exceeded 20 minutes')
+                    raise TimeoutError('UI runner exceeded 30 minutes')
         test_exit = process.returncode
         record['tests'] = 'PASS' if test_exit == 0 else 'FAIL'
         if test_exit == 0 and index == 0:

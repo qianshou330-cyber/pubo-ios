@@ -407,6 +407,68 @@ final class PUBOUITests: XCTestCase {
         }
     }
 
+    func testSearchFavoritesAndOwnNoteDeletion() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        app.buttons["搜索"].tap()
+        let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("PUBO\n")
+        XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5))
+        app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
+        XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 5)); capture(app, "social-search-favorite")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["我的收藏"].tap()
+        XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "social-favorites")
+        app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["删除帖子"].tap()
+        app.buttons["删除帖子"].firstMatch.tap()
+        XCTAssertFalse(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 2))
+    }
+
+    func testPollVoteAndComposePoll() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-preview"]; app.launch()
+        let choice = app.buttons["poll.choice.0"]
+        XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
+        for _ in 0..<5 where !choice.isHittable { app.swipeUp() }
+        XCTAssertTrue(choice.isHittable); choice.tap()
+        XCTAssertTrue(app.staticTexts["3 票 · 单选"].waitForExistence(timeout: 5)); XCTAssertFalse(choice.isEnabled); capture(app, "social-poll-voted")
+        app.buttons["home.compose"].tap(); app.buttons["compose.more"].tap(); app.buttons["添加投票"].tap()
+        let first = app.textFields["poll.option.0"]; for _ in 0..<4 where !first.isHittable { app.swipeUp() }
+        XCTAssertTrue(first.isHittable); first.tap(); first.typeText("Morning")
+        let second = app.textFields["poll.option.1"]; second.tap(); second.typeText("Evening")
+        capture(app, "social-compose-poll")
+        app.buttons["compose.send"].tap()
+        XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 5))
+    }
+
+    func testChatEditRecallAndReactions() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        app.staticTexts["测试朋友"].firstMatch.tap()
+        let sent = app.staticTexts["收到，我们在这里聊天。"]
+        XCTAssertTrue(sent.waitForExistence(timeout: 5)); sent.press(forDuration: 1)
+        app.buttons["编辑／撤回消息"].tap(); XCTAssertTrue(app.buttons["编辑文字"].waitForExistence(timeout: 5)); app.buttons["编辑文字"].tap()
+        let editor = app.textViews["chat.edit.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap(); editor.typeText(" Edited")
+        let save = app.buttons["chat.edit.save"]; for _ in 0..<4 where !save.isHittable { app.swipeUp() }; save.tap()
+        XCTAssertTrue(app.staticTexts["编辑已保存。"].waitForExistence(timeout: 5)); capture(app, "social-chat-edited")
+        app.buttons["撤回消息"].tap(); app.buttons["撤回消息"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["消息已撤回"].waitForExistence(timeout: 5)); app.buttons["关闭"].tap()
+        let received = app.staticTexts["你好，欢迎来到 PUBO。"]
+        received.press(forDuration: 1); app.buttons["消息反应／举报"].tap()
+        XCTAssertTrue(app.buttons["添加反应"].waitForExistence(timeout: 5)); app.buttons["添加反应"].tap()
+        XCTAssertTrue(app.buttons["❤️"].waitForExistence(timeout: 5)); app.buttons["❤️"].tap()
+        XCTAssertTrue(app.buttons["取消 ❤️"].waitForExistence(timeout: 5)); capture(app, "social-chat-reaction")
+        app.buttons["取消 ❤️"].tap()
+        XCTAssertFalse(app.buttons["取消 ❤️"].waitForExistence(timeout: 2))
+    }
+
+    func testPermissionFailureOffersAuthorizationWithoutLoggingOut() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--permission-denied"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["我的收藏"].tap()
+        XCTAssertTrue(app.staticTexts["当前授权缺少此功能权限，请到“我的”重新授权；原有草稿会保留。"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let authorize = app.buttons["重新授权（保留草稿）"]; for _ in 0..<5 where !authorize.isHittable { app.swipeUp() }
+        XCTAssertTrue(authorize.isHittable); capture(app, "social-reauthorization-entry")
+    }
+
     func testLargeTextChatKeepsInputAndActionsReachable() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text", "--chat-preview"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()

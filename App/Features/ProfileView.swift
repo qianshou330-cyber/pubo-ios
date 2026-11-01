@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 import PUBOCore
 
 struct ProfileView: View {
@@ -99,18 +101,57 @@ struct EditProfileView: View {
     @State private var description = ""
     @State private var error: String?
     @State private var busy = false
+    @State private var selectingMedia = false
+    @State private var mediaTarget = "avatarId"
+    @State private var avatar: Record?
+    @State private var banner: Record?
+    @State private var photo: PhotosPickerItem?
+    @State private var showPhotos = false
     var body: some View {
         NavigationStack {
-            Form { TextField("昵称", text: $name); TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
+            Form {
+                TextField("昵称", text: $name)
+                TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160)
+                mediaRow("头像", field: "avatarId", file: avatar)
+                mediaRow("背景图", field: "bannerId", file: banner)
+                if let error { Text(error).foregroundStyle(.red) }
+            }.disabled(busy)
                 .puboForm().navigationTitle("编辑资料").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("保存") { Task { await save() } }.disabled(busy) }
                 }.task { name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? "" }
+                .sheet(isPresented: $selectingMedia) { DrivePicker(imagesOnly: true) { selected in setMedia(selected) } }
+                .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
+                .onChange(of: photo) { _, item in Task { await upload(item) } }
         }
+    }
+    private func mediaRow(_ title: String, field: String, file: Record?) -> some View {
+        VStack(alignment: .leading) {
+            Menu(title) {
+                Button("从相册上传") { mediaTarget = field; showPhotos = true }
+                Button("从网盘选择") { mediaTarget = field; selectingMedia = true }
+            }.frame(minHeight: 44)
+            if let file { Text(file["name"].string ?? "已选择图片").font(.caption) }
+        }
+    }
+    private func setMedia(_ file: Record) {
+        guard file["type"].string?.hasPrefix("image/") == true, !file["isSensitive"].bool else { error = "请选择非敏感的图片文件。"; return }
+        if mediaTarget == "avatarId" { avatar = file } else { banner = file }
+    }
+    private func upload(_ item: PhotosPickerItem?) async {
+        guard !busy, let item else { return }; busy = true; defer { busy = false; photo = nil }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else { return }
+            let type = item.supportedContentTypes.first ?? .image
+            let file = try await session.upload(data: data, name: "PUBO-profile-\(UUID().uuidString).\(type.preferredFilenameExtension ?? "jpg")", mime: type.preferredMIMEType ?? "image/jpeg")
+            setMedia(file)
+        } catch { self.error = error.localizedDescription }
     }
     private func save() async {
         busy = true; defer { busy = false }
-        do { _ = try await session.call("i/update", ["name": .string(name), "description": .string(description)], mutation: true); try await session.refreshUser(); onSaved(); dismiss() }
+        var fields: [String: JSONValue] = ["name": .string(name), "description": .string(description)]
+        if let avatar { fields["avatarId"] = .string(avatar.id) }; if let banner { fields["bannerId"] = .string(banner.id) }
+        do { _ = try await session.call("i/update", fields, mutation: true); try await session.refreshUser(); onSaved(); dismiss() }
         catch { self.error = error.localizedDescription }
     }
 }
@@ -119,13 +160,14 @@ struct ReportView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     let userID: String
+    var context = ""
     @State private var comment = ""
     @State private var error: String?
     @State private var busy = false
     var body: some View {
         NavigationStack {
             Form { Text("请描述需要管理员核查的问题，并提供相关帖子链接。"); TextEditor(text: $comment).scrollContentBackground(.hidden).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
-                .puboForm().navigationTitle("举报用户").toolbar {
+                .puboForm().navigationTitle("举报用户").task { if comment.isEmpty { comment = context } }.toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("提交") { Task { busy = true; defer { busy = false }; do { _ = try await session.call("users/report-abuse", ["userId": .string(userID), "comment": .string(comment)], mutation: true); dismiss() } catch { self.error = error.localizedDescription } } }.disabled(busy || comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
                 }
@@ -138,10 +180,14 @@ struct MyAccountView: View {
     @State private var error: String?
     @State private var chatScope = "mutual"
     @State private var confirmLogout = false
+    @State private var authorization = WebAuthorization()
+    @State private var authorizing = false
+    private var version: String { (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") + " (" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—") + ")" }
     var body: some View {
         NavigationStack {
             Form {
                 if let user = session.user { Section { NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user, size: 56); Text(user.displayName).font(.title2.bold()) } } }.listRowBackground(PUBOTheme.panel) }
+                Section { NavigationLink("搜索") { SearchView() }; NavigationLink("我的收藏") { FavoritesView() } }.listRowBackground(PUBOTheme.panel)
                 Section("私信隐私") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("谁可以发起聊天").font(.subheadline)
@@ -154,12 +200,22 @@ struct MyAccountView: View {
                 }
                 .listRowBackground(PUBOTheme.panel)
                 Section("账号") {
+                    if session.authorizationRequired { Text("需要补充授权以使用新增功能。取消授权不会删除草稿。").font(.footnote) }
+                    Button(authorizing ? "正在授权…" : "重新授权（保留草稿）") { Task { authorizing = true; defer { authorizing = false }; do { let token = try await authorization.login(api: session.api); try await session.install(token: token); error = "授权已更新，请手动重试原操作。" } catch { self.error = error.localizedDescription } } }.disabled(authorizing)
+                    Link("找回密码", destination: Endpoint.origin.appendingPathComponent("reset-password"))
                     Link("更多安全设置", destination: Endpoint.origin.appendingPathComponent("settings/security"))
                     NavigationLink("删除账号") { DeleteAccountView() }
                     Button("退出登录", role: .destructive) { confirmLogout = true }
                 }
                 .listRowBackground(PUBOTheme.panel)
-                Section("关于") { Text("PUBO iPhone · 0.1.1"); Text("通知在 App 内更新，当前版本不提供锁屏推送。").font(.footnote); Link("公开源码", destination: URL(string: "https://github.com/qianshou330-cyber/pubo-ios")!) }
+                Section("关于") {
+                    Text("PUBO iPhone · " + version)
+                    Text("通知在 App 内更新，当前锁屏推送通道尚未开放。").font(.footnote)
+                    Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
+                    Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
+                    if let url = safeMediaURL(session.meta["tosUrl"].string) { Link("服务条款", destination: url) }
+                    Link("公开源码", destination: URL(string: "https://github.com/qianshou330-cyber/pubo-ios")!)
+                }
                 .listRowBackground(PUBOTheme.panel)
                 if let error { Text(error).foregroundStyle(.secondary) }
             }.puboForm().navigationTitle("我的").task { chatScope = session.user?["chatScope"].string ?? "mutual" }
