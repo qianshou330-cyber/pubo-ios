@@ -61,7 +61,13 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(warning.waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["这段文字需要展开内容警告后查看"].exists)
         warning.tap()
-        XCTAssertTrue(app.staticTexts["这段文字需要展开内容警告后查看"].exists)
+        let content = app.staticTexts["这段文字需要展开内容警告后查看"]
+        XCTAssertTrue(content.waitForExistence(timeout: 5))
+        XCTAssertEqual(warning.value as? String, "已展开")
+        capture(app, "web-style-content-warning-expanded")
+        warning.tap()
+        XCTAssertTrue(content.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(warning.value as? String, "已隐藏")
     }
 
     func testLostChatReplyReconcilesWithoutNewMessage() {

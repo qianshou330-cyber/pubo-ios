@@ -81,13 +81,16 @@ struct NoteCard: View {
             NavigationLink { ProfileView(userID: shown.user.id) } label: {
                 HStack { Avatar(user: shown.user, size: 42); VStack(alignment: .leading) { Text(shown.user.displayName).font(.headline); Text("@" + (shown.user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) }; Spacer(); if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1) } }
             }.buttonStyle(.plain)
-            if let cw = shown["cw"].string { Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye") } }
+            if let cw = shown["cw"].string {
+                Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }
+                    .buttonStyle(.borderless).accessibilityValue(revealCW ? "已展开" : "已隐藏")
+            }
             if shown["cw"].isNull || revealCW {
                 NoteText(text: shown.text, remoteEmojis: shown["emojis"])
                 ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file) }
                 if !shown["poll"].isNull || shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
             }
-            if !detail { NavigationLink("查看帖子与回复") { NoteDetailView(noteID: shown.id) }.font(.caption) }
+            if !detail { NavigationLink("查看帖子与回复") { NoteDetailView(noteID: shown.id) }.buttonStyle(.plain).font(.caption) }
             HStack(spacing: 12) {
                 Button { replying = true } label: { Image(systemName: "arrowshape.turn.up.left").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
                 Menu {
@@ -101,7 +104,7 @@ struct NoteCard: View {
                 ScrollView(.horizontal) { HStack(spacing: 8) { ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in Text("\(reaction) \(shown["reactions"][reaction].int)").font(.caption).padding(.horizontal, 10).padding(.vertical, 6).background(PUBOTheme.button, in: Capsule()) } } }
             }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
-        }.puboCard().puboListRow()
+        }.buttonStyle(.borderless).puboCard().puboListRow()
             .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
             .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { } }
