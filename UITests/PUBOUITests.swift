@@ -147,13 +147,15 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.buttons["compose.send"].isHittable)
         XCTAssertTrue(app.buttons["compose.close"].isHittable)
         let keyboardTop = app.keyboards.firstMatch.frame.minY
+        capture(app, "compose-large-text-keyboard")
+        var toolFailures: [String] = []
         for title in ["添加图片或视频", "内容警告", "插入话题", "插入提及", "收起键盘", "插入表情"] {
             let tool = app.buttons[title]
-            XCTAssertTrue(tool.isHittable, title)
-            XCTAssertLessThanOrEqual(tool.frame.maxY, keyboardTop + 2, title)
-            XCTAssertGreaterThanOrEqual(tool.frame.width, 44, title)
+            if !tool.isHittable { toolFailures.append("\(title): not hittable") }
+            if tool.frame.maxY > keyboardTop + 2 { toolFailures.append("\(title): below keyboard top \(tool.frame)") }
+            if tool.frame.width < 44 || tool.frame.height < 44 { toolFailures.append("\(title): hit area \(tool.frame)") }
         }
-        capture(app, "compose-large-text-keyboard")
+        XCTAssertTrue(toolFailures.isEmpty, toolFailures.joined(separator: "; "))
         app.buttons["compose.close"].tap()
         XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 5))
     }

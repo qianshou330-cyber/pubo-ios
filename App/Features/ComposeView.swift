@@ -100,7 +100,7 @@ struct ComposeView: View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout(spacing: 4))
         return layout {
             HStack(spacing: 6) {
-                Button { if save() { dismiss() } } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                Button { if save() { dismiss() } } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .accessibilityLabel("保存并关闭").accessibilityIdentifier("compose.close").disabled(busy)
                 if let user = session.user { Avatar(user: user, size: 28).accessibilityHidden(false).accessibilityLabel(user.displayName) }
                 Spacer(minLength: 0)
@@ -108,12 +108,12 @@ struct ComposeView: View {
             HStack(spacing: 4) {
                 Menu {
                     Picker("可见范围", selection: $draft.visibility) { Text("公开").tag("public"); Text("首页").tag("home"); Text("关注者").tag("followers") }
-                } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44) }
+                } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .disabled(!editable).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
                 Menu {
                     Toggle("预览", isOn: $showingPreview)
                     Button("保存并关闭") { if save() { dismiss() } }
-                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .disabled(busy).accessibilityLabel("更多").accessibilityIdentifier("compose.more")
                 Button { editingText = false; Task { await send() } } label: {
                     HStack(spacing: 6) { Text(submitTitle); Image(systemName: submitIcon) }
@@ -127,13 +127,13 @@ struct ComposeView: View {
             Button { showingPhotoPicker = true } label: {
                 Image(systemName: "photo.badge.plus").frame(width: 44, height: 44).contentShape(Rectangle())
             }.disabled(!editable || draft.files.count >= 16).accessibilityLabel("添加图片或视频")
-            Button { draft.useCW.toggle() } label: { Image(systemName: "eye.slash").frame(width: 44, height: 44).foregroundStyle(draft.useCW ? PUBOTheme.accent : PUBOTheme.secondary) }
+            Button { draft.useCW.toggle() } label: { Image(systemName: "eye.slash").frame(width: 44, height: 44).contentShape(Rectangle()).foregroundStyle(draft.useCW ? PUBOTheme.accent : PUBOTheme.secondary) }
                 .disabled(!editable).accessibilityLabel("内容警告").accessibilityValue(draft.useCW ? "已开启" : "已关闭").accessibilityIdentifier("compose.toggleCW")
-            Button { draft.text += " #"; editingText = true } label: { Image(systemName: "number").frame(width: 44, height: 44) }.disabled(!editable).accessibilityLabel("插入话题")
-            Button { draft.text += " @"; editingText = true } label: { Image(systemName: "at").frame(width: 44, height: 44) }.disabled(!editable).accessibilityLabel("插入提及")
+            Button { draft.text += " #"; editingText = true } label: { Image(systemName: "number").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入话题")
+            Button { draft.text += " @"; editingText = true } label: { Image(systemName: "at").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入提及")
             Spacer(minLength: 0)
-            if editingText { Button { editingText = false } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44) }.accessibilityLabel("收起键盘") }
-            Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(!editable).accessibilityLabel("插入表情")
+            if editingText { Button { editingText = false } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("收起键盘") }
+            Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入表情")
         }.font(.system(size: 20)).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
     }
 
