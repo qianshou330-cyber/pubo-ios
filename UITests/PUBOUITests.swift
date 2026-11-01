@@ -75,10 +75,20 @@ final class PUBOUITests: XCTestCase {
     func testLostPostResponseKeepsDraftAndDisablesResubmit() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--lost-post-response"]; app.launch()
         XCTAssertTrue(app.buttons["发帖"].waitForExistence(timeout: 10)); app.buttons["发帖"].tap()
-        let editor = app.textViews["compose.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap(); editor.typeText("synthetic uncertain post")
+        let editor = app.textViews["compose.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let expectedDraft = "synthetic uncertain post"
+        // Let each native key event settle on the shared CI simulator. Check every
+        // prefix so dropped/reordered input cannot be hidden by the failure UI.
+        var entered = ""
+        for character in expectedDraft {
+            editor.typeText(String(character)); entered.append(character)
+            XCTAssertEqual(editor.value as? String, entered)
+        }
         app.buttons["compose.send"].tap()
         XCTAssertTrue(app.staticTexts["发送结果待确认"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["compose.send"].isEnabled)
+        XCTAssertEqual(editor.value as? String, expectedDraft)
         capture(app, "compose-uncertain")
     }
 
@@ -95,4 +105,3 @@ final class PUBOUITests: XCTestCase {
         capture(app, "dark-logged-out")
     }
 }
-
