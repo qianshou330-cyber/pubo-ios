@@ -117,6 +117,22 @@ struct PUBOTimelineSelector: View {
     }
 }
 
+/// H5 distinguishes the pill-shaped entry from the small 6pt submit button.
+struct PUBOPostButtonStyle: ButtonStyle {
+    var submit = false
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.subheadline.weight(.bold))
+            .padding(.horizontal, submit ? 12 : 18).padding(.vertical, 8)
+            .frame(minWidth: 90, minHeight: 34)
+            .foregroundStyle(.black)
+            .background(configuration.isPressed ? Color(white: 0.9) : .white, in: RoundedRectangle(cornerRadius: submit ? 6 : 24))
+            .overlay(RoundedRectangle(cornerRadius: submit ? 6 : 24).strokeBorder(PUBOTheme.divider, lineWidth: 0.5))
+            .opacity(enabled ? 1 : 0.7).frame(minHeight: 44)
+            .contentShape(Rectangle())
+    }
+}
+
 struct PUBOChatBubble: Shape {
     let own: Bool
     func path(in rect: CGRect) -> Path {

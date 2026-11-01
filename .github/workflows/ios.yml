@@ -39,7 +39,7 @@ jobs:
           import json, pathlib, plistlib
           app = pathlib.Path('build/release/Build/Products/Release-iphonesimulator/PUBO.app')
           data = plistlib.loads((app / 'Info.plist').read_bytes())
-          expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.1.1', 'CFBundleVersion': '2', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1], 'CFBundleSupportedPlatforms': ['iPhoneSimulator']}
+          expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.1.2', 'CFBundleVersion': '3', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1], 'CFBundleSupportedPlatforms': ['iPhoneSimulator']}
           for key, value in expected.items():
               assert data.get(key) == value, (key, data.get(key), value)
           assert (app / 'PUBO').is_file()
@@ -50,9 +50,21 @@ jobs:
       - name: Verify and package unsigned device IPA
         run: python3 scripts/package-device.py
       - name: Upload unsigned device IPA
+        id: device_upload
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: pubo-iphone-unsigned-${{ github.sha }}
+          path: |
+            build/unsigned/*.ipa
+            build/device-package.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retry device artifact transfer if service failed
+        if: steps.device_upload.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pubo-iphone-unsigned-retry-${{ github.sha }}
           path: |
             build/unsigned/*.ipa
             build/device-package.json

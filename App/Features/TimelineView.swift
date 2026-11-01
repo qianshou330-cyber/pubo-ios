@@ -8,6 +8,7 @@ struct TimelineCache: Codable {
 
 struct TimelineView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var timeline = "home"
     @State private var notes: [Record] = []
     @State private var error: String?
@@ -29,8 +30,8 @@ struct TimelineView: View {
                 if notes.isEmpty && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
                 if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
             }.puboList().navigationTitle("动态")
-                .toolbar { Button { composer = true } label: { Label("发帖", systemImage: "square.and.pencil").labelStyle(.titleAndIcon) }.buttonStyle(PUBOButtonStyle(kind: .publish)).accessibilityLabel("发帖") }
-                .sheet(isPresented: $composer) { ComposeView { Task { await load() } } }
+                .toolbar { Button { composer = true } label: { Label("发帖", systemImage: "pencil").labelStyle(.titleAndIcon) }.buttonStyle(PUBOPostButtonStyle()).accessibilityLabel("发帖") }
+                .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
                 .refreshable { await load() }
                 .task(id: timeline) {
                     session.stream.showTimeline(timeline)
@@ -66,6 +67,7 @@ struct TimelineView: View {
 
 struct NoteCard: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.dynamicTypeSize) private var typeSize
     let note: Record
     var detail = false
     @State private var revealCW = false
@@ -107,8 +109,8 @@ struct NoteCard: View {
         }.buttonStyle(.borderless).puboCard().puboListRow()
             .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
             .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
-            .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { } }
-            .sheet(isPresented: $quoting) { ComposeView(renote: shown) { } }
+            .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
+            .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
     }
     private func react(_ value: String?) async {
         busy = true; defer { busy = false }

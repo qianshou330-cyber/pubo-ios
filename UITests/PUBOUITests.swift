@@ -103,6 +103,54 @@ final class PUBOUITests: XCTestCase {
         capture(app, "compose-uncertain")
     }
 
+    func testComposerH5ToolbarAndVisibilityKeepDraft() {
+        for dark in [false, true] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
+            XCTAssertTrue(app.buttons["发帖"].waitForExistence(timeout: 10))
+            capture(app, dark ? "compose-entry-dark" : "compose-entry-light")
+            app.buttons["发帖"].tap()
+            let send = app.buttons["compose.send"]
+            XCTAssertTrue(send.waitForExistence(timeout: 5)); XCTAssertFalse(send.isEnabled)
+            XCTAssertEqual(send.label, "发帖")
+            XCTAssertTrue(app.buttons["compose.close"].isHittable)
+            XCTAssertTrue(app.buttons["添加图片或视频"].isHittable)
+            XCTAssertTrue(app.buttons["插入表情"].isHittable)
+            capture(app, dark ? "compose-empty-dark" : "compose-empty-light")
+            let visibility = app.buttons["compose.visibility"]
+            visibility.tap()
+            let followers = app.buttons["关注者"]; XCTAssertTrue(followers.waitForExistence(timeout: 5)); followers.tap()
+            XCTAssertEqual(visibility.value as? String, "关注者")
+            app.buttons["compose.toggleCW"].tap()
+            let cw = app.textFields["compose.cw"]; XCTAssertTrue(cw.waitForExistence(timeout: 5)); cw.tap(); cw.typeText("test warning")
+            let editor = app.textViews["compose.text"]; editor.tap()
+            for character in "draft" { editor.typeText(String(character)) }
+            XCTAssertEqual(editor.value as? String, "draft"); XCTAssertTrue(send.isEnabled)
+            app.buttons["收起键盘"].tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+            app.buttons["compose.more"].tap()
+            let preview = app.buttons["预览"]; XCTAssertTrue(preview.waitForExistence(timeout: 5)); preview.tap()
+            XCTAssertTrue(app.staticTexts["预览"].waitForExistence(timeout: 5))
+            XCTAssertEqual(editor.value as? String, "draft")
+            capture(app, dark ? "compose-cw-preview-dark" : "compose-cw-preview-light")
+            app.buttons["compose.close"].tap()
+            XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 5))
+            app.terminate()
+        }
+    }
+
+    func testComposerLargeTextKeyboardControlsRemainReachable() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text"]; app.launch()
+        XCTAssertTrue(app.buttons["发帖"].waitForExistence(timeout: 10)); app.buttons["发帖"].tap()
+        let editor = app.textViews["compose.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap()
+        for character in "large draft" { editor.typeText(String(character)) }
+        XCTAssertEqual(editor.value as? String, "large draft")
+        XCTAssertTrue(app.buttons["compose.send"].isHittable)
+        XCTAssertTrue(app.buttons["compose.close"].isHittable)
+        capture(app, "compose-large-text-keyboard")
+        app.buttons["compose.close"].tap()
+        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 5))
+    }
+
     func testDarkLargeTextNavigationAndLogout() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
