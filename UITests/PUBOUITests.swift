@@ -172,6 +172,9 @@ final class PUBOUITests: XCTestCase {
         let proceed = app.buttons["auth.registrationContinue"]
         for _ in 0..<5 where !proceed.isHittable { app.swipeUp() }
         XCTAssertTrue(proceed.isHittable); proceed.tap()
+        let usernameLabel = app.staticTexts["account.label.用户名"]
+        XCTAssertTrue(usernameLabel.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(usernameLabel.frame.height, 25, "The modal must inherit accessibility text size, not only switch its layout.")
         let code = app.buttons["auth.requestCode"]
         for _ in 0..<6 where !code.isHittable { app.swipeUp() }
         XCTAssertTrue(code.isHittable); XCTAssertFalse(code.isEnabled)
@@ -180,6 +183,11 @@ final class PUBOUITests: XCTestCase {
         for _ in 0..<5 where !confirm.isHittable { app.swipeUp() }
         XCTAssertTrue(confirm.isHittable)
         capture(app, "h5-sync-registration-passwords-accessibility-large")
+        app.buttons["auth.close"].tap()
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
+        let loginLabel = app.staticTexts["account.label.用户名"]
+        XCTAssertTrue(loginLabel.waitForExistence(timeout: 5)); XCTAssertGreaterThan(loginLabel.frame.height, 25)
+        capture(app, "h5-sync-login-accessibility-large")
     }
 
     func testWebStyleFeedsAndChatsInBothThemes() {

@@ -11,7 +11,7 @@ struct PUBOAccountField<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline.weight(.medium))
+            Text(title).font(.subheadline.weight(.medium)).accessibilityIdentifier("account.label." + title)
             HStack(spacing: 8) {
                 if let symbol { Image(systemName: symbol).foregroundStyle(PUBOTheme.secondary).accessibilityHidden(true) }
                 if let prefix { Text(prefix).foregroundStyle(PUBOTheme.secondary).accessibilityHidden(true) }

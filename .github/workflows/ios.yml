@@ -22,7 +22,9 @@ jobs:
           brew install xcodegen
           xcodegen --version
       - name: Core unit tests
-        run: swift test
+        run: |
+          swift test
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Generate project
         run: |
           swift scripts/brand-assets.swift
@@ -43,6 +45,19 @@ jobs:
           assert (app / 'PUBO').is_file()
           pathlib.Path('build/release-metadata.json').write_text(json.dumps({'status': 'PASS', 'values': expected}, indent=2))
           PY
+      - name: Release iPhone device build (unsigned)
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+      - name: Verify and package unsigned device IPA
+        run: python3 scripts/package-device.py
+      - name: Upload unsigned device IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: pubo-iphone-unsigned-${{ github.sha }}
+          path: |
+            build/unsigned/*.ipa
+            build/device-package.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Collect evidence
         if: always()
         uses: actions/upload-artifact@v4

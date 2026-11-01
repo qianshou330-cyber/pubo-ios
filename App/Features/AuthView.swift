@@ -67,14 +67,19 @@ struct AuthView: View {
                         }.padding(.top, 32)
                     }.padding(.horizontal, 32).padding(.top, 48).padding(.bottom, 32)
                         .frame(maxWidth: .infinity)
-                        .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
-                        .shadow(color: .black.opacity(0.10), radius: 16, y: 8)
+                        .background {
+                            RoundedRectangle(cornerRadius: PUBOTheme.radius).fill(PUBOTheme.panel)
+                                .shadow(color: .black.opacity(0.10), radius: 16, y: 8)
+                        }
                         .overlay(alignment: .top) { PUBOBrand(width: 220).offset(y: -42).accessibilityIdentifier("pubo.shell") }
                         .padding(.top, 42)
                     policyLinks
                 }.frame(maxWidth: 430).padding(.horizontal, 16).padding(.top, 60).padding(.bottom, 32).frame(maxWidth: .infinity)
             }.puboScreen().toolbar(.hidden, for: .navigationBar)
-                .sheet(item: $accountRoute) { route in accountForm(registration: route == .registration) }
+                .sheet(item: $accountRoute) { route in
+                    accountForm(registration: route == .registration)
+                        .environment(\.dynamicTypeSize, typeSize)
+                }
         }
     }
     private func open(_ route: AccountRoute) {
