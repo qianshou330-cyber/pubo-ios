@@ -65,7 +65,7 @@ struct ChatView: View {
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { text += $0 } }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
-            .sheet(item: $actionMessage) { message in ChatMessageActions(message: message, peerID: peer.id) { updated in syncEpoch = UUID(); messages = ChatRecords.merge(messages, [updated]) } }
+            .sheet(item: $actionMessage) { message in ChatMessageActions(message: message, peerID: peer.id, ownerID: session.user?.id ?? "") { updated in syncEpoch = UUID(); messages = ChatRecords.merge(messages, [updated]) } }
             .sheet(isPresented: $choosingDrive) { DrivePicker { file in Task { await importDrive(file) } } }
             .sheet(isPresented: $reporting) { ReportView(userID: peer.id, context: "私信会话：" + Endpoint.origin.appendingPathComponent("chat/user/" + peer.id).absoluteString) }
             .confirmationDialog("屏蔽对方后，将不能继续聊天。", isPresented: $confirmBlock) { Button("屏蔽对方", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(peer.id)], mutation: true); error = "已屏蔽对方" } catch { self.error = error.localizedDescription } } } }

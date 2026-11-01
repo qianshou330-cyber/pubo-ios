@@ -12,6 +12,7 @@ struct ChatMessageActions: View {
     @Environment(\.dismiss) private var dismiss
     let message: Record
     let peerID: String
+    let ownerID: String
     let updated: (Record) -> Void
     @State private var current: Record?
     @State private var draft: MessageEditDraft?
@@ -66,12 +67,14 @@ struct ChatMessageActions: View {
         }.interactiveDismissDisabled(busy).onDisappear { saveDraft() }
     }
     @discardableResult private func saveDraft() -> Bool {
+        guard session.user?.id == ownerID else { return false }
         if session.testMode { return true }
         guard let owner = session.user?.id, let store = session.store else { error = "本机存储不可用，暂时不能安全编辑。"; return false }
         do { try store.save(draft, account: owner, key: key); return true }
         catch { self.error = "编辑草稿保存失败，请不要关闭页面。"; return false }
     }
     private func fetch() async throws -> Record {
+        guard session.user?.id == ownerID else { throw CancellationError() }
         let value = Record(try await session.call("chat/messages/show", ["messageId": .string(message.id)]))
         let users = Set([value["fromUserId"].string ?? "", value["toUserId"].string ?? ""])
         guard value.id == message.id, users == Set([session.user?.id ?? "", peerID]) else { throw APIError.invalidResponse }

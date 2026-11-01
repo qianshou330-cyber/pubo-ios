@@ -16,23 +16,34 @@ final class AppSession {
     var connectionRevision = 0
     var changedChatIDs = Set<String>()
     var testMode = false
+    private(set) var isolatedBackend = false
     var authorizationRequired = false
     var deletedNoteIDs = Set<String>()
     private var started = false
     let store: ProtectedStore?
     let stream = StreamClient()
+    let nativePush = NativePushController.shared
 
     init() {
         URLCache.shared = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 64 * 1024 * 1024, diskPath: "PUBOPublicMedia")
         let testing: Bool
+        let isolated: Bool
         #if DEBUG
         testing = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        isolated = ProcessInfo.processInfo.arguments.contains("--isolated-backend")
         #else
         testing = false
+        isolated = false
         #endif
-        api = testing ? APIClient(transport: FixtureTransport()) : APIClient()
-        store = testing ? nil : try? ProtectedStore()
-        testMode = testing
+        #if DEBUG
+        api = isolated ? APIClient(transport: IsolatedTransport()) : (testing ? APIClient(transport: FixtureTransport()) : APIClient())
+        #else
+        api = APIClient()
+        #endif
+        store = testing || isolated ? nil : try? ProtectedStore()
+        isolatedBackend = isolated
+        testMode = testing || isolated
+        nativePush.session = self
         if !testing { try? PrivateFiles.clear() }
         stream.onChange = { [weak self] in self?.streamRevision += 1 }
         stream.onConnect = { [weak self] in self?.connectionRevision += 1 }
@@ -45,10 +56,13 @@ final class AppSession {
 
     func start() async {
         guard !started else { return }; started = true
-        defer { restoring = false }
+        defer { restoring = false; Task { await nativePush.resume() } }
         do {
             if testMode {
-                if !ProcessInfo.processInfo.arguments.contains("--logged-out") { try await install(token: "synthetic-session") }
+                if isolatedBackend {
+                    guard let synthetic = ProcessInfo.processInfo.environment["PUBO_ISOLATED_TOKEN"], !synthetic.isEmpty else { throw APIError.invalidResponse }
+                    try await install(token: synthetic)
+                } else if !ProcessInfo.processInfo.arguments.contains("--logged-out") { try await install(token: "synthetic-session") }
             } else if let secret = try KeychainStore.load() {
                 try await install(token: secret.token)
             }
@@ -57,7 +71,7 @@ final class AppSession {
         Task { await refreshEmojis() }
     }
     func refreshMeta() async {
-        do { meta = try await api.call("meta", body: ["detail": .bool(true)]) }
+        do { meta = try await api.call("meta", body: ["detail": .bool(true)]); await nativePush.resume() }
         catch { if meta.isNull { self.error = "站点信息加载失败，请重试。" } }
     }
     func refreshEmojis() async {
@@ -79,6 +93,7 @@ final class AppSession {
         if !testMode { try KeychainStore.save(LoginSecret(token: token, userID: account.id)) }
         self.token = token; user = account; error = nil; authorizationRequired = false
         resumeStream()
+        Task { await nativePush.resume() }
     }
     func call(_ path: String, _ fields: [String: JSONValue] = [:], mutation: Bool = false) async throws -> JSONValue {
         let epoch = generation
@@ -104,11 +119,12 @@ final class AppSession {
     }
     func logout() throws {
         if !testMode { try KeychainStore.clear() }
+        nativePush.logout()
         generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
         InlineEmojiStore.shared.clear()
         if !testMode { do { try store?.clear(); try PrivateFiles.clear() } catch { self.error = "账号已退出，但本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
         URLCache.shared.removeAllCachedResponses()
     }
     func refreshUser() async throws { user = Record(try await call("i")) }
-    func resumeStream() { if let token, !testMode { stream.start(token: token) } }
+    func resumeStream() { if let token, !testMode || isolatedBackend { stream.start(token: token) } }
 }

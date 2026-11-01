@@ -21,8 +21,8 @@ actor FixtureTransport: HTTPTransport {
         }
         if ProcessInfo.processInfo.arguments.contains("--chat-preview") {
             sent = [
-                .object(["id": .string("chatpreview001"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("你好，欢迎来到 PUBO。"), "createdAt": .string("2026-11-01T10:00:00.000Z"), "attachments": .array([])]),
-                .object(["id": .string("chatpreview002"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": .string("收到，我们在这里聊天。"), "createdAt": .string("2026-11-01T10:01:00.000Z"), "attachments": .array([]), "readState": .string("read")])
+                .object(["id": .string("chatpreview001"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("你好，欢迎来到 PUBO。"), "createdAt": .string(ISO8601DateFormatter().string(from: Date().addingTimeInterval(-120))), "attachments": .array([])]),
+                .object(["id": .string("chatpreview002"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": .string("收到，我们在这里聊天。"), "createdAt": .string(ISO8601DateFormatter().string(from: Date().addingTimeInterval(-60))), "attachments": .array([]), "readState": .string("read")])
             ]
         }
     }

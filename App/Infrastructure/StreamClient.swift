@@ -42,6 +42,9 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                 guard let self else { return }
                 do {
                     var request = URLRequest(url: URL(string: "wss://bolubo.com/streaming")!)
+                    #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--isolated-backend") { request.url = URL(string: "ws://127.0.0.1:61812/streaming")! }
+                    #endif
                     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
                     let config = URLSessionConfiguration.ephemeral
                     config.urlCache = nil

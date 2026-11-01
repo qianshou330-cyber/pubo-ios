@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct PUBOApp: App {
+    @UIApplicationDelegateAdaptor(NativeAppDelegate.self) private var appDelegate
     @State private var session = AppSession()
     @State private var profileTabAvatar: UIImage?
     @Environment(\.scenePhase) private var scenePhase
@@ -27,6 +28,12 @@ struct PUBOApp: App {
                 .environment(\.dynamicTypeSize, session.testMode && ProcessInfo.processInfo.arguments.contains("--large-text") ? .accessibility3 : systemTypeSize)
                 .preferredColorScheme(session.testMode ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
                 .task { await session.start() }
+                .sheet(item: Binding(get: { session.nativePush.destination }, set: { session.nativePush.destination = $0 })) { destination in
+                    NavigationStack {
+                        Group { switch destination { case .chat(let peer): ChatView(peer: peer); case .note(let id): NoteDetailView(noteID: id) } }
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { session.nativePush.destination = nil } } }
+                    }
+                }
                 .task(id: "\(session.generation)-\(session.user?["avatarUrl"].string ?? "")") {
                     profileTabAvatar = nil
                     if session.testMode {
@@ -37,7 +44,7 @@ struct PUBOApp: App {
                     let image = await ProfileTabAvatar.load(url)
                     if !Task.isCancelled { profileTabAvatar = image }
                 }
-                .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream() } else { session.stream.stop() } }
+                .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream(); Task { await session.nativePush.resume() } } else { session.stream.stop() } }
         }
     }
 }

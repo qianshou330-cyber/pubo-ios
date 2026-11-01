@@ -200,6 +200,7 @@ struct MyAccountView: View {
                 }
                 .listRowBackground(PUBOTheme.panel)
                 Section("账号") {
+                    NavigationLink("锁屏推送") { NativePushSettingsView() }
                     if session.authorizationRequired { Text("需要补充授权以使用新增功能。取消授权不会删除草稿。").font(.footnote) }
                     Button(authorizing ? "正在授权…" : "重新授权（保留草稿）") { Task { authorizing = true; defer { authorizing = false }; do { let token = try await authorization.login(api: session.api); try await session.install(token: token); error = "授权已更新，请手动重试原操作。" } catch { self.error = error.localizedDescription } } }.disabled(authorizing)
                     Link("找回密码", destination: Endpoint.origin.appendingPathComponent("reset-password"))
@@ -210,7 +211,7 @@ struct MyAccountView: View {
                 .listRowBackground(PUBOTheme.panel)
                 Section("关于") {
                     Text("PUBO iPhone · " + version)
-                    Text("通知在 App 内更新，当前锁屏推送通道尚未开放。").font(.footnote)
+                    Text(session.meta["nativePushAvailable"].bool ? "锁屏推送可在账号设置中开启。" : "通知在 App 内更新，当前锁屏推送通道尚未开放。").font(.footnote)
                     Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
                     Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
                     if let url = safeMediaURL(session.meta["tosUrl"].string) { Link("服务条款", destination: url) }

@@ -5,6 +5,7 @@ import pathlib
 import signal
 import subprocess
 import time
+from simulator_boot import boot
 
 root = pathlib.Path('build')
 root.mkdir(exist_ok=True)
@@ -43,14 +44,13 @@ for index, template in enumerate(selected):
     process = None
     try:
         print('Booting fresh simulator: ' + device['name'], flush=True)
-        subprocess.run(['xcrun', 'simctl', 'boot', identifier], check=True, timeout=60)
-        subprocess.run(['xcrun', 'simctl', 'bootstatus', identifier, '-b'], check=True, timeout=300)
+        boot(identifier, root / f'boot-{index}.json')
         record['boot'] = 'READY'
         print('Simulator boot complete; starting isolated UI tests', flush=True)
         command = ['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
                    '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
                    '-derivedDataPath', 'build/debug', '-resultBundlePath', str(bundle),
-                   '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO', 'test']
+                   '-parallel-testing-enabled', 'NO', '-only-testing:PUBOUITests/PUBOUITests', 'CODE_SIGNING_ALLOWED=NO', 'test']
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
