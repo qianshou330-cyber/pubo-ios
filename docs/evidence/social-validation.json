@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "build": 22,
+  "codeCommit": "ae9f86f47da7c94e3500ea6396f8ad0c80561b05",
+  "status": "DEVELOPMENT_AND_ISOLATED_VALIDATION_COMPLETE_DISTRIBUTION_PENDING",
+  "mainRun": 41346292681,
+  "jointRun": 41346292715,
+  "tests": {
+    "core": 27,
+    "packaging": 6,
+    "smallUI": 28,
+    "largeUI": 28,
+    "realBackendUI": 3,
+    "backendUnit": 18,
+    "backendAPI": 26
+  },
+  "ipa": "PUBO-0.2.0-22-iphoneos-arm64-unsigned.ipa",
+  "ipaBytes": 1928082,
+  "ipaSHA256": "01ff14158201fae97e0da74f9a241b070ced0191e272a48ad6da27e7b4d547a9",
+  "platform": "iPhoneOS",
+  "architecture": "arm64",
+  "minimumOS": "17.0",
+  "sdk": "iphoneos26.0",
+  "requiresSigning": true,
+  "physicalDeviceTested": false,
+  "realAPNsTested": false,
+  "backendDeployedDefaultOff": true,
+  "webAssetsUnchanged": true,
+  "protectedServices": 9,
+  "chartSchedulers": 11,
+  "gameEnabled": false,
+  "searchPolicy": "Uses current account permission; production default full-text search unchanged and off.",
+  "pending": [
+    "Apple developer account and signing",
+    "physical iPhone and iOS17 runtime validation",
+    "real APNs delivery",
+    "terms of service",
+    "store privacy disclosure and submission"
+  ]
+}

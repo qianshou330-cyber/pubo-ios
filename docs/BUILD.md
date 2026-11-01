@@ -17,13 +17,13 @@ xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk ipho
 
 ## GitHub Actions
 
-目标公开仓库为 `qianshou330-cyber/pubo-ios`。`main` push、PR 和手动运行触发标准 `macos-15`，主流程65分钟、联合验收流程60分钟超时，产物保留 7 天，无签名 secrets，无付费 runner。并发更新取消旧构建。工作流执行 core 单测、5 项设备包校验单测、两个不同尺寸 iPhone 的 UI 测试、Release 模拟器回归，以及独立的 **iPhoneOS 真机 Release 构建和未签名 IPA 封装**。
+目标公开仓库为 `qianshou330-cyber/pubo-ios`。`main` push、PR 和手动运行触发标准 `macos-15`，主流程65分钟、联合验收流程60分钟超时，产物保留 7 天，无签名 secrets，无付费 runner。并发更新取消旧构建。工作流执行 core 单测、6 项设备包校验单测、两个不同尺寸 iPhone 的 UI 测试、Release 模拟器回归，以及独立的 **iPhoneOS 真机 Release 构建和未签名 IPA 封装**。
 
 两个产物独立：`ios-validation-<commit>` 保存测试、截图和模拟器 `.app`；`pubo-iphone-unsigned-<commit>` 保存设备 `.ipa` 和 `device-package.json`。请勿将前者改扩展名充当真机包。
 
 历史 0.1.1 完整工作流 run41306913120 的测试、两类构建与封装均通过，但设备包上传服务超时。恢复工作流 `device-recovery.yml` 只固定构建已验证的 `6707a090e3065f95cb117606f9d8c93d26dba0d9`，run41309035703 已成功上传；支持手动运行及专用恢复分支触发，15 分钟超时。它不是后续版本的默认构建入口；日常改动仍使用 `ios.yml` 完整验收。
 
-所有 UI 测试通过 **Debug 专用** `--ui-testing` 启用合成 transport，不请求生产 API、头像、WebSocket。Release 忽略此开关。可以在 Xcode Scheme 添加 `--logged-out`、`--dark`、`--large-text`、`--slow`、`--network-error`、`--reply-required`、`--lost-chat-response`、`--lost-post-response` 验证指定情形。
+合成界面回归通过 **Debug 专用** `--ui-testing` 启用合成 transport，不请求生产 API、头像、WebSocket。Release 忽略此开关。可以在 Xcode Scheme 添加 `--logged-out`、`--dark`、`--large-text`、`--slow`、`--network-error`、`--reply-required`、`--lost-chat-response`、`--lost-post-response` 验证指定情形。
 
 报告中的 `swiftc -frontend -parse` 只表示语法检查；Linux `swift test` 只覆盖 PUBOCore。两者都不能代替 Xcode 编译、模拟器界面检查或实体 iPhone 验收。
 
@@ -43,7 +43,7 @@ xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk ipho
 python3 scripts/package-device.py
 ```
 
-输出 `build/unsigned/PUBO-0.2.0-<build>-iphoneos-arm64-unsigned.ipa`，结构为 `Payload/PUBO.app`。校验脚本同时核对 Info.plist 的 iPhoneOS、二进制 Mach-O 的 iOS 平台值 2（拒绝值 7 的 arm64 模拟器）、arm64 架构、可执行权限、无代码签名/描述文件、ZIP 内容一致和 SHA-256。重复执行拒绝覆盖同名 IPA，需使用新的构建目录或先归档原产物。版本升级时同步调整校验预期。
+输出 `build/unsigned/PUBO-0.2.0-<build>-iphoneos-arm64-unsigned.ipa`，结构为 `Payload/PUBO.app`。校验脚本同时核对 Info.plist 的 iPhoneOS、二进制 Mach-O 的 iOS 平台值 2（拒绝值 7 的 arm64 模拟器）、arm64 架构、可执行权限、无代码签名/描述文件、ZIP 内容一致和 SHA-256。重复执行拒绝覆盖同名 IPA，需使用新的构建目录或先归档原产物。打包脚本从project.yml读取并核对工程与目标版本；版本冲突拒绝打包。
 
 **未签名 IPA 不能直接安装到普通 iPhone。** 它是后续签名输入，不是已安装验收或 App Store 分发成品。应以 Apple 开发者签名证书、与 Bundle ID 匹配的描述文件及适用设备/分发方式签名；注册测试设备后可按开发或 Ad Hoc 方式安装。详见 [Apple 设备分发说明](https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices)。不使用他人证书或未经核实的付费签名服务。
 
@@ -65,3 +65,5 @@ TestFlight/App Store 前须完成真机安装、相机/相册与麦克风授权�
 首页测试另支持 Debug 参数 `--slow-startup`、`--skeleton-loading`、`--skeleton-failure`、`--reduce-motion`、`--refreshable-feed`；生产 Release 不启用合成延迟或数据。
 
 本次目标构建号修正使用 `home-package.yml`，固定核验App/核心/测试/scripts与已通过70项测试的 `33e93dbe0a608dde3dfb75ed625e2f2b031d4938` 一致，project.yml仅改目标号13→14，再重新编译两类Release。该恢复流程仅适用于这份已验收源码；后续功能改动仍须运行完整ios.yml。
+
+当前build22同时执行native-integration.yml：Debug专用固定回环地址连接真实隔离后端，先验证普通账号搜索权限和样本，再从App执行搜索收藏、投票及完整私信操作，核对实际服务器记录。Release没有该测试地址或ATS例外。
