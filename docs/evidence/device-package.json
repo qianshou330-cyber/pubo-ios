@@ -1,10 +1,10 @@
 {
   "status": "PASS",
-  "commit": "6707a090e3065f95cb117606f9d8c93d26dba0d9",
+  "commit": "a55681eac47fbdd6be5dbd67b41a97f85699a64e",
   "metadata": {
     "CFBundleIdentifier": "com.bolubo.native",
-    "CFBundleShortVersionString": "0.1.1",
-    "CFBundleVersion": "2",
+    "CFBundleShortVersionString": "0.1.2",
+    "CFBundleVersion": "7",
     "MinimumOSVersion": "17.0",
     "UIDeviceFamily": [
       1
@@ -23,9 +23,9 @@
     }
   },
   "codesign": "UNSIGNED",
-  "ipa": "PUBO-0.1.1-2-iphoneos-arm64-unsigned.ipa",
-  "bytes": 1355081,
-  "sha256": "2382f2d63930b5a8d66f2c68aba713a6fc224bd0a72df1429c45362989716731",
+  "ipa": "PUBO-0.1.2-7-iphoneos-arm64-unsigned.ipa",
+  "bytes": 1398413,
+  "sha256": "1786d716b54b3cb5739b00e0e4a1823cf152947e105834206f3e0817d5a3803f",
   "requiresSigningBeforeInstallation": true,
   "physicalDeviceTested": false
 }

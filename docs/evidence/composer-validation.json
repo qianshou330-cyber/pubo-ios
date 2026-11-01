@@ -1,0 +1,137 @@
+{
+  "status": "DELIVERED_UNSIGNED_DEVICE_IPA_PENDING_SIGNING_AND_DEVICE_VALIDATION",
+  "version": "0.1.2",
+  "build": "7",
+  "commit": "a55681eac47fbdd6be5dbd67b41a97f85699a64e",
+  "run": 41314836776,
+  "url": "https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41314836776",
+  "workflowConclusion": "success",
+  "coreTests": {
+    "count": 18,
+    "failures": 0
+  },
+  "packageTests": {
+    "count": 5,
+    "failures": 0
+  },
+  "uiTests": {
+    "devices": 2,
+    "perDevice": 16,
+    "failures": 0
+  },
+  "screenshots": 74,
+  "releaseSimulator": {
+    "status": "PASS",
+    "values": {
+      "CFBundleIdentifier": "com.bolubo.native",
+      "CFBundleShortVersionString": "0.1.2",
+      "CFBundleVersion": "7",
+      "MinimumOSVersion": "17.0",
+      "UIDeviceFamily": [
+        1
+      ],
+      "CFBundleSupportedPlatforms": [
+        "iPhoneSimulator"
+      ]
+    }
+  },
+  "devicePackage": {
+    "status": "PASS",
+    "commit": "a55681eac47fbdd6be5dbd67b41a97f85699a64e",
+    "metadata": {
+      "CFBundleIdentifier": "com.bolubo.native",
+      "CFBundleShortVersionString": "0.1.2",
+      "CFBundleVersion": "7",
+      "MinimumOSVersion": "17.0",
+      "UIDeviceFamily": [
+        1
+      ],
+      "CFBundleSupportedPlatforms": [
+        "iPhoneOS"
+      ],
+      "DTPlatformName": "iphoneos"
+    },
+    "binaries": {
+      "PUBO": {
+        "architecture": "arm64",
+        "platform": "iOS",
+        "platformID": 2,
+        "signed": false
+      }
+    },
+    "codesign": "UNSIGNED",
+    "ipa": "PUBO-0.1.2-7-iphoneos-arm64-unsigned.ipa",
+    "bytes": 1398413,
+    "sha256": "1786d716b54b3cb5739b00e0e4a1823cf152947e105834206f3e0817d5a3803f",
+    "requiresSigningBeforeInstallation": true,
+    "physicalDeviceTested": false
+  },
+  "physicalDeviceTested": false,
+  "productionWrites": 0,
+  "visualReview": {
+    "status": "PASS",
+    "reviewed": [
+      "SE normal light/dark post entry, empty editor, CW/preview",
+      "16 Pro Max normal light/dark editor and CW/preview",
+      "SE and 16 Pro Max large text keyboard with six unobscured toolbar controls",
+      "Uncertain post keeps draft and disables blind resubmit"
+    ],
+    "comparisonFiles": [
+      "composer-normal.png",
+      "composer-large-text.png",
+      "composer-large-phone-normal.png",
+      "composer-before-after.png"
+    ],
+    "scope": "Actual simulator screenshots for this exact commit; core native four-tab navigation retained; not full H5 functional equivalence or physical device validation"
+  },
+  "pending": [
+    "Signing and physical iPhone installation/runtime",
+    "iOS 17 runtime",
+    "Native UI with isolated real backend end-to-end",
+    "Real authorization/microphone/Keychain/file protection",
+    "Valid policy pages and distribution privacy disclosures",
+    "H5 functional parity remains incomplete"
+  ],
+  "h5FullParity": false,
+  "h5ComposerBasis": "Matching production MkPostForm/navigation source; no authenticated production compose interaction",
+  "protectedBusinessMethodsUnchanged": true,
+  "previousCandidate": {
+    "commit": "89b88d542e2aaa468c63c7d683463dc69f8c78dc",
+    "run": 41309596839,
+    "status": "CI_PASS_VISUAL_REVIEW_REQUIRED_LARGE_TOOLBAR_FIX",
+    "evidence": "stage-41309596839.json"
+  },
+  "failedCandidates": [
+    {
+      "run": 41311903376,
+      "commit": "3b9cad91be78faf17315b751303287cce8db5a5b",
+      "uiTests": {
+        "count": 16,
+        "failures": 1
+      },
+      "cause": "PhotosPicker accessibility width 29pt below required 44pt",
+      "deviceBuild": "SKIPPED"
+    },
+    {
+      "run": 41313139813,
+      "commit": "2eebdc7e382de4bb87696fe7754a89e4bcddab28",
+      "uiTests": {
+        "count": 16,
+        "failures": 1
+      },
+      "cause": "CW accessibility width 27pt below required 44pt",
+      "deviceBuild": "SKIPPED"
+    },
+    {
+      "run": 41313841901,
+      "commit": "124a2f010cf2cd1ad5c180f457d46be4921b1f82",
+      "uiTests": {
+        "count": 16,
+        "failures": 1
+      },
+      "cause": "Header contentShape changed Menu accessibility hit handling",
+      "sixToolbarTargets": "PASS",
+      "deviceBuild": "SKIPPED"
+    }
+  ]
+}

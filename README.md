@@ -4,17 +4,13 @@
 
 ## 当前状态
 
-正在验收 **0.1.2/build 7** 发帖界面对齐候选：入口铅笔、顶部头像/可见范围/发帖、连续编辑区与图标工具栏。以下 0.1.1 设备包为已完成的上一阶段证据，不能代替新候选验收。
+当前版本 **0.1.2/build 7**。保持 SwiftUI 原生实现，已同步 PUBO 配色、首页/注册/登录、私信和发帖界面。发帖入口使用普通铅笔；编辑页为顶部取消/头像/可见范围/更多/白底黑字发帖按钮、连续正文与图标工具栏，支持 CW 和简单预览。保留四个原生主页面，入口仍位于动态页顶部。
 
-当前版本 **0.1.1 / build 2**，已完成网页风格、首页/注册/登录原生交互同步；浅深主题正常字号一致，辅助功能大字体单独适配。
+[本次完整云端验收](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41314836776)成功：18 项核心测试、5 项设备包校验测试、两台 iPhone 各 16 项 UI 测试，模拟器 Release 回归、**iPhoneOS / arm64 Release 编译与未签名 IPA**均通过；74 张实际截图导出，新发帖状态已复核。详细记录见 [STATUS.md](docs/STATUS.md) 和 [结构化证据](docs/evidence/composer-validation.json)。
 
-[本次精确构建](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41306913120)：18 项核心测试、5 项设备包校验测试、两个 iPhone 尺寸各 14 项界面测试、Release 模拟器回归及 **iPhoneOS / arm64 真机 Release 编译**通过，60 张截图已导出复核。
+设备文件：`PUBO-0.1.2-7-iphoneos-arm64-unsigned.ipa`，位于该次 Actions 的 `pubo-iphone-unsigned-a55681eac47fbdd6be5dbd67b41a97f85699a64e` 产物中（如重试上传则带 retry 前缀），保留 7 天；交付目录另有持久保存。**这是真机 SDK 编译的未签名包，需签名后才能安装到 iPhone；尚未进行实体设备运行验收。** 构建及签名交接见 [BUILD.md](docs/BUILD.md)。
 
-原完整工作流最后仅因 IPA 产物上传超时显示失败；测试和编译均已通过。[设备包恢复构建](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41309035703)固定检出同一份已验证源码 `6707a090e3065f95cb117606f9d8c93d26dba0d9`，重新编译、封装及上传全部成功。两次运行和实际下载校验分别留有证据，没有将原工作流标为全绿。
-
-设备产物：`PUBO-0.1.1-2-iphoneos-arm64-unsigned.ipa`，**未签名，需签名后才能安装到 iPhone**。上述恢复构建的 `pubo-iphone-unsigned-6707a090e3065f95cb117606f9d8c93d26dba0d9` 产物中可下载，保留 7 天；已另在交付目录持久保存。构建/核验/签名交接见 [BUILD.md](docs/BUILD.md)。它不是模拟器包，也不代表真机运行已通过。
-
-**没有 H5 全部功能。** [功能自查清单](docs/H5_PARITY.md) 明确首页公告/访客流、搜索收藏投票、私信编辑撤回/反应、群聊、完整网盘/资料/安全设置、榜单游戏及后台等差距。详细验收和剩余项见 [STATUS.md](docs/STATUS.md)。
+**没有 H5 全部功能。** [功能自查清单](docs/H5_PARITY.md)逐项列出已有、部分、网页依赖与缺失能力。网盘管理、投票、私信编辑撤回/反应、群聊、完整搜索/资料/安全设置、榜单游戏及后台等仍存在差距；视觉同步不代表这些功能已原生完成。
 
 ## 构建
 
