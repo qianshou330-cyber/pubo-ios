@@ -1,0 +1,64 @@
+{
+  "version": "0.2.0",
+  "build": "14",
+  "scope": "HOME_STAGE_ONLY",
+  "commit": "7de4eec6090e55aec7b2ccd576a03780574aca7d",
+  "workflow": "https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41331898485",
+  "uiWorkflow": "https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41328458094",
+  "uiCommit": "33e93dbe0a608dde3dfb75ed625e2f2b031d4938",
+  "status": "PASS",
+  "coreTests": 21,
+  "packageTests": 5,
+  "metadataCorrection": "target CURRENT_PROJECT_VERSION 13 to 14 only",
+  "sourceProvenance": {
+    "status": "PASS",
+    "uiCommit": "33e93dbe0a608dde3dfb75ed625e2f2b031d4938",
+    "uiRun": 41328458094,
+    "unchanged": [
+      "App",
+      "Sources",
+      "Tests",
+      "UITests",
+      "Package.swift",
+      "Package.resolved",
+      "scripts"
+    ],
+    "correction": "target CURRENT_PROJECT_VERSION 13 to 14 only"
+  },
+  "uiTests": [
+    {
+      "device": {
+        "architecture": "arm64",
+        "deviceId": "CB229CB7-492F-4E2E-AF92-09CB52CAC2C2",
+        "deviceName": "PUBO iPhone SE (3rd generation)",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A8464",
+        "osVersion": "26.0.1",
+        "platform": "iOS Simulator"
+      },
+      "passed": 22
+    },
+    {
+      "device": {
+        "architecture": "arm64",
+        "deviceId": "677C00B4-34A7-4FF0-9ED7-ECE11C886768",
+        "deviceName": "PUBO iPhone 17 Pro Max",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A8464",
+        "osVersion": "26.0.1",
+        "platform": "iOS Simulator"
+      },
+      "passed": 22
+    }
+  ],
+  "screenshotCount": 97,
+  "ipa": "PUBO-0.2.0-14-iphoneos-arm64-unsigned.ipa",
+  "ipaBytes": 1572009,
+  "ipaSHA256": "bca4628124b79ed9081563ab9ae43afede2b669bd39fe048e757f41da99d7ca8",
+  "sdk": "iphoneos26.0",
+  "physicalDevice": "NOT_RUN",
+  "nativeRealBackendE2E": "NOT_RUN",
+  "socialExpansion": "PENDING",
+  "apns": "PENDING_DEFAULT_OFF",
+  "productionWrites": 0
+}
