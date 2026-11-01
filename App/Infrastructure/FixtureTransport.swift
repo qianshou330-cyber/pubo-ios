@@ -11,6 +11,7 @@ actor FixtureTransport: HTTPTransport {
     static let peer: JSONValue = .object(["id": .string("syntheticpeer"), "username": .string("friend"), "name": .string("测试朋友"), "host": .null])
     private var sent: [JSONValue] = []
     private var counter = 0
+    private var timelineReads = 0
     init() {
         if ProcessInfo.processInfo.arguments.contains("--chat-preview") {
             sent = [
@@ -44,7 +45,13 @@ actor FixtureTransport: HTTPTransport {
         case "users/search": response = .array([Self.peer])
         case "users/following": response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
         case "users/followers": response = .array([.object(["id": .string("relation1"), "follower": Self.peer])])
-        case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes": response = .array(posts)
+        case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes":
+            if args.contains("--refreshable-feed"), path != "users/notes" {
+                timelineReads += 1
+                let sample: JSONValue = .object(["id": .string(String(format: "refresh%08d", timelineReads)), "user": Self.me,
+                    "text": .string("刷新样例 \(timelineReads)"), "cw": .null, "files": .array([]), "reactions": .object([:])])
+                response = .array([sample] + posts)
+            } else { response = .array(posts) }
         case "announcements": response = .array([.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。")])])
         case "music-charts/kpop-summary", "music-charts/kpop-chart":
             let key = body["chartKey"].string ?? "melon-top100"

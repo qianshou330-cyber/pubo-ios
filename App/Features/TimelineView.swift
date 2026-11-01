@@ -9,6 +9,7 @@ struct TimelineCache: Codable {
 struct TimelineView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
     @State private var timeline = "home"
     @State private var notes: [Record] = []
     @State private var error: String?
@@ -21,6 +22,7 @@ struct TimelineView: View {
     @State private var homeRefresh = 0
     @State private var restoredSelection = false
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
+    private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
 
     var body: some View {
         NavigationStack {
@@ -58,19 +60,19 @@ struct TimelineView: View {
                 .onDisappear { session.stream.showTimeline(nil) }
                 .onChange(of: choices) { _, available in if !available.contains(timeline) { timeline = "home" } }
                 .task(id: session.streamRevision) {
-                    guard session.selectedTab == 0 else { return }
+                    guard active else { return }
                     try? await Task.sleep(for: .milliseconds(700))
                     if !Task.isCancelled { await load() }
+                }
+                .task(id: active) {
+                    guard active, restoredSelection else { return }
+                    await load()
                 }
         }
     }
     private var header: some View {
         HStack(spacing: 0) {
-            if let user = session.user {
-                Button { session.selectedTab = 3 } label: { Avatar(user: user, size: 30).frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("我的资料")
-            }
             PUBOTimelineSelector(selection: $timeline, available: choices, compact: true)
-            Button { homeRefresh += 1; Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("刷新首页")
             Menu {
                 Link("在网页查看时间线", destination: Endpoint.origin)
                 Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
@@ -88,11 +90,12 @@ struct TimelineView: View {
         if older, let id = notes.last?.id { fields["untilId"] = .string(id) }
         do {
             let result = Record.list(try await session.call("notes/\(selected)-timeline", fields))
+            try Task.checkCancellation()
             guard selected == timeline, requestID == attempt else { return }
             notes = Records.merge(notes, result, limit: 2_000); error = nil; cached = false
             if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected) }
             if older || notes.count <= 20 { hasMore = result.count == 20 && notes.count < 2_000 }
-        } catch is CancellationError { } catch { self.error = error.localizedDescription }
+        } catch is CancellationError { } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
     }
 }
 

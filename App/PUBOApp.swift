@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct PUBOApp: App {
     @State private var session = AppSession()
+    @State private var profileTabAvatar: UIImage?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var systemTypeSize
     var body: some Scene {
@@ -15,7 +16,10 @@ struct PUBOApp: App {
                         TimelineView().tabItem { Label("动态", systemImage: "house") }.tag(0)
                         NotificationsView().tabItem { Label("通知", systemImage: "bell") }.tag(1)
                         ChatListView().tabItem { Label("私信", systemImage: "bubble.left.and.bubble.right") }.tag(2)
-                        MyAccountView().tabItem { Label("我的", systemImage: "person") }.tag(3)
+                        MyAccountView().tabItem {
+                            if let profileTabAvatar { Image(uiImage: profileTabAvatar).renderingMode(.original); Text("我的") }
+                            else { Label("我的", systemImage: "person.crop.circle") }
+                        }.tag(3)
                     }.id(session.generation).toolbarBackground(PUBOTheme.panel, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
                 }
             }.environment(session).tint(PUBOTheme.accent).foregroundStyle(PUBOTheme.text)
@@ -23,6 +27,16 @@ struct PUBOApp: App {
                 .environment(\.dynamicTypeSize, session.testMode && ProcessInfo.processInfo.arguments.contains("--large-text") ? .accessibility3 : systemTypeSize)
                 .preferredColorScheme(session.testMode ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
                 .task { await session.start() }
+                .task(id: "\(session.generation)-\(session.user?["avatarUrl"].string ?? "")") {
+                    profileTabAvatar = nil
+                    if session.testMode {
+                        if ProcessInfo.processInfo.arguments.contains("--fixture-tab-avatar"), let image = UIImage(named: "ChartCover") { profileTabAvatar = ProfileTabAvatar.rounded(image) }
+                        return
+                    }
+                    guard let url = safeMediaURL(session.user?["avatarUrl"].string) else { return }
+                    let image = await ProfileTabAvatar.load(url)
+                    if !Task.isCancelled { profileTabAvatar = image }
+                }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream() } else { session.stream.stop() } }
         }
     }

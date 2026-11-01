@@ -29,7 +29,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 10))
         for title in ["通知", "私信", "我的", "动态"] {
             app.tabBars.buttons[title].tap()
-            if title == "动态" { XCTAssertTrue(app.buttons["刷新首页"].exists) }
+            if title == "动态" { XCTAssertTrue(app.buttons["timeline.home"].exists) }
             else { XCTAssertTrue(app.navigationBars[title].exists) }
         }
         capture(app, "light-timeline")
@@ -63,7 +63,7 @@ final class PUBOUITests: XCTestCase {
     func testContentWarningStaysHidden() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
         let warning = app.buttons["内容提示"]
-        XCTAssertTrue(app.buttons["刷新首页"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["timeline.home"].waitForExistence(timeout: 10))
         for _ in 0..<5 where !warning.isHittable { app.swipeUp() }
         XCTAssertTrue(warning.waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["这段文字需要展开内容警告后查看"].exists)
@@ -91,7 +91,7 @@ final class PUBOUITests: XCTestCase {
 
     func testHomePanelsAndChartNavigation() {
         for dark in [false, true] {
-            let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--fixture-tab-avatar"] + (dark ? ["--dark"] : []); app.launch()
             XCTAssertTrue(app.staticTexts["韩国女团音源榜"].waitForExistence(timeout: 10))
             let announcement = app.buttons["home.announcement.fixtureannouncement"]
             XCTAssertTrue(announcement.waitForExistence(timeout: 10))
@@ -100,7 +100,10 @@ final class PUBOUITests: XCTestCase {
             XCTAssertTrue(app.buttons["home.compose"].isHittable)
             XCTAssertFalse(app.navigationBars["动态"].exists)
             XCTAssertTrue(app.buttons["timeline.hybrid"].exists)
-            for name in ["timeline.home", "timeline.local", "timeline.hybrid", "timeline.global", "刷新首页", "我的资料"] {
+            XCTAssertFalse(app.buttons["刷新首页"].exists)
+            XCTAssertFalse(app.buttons["我的资料"].exists)
+            XCTAssertTrue(app.tabBars.buttons["我的"].isHittable)
+            for name in ["timeline.home", "timeline.local", "timeline.hybrid", "timeline.global"] {
                 let control = app.buttons[name]
                 XCTAssertTrue(control.isHittable, name)
                 XCTAssertGreaterThanOrEqual(control.frame.width, 44, name)
@@ -127,6 +130,26 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["测试用户"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home.compose"].isHittable); app.buttons["home.compose"].tap()
         XCTAssertTrue(app.textViews["compose.text"].waitForExistence(timeout: 5))
+    }
+
+    func testPullRefreshAndForegroundRefreshWithoutHeaderButtons() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
+        let newest = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "刷新样例 ")).firstMatch
+        XCTAssertTrue(newest.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["刷新首页"].exists)
+        XCTAssertFalse(app.buttons["我的资料"].exists)
+        let before = newest.label
+        app.collectionViews.firstMatch.swipeDown(velocity: .slow)
+        let changed = NSPredicate { _, _ in newest.exists && newest.label != before }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: changed, object: nil)], timeout: 10), .completed)
+        capture(app, "home-pull-to-refresh")
+        let afterPull = newest.label
+        XCUIDevice.shared.press(.home); app.activate()
+        let resumed = NSPredicate { _, _ in newest.exists && newest.label != afterPull }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: resumed, object: nil)], timeout: 10), .completed)
+        app.tabBars.buttons["我的"].tap()
+        XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
+        capture(app, "profile-avatar-tab")
     }
 
     func testLostPostResponseKeepsDraftAndDisablesResubmit() {
