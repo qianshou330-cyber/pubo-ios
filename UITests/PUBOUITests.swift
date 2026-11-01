@@ -146,6 +146,13 @@ final class PUBOUITests: XCTestCase {
         XCTAssertEqual(editor.value as? String, "large draft")
         XCTAssertTrue(app.buttons["compose.send"].isHittable)
         XCTAssertTrue(app.buttons["compose.close"].isHittable)
+        let keyboardTop = app.keyboards.firstMatch.frame.minY
+        for title in ["添加图片或视频", "内容警告", "插入话题", "插入提及", "收起键盘", "插入表情"] {
+            let tool = app.buttons[title]
+            XCTAssertTrue(tool.isHittable, title)
+            XCTAssertLessThanOrEqual(tool.frame.maxY, keyboardTop + 2, title)
+            XCTAssertGreaterThanOrEqual(tool.frame.width, 44, title)
+        }
         capture(app, "compose-large-text-keyboard")
         app.buttons["compose.close"].tap()
         XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 5))

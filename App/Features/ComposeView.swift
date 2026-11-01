@@ -61,7 +61,7 @@ struct ComposeView: View {
                             HStack { Image(systemName: "paperclip"); Text(file["name"].string ?? "已上传附件").lineLimit(2); Spacer(); Button("移除") { draft.files.removeAll { $0.id == file.id }; save() } }
                                 .font(.subheadline).padding(10).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)).disabled(!editable)
                         }
-                        editorTools
+                        if !typeSize.isAccessibilitySize { editorTools }
                         if showingPreview { preview }
                         if let error { Text(error).font(.callout).foregroundStyle(.red).accessibilityIdentifier("compose.error") }
                         if draft.outcome != "ready" {
@@ -74,6 +74,8 @@ struct ComposeView: View {
                         }
                     }.padding(.horizontal, 16).padding(.bottom, 20)
                 }.scrollDismissesKeyboard(.interactively)
+            }.safeAreaInset(edge: .bottom, spacing: 0) {
+                if typeSize.isAccessibilitySize { editorTools.padding(.horizontal, 16).background(PUBOTheme.panel) }
             }.background(PUBOTheme.panel.ignoresSafeArea()).foregroundStyle(PUBOTheme.text)
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay { if busy { ProgressView().padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
@@ -130,7 +132,7 @@ struct ComposeView: View {
             Spacer(minLength: 0)
             if editingText { Button { editingText = false } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44) }.accessibilityLabel("收起键盘") }
             Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(!editable).accessibilityLabel("插入表情")
-        }.font(.body).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
+        }.font(.system(size: 20)).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
     }
 
     private var preview: some View {
