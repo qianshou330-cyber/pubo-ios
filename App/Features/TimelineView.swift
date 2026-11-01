@@ -67,12 +67,17 @@ struct TimelineView: View {
     private var header: some View {
         HStack(spacing: 0) {
             if let user = session.user {
-                Button { session.selectedTab = 3 } label: { Avatar(user: user, size: 30).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel("我的资料")
+                Button { session.selectedTab = 3 } label: { Avatar(user: user, size: 30).frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("我的资料")
             }
             PUBOTimelineSelector(selection: $timeline, available: choices, compact: true)
-            Button { homeRefresh += 1; Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel("刷新首页")
+            Button { homeRefresh += 1; Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("刷新首页")
+            Menu {
+                Link("在网页查看时间线", destination: Endpoint.origin)
+                Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
+                Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
+            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
+                .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
         }.background(PUBOTheme.background).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 1) }
-            .accessibilityIdentifier("home.header")
     }
     private func load(older: Bool = false) async {
         guard !loading || requestTimeline != timeline else { return }

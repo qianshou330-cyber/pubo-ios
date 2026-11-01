@@ -24,8 +24,8 @@ struct HomeAnnouncements: View {
                     HStack(spacing: 20) {
                         ForEach(entries) { entry in
                             NavigationLink { AnnouncementDetail(entry: entry) } label: {
-                                Text(entry["title"].string ?? "公告").font(.subheadline).lineLimit(1).frame(minHeight: 44)
-                            }.buttonStyle(.plain)
+                                Text(entry["title"].string ?? "公告").font(.subheadline).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityIdentifier("home.announcement." + entry.id)
                         }
                         if entries.isEmpty { Text(loading ? "加载中" : "暂无公告").font(.caption).foregroundStyle(PUBOTheme.secondary) }
                     }
@@ -34,7 +34,6 @@ struct HomeAnnouncements: View {
             }
             if cached || error != nil { Text(error == nil ? "公告缓存" : "公告刷新失败" ).font(.caption2).foregroundStyle(PUBOTheme.secondary) }
         }.padding(.horizontal, 10).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).puboListRow()
-            .accessibilityIdentifier("home.announcements")
             .task(id: "\(active)-\(refreshID)") {
                 guard active else { return }
                 if entries.isEmpty, let owner = session.user?.id,
@@ -105,7 +104,7 @@ struct HomeChartPanel: View {
                     Text(chart["label"].string ?? "Melon TOP100").font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 }
                 Spacer(minLength: 0)
-                NavigationLink { ChartDetailView(chartKey: key) } label: { Label("详情", systemImage: "chevron.right").font(.caption).frame(minWidth: 44, minHeight: 44) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.accent)
+                NavigationLink { ChartDetailView(chartKey: key) } label: { Text("详情").font(.caption).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.accent).accessibilityIdentifier("home.chartDetail")
             }
             ForEach(rows, id: \.self) { row in
                 NavigationLink { ChartHistoryView(chartKey: key, song: row) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.buttonStyle(.plain)
@@ -127,7 +126,7 @@ struct HomeChartPanel: View {
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试榜单") }
             }
-        }.puboCard(padding: 12).puboListRow().accessibilityIdentifier("home.chart")
+        }.puboCard(padding: 12).puboListRow()
             .task(id: "\(active)-\(key)-\(refreshID)") {
                 guard active else { return }
                 data = .null; cached = false
@@ -174,7 +173,7 @@ private struct ChartSongRow: View {
             }
             Spacer(minLength: 4)
             Text(movement).font(.caption).foregroundStyle(PUBOTheme.secondary)
-        }.frame(minHeight: 44).accessibilityElement(children: .combine)
+        }.frame(minHeight: 44).contentShape(Rectangle()).accessibilityElement(children: .combine)
             .accessibilityLabel("\(playlist ? "歌单顺序" : "排名") \(row["rank"].int)，\(row["title"].string ?? "")，\(movement)")
     }
 }
@@ -197,7 +196,7 @@ struct ChartDetailView: View {
                 else if let date = puboDate(chart["observedAt"].string) { Text("采集时间：\(date.formatted())").font(.caption) }
             }
             ForEach(entries, id: \.self) { row in
-                NavigationLink { ChartHistoryView(chartKey: chartKey, song: row) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }
+                NavigationLink { ChartHistoryView(chartKey: chartKey, song: row) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.accessibilityIdentifier("chart.song." + (row["songId"].string ?? ""))
             }
             if let error { ErrorBanner(message: error) { Task { await load(reset: false) } } }
             if more { Button(busy ? "加载中" : "加载更多") { Task { await load(reset: false) } }.disabled(busy) }

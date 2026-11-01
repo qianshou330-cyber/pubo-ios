@@ -62,6 +62,7 @@ extension View {
         foregroundStyle(PUBOTheme.text).tint(PUBOTheme.accent)
             .background(PUBOTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.visible, for: .navigationBar)
             .toolbarBackground(PUBOTheme.panel, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
     }
@@ -113,7 +114,7 @@ struct PUBOTimelineSelector: View {
                         }.font(.caption.weight(selection == item.0 ? .bold : .regular))
                             .frame(maxWidth: .infinity, minHeight: 44).padding(.horizontal, compact ? 2 : 8)
                         Rectangle().fill(selection == item.0 ? PUBOTheme.accent : .clear).frame(height: 3)
-                    }
+                    }.contentShape(Rectangle())
                 }.buttonStyle(.plain).foregroundStyle(selection == item.0 ? PUBOTheme.accent : PUBOTheme.secondary)
                     .accessibilityAddTraits(selection == item.0 ? .isSelected : [])
                     .accessibilityIdentifier("timeline." + item.0)

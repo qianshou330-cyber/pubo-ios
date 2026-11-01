@@ -93,16 +93,29 @@ final class PUBOUITests: XCTestCase {
         for dark in [false, true] {
             let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
             XCTAssertTrue(app.staticTexts["韩国女团音源榜"].waitForExistence(timeout: 10))
-            XCTAssertTrue(app.staticTexts["欢迎加入 PUBO"].exists)
+            let announcement = app.buttons["home.announcement.fixtureannouncement"]
+            XCTAssertTrue(announcement.waitForExistence(timeout: 10))
+            XCTAssertEqual(announcement.label, "欢迎加入 PUBO")
+            XCTAssertGreaterThanOrEqual(announcement.frame.height, 44)
             XCTAssertTrue(app.buttons["home.compose"].isHittable)
             XCTAssertFalse(app.navigationBars["动态"].exists)
             XCTAssertTrue(app.buttons["timeline.hybrid"].exists)
+            for name in ["timeline.home", "timeline.local", "timeline.hybrid", "timeline.global", "刷新首页", "我的资料"] {
+                let control = app.buttons[name]
+                XCTAssertTrue(control.isHittable, name)
+                XCTAssertGreaterThanOrEqual(control.frame.width, 44, name)
+                XCTAssertGreaterThanOrEqual(control.frame.height, 44, name)
+            }
             capture(app, dark ? "home-h5-dark" : "home-h5-light")
+            announcement.tap()
+            XCTAssertTrue(app.navigationBars["站内公告"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["这是隔离测试公告，不会发布到生产。"].exists)
+            app.navigationBars.buttons.firstMatch.tap()
             app.buttons["切换榜单"].tap(); app.buttons["Genie 实时榜"].tap()
             XCTAssertTrue(app.staticTexts["Genie 实时榜"].waitForExistence(timeout: 5))
-            app.buttons["详情"].tap()
+            app.buttons["home.chartDetail"].tap()
             XCTAssertTrue(app.navigationBars["Genie 实时榜"].waitForExistence(timeout: 5))
-            app.buttons.containing(.staticText, identifier: "NEON").firstMatch.tap()
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chart.song.")).firstMatch.tap()
             XCTAssertTrue(app.staticTexts["按本站采集时间记录"].waitForExistence(timeout: 5))
             capture(app, "home-chart-history-\(dark)")
             app.terminate()
@@ -285,7 +298,9 @@ final class PUBOUITests: XCTestCase {
             let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview"] + (dark ? ["--dark"] : [])
             app.launch()
             XCTAssertTrue(app.buttons["timeline.global"].waitForExistence(timeout: 10)); app.buttons["timeline.global"].tap()
-            XCTAssertTrue(app.buttons["内容提示"].waitForExistence(timeout: 5))
+            let warning = app.buttons["内容提示"]
+            for _ in 0..<4 where !warning.isHittable { app.swipeUp() }
+            XCTAssertTrue(warning.waitForExistence(timeout: 5))
             capture(app, dark ? "web-style-feed-dark" : "web-style-feed-light")
             app.tabBars.buttons["通知"].tap(); XCTAssertTrue(app.staticTexts["测试朋友 关注了你"].waitForExistence(timeout: 5))
             capture(app, dark ? "web-style-notifications-dark" : "web-style-notifications-light")
