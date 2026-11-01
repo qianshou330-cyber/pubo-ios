@@ -100,7 +100,7 @@ struct ComposeView: View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout(spacing: 4))
         return layout {
             HStack(spacing: 6) {
-                Button { if save() { dismiss() } } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
+                Button { if save() { dismiss() } } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                     .accessibilityLabel("保存并关闭").accessibilityIdentifier("compose.close").disabled(busy)
                 if let user = session.user { Avatar(user: user, size: 28).accessibilityHidden(false).accessibilityLabel(user.displayName) }
                 Spacer(minLength: 0)
@@ -108,12 +108,12 @@ struct ComposeView: View {
             HStack(spacing: 4) {
                 Menu {
                     Picker("可见范围", selection: $draft.visibility) { Text("公开").tag("public"); Text("首页").tag("home"); Text("关注者").tag("followers") }
-                } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44).contentShape(Rectangle()) }
+                } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44) }
                     .disabled(!editable).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
                 Menu {
                     Toggle("预览", isOn: $showingPreview)
                     Button("保存并关闭") { if save() { dismiss() } }
-                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
+                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                     .disabled(busy).accessibilityLabel("更多").accessibilityIdentifier("compose.more")
                 Button { editingText = false; Task { await send() } } label: {
                     HStack(spacing: 6) { Text(submitTitle); Image(systemName: submitIcon) }
