@@ -427,6 +427,17 @@ final class PUBOUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [deleted], timeout: 5), .completed)
     }
 
+    func testSearchPolicyDisabledStillAllowsUserSearch() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--search-unavailable"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["搜索"].tap()
+        XCTAssertTrue(app.staticTexts["search.unavailable"].waitForExistence(timeout: 5))
+        let field = app.textFields["search.query"]; field.tap(); field.typeText("PUBO")
+        XCTAssertFalse(app.buttons["search.submit"].isEnabled)
+        app.buttons["用户"].tap()
+        XCTAssertTrue(app.staticTexts["测试朋友"].waitForExistence(timeout: 5))
+        capture(app, "social-search-policy")
+    }
+
     func testPollVoteAndComposePoll() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-preview"]; app.launch()
         let choice = app.buttons["poll.choice.0"]

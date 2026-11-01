@@ -16,6 +16,11 @@ actor FixtureTransport: HTTPTransport {
     private var profile = FixtureTransport.me
     private let driveFile: JSONValue = .object(["id": .string("fixturefile"), "name": .string("测试图片.png"), "type": .string("image/png"), "size": .number(128), "isSensitive": .bool(false)])
     init() {
+        if ProcessInfo.processInfo.arguments.contains("--search-unavailable") {
+            var value = profile.object; var policies = value["policies"]!.object
+            policies["canSearchNotes"] = .bool(false); policies["canSearchUsers"] = .bool(true)
+            value["policies"] = .object(policies); profile = .object(value)
+        }
         if ProcessInfo.processInfo.arguments.contains("--social-preview") {
             posts.insert(.object(["id": .string("fixturepoll003"), "user": Self.peer, "text": .string("测试投票"), "cw": .null, "files": .array([]), "reactions": .object([:]), "poll": .object(["multiple": .bool(false), "expiresAt": .null, "choices": .array([.object(["text": .string("选项 A"), "votes": .number(2), "isVoted": .bool(false)]), .object(["text": .string("选项 B"), "votes": .number(0), "isVoted": .bool(false)])])])]), at: 0)
         }

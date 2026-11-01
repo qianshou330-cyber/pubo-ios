@@ -19,12 +19,18 @@ async function api(path, fields={}, token) {
  return value;
 }
 // The first account owns the isolated instance. The App uses the second, ordinary account.
-await api('signup',{username:'isolated_owner',password:randomBytes(24).toString('hex')});
+const owner=await api('signup',{username:'isolated_owner',password:randomBytes(24).toString('hex')});
+// A fresh instance defaults to disallowing note search. Exercise the real supported API
+// with a permitted ordinary account, without changing any production role policy.
+const before=await api('meta');
+await api('admin/roles/update-default-policies',{policies:{...before.policies,canSearchNotes:true}},owner.token);
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
 await api('i/update',{name:'原生验收用户',chatScope:'mutual'},alice.token);
 await api('i/update',{name:'隔离测试朋友',chatScope:'mutual'},bob.token);
 const note=await api('notes/create',{text:'PUBO joint proof #PUBO',visibility:'public'},alice.token);
+const searchProof=await api('notes/search',{query:'PUBO joint proof',limit:30},alice.token);
+if(!searchProof.some(x=>x.id===note.createdNote.id))throw new Error('Isolated search setup is not ready');
 const poll=await api('notes/create',{text:'真实接口投票',visibility:'public',poll:{choices:['Morning','Evening'],multiple:false}},bob.token);
 await api('following/create',{userId:bob.id},alice.token);
 await api('following/create',{userId:alice.id},bob.token);

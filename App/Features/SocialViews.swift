@@ -13,6 +13,13 @@ struct SearchView: View {
     @State private var offset = 0
     @State private var searchID = UUID()
     @State private var searched = false
+    private var searchAvailable: Bool {
+        guard category != "tags" else { return true }
+        let key = category == "notes" ? "canSearchNotes" : "canSearchUsers"
+        let accountPolicy = session.user?["policies"][key] ?? .null
+        let policy = accountPolicy.isNull ? session.meta["policies"][key] : accountPolicy
+        return policy.isNull || policy.bool
+    }
     var body: some View {
         List {
             HStack(spacing: 8) {
@@ -23,9 +30,11 @@ struct SearchView: View {
                     .onSubmit { Task { await search(reset: true) } }
                 Button("搜索") { Task { await search(reset: true) } }
                     .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
-                    .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+                    .disabled(!searchAvailable || query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+                    .accessibilityIdentifier("search.submit")
             }
             Picker("搜索类型", selection: $category) { Text("帖子").tag("notes"); Text("用户").tag("users"); Text("话题").tag("tags") }.pickerStyle(.segmented)
+            if !searchAvailable { Text(category == "notes" ? "本站未向当前账号开放帖子全文搜索。可以切换到用户或话题搜索。" : "本站未向当前账号开放用户搜索。可以切换到其他搜索类型。").foregroundStyle(.secondary).accessibilityIdentifier("search.unavailable") }
             if let error { ErrorBanner(message: error) { Task { await search(reset: true) } } }
             if category == "notes" { ForEach(records) { NoteCard(note: $0) } }
             if category == "users" {
@@ -45,6 +54,7 @@ struct SearchView: View {
             .onDisappear { searchID = UUID(); busy = false }
     }
     private func search(reset: Bool) async {
+        guard searchAvailable else { searchID = UUID(); busy = false; records = []; tags = []; searched = false; more = false; error = nil; return }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, reset || !busy else { return }
         let attempt = UUID(); searchID = attempt; busy = true
@@ -61,7 +71,7 @@ struct SearchView: View {
             else if kind == "users" { for user in Record.list(result) where !records.contains(where: { $0.id == user.id }) { records.append(user) } }
             else { records = Records.merge(records, Record.list(result), limit: 10_000) }
             offset += result.array.count; more = result.array.count == 30; searched = true; error = nil
-        } catch { if searchID == attempt { self.error = error.localizedDescription } }
+        } catch { if searchID == attempt { self.error = (error as? APIError)?.code == "UNAVAILABLE" ? "服务器当前未开放这项搜索，请选择其他搜索类型。" : error.localizedDescription } }
     }
 }
 
