@@ -1,0 +1,74 @@
+name: Package validated home build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify tested source and metadata-only correction
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess, urllib.request
+          baseline = '33e93dbe0a608dde3dfb75ed625e2f2b031d4938'
+          protected = ['App', 'Sources', 'Tests', 'UITests', 'Package.swift', 'Package.resolved', 'scripts']
+          subprocess.run(['git', 'diff', '--exit-code', baseline, 'HEAD', '--', *protected], check=True)
+          previous = subprocess.check_output(['git', 'show', baseline + ':project.yml'], text=True)
+          expected = previous.replace('        CURRENT_PROJECT_VERSION: 13', '        CURRENT_PROJECT_VERSION: 14')
+          assert expected != previous
+          assert pathlib.Path('project.yml').read_text() == expected
+          req = urllib.request.Request('https://api.github.com/repos/qianshou330-cyber/pubo-ios/actions/runs/41328458094/jobs', headers={'User-Agent': 'PUBO-home-build-validation'})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              jobs = json.load(response)['jobs']
+          steps = jobs[0]['steps']
+          for name in ['Core unit tests', 'Build and test two iPhone sizes']:
+              assert next(s for s in steps if s['name'] == name)['conclusion'] == 'success'
+          pathlib.Path('build').mkdir(exist_ok=True)
+          pathlib.Path('build/home-code-provenance.json').write_text(json.dumps({'status': 'PASS', 'uiCommit': baseline, 'uiRun': 41328458094, 'unchanged': protected, 'correction': 'target CURRENT_PROJECT_VERSION 13 to 14 only'}, indent=2))
+          PY
+      - name: Select Xcode 26 and generate project
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          xcodebuild -version
+          brew install xcodegen
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Release simulator build
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Verify release metadata
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, plistlib
+          app = pathlib.Path('build/release/Build/Products/Release-iphonesimulator/PUBO.app')
+          data = plistlib.loads((app / 'Info.plist').read_bytes())
+          expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.2.0', 'CFBundleVersion': '14', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1], 'CFBundleSupportedPlatforms': ['iPhoneSimulator']}
+          for key, value in expected.items():
+              assert data.get(key) == value, (key, data.get(key), value)
+          pathlib.Path('build/release-metadata.json').write_text(json.dumps({'status': 'PASS', 'values': expected}, indent=2))
+          PY
+      - name: Release iPhone device build
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+      - name: Verify and package unsigned device IPA
+        run: python3 scripts/package-device.py
+      - name: Upload unsigned device IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: pubo-iphone-unsigned-${{ github.sha }}-attempt-${{ github.run_attempt }}
+          path: |
+            build/unsigned/*.ipa
+            build/device-package.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Collect package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-home-release-${{ github.sha }}-attempt-${{ github.run_attempt }}
+          path: build/*.json
+          retention-days: 7
