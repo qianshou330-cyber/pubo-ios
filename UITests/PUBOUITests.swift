@@ -89,8 +89,10 @@ final class PUBOUITests: XCTestCase {
         let logout = app.buttons["退出登录"]
         for _ in 0..<7 where !logout.isHittable { app.swipeUp() }
         XCTAssertTrue(logout.isHittable); logout.tap()
-        app.buttons["退出登录"].lastMatch.tap()
+        let confirmLogout = app.sheets.buttons["退出登录"]
+        XCTAssertTrue(confirmLogout.waitForExistence(timeout: 5)); confirmLogout.tap()
         XCTAssertTrue(app.images["pubo.shell"].waitForExistence(timeout: 10))
         capture(app, "dark-logged-out")
     }
 }
+
