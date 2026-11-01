@@ -3,8 +3,12 @@ import PUBOCore
 
 struct AuthView: View {
     @Environment(AppSession.self) private var session
-    @State private var registration = false
-    @State private var showingForm = false
+    private enum AccountRoute: String, Identifiable {
+        case login, registration
+        var id: String { rawValue }
+    }
+    @State private var accountRoute: AccountRoute?
+    private var registration: Bool { accountRoute == .registration }
     @State private var username = ""
     @State private var password = ""
     @State private var confirmation = ""
@@ -28,9 +32,9 @@ struct AuthView: View {
                         Text("PUBO").font(.title2.bold())
                         Text("通过帖子连接在一起的网络").font(.subheadline).multilineTextAlignment(.center)
                         VStack(spacing: 10) {
-                            Button("注册") { registration = true; showingForm = true }
+                            Button("注册") { accountRoute = .registration }
                                 .buttonStyle(PUBOButtonStyle(kind: .registration, fullWidth: true)).accessibilityIdentifier("auth.openRegister")
-                            Button("登录") { registration = false; showingForm = true }
+                            Button("登录") { accountRoute = .login }
                                 .buttonStyle(PUBOButtonStyle(kind: .secondary, fullWidth: true)).accessibilityIdentifier("auth.openLogin")
                         }
                     }.padding(.horizontal, 28).padding(.top, 60).padding(.bottom, 28)
@@ -41,11 +45,11 @@ struct AuthView: View {
                     policyLinks
                 }.frame(maxWidth: 430).padding(.horizontal, 20).padding(.top, 56).padding(.bottom, 32).frame(maxWidth: .infinity)
             }.puboScreen().toolbar(.hidden, for: .navigationBar)
-                .sheet(isPresented: $showingForm) { accountForm }
+                .sheet(item: $accountRoute) { route in accountForm(registration: route == .registration) }
         }
     }
 
-    private var accountForm: some View {
+    private func accountForm(registration: Bool) -> some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -83,7 +87,8 @@ struct AuthView: View {
                 }.puboCard(padding: 20).padding(16)
             }.puboScreen().scrollDismissesKeyboard(.interactively)
                 .navigationTitle(registration ? "注册 PUBO" : "登录 PUBO")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { showingForm = false }.disabled(busy).accessibilityIdentifier("auth.close") } }
+                .toolbar(.visible, for: .navigationBar)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { accountRoute = nil }.disabled(busy).accessibilityIdentifier("auth.close") } }
                 .onDisappear { password = ""; confirmation = ""; otp = ""; code = ""; needOTP = false; message = nil }
         }.interactiveDismissDisabled(busy)
     }
@@ -132,3 +137,4 @@ struct AuthView: View {
         catch { message = error.localizedDescription }
     }
 }
+
