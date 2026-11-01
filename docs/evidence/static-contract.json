@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "checks": [
+    "chat/messages/create-to-user",
+    "chat/messages/user-timeline",
+    "chat/messages/read",
+    "chat/conversation-settings/update",
+    "notes/create",
+    "i/update",
+    "users/search",
+    "i/delete-account",
+    "private-media-auth-and-variants",
+    "websocket-bearer-header",
+    "native-signin-flow-signup-routes"
+  ],
+  "schemaSha256": "b75d8791275526508451efc4f8193fb02e6b5340c6c5939e4510bf6c23498615",
+  "privateMediaSourceSha256": "5bfb3456df0882c2b22c9c35524fd4b85593769c04c446155f46ec8eb959e1ab",
+  "streamingSourceSha256": "14448639f51526a12b741f7278ef09abf2b9f0296f0fc13ee20a8ed03e24147e"
+}

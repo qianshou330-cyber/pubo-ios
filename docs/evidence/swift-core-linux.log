@@ -1,0 +1,77 @@
+[0/1] Planning build
+Building for debugging...
+[0/11] Write sources
+[2/11] Write swift-version-24593BA9C3E375BF.txt
+[4/15] Compiling PUBOCore NoteReceipt.swift
+[5/15] Compiling PUBOCore Outbox.swift
+[6/15] Compiling PUBOCore APIClient.swift
+[7/15] Emitting module PUBOCore
+[8/16] Wrapping AST for PUBOCore for debugging
+[10/19] Compiling PUBOCoreTests EndpointTests.swift
+[11/19] Emitting module PUBOCoreTests
+[12/19] Compiling PUBOCoreTests APIClientTests.swift
+[13/20] /workspace/.build/x86_64-unknown-linux-gnu/debug/PUBOCorePackageDiscoveredTests.derived/all-discovered-tests.swift
+[14/21] Write sources
+[15/21] Wrapping AST for PUBOCoreTests for debugging
+[17/24] Emitting module PUBOCorePackageDiscoveredTests
+[18/24] Compiling PUBOCorePackageDiscoveredTests all-discovered-tests.swift
+[19/24] Compiling PUBOCorePackageDiscoveredTests PUBOCoreTests.swift
+[20/25] /workspace/.build/x86_64-unknown-linux-gnu/debug/PUBOCorePackageTests.derived/runner.swift
+[21/26] Write sources
+[22/26] Wrapping AST for PUBOCorePackageDiscoveredTests for debugging
+[24/28] Emitting module PUBOCorePackageTests
+[25/28] Compiling PUBOCorePackageTests runner.swift
+[26/28] Write Objects.LinkFileList
+[27/28] Linking PUBOCorePackageTests.xctest
+Build complete! (11.41s)
+Test Suite 'All tests' started at 2026-11-01 07:03:52.818
+Test Suite 'debug.xctest' started at 2026-11-01 07:03:52.861
+Test Suite 'APIClientTests' started at 2026-11-01 07:03:52.861
+Test Case 'APIClientTests.testAscendingChatWindowKeepsNewestMessages' started at 2026-11-01 07:03:52.861
+Test Case 'APIClientTests.testAscendingChatWindowKeepsNewestMessages' passed (0.008 seconds)
+Test Case 'APIClientTests.testCallerCannotInjectTokenIntoBody' started at 2026-11-01 07:03:52.869
+Test Case 'APIClientTests.testCallerCannotInjectTokenIntoBody' passed (0.008 seconds)
+Test Case 'APIClientTests.testInvalidSuccessfulMutationResponseIsUncertain' started at 2026-11-01 07:03:52.877
+Test Case 'APIClientTests.testInvalidSuccessfulMutationResponseIsUncertain' passed (0.0 seconds)
+Test Case 'APIClientTests.testKnownSMSFailureIsHumanReadable' started at 2026-11-01 07:03:52.877
+Test Case 'APIClientTests.testKnownSMSFailureIsHumanReadable' passed (0.0 seconds)
+Test Case 'APIClientTests.testLostMutationResponseIsNotRetried' started at 2026-11-01 07:03:52.878
+Test Case 'APIClientTests.testLostMutationResponseIsNotRetried' passed (0.0 seconds)
+Test Case 'APIClientTests.testMalformedPrivateIDIsRejectedBeforeRequest' started at 2026-11-01 07:03:52.878
+Test Case 'APIClientTests.testMalformedPrivateIDIsRejectedBeforeRequest' passed (0.0 seconds)
+Test Case 'APIClientTests.testPostReceiptRequiresAuthorVisibilityAndOrderedFiles' started at 2026-11-01 07:03:52.879
+Test Case 'APIClientTests.testPostReceiptRequiresAuthorVisibilityAndOrderedFiles' passed (0.0 seconds)
+Test Case 'APIClientTests.testPrivateAttachmentUsesHeaderNotQuery' started at 2026-11-01 07:03:52.879
+Test Case 'APIClientTests.testPrivateAttachmentUsesHeaderNotQuery' passed (0.0 seconds)
+Test Case 'APIClientTests.testRateLimitDoesNotRetry' started at 2026-11-01 07:03:52.879
+Test Case 'APIClientTests.testRateLimitDoesNotRetry' passed (0.0 seconds)
+Test Case 'APIClientTests.testRealtimeMergeDeduplicatesAndUpdates' started at 2026-11-01 07:03:52.879
+Test Case 'APIClientTests.testRealtimeMergeDeduplicatesAndUpdates' passed (0.0 seconds)
+Test Case 'APIClientTests.testReconciliationRejectsDifferentAttachments' started at 2026-11-01 07:03:52.880
+Test Case 'APIClientTests.testReconciliationRejectsDifferentAttachments' passed (0.0 seconds)
+Test Case 'APIClientTests.testReconciliationRejectsDifferentRecipientAndReply' started at 2026-11-01 07:03:52.880
+Test Case 'APIClientTests.testReconciliationRejectsDifferentRecipientAndReply' passed (0.0 seconds)
+Test Case 'APIClientTests.testReplyRequiredPreservesBusinessReason' started at 2026-11-01 07:03:52.880
+Test Case 'APIClientTests.testReplyRequiredPreservesBusinessReason' passed (0.0 seconds)
+Test Case 'APIClientTests.testRestartDoesNotRestoreSendingAsReady' started at 2026-11-01 07:03:52.881
+Test Case 'APIClientTests.testRestartDoesNotRestoreSendingAsReady' passed (0.101 seconds)
+Test Case 'APIClientTests.testServerFailureOnMutationIsUncertain' started at 2026-11-01 07:03:52.982
+Test Case 'APIClientTests.testServerFailureOnMutationIsUncertain' passed (0.001 seconds)
+Test Case 'APIClientTests.testSignedMediaCannotRedirect' started at 2026-11-01 07:03:52.982
+Test Case 'APIClientTests.testSignedMediaCannotRedirect' passed (0.0 seconds)
+Test Suite 'APIClientTests' passed at 2026-11-01 07:03:52.982
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.121 (0.121) seconds
+Test Suite 'EndpointTests' started at 2026-11-01 07:03:52.982
+Test Case 'EndpointTests.testEndpointCannotEscapeOrigin' started at 2026-11-01 07:03:52.983
+Test Case 'EndpointTests.testEndpointCannotEscapeOrigin' passed (0.0 seconds)
+Test Case 'EndpointTests.testOnlyOfficialOriginCanReceiveCredentials' started at 2026-11-01 07:03:52.983
+Test Case 'EndpointTests.testOnlyOfficialOriginCanReceiveCredentials' passed (0.0 seconds)
+Test Suite 'EndpointTests' passed at 2026-11-01 07:03:52.983
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'debug.xctest' passed at 2026-11-01 07:03:52.983
+	 Executed 18 tests, with 0 failures (0 unexpected) in 0.122 (0.122) seconds
+Test Suite 'All tests' passed at 2026-11-01 07:03:52.983
+	 Executed 18 tests, with 0 failures (0 unexpected) in 0.122 (0.122) seconds
+◇ Test run started.
+↳ Testing Library Version: 6.0.3 (18c42c19cac3faf)
+✔ Test run with 0 tests passed after 0.001 seconds.

@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "checks": [
+    "sms-native-signup-and-signin",
+    "notes-and-reactions",
+    "private-chat-first-message-and-durable-idempotency",
+    "concurrent-first-message-and-token-rejection",
+    "reply-unlocks-private-attachment-and-bearer-download",
+    "conversation-settings-notifications-profile-and-blocking"
+  ],
+  "requests": 44,
+  "assertions": 62
+}

@@ -1,0 +1,17 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+build/
+*.xcresult
+*.xcuserstate
+xcuserdata/
+*.p12
+*.mobileprovision
+*.p8
+*.key
+.env
+secrets/
+PUBO.xcodeproj/
+App/Info.plist
+App/Assets.xcassets/AppIcon.appiconset/AppIcon.png

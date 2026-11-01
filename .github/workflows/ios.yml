@@ -1,0 +1,44 @@
+name: iPhone native validation
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record build tools
+        run: |
+          xcodebuild -version
+          swift --version
+          brew install xcodegen
+          xcodegen --version
+      - name: Core unit tests
+        run: swift test
+      - name: Generate project
+        run: |
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Build and test two iPhone sizes
+        run: python3 scripts/simulator-tests.py
+      - name: Release simulator build
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Collect evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-validation-${{ github.sha }}
+          path: |
+            build/*.json
+            build/*.xcresult
+            build/screenshots/
+            build/release/Build/Products/Release-iphonesimulator/PUBO.app
+          retention-days: 7
