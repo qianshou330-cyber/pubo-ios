@@ -97,21 +97,27 @@ struct PUBOBrand: View {
 /// A native tab selector with the site's underline treatment; wraps at large text sizes.
 struct PUBOTimelineSelector: View {
     @Binding var selection: String
+    var available = ["home", "local", "hybrid", "global"]
+    var compact = false
     @Environment(\.dynamicTypeSize) private var typeSize
-    private let items = [("home", "关注", "house"), ("local", "本站", "building.2"), ("global", "全球", "globe")]
+    private let items = [("home", "关注", "house"), ("local", "本地", "building.2"), ("hybrid", "社交", "person.2"), ("global", "全球", "globe")]
     var body: some View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
         layout {
-            ForEach(items, id: \.0) { item in
+            ForEach(items.filter { available.contains($0.0) }, id: \.0) { item in
                 Button { selection = item.0 } label: {
                     VStack(spacing: 0) {
-                        Label(item.1, systemImage: item.2).font(.subheadline.weight(selection == item.0 ? .bold : .regular))
-                            .frame(maxWidth: .infinity, minHeight: 44).padding(.horizontal, 8)
+                        Group {
+                            if compact && selection != item.0 && !typeSize.isAccessibilitySize { Image(systemName: item.2) }
+                            else { Label(item.1, systemImage: item.2) }
+                        }.font(.caption.weight(selection == item.0 ? .bold : .regular))
+                            .frame(maxWidth: .infinity, minHeight: 44).padding(.horizontal, compact ? 2 : 8)
                         Rectangle().fill(selection == item.0 ? PUBOTheme.accent : .clear).frame(height: 3)
                     }
                 }.buttonStyle(.plain).foregroundStyle(selection == item.0 ? PUBOTheme.accent : PUBOTheme.secondary)
                     .accessibilityAddTraits(selection == item.0 ? .isSelected : [])
                     .accessibilityIdentifier("timeline." + item.0)
+                    .accessibilityLabel(item.1)
             }
         }.background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
     }

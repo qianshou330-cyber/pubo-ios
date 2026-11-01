@@ -7,7 +7,7 @@ import FoundationNetworking
 /// Synthetic deterministic transport. Only AppSession's DEBUG launch argument enables it.
 /// No production request is made from UI tests, including image and WebSocket traffic.
 actor FixtureTransport: HTTPTransport {
-    static let me: JSONValue = .object(["id": .string("syntheticself"), "username": .string("fixture"), "name": .string("测试用户"), "host": .null, "chatScope": .string("mutual"), "roles": .array([]), "followingCount": .number(1), "followersCount": .number(1)])
+    static let me: JSONValue = .object(["id": .string("syntheticself"), "username": .string("fixture"), "name": .string("测试用户"), "host": .null, "chatScope": .string("mutual"), "roles": .array([]), "followingCount": .number(1), "followersCount": .number(1), "policies": .object(["ltlAvailable": .bool(true), "gtlAvailable": .bool(true)])])
     static let peer: JSONValue = .object(["id": .string("syntheticpeer"), "username": .string("friend"), "name": .string("测试朋友"), "host": .null])
     private var sent: [JSONValue] = []
     private var counter = 0
@@ -29,6 +29,8 @@ actor FixtureTransport: HTTPTransport {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("--network-error"), path.contains("timeline") { throw URLError(.timedOut) }
         if args.contains("--slow"), path == "emojis" { try await Task.sleep(for: .seconds(20)) }
+        if args.contains("--slow-home-panels"), path == "announcements" || path == "music-charts/kpop-summary" { try await Task.sleep(for: .seconds(20)) }
+        if args.contains("--failed-home-panels"), path == "announcements" || path == "music-charts/kpop-summary" { throw URLError(.timedOut) }
         var response: JSONValue = .object([:])
         var status = 200
         switch path {
@@ -42,7 +44,14 @@ actor FixtureTransport: HTTPTransport {
         case "users/search": response = .array([Self.peer])
         case "users/following": response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
         case "users/followers": response = .array([.object(["id": .string("relation1"), "follower": Self.peer])])
-        case "notes/home-timeline", "notes/local-timeline", "notes/global-timeline", "users/notes": response = .array(posts)
+        case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes": response = .array(posts)
+        case "announcements": response = .array([.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。")])])
+        case "music-charts/kpop-summary", "music-charts/kpop-chart":
+            let key = body["chartKey"].string ?? "melon-top100"
+            let chart = JSONValue.object(["chartKey": .string(key), "provider": .string(key == "genie-realtime" ? "genie" : "melon"), "label": .string(key == "genie-realtime" ? "Genie 实时榜" : "Melon TOP100"), "status": .string("available"), "rankBasis": .string("official_rank"), "coverage": .string("complete"), "lastSuccessAt": .string("2026-11-01T15:00:00Z")])
+            let song = JSONValue.object(["songId": .string("fixturesong"), "title": .string("NEON"), "artists": .array([.object(["name": .string("A2O LITE")])]), "rank": .number(1), "groupIds": .strings(["a2o-lite"]), "sourceMovement": .object(["type": .string("same")])])
+            response = .object(["selected": chart, "chart": chart, "charts": .array([chart, .object(["chartKey": .string("genie-realtime"), "label": .string("Genie 实时榜")])]), "entries": .array([song]), "total": .number(1), "hasMore": .bool(false)])
+        case "music-charts/kpop-history": response = .object(["basis": .string("observation"), "points": .array([.object(["observedAt": .string("2026-11-01T15:00:00Z"), "result": .string("ranked"), "rank": .number(1)])])])
         case "notes/show": response = posts.first { $0["id"] == body["noteId"] } ?? posts[0]
         case "notes/replies": response = .array([])
         case "notes/create":

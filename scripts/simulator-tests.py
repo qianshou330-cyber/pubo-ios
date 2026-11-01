@@ -6,7 +6,7 @@ import subprocess
 root = pathlib.Path('build')
 root.mkdir(exist_ok=True)
 devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
-iphones = [d for runtime, values in devices.items() if '.iOS-' in runtime for d in values if d['name'].startswith('iPhone')]
+iphones = [dict(d, runtime=runtime) for runtime, values in devices.items() if '.iOS-26-' in runtime for d in values if d['name'].startswith('iPhone')]
 if not iphones:
     raise SystemExit('No available iPhone simulator runtime')
 small = next((d for d in iphones if 'SE' in d['name']), next((d for d in iphones if 'Max' not in d['name'] and 'Plus' not in d['name']), iphones[0]))

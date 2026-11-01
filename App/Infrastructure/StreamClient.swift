@@ -51,7 +51,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                     self.socket = socket; socket.resume()
                     var channels: [(String, [String: JSONValue])] = [("main", [:])]
                     if let peer = self.peerID { channels.append(("chatUser", ["otherId": .string(peer)])) }
-                    else if let timeline = self.timeline, ["home", "local", "global"].contains(timeline) { channels.append((timeline + "Timeline", [:])) }
+                    else if let timeline = self.timeline, ["home", "local", "hybrid", "global"].contains(timeline) { channels.append((timeline + "Timeline", [:])) }
                     for (channel, parameters) in channels {
                         let packet: JSONValue = .object(["type": .string("connect"), "body": .object(["channel": .string(channel), "id": .string(channel), "params": .object(parameters)])])
                         try await socket.send(.data(try JSONEncoder().encode(packet)))

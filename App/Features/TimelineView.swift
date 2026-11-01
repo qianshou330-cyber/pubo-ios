@@ -18,22 +18,37 @@ struct TimelineView: View {
     @State private var requestID = UUID()
     @State private var requestTimeline = ""
     @State private var cached = false
+    @State private var homeRefresh = 0
+    @State private var restoredSelection = false
+    private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
 
     var body: some View {
         NavigationStack {
             List {
-                PUBOTimelineSelector(selection: $timeline).puboListRow()
+                HomeAnnouncements(refreshID: homeRefresh)
+                HomeChartPanel(refreshID: homeRefresh)
                 if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
                 ForEach(notes) { note in NoteCard(note: note) }
                 if loading { ProgressView().frame(maxWidth: .infinity) }
                 if notes.isEmpty && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
                 if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
-            }.puboList().navigationTitle("动态")
-                .toolbar { Button { composer = true } label: { Label("发帖", systemImage: "pencil").labelStyle(.titleAndIcon) }.buttonStyle(PUBOPostButtonStyle()).accessibilityLabel("发帖") }
+                Color.clear.frame(height: 56).listRowSeparator(.hidden).listRowBackground(Color.clear)
+            }.puboList().toolbar(.hidden, for: .navigationBar)
+                .safeAreaInset(edge: .top, spacing: 0) { header }
+                .overlay(alignment: .bottomTrailing) {
+                    Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.black).frame(width: 52, height: 52).background(.white, in: Circle()).overlay(Circle().strokeBorder(PUBOTheme.divider, lineWidth: 1)).shadow(color: .black.opacity(0.15), radius: 4, y: 2) }
+                        .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
+                }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
-                .refreshable { await load() }
+                .refreshable { homeRefresh += 1; await load() }
                 .task(id: timeline) {
+                    if !restoredSelection {
+                        restoredSelection = true
+                        if let owner = session.user?.id, let saved = try? session.store?.read(String.self, account: owner, key: "selected-timeline"), choices.contains(saved), saved != timeline { timeline = saved; return }
+                    }
+                    guard choices.contains(timeline) else { timeline = "home"; return }
+                    if let owner = session.user?.id { try? session.store?.save(timeline, account: owner, key: "selected-timeline") }
                     session.stream.showTimeline(timeline)
                     notes = []; hasMore = true; cached = false
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + timeline), !saved.notes.isEmpty, Date().timeIntervalSince(saved.savedAt) < 86_400 { notes = saved.notes; cached = true }
@@ -41,12 +56,23 @@ struct TimelineView: View {
                 }
                 .onAppear { session.stream.showTimeline(timeline) }
                 .onDisappear { session.stream.showTimeline(nil) }
+                .onChange(of: choices) { _, available in if !available.contains(timeline) { timeline = "home" } }
                 .task(id: session.streamRevision) {
                     guard session.selectedTab == 0 else { return }
                     try? await Task.sleep(for: .milliseconds(700))
                     if !Task.isCancelled { await load() }
                 }
         }
+    }
+    private var header: some View {
+        HStack(spacing: 0) {
+            if let user = session.user {
+                Button { session.selectedTab = 3 } label: { Avatar(user: user, size: 30).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel("我的资料")
+            }
+            PUBOTimelineSelector(selection: $timeline, available: choices, compact: true)
+            Button { homeRefresh += 1; Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel("刷新首页")
+        }.background(PUBOTheme.background).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 1) }
+            .accessibilityIdentifier("home.header")
     }
     private func load(older: Bool = false) async {
         guard !loading || requestTimeline != timeline else { return }
@@ -79,22 +105,31 @@ struct NoteCard: View {
     @State private var busy = false
     private var shown: Record { let n = current ?? note; return n.text.isEmpty && !n["renote"].isNull ? Record(n["renote"]) : n }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             NavigationLink { ProfileView(userID: shown.user.id) } label: {
-                HStack { Avatar(user: shown.user, size: 42); VStack(alignment: .leading) { Text(shown.user.displayName).font(.headline); Text("@" + (shown.user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) }; Spacer(); if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1) } }
+                HStack(alignment: .top, spacing: 8) {
+                    Avatar(user: shown.user, size: 38)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) { Text(shown.user.displayName).font(.subheadline.bold()); if shown.user["isBot"].bool { Text("bot").font(.caption2).padding(.horizontal, 3).overlay(RoundedRectangle(cornerRadius: 3).stroke(PUBOTheme.divider)) } }
+                        Text("@" + (shown.user["username"].string ?? "") + (shown.user["host"].string.map { "@" + $0 } ?? "")).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1) }
+                    Image(systemName: shown["visibility"].string == "followers" ? "lock" : shown["visibility"].string == "specified" ? "envelope" : "globe").font(.caption2).foregroundStyle(PUBOTheme.secondary)
+                }
             }.buttonStyle(.plain)
             if let cw = shown["cw"].string {
                 Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }
                     .buttonStyle(.borderless).accessibilityValue(revealCW ? "已展开" : "已隐藏")
             }
             if shown["cw"].isNull || revealCW {
-                NoteText(text: shown.text, remoteEmojis: shown["emojis"])
+                if detail { NoteText(text: shown.text, remoteEmojis: shown["emojis"]) }
+                else { NavigationLink { NoteDetailView(noteID: shown.id) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情") }
                 ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file) }
                 if !shown["poll"].isNull || shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
             }
-            if !detail { NavigationLink("查看帖子与回复") { NoteDetailView(noteID: shown.id) }.buttonStyle(.plain).font(.caption) }
             HStack(spacing: 12) {
-                Button { replying = true } label: { Image(systemName: "arrowshape.turn.up.left").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
+                Button { replying = true } label: { HStack(spacing: 4) { Image(systemName: "arrowshape.turn.up.left"); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(.caption) } }.frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
                 Menu {
                     Button("转发") { Task { await renote() } }
                     Button("引用转发") { quoting = true }
@@ -106,7 +141,7 @@ struct NoteCard: View {
                 ScrollView(.horizontal) { HStack(spacing: 8) { ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in Text("\(reaction) \(shown["reactions"][reaction].int)").font(.caption).padding(.horizontal, 10).padding(.vertical, 6).background(PUBOTheme.button, in: Capsule()) } } }
             }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
-        }.buttonStyle(.borderless).puboCard().puboListRow()
+        }.buttonStyle(.borderless).font(.subheadline).puboCard(padding: 12).puboListRow()
             .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
             .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }

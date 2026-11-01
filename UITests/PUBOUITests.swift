@@ -27,7 +27,11 @@ final class PUBOUITests: XCTestCase {
         let password = app.secureTextFields["auth.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only")
         app.buttons["auth.submit"].tap()
         XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 10))
-        for title in ["通知", "私信", "我的", "动态"] { app.tabBars.buttons[title].tap(); XCTAssertTrue(app.navigationBars[title].exists) }
+        for title in ["通知", "私信", "我的", "动态"] {
+            app.tabBars.buttons[title].tap()
+            if title == "动态" { XCTAssertTrue(app.buttons["刷新首页"].exists) }
+            else { XCTAssertTrue(app.navigationBars[title].exists) }
+        }
         capture(app, "light-timeline")
     }
 
@@ -59,6 +63,8 @@ final class PUBOUITests: XCTestCase {
     func testContentWarningStaysHidden() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
         let warning = app.buttons["内容提示"]
+        XCTAssertTrue(app.buttons["刷新首页"].waitForExistence(timeout: 10))
+        for _ in 0..<5 where !warning.isHittable { app.swipeUp() }
         XCTAssertTrue(warning.waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["这段文字需要展开内容警告后查看"].exists)
         warning.tap()
@@ -81,6 +87,33 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(check.waitForNonExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts.matching(identifier: "receipt-check").count, 1)
         capture(app, "chat-reconciled")
+    }
+
+    func testHomePanelsAndChartNavigation() {
+        for dark in [false, true] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
+            XCTAssertTrue(app.staticTexts["韩国女团音源榜"].waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts["欢迎加入 PUBO"].exists)
+            XCTAssertTrue(app.buttons["home.compose"].isHittable)
+            XCTAssertFalse(app.navigationBars["动态"].exists)
+            XCTAssertTrue(app.buttons["timeline.hybrid"].exists)
+            capture(app, dark ? "home-h5-dark" : "home-h5-light")
+            app.buttons["切换榜单"].tap(); app.buttons["Genie 实时榜"].tap()
+            XCTAssertTrue(app.staticTexts["Genie 实时榜"].waitForExistence(timeout: 5))
+            app.buttons["详情"].tap()
+            XCTAssertTrue(app.navigationBars["Genie 实时榜"].waitForExistence(timeout: 5))
+            app.buttons.containing(.staticText, identifier: "NEON").firstMatch.tap()
+            XCTAssertTrue(app.staticTexts["按本站采集时间记录"].waitForExistence(timeout: 5))
+            capture(app, "home-chart-history-\(dark)")
+            app.terminate()
+        }
+    }
+
+    func testSlowPanelsDoNotBlockTimelineOrComposer() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--slow-home-panels"]; app.launch()
+        XCTAssertTrue(app.staticTexts["测试用户"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home.compose"].isHittable); app.buttons["home.compose"].tap()
+        XCTAssertTrue(app.textViews["compose.text"].waitForExistence(timeout: 5))
     }
 
     func testLostPostResponseKeepsDraftAndDisablesResubmit() {

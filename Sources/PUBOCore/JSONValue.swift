@@ -1,6 +1,6 @@
 import Foundation
 
-public enum JSONValue: Codable, Equatable, Sendable {
+public enum JSONValue: Codable, Hashable, Sendable {
     case object([String: JSONValue]), array([JSONValue]), string(String), number(Double), bool(Bool), null
 
     public init(from decoder: Decoder) throws {

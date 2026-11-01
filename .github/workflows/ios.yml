@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Record build tools
         run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           xcodebuild -version
           swift --version
           brew install xcodegen
@@ -39,7 +40,7 @@ jobs:
           import json, pathlib, plistlib
           app = pathlib.Path('build/release/Build/Products/Release-iphonesimulator/PUBO.app')
           data = plistlib.loads((app / 'Info.plist').read_bytes())
-          expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.1.2', 'CFBundleVersion': '7', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1], 'CFBundleSupportedPlatforms': ['iPhoneSimulator']}
+          expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.2.0', 'CFBundleVersion': '8', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1], 'CFBundleSupportedPlatforms': ['iPhoneSimulator']}
           for key, value in expected.items():
               assert data.get(key) == value, (key, data.get(key), value)
           assert (app / 'PUBO').is_file()
