@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "commit": "a8096b6d72ddb384ad0c87d0b39dc365e201d81a",
+  "workflowRun": 41300490345,
+  "url": "https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41300490345",
+  "runner": "macos-15 standard",
+  "xcode": "16.4",
+  "swift": "6.1.2",
+  "coreTests": {
+    "count": 18,
+    "failures": 0
+  },
+  "uiTests": [
+    {
+      "device": "iPhone SE (3rd generation)",
+      "tests": 9,
+      "failures": 0,
+      "runtime": "iOS 18.5"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "tests": 9,
+      "failures": 0,
+      "runtime": "iOS 18.5"
+    }
+  ],
+  "releaseMetadata": {
+    "status": "PASS",
+    "values": {
+      "CFBundleIdentifier": "com.bolubo.native",
+      "CFBundleShortVersionString": "0.1.0",
+      "CFBundleVersion": "1",
+      "MinimumOSVersion": "17.0",
+      "UIDeviceFamily": [
+        1
+      ],
+      "CFBundleSupportedPlatforms": [
+        "iPhoneSimulator"
+      ]
+    }
+  },
+  "screenshots": 12,
+  "syntheticUIOnly": true,
+  "productionMessagesSent": 0,
+  "artifactSha256": "6a0d6b087119cd28eee19578c2aa3e2846982c906e43fb6562d2af30984e991a",
+  "notValidated": [
+    "Physical iPhone / signing / IPA / TestFlight",
+    "iOS 17 runtime",
+    "Native UI against isolated real backend",
+    "Real-device web authorization, Keychain, file protection, camera and microphone"
+  ]
+}

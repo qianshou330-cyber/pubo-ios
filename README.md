@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-开发进行中。尚未完成 Xcode 编译、模拟器或真机验收；不能作为可安装的正式版本分发。阶段结果见 `docs/STATUS.md`。
+原生源码和标准 macOS 云端构建已接通。已实际完成 Xcode 编译、两个 iPhone 尺寸的模拟器测试及 Release 模拟器构建；最终产物复核状态与测试边界见 `docs/STATUS.md`。尚未签名或进行真机验收，不能直接安装到 iPhone。
 
 ## 构建
 
@@ -34,7 +34,7 @@ GitHub Actions 使用标准 `macos-15`，45 分钟超时，产物保留 7 天，
 - `App/`：四个原生主页面、注册登录、发帖、个人设置及受保护私信。
 - `Sources/PUBOCore/`：本站接口、错误处理、发送回执和私信待发状态。
 - `Tests/`：可在 macOS 或 Linux Swift 运行的核心测试。
-- `UITests/`：隔离合成数据的 iPhone 界面测试，尚待云端执行。
+- `UITests/`：隔离合成数据的 iPhone 界面测试，覆盖登录导航、CW、弱网、私信及不确定发送。
 - `docs/BUILD.md`：构建、测试与签名交接。
 - `docs/ARCHITECTURE.md`：接口及本机数据边界。
 - `docs/STATUS.md`：实际结果与剩余验收项。
