@@ -1,0 +1,121 @@
+{
+  "status": "CLOUD_VALIDATED_DEVICE_IPA_UNSIGNED",
+  "version": "0.1.1",
+  "build": "2",
+  "validatedCommit": "6707a090e3065f95cb117606f9d8c93d26dba0d9",
+  "run": 41306913120,
+  "url": "https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41306913120",
+  "coreTests": {
+    "count": 18,
+    "failures": 0
+  },
+  "packageTests": {
+    "count": 5,
+    "failures": 0
+  },
+  "uiTests": [
+    {
+      "device": "iPhone SE (3rd generation)",
+      "count": 14,
+      "failures": 0
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "count": 14,
+      "failures": 0
+    }
+  ],
+  "release": {
+    "status": "PASS",
+    "values": {
+      "CFBundleIdentifier": "com.bolubo.native",
+      "CFBundleShortVersionString": "0.1.1",
+      "CFBundleVersion": "2",
+      "MinimumOSVersion": "17.0",
+      "UIDeviceFamily": [
+        1
+      ],
+      "CFBundleSupportedPlatforms": [
+        "iPhoneSimulator"
+      ]
+    }
+  },
+  "screenshots": 60,
+  "productionWrites": 0,
+  "syntheticUIOnly": true,
+  "pending": [
+    "Signing and physical iPhone installation/runtime validation",
+    "iOS 17 runtime",
+    "Native UI with isolated real backend end-to-end",
+    "Real microphone, authorization, Keychain and file protection",
+    "Valid policy pages and App privacy disclosures before distribution",
+    "H5 functional parity is incomplete; see H5_PARITY.md"
+  ],
+  "h5Comparison": {
+    "viewport": 390,
+    "source": "https://bolubo.com/",
+    "signupForm": "Verified from matching production source; did not accept real terms",
+    "nativeScreens": "Normal light/dark kept separate from accessibility-size screens"
+  },
+  "visualReview": {
+    "status": "PASS",
+    "screenshots": 60,
+    "devices": [
+      "iPhone SE (3rd generation)",
+      "iPhone 16 Pro Max"
+    ],
+    "normalThemeFontSizes": "MATCH",
+    "accountSheetDynamicType": "PASS with actual label height assertion",
+    "welcomeShadow": "background only",
+    "scope": "Reviewed exported screenshots and separate normal/accessibility-size contact sheets; not full accessibility or real-device validation",
+    "limitations": [
+      "Very large password placeholder can truncate horizontally; full field label and controls remain available"
+    ]
+  },
+  "devicePackage": {
+    "status": "PASS",
+    "commit": "6707a090e3065f95cb117606f9d8c93d26dba0d9",
+    "metadata": {
+      "CFBundleIdentifier": "com.bolubo.native",
+      "CFBundleShortVersionString": "0.1.1",
+      "CFBundleVersion": "2",
+      "MinimumOSVersion": "17.0",
+      "UIDeviceFamily": [
+        1
+      ],
+      "CFBundleSupportedPlatforms": [
+        "iPhoneOS"
+      ],
+      "DTPlatformName": "iphoneos"
+    },
+    "binaries": {
+      "PUBO": {
+        "architecture": "arm64",
+        "platform": "iOS",
+        "platformID": 2,
+        "signed": false
+      }
+    },
+    "codesign": "UNSIGNED",
+    "ipa": "PUBO-0.1.1-2-iphoneos-arm64-unsigned.ipa",
+    "bytes": 1355081,
+    "sha256": "2382f2d63930b5a8d66f2c68aba713a6fc224bd0a72df1429c45362989716731",
+    "requiresSigningBeforeInstallation": true,
+    "physicalDeviceTested": false
+  },
+  "h5FullParity": false,
+  "validationWorkflowConclusion": "failure_artifact_upload_only",
+  "packageRecovery": {
+    "run": 41309035703,
+    "url": "https://github.com/qianshou330-cyber/pubo-ios/actions/runs/41309035703",
+    "workflowCommit": "6e81ec954e1f18ae5e2003085994dc8aa213f9eb",
+    "checkedOutCommit": "6707a090e3065f95cb117606f9d8c93d26dba0d9",
+    "conclusion": "success",
+    "artifactId": 13084790526,
+    "artifactSHA256": "6a159757eb182125f30c7290fb0360c5126c438037963196d5f8d43616841413"
+  },
+  "protectedBusinessScope": {
+    "protectedFilesUnchanged": 18,
+    "requestAndMutationGroupsUnchanged": 6
+  }
+}
