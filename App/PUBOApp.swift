@@ -9,7 +9,7 @@ struct PUBOApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if session.restoring { VStack(spacing: 20) { PUBOBrand(); ProgressView("正在恢复账号…") }.frame(maxWidth: .infinity, maxHeight: .infinity).background(PUBOTheme.background) }
+                if session.restoring { AppLaunchSkeleton() }
                 else if session.user == nil { AuthView() }
                 else {
                     TabView(selection: $session.selectedTab) {

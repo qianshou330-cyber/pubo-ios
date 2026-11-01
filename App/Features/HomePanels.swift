@@ -13,10 +13,15 @@ struct HomeAnnouncements: View {
     @State private var error: String?
     @State private var cached = false
     @State private var loading = false
+    @State private var firstLoadFinished = false
     var refreshID: Int
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
 
     var body: some View {
+        Group {
+        if entries.isEmpty && !firstLoadFinished && error == nil {
+            AnnouncementLoadingSkeleton()
+        } else {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Label("站内公告", systemImage: "megaphone.fill").font(.caption.bold()).foregroundStyle(PUBOTheme.accent)
@@ -33,7 +38,9 @@ struct HomeAnnouncements: View {
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试公告") }
             }
             if cached || error != nil { Text(error == nil ? "公告缓存" : "公告刷新失败" ).font(.caption2).foregroundStyle(PUBOTheme.secondary) }
-        }.padding(.horizontal, 10).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).puboListRow()
+        }.padding(.horizontal, 10).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12))
+        }
+        }.puboListRow()
             .task(id: "\(active)-\(refreshID)") {
                 guard active else { return }
                 if entries.isEmpty, let owner = session.user?.id,
@@ -62,9 +69,9 @@ struct HomeAnnouncements: View {
                 cursor = next
             } while !Task.isCancelled
             try Task.checkCancellation()
-            entries = HomeContent.publicAnnouncements(all); error = nil; cached = false
+            entries = HomeContent.publicAnnouncements(all); error = nil; cached = false; firstLoadFinished = true
             if let owner = session.user?.id { try? session.store?.save(HomeSnapshot(savedAt: Date(), value: .array(entries.map(\.raw))), account: owner, key: "home-announcements") }
-        } catch is CancellationError { } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch is CancellationError { } catch { if !Task.isCancelled { firstLoadFinished = true; self.error = error.localizedDescription } }
     }
 }
 
@@ -96,6 +103,10 @@ struct HomeChartPanel: View {
     private var rows: [JSONValue] { HomeContent.chartRows(data, limit: 2) }
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
     var body: some View {
+        Group {
+        if data.isNull && error == nil {
+            ChartLoadingSkeleton()
+        } else {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image("ChartCover").resizable().scaledToFit().frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityHidden(true)
@@ -126,11 +137,15 @@ struct HomeChartPanel: View {
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试榜单") }
             }
-        }.puboCard(padding: 12).puboListRow()
+        }.puboCard(padding: 12)
+        }
+        }.puboListRow()
             .task(id: "\(active)-\(key)-\(refreshID)") {
                 guard active else { return }
-                data = .null; cached = false
-                if let owner = session.user?.id, let snapshot = try? session.store?.read(HomeSnapshot.self, account: owner, key: "chart-" + key), Date().timeIntervalSince(snapshot.savedAt) < 86_400 { data = snapshot.value; cached = true }
+                if data["selected"]["chartKey"].string != key {
+                    data = .null; cached = false; error = nil
+                    if let owner = session.user?.id, let snapshot = try? session.store?.read(HomeSnapshot.self, account: owner, key: "chart-" + key), Date().timeIntervalSince(snapshot.savedAt) < 86_400 { data = snapshot.value; cached = true }
+                }
                 repeat {
                     await load()
                     do { try await Task.sleep(for: .seconds(60)) } catch { return }

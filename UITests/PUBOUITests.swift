@@ -132,6 +132,46 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.textViews["compose.text"].waitForExistence(timeout: 5))
     }
 
+    func testSkeletonLoadingResolvesIndependently() {
+        for dark in [false, true] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--skeleton-loading"] + (dark ? ["--dark"] : []); app.launch()
+            let skeleton = app.descendants(matching: .any).matching(identifier: "loading.post").firstMatch
+            XCTAssertTrue(skeleton.waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["暂时没有帖子"].exists)
+            XCTAssertTrue(app.buttons["home.compose"].isHittable)
+            capture(app, dark ? "loading-skeleton-dark" : "loading-skeleton-light")
+            XCTAssertTrue(app.staticTexts["测试用户"].firstMatch.waitForExistence(timeout: 15))
+            XCTAssertTrue(skeleton.waitForNonExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["home.announcement.fixtureannouncement"].waitForExistence(timeout: 5))
+            app.terminate()
+        }
+    }
+
+    func testSkeletonFailureAndReducedMotion() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--skeleton-failure"]; app.launch()
+        let skeleton = app.descendants(matching: .any).matching(identifier: "loading.post").firstMatch
+        XCTAssertTrue(skeleton.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["重试"].waitForExistence(timeout: 10))
+        XCTAssertTrue(skeleton.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["我的"].isHittable)
+        capture(app, "loading-skeleton-failure")
+        app.terminate()
+        app.launchArguments = ["--ui-testing", "--skeleton-loading", "--reduce-motion", "--dark"]; app.launch()
+        XCTAssertTrue(skeleton.waitForExistence(timeout: 5))
+        XCTAssertEqual(skeleton.value as? String, "加载中，静态占位")
+        capture(app, "loading-skeleton-reduce-motion")
+        XCTAssertTrue(app.staticTexts["测试用户"].firstMatch.waitForExistence(timeout: 15))
+    }
+
+    func testLaunchSkeletonReleasesAfterAccountRestore() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--slow-startup"]; app.launch()
+        let launch = app.descendants(matching: .any).matching(identifier: "loading.launch").firstMatch
+        XCTAssertTrue(launch.waitForExistence(timeout: 5))
+        capture(app, "loading-launch-skeleton")
+        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 12))
+        XCTAssertTrue(launch.waitForNonExistence(timeout: 5))
+    }
+
     func testPullRefreshAndForegroundRefreshWithoutHeaderButtons() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
         let newest = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "刷新样例 ")).firstMatch

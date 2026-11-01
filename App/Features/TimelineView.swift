@@ -21,6 +21,7 @@ struct TimelineView: View {
     @State private var cached = false
     @State private var homeRefresh = 0
     @State private var restoredSelection = false
+    @State private var firstLoadFinished = false
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
 
@@ -31,9 +32,12 @@ struct TimelineView: View {
                 HomeChartPanel(refreshID: homeRefresh)
                 if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
+                if notes.isEmpty && !firstLoadFinished && error == nil {
+                    ForEach(0..<3) { _ in PostLoadingSkeleton().puboListRow() }
+                }
                 ForEach(notes) { note in NoteCard(note: note) }
-                if loading { ProgressView().frame(maxWidth: .infinity) }
-                if notes.isEmpty && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
+                if loading && !notes.isEmpty { ProgressView().frame(maxWidth: .infinity) }
+                if notes.isEmpty && firstLoadFinished && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
                 if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
                 Color.clear.frame(height: 56).listRowSeparator(.hidden).listRowBackground(Color.clear)
             }.puboList().toolbar(.hidden, for: .navigationBar)
@@ -52,7 +56,7 @@ struct TimelineView: View {
                     guard choices.contains(timeline) else { timeline = "home"; return }
                     if let owner = session.user?.id { try? session.store?.save(timeline, account: owner, key: "selected-timeline") }
                     session.stream.showTimeline(timeline)
-                    notes = []; hasMore = true; cached = false
+                    notes = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + timeline), !saved.notes.isEmpty, Date().timeIntervalSince(saved.savedAt) < 86_400 { notes = saved.notes; cached = true }
                     await load()
                 }
@@ -92,10 +96,10 @@ struct TimelineView: View {
             let result = Record.list(try await session.call("notes/\(selected)-timeline", fields))
             try Task.checkCancellation()
             guard selected == timeline, requestID == attempt else { return }
-            notes = Records.merge(notes, result, limit: 2_000); error = nil; cached = false
+            notes = Records.merge(notes, result, limit: 2_000); error = nil; cached = false; firstLoadFinished = true
             if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected) }
             if older || notes.count <= 20 { hasMore = result.count == 20 && notes.count < 2_000 }
-        } catch is CancellationError { } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch is CancellationError { } catch { if !Task.isCancelled && requestID == attempt { firstLoadFinished = true; self.error = error.localizedDescription } }
     }
 }
 

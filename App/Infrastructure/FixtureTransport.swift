@@ -28,6 +28,9 @@ actor FixtureTransport: HTTPTransport {
         let path = request.url!.path.replacingOccurrences(of: "/api/", with: "")
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("--slow-startup"), path == "i" { try await Task.sleep(for: .seconds(5)) }
+        if args.contains("--skeleton-loading"), path.contains("timeline") || path == "announcements" || path == "music-charts/kpop-summary" { try await Task.sleep(for: .seconds(7)) }
+        if args.contains("--skeleton-failure"), path.contains("timeline") { try await Task.sleep(for: .seconds(4)); throw URLError(.timedOut) }
         if args.contains("--network-error"), path.contains("timeline") { throw URLError(.timedOut) }
         if args.contains("--slow"), path == "emojis" { try await Task.sleep(for: .seconds(20)) }
         if args.contains("--slow-home-panels"), path == "announcements" || path == "music-charts/kpop-summary" { try await Task.sleep(for: .seconds(20)) }
