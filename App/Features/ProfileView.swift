@@ -141,10 +141,13 @@ struct MyAccountView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let user = session.user { Section { NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user, size: 56); Text(user.displayName).font(.title2.bold()) } } } }
+                if let user = session.user { Section { NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user, size: 56); Text(user.displayName).font(.title2.bold()) } } }.listRowBackground(PUBOTheme.panel) }
                 Section("私信隐私") {
-                    Picker("谁可以发起聊天", selection: $chatScope) {
-                        Text("所有人").tag("everyone"); Text("关注我的人").tag("followers"); Text("我关注的人").tag("following"); Text("仅相互关注").tag("mutual"); Text("不允许").tag("none")
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("谁可以发起聊天").font(.subheadline)
+                        Picker("谁可以发起聊天", selection: $chatScope) {
+                            Text("所有人").tag("everyone"); Text("关注我的人").tag("followers"); Text("我关注的人").tag("following"); Text("仅相互关注").tag("mutual"); Text("不允许").tag("none")
+                        }.pickerStyle(.menu).labelsHidden().frame(maxWidth: .infinity, alignment: .leading)
                     }
                     Text("仅相互关注：未互相关注的人可发送一条文字留言，回复后可继续聊天。").font(.footnote).foregroundStyle(.secondary)
                     Button("保存接收设置") { Task { do { _ = try await session.call("i/update", ["chatScope": .string(chatScope)], mutation: true); try await session.refreshUser(); error = "设置已保存" } catch { self.error = error.localizedDescription } } }
@@ -185,3 +188,4 @@ struct DeleteAccountView: View {
         }.onDisappear { password = ""; otp = "" }
     }
 }
+

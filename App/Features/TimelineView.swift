@@ -29,7 +29,7 @@ struct TimelineView: View {
                 if notes.isEmpty && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
                 if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
             }.puboList().navigationTitle("动态")
-                .toolbar { Button { composer = true } label: { Label("发帖", systemImage: "square.and.pencil") }.buttonStyle(PUBOButtonStyle(kind: .publish)).accessibilityLabel("发帖") }
+                .toolbar { Button { composer = true } label: { Label("发帖", systemImage: "square.and.pencil").labelStyle(.titleAndIcon) }.buttonStyle(PUBOButtonStyle(kind: .publish)).accessibilityLabel("发帖") }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } } }
                 .refreshable { await load() }
                 .task(id: timeline) {
@@ -143,3 +143,4 @@ struct NoteDetailView: View {
         } catch { self.error = error.localizedDescription }
     }
 }
+

@@ -33,8 +33,8 @@ struct ComposeView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let replyTo { Section("回复 \(replyTo.user.displayName)") { Text(replyTo.text).lineLimit(3) } }
-                if let renote { Section("引用转发") { Text(renote.text).lineLimit(3) } }
+                if let replyTo { Section("回复 \(replyTo.user.displayName)") { Text(replyTo.text).lineLimit(3) }.listRowBackground(PUBOTheme.panel) }
+                if let renote { Section("引用转发") { Text(renote.text).lineLimit(3) }.listRowBackground(PUBOTheme.panel) }
                 Section {
                     TextEditor(text: $draft.text).scrollContentBackground(.hidden).frame(minHeight: 160).accessibilityIdentifier("compose.text")
                     Button("插入表情") { choosingEmoji = true }
@@ -46,13 +46,13 @@ struct ComposeView: View {
                         HStack { Text(file["name"].string ?? "已上传附件"); Spacer(); Button("移除") { draft.files.removeAll { $0.id == file.id }; save() }.listRowBackground(PUBOTheme.panel).disabled(busy || draft.outcome != "ready") }
                     }
                 }.listRowBackground(PUBOTheme.panel).disabled(busy || draft.outcome != "ready")
-                if let error { Section { Text(error).foregroundStyle(.red) } }
+                if let error { Section { Text(error).foregroundStyle(.red) }.listRowBackground(PUBOTheme.panel) }
                 if draft.outcome != "ready" {
                     Section("发送结果待确认") {
                         Text("请先检查自己的帖子。此接口不能保证重复提交只产生一条帖子，客户端不会自动重发。")
                         if let user = session.user { NavigationLink("查看我的帖子") { ProfileView(userID: user.id) } }
                         Button("已核对记录，恢复手动提交") { confirmRetry = true }
-                    }
+                    }.listRowBackground(PUBOTheme.panel)
                 }
             }.puboForm().navigationTitle(replyTo == nil ? "发布帖子" : "回复帖子")
                 .toolbar {
@@ -113,3 +113,4 @@ struct ComposeView: View {
         }
     }
 }
+

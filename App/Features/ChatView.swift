@@ -79,7 +79,7 @@ struct ChatView: View {
                 Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.accessibilityLabel("插入表情")
                 Spacer(minLength: 0)
                 Button { Task { await sendNew() } } label: {
-                    Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44)
+                    Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44).foregroundStyle(PUBOTheme.accent)
                 }.disabled(busy || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)).accessibilityLabel("发送消息").accessibilityIdentifier("chat.send")
             }.buttonStyle(.borderless)
         }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
@@ -120,10 +120,10 @@ struct ChatView: View {
         }.padding(.leading, 40).frame(maxWidth: .infinity, alignment: .trailing)
     }
     private func retryButton(_ item: PendingChat) -> some View {
-        Button(item.state == .uncertain ? "核对发送结果" : "手动重试") { Task { await retry(item) } }.disabled(busy).frame(minHeight: 44)
+        Button(item.state == .uncertain ? "核对发送结果" : "手动重试") { Task { await retry(item) } }.disabled(busy).frame(minHeight: 44).foregroundStyle(PUBOTheme.accent)
     }
     private func removeButton(_ item: PendingChat) -> some View {
-        Button("移除待发") { pending.removeAll { $0.id == item.id }; persist() }.frame(minHeight: 44)
+        Button("移除待发") { pending.removeAll { $0.id == item.id }; persist() }.frame(minHeight: 44).foregroundStyle(PUBOTheme.accent)
     }
     private func restore() {
         guard let account = session.user?.id else { return }
@@ -266,3 +266,4 @@ struct PrivateAttachmentView: View {
         }
     }
 }
+

@@ -39,6 +39,7 @@ final class PUBOUITests: XCTestCase {
         let error = app.staticTexts["chat.pending.error"]
         XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(error.label.contains("对方未回复之前只能发送一条消息"))
         XCTAssertTrue(app.buttons["手动重试"].exists)
+        capture(app, "web-style-chat-reply-required")
     }
 
     func testSlowEmojiDoesNotBlockLogin() {
@@ -157,3 +158,4 @@ final class PUBOUITests: XCTestCase {
         capture(app, "web-style-chat-large-keyboard")
     }
 }
+
