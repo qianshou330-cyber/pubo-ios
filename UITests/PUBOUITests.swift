@@ -23,7 +23,8 @@ final class PUBOUITests: XCTestCase {
         app.buttons["auth.openLogin"].tap()
         let username = app.textFields["auth.username"]
         XCTAssertTrue(username.waitForExistence(timeout: 10)); username.tap(); username.typeText("fixture")
-        let password = app.secureTextFields["auth.password"]; password.tap(); password.typeText("synthetic-only")
+        app.buttons["auth.loginContinue"].tap()
+        let password = app.secureTextFields["auth.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only")
         app.buttons["auth.submit"].tap()
         XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 10))
         for title in ["通知", "私信", "我的", "动态"] { app.tabBars.buttons[title].tap(); XCTAssertTrue(app.navigationBars[title].exists) }
@@ -45,7 +46,7 @@ final class PUBOUITests: XCTestCase {
     func testSlowEmojiDoesNotBlockLogin() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out", "--slow"]; app.launch()
         XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
-        XCTAssertTrue(app.buttons["auth.submit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["auth.loginContinue"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["auth.username"].isEnabled)
     }
 
@@ -116,20 +117,69 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testWelcomeRegistrationSheetCanCloseAndLogin() {
+        for dark in [false, true] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out"] + (dark ? ["--dark"] : []); app.launch()
+            let signup = app.buttons["auth.openRegister"]
+            XCTAssertTrue(signup.waitForExistence(timeout: 10)); XCTAssertTrue(signup.isHittable)
+            XCTAssertTrue(app.buttons["auth.openLogin"].isHittable)
+            capture(app, dark ? "h5-sync-welcome-dark-normal" : "h5-sync-welcome-light-normal")
+            signup.tap()
+            XCTAssertTrue(app.navigationBars["注册 PUBO"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["auth.registrationContinue"].isEnabled)
+            capture(app, dark ? "h5-sync-registration-intro-dark" : "h5-sync-registration-intro-light")
+            app.switches["auth.agreeNotes"].tap()
+            app.buttons["auth.registrationContinue"].tap()
+            XCTAssertTrue(app.textFields["auth.phone"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.secureTextFields["auth.confirmation"].exists)
+            XCTAssertFalse(app.buttons["auth.requestCode"].isEnabled)
+            capture(app, dark ? "h5-sync-registration-dark" : "h5-sync-registration-light")
+            app.buttons["auth.close"].tap()
+            XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
+            XCTAssertTrue(app.navigationBars["登录 PUBO"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.secureTextFields["auth.password"].exists)
+            capture(app, dark ? "h5-sync-login-username-dark" : "h5-sync-login-username-light")
+            let username = app.textFields["auth.username"]; username.tap(); username.typeText("fixture")
+            app.buttons["auth.loginContinue"].tap()
+            XCTAssertTrue(app.secureTextFields["auth.password"].waitForExistence(timeout: 5))
+            capture(app, dark ? "h5-sync-login-password-dark" : "h5-sync-login-password-light")
+            app.terminate()
+        }
+    }
+
+    func testPasswordVisibilityAndAccountChangePreserveSafety() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out"]; app.launch()
-        let signup = app.buttons["auth.openRegister"]
-        XCTAssertTrue(signup.waitForExistence(timeout: 10)); XCTAssertTrue(signup.isHittable)
-        XCTAssertTrue(app.buttons["auth.openLogin"].isHittable)
-        capture(app, "web-style-welcome-light")
-        signup.tap()
-        XCTAssertTrue(app.navigationBars["注册 PUBO"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.secureTextFields["再次输入密码"].exists)
-        XCTAssertTrue(app.textFields["手机号码"].exists)
-        capture(app, "web-style-registration")
-        app.buttons["auth.close"].tap()
-        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
-        XCTAssertTrue(app.navigationBars["登录 PUBO"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.secureTextFields["再次输入密码"].exists)
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 10)); app.buttons["auth.openLogin"].tap()
+        let username = app.textFields["auth.username"]; XCTAssertTrue(username.waitForExistence(timeout: 5)); username.tap(); username.typeText("fixture")
+        app.buttons["auth.loginContinue"].tap()
+        let password = app.secureTextFields["auth.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic")
+        app.buttons["auth.password.visibility"].tap()
+        let revealed = app.textFields["auth.password"]; XCTAssertTrue(revealed.waitForExistence(timeout: 5)); XCTAssertEqual(revealed.value as? String, "synthetic")
+        app.buttons["auth.password.visibility"].tap()
+        XCTAssertTrue(app.secureTextFields["auth.password"].waitForExistence(timeout: 5))
+        app.buttons["auth.changeAccount"].tap()
+        XCTAssertTrue(app.textFields["auth.username"].waitForExistence(timeout: 5))
+        app.buttons["auth.loginContinue"].tap()
+        XCTAssertTrue(app.secureTextFields["auth.password"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["auth.submit"].isEnabled)
+    }
+
+    func testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out", "--dark", "--large-text"]; app.launch()
+        XCTAssertTrue(app.buttons["auth.openRegister"].waitForExistence(timeout: 10)); app.buttons["auth.openRegister"].tap()
+        let notes = app.switches["auth.agreeNotes"]
+        for _ in 0..<5 where !notes.isHittable { app.swipeUp() }
+        XCTAssertTrue(notes.isHittable); notes.tap()
+        let proceed = app.buttons["auth.registrationContinue"]
+        for _ in 0..<5 where !proceed.isHittable { app.swipeUp() }
+        XCTAssertTrue(proceed.isHittable); proceed.tap()
+        let code = app.buttons["auth.requestCode"]
+        for _ in 0..<6 where !code.isHittable { app.swipeUp() }
+        XCTAssertTrue(code.isHittable); XCTAssertFalse(code.isEnabled)
+        capture(app, "h5-sync-registration-accessibility-large")
+        let confirm = app.secureTextFields["auth.confirmation"]
+        for _ in 0..<5 where !confirm.isHittable { app.swipeUp() }
+        XCTAssertTrue(confirm.isHittable)
+        capture(app, "h5-sync-registration-passwords-accessibility-large")
     }
 
     func testWebStyleFeedsAndChatsInBothThemes() {
