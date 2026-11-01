@@ -18,6 +18,7 @@ struct ChatMessageActions: View {
     @State private var draft: MessageEditDraft?
     @State private var busy = false
     @State private var error: String?
+    @State private var feedback: String?
     @State private var confirmRecall = false
     @State private var reactionPicker = false
     @State private var reporting = false
@@ -53,6 +54,7 @@ struct ChatMessageActions: View {
                 }
                 if !own { Button("举报这条私信") { reporting = true } }
                 if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("chat.action.error") }
+                if let feedback { Text(feedback).foregroundStyle(.secondary) }
                 Button("核对最新状态") { Task { await refresh() } }.disabled(busy)
             }.puboForm().navigationTitle("消息操作").toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() }.disabled(busy) } }
                 .task {
@@ -84,9 +86,10 @@ struct ChatMessageActions: View {
     }
     private func refresh() async {
         guard !busy else { return }; busy = true; defer { busy = false }
+        feedback = nil
         do {
             let value = try await fetch()
-            if let draft, draft.uncertain && value["revision"].int > draft.revision && value.text == draft.text.trimmingCharacters(in: .whitespacesAndNewlines) { self.draft = nil; saveDraft(); error = "已核对，编辑已生效。" }
+            if let draft, draft.uncertain && value["revision"].int > draft.revision && value.text == draft.text.trimmingCharacters(in: .whitespacesAndNewlines) { self.draft = nil; saveDraft(); error = nil; feedback = "已核对，编辑已生效。" }
             else { error = nil }
         } catch { self.error = error.localizedDescription }
     }
@@ -95,13 +98,14 @@ struct ChatMessageActions: View {
         let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty && text.unicodeScalars.count <= 2_000 else { error = "消息需要 1～2000 个字符。"; return }
         busy = true; defer { busy = false }
+        feedback = nil
         self.draft?.uncertain = true
         guard saveDraft() else { self.draft?.uncertain = false; return }
         do {
             let result = Record(try await session.call("chat/messages/update", ["messageId": .string(message.id), "text": .string(text), "expectedRevision": .number(Double(draft.revision))], mutation: true))
             guard result.id == message.id, result.text == text, result["revision"].int == draft.revision + 1, result["recalledAt"].isNull else { throw APIError.uncertain }
             current = ChatRecords.merge([shown], [result]).first; if let current { updated(current) }
-            self.draft = nil; saveDraft(); error = "编辑已保存。"
+            self.draft = nil; saveDraft(); error = nil; feedback = "编辑已保存。"
         } catch {
             if (error as? APIError)?.code != "OUTCOME_UNKNOWN" { self.draft?.uncertain = false; saveDraft() }
             self.error = error.localizedDescription
@@ -111,10 +115,11 @@ struct ChatMessageActions: View {
     }
     private func recall() async {
         guard !busy, own, alive else { return }; busy = true; defer { busy = false }
+        feedback = nil
         do {
             let before = try await fetch()
             if before["recalledAt"].isNull { _ = try await session.call("chat/messages/delete", ["messageId": .string(message.id)], mutation: true) }
-            _ = try await fetch(); error = alive ? "撤回结果尚未确认，请核对最新状态。" : "已撤回。"
+            _ = try await fetch(); error = alive ? "撤回结果尚未确认，请核对最新状态。" : nil; feedback = alive ? nil : "已撤回。"
         } catch { self.error = error.localizedDescription; _ = try? await fetch() }
     }
     private func react(_ reaction: String, remove: Bool) async {

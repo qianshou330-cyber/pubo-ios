@@ -17,7 +17,7 @@ xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk ipho
 
 ## GitHub Actions
 
-目标公开仓库为 `qianshou330-cyber/pubo-ios`。`main` push、PR 和手动运行触发标准 `macos-15`，单次 45 分钟超时，产物保留 7 天，无签名 secrets，无付费 runner。并发更新取消旧构建。工作流执行 core 单测、5 项设备包校验单测、两个不同尺寸 iPhone 的 UI 测试、Release 模拟器回归，以及独立的 **iPhoneOS 真机 Release 构建和未签名 IPA 封装**。
+目标公开仓库为 `qianshou330-cyber/pubo-ios`。`main` push、PR 和手动运行触发标准 `macos-15`，主流程65分钟、联合验收流程60分钟超时，产物保留 7 天，无签名 secrets，无付费 runner。并发更新取消旧构建。工作流执行 core 单测、5 项设备包校验单测、两个不同尺寸 iPhone 的 UI 测试、Release 模拟器回归，以及独立的 **iPhoneOS 真机 Release 构建和未签名 IPA 封装**。
 
 两个产物独立：`ios-validation-<commit>` 保存测试、截图和模拟器 `.app`；`pubo-iphone-unsigned-<commit>` 保存设备 `.ipa` 和 `device-package.json`。请勿将前者改扩展名充当真机包。
 
@@ -43,7 +43,7 @@ xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk ipho
 python3 scripts/package-device.py
 ```
 
-输出 `build/unsigned/PUBO-0.2.0-14-iphoneos-arm64-unsigned.ipa`，结构为 `Payload/PUBO.app`。校验脚本同时核对 Info.plist 的 iPhoneOS、二进制 Mach-O 的 iOS 平台值 2（拒绝值 7 的 arm64 模拟器）、arm64 架构、可执行权限、无代码签名/描述文件、ZIP 内容一致和 SHA-256。重复执行拒绝覆盖同名 IPA，需使用新的构建目录或先归档原产物。版本升级时同步调整校验预期。
+输出 `build/unsigned/PUBO-0.2.0-<build>-iphoneos-arm64-unsigned.ipa`，结构为 `Payload/PUBO.app`。校验脚本同时核对 Info.plist 的 iPhoneOS、二进制 Mach-O 的 iOS 平台值 2（拒绝值 7 的 arm64 模拟器）、arm64 架构、可执行权限、无代码签名/描述文件、ZIP 内容一致和 SHA-256。重复执行拒绝覆盖同名 IPA，需使用新的构建目录或先归档原产物。版本升级时同步调整校验预期。
 
 **未签名 IPA 不能直接安装到普通 iPhone。** 它是后续签名输入，不是已安装验收或 App Store 分发成品。应以 Apple 开发者签名证书、与 Bundle ID 匹配的描述文件及适用设备/分发方式签名；注册测试设备后可按开发或 Ad Hoc 方式安装。详见 [Apple 设备分发说明](https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices)。不使用他人证书或未经核实的付费签名服务。
 
@@ -60,7 +60,7 @@ TestFlight/App Store 前须完成真机安装、相机/相册与麦克风授权�
 - CI 无模拟器：安装可用 iPhone runtime；不要把未运行的测试标成通过。
 - 生成/编译失败：保留 xcresult 和构建报错，修复后重跑该候选；不能凭 Linux 语法检查分发 App。
 
-这轮不部署网站，不需要重启生产容器，也没有数据库回滚操作。
+当前推送扩展增加默认关闭的独立原生推送能力和设备订阅表；发布只替换经过核验的后端，网页静态资源保持。故障关闭新能力或回退应用镜像，绝不恢复旧数据库覆盖业务记录。
 
 首页测试另支持 Debug 参数 `--slow-startup`、`--skeleton-loading`、`--skeleton-failure`、`--reduce-motion`、`--refreshable-feed`；生产 Release 不启用合成延迟或数据。
 

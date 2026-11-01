@@ -30,7 +30,7 @@ import XCTest
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
         app.buttons["搜索"].tap()
         let field = app.textFields["search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
-        XCTAssertTrue(app.staticTexts["PUBO joint proof #PUBO"].waitForExistence(timeout: 15))
+        guard app.staticTexts["PUBO joint proof #PUBO"].waitForExistence(timeout: 15) else { capture(app,"joint-search-failure"); XCTFail("Search must return the real seeded post"); return }
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 10)); capture(app,"joint-real-search-favorite")
         let saved = try await proof("favorite"); XCTAssertTrue(saved)

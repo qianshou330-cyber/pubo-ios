@@ -20,6 +20,7 @@ struct SearchView: View {
                 TextField("搜索帖子、用户或话题", text: $query)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.search)
                     .accessibilityIdentifier("search.query")
+                    .onSubmit { Task { await search(reset: true) } }
                 Button("搜索") { Task { await search(reset: true) } }
                     .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
                     .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
@@ -39,10 +40,9 @@ struct SearchView: View {
             else if more { Button("加载更多") { Task { await search(reset: false) } } }
             else if searched && records.isEmpty && tags.isEmpty && error == nil { Text("没有找到相关内容").foregroundStyle(.secondary) }
         }.puboList().navigationTitle("搜索").scrollDismissesKeyboard(.interactively)
-            .onSubmit(of: .search) { Task { await search(reset: true) } }
             .onChange(of: category) { _, _ in Task { await search(reset: true) } }
             .onChange(of: query) { _, _ in searchID = UUID(); busy = false; searched = false; records = []; tags = []; offset = 0; more = false; error = nil }
-            .onDisappear { searchID = UUID() }
+            .onDisappear { searchID = UUID(); busy = false }
     }
     private func search(reset: Bool) async {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
