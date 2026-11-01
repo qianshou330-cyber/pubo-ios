@@ -120,7 +120,7 @@ struct PUBOTimelineSelector: View {
                     .accessibilityIdentifier("timeline." + item.0)
                     .accessibilityLabel(item.1)
             }
-        }.background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
+        }
     }
 }
 

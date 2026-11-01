@@ -5,6 +5,19 @@ final class PUBOUITests: XCTestCase {
     private func capture(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)
     }
+    private func checkHomeMore(_ app: XCUIApplication, screenshot: String) {
+        let more = app.buttons["home.more"]
+        XCTAssertTrue(more.isHittable)
+        XCTAssertGreaterThanOrEqual(more.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(more.frame.height, 44)
+        more.tap()
+        let policy = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "隐私政策")).firstMatch
+        XCTAssertTrue(policy.waitForExistence(timeout: 5))
+        capture(app, screenshot)
+        // Dismiss outside the menu without following an external link.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.95)).tap()
+        XCTAssertTrue(policy.waitForNonExistence(timeout: 5))
+    }
     func testShellLaunches() {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--logged-out"]
@@ -110,6 +123,7 @@ final class PUBOUITests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(control.frame.height, 44, name)
             }
             capture(app, dark ? "home-h5-dark" : "home-h5-light")
+            checkHomeMore(app, screenshot: dark ? "home-more-dark" : "home-more-light")
             announcement.tap()
             XCTAssertTrue(app.navigationBars["站内公告"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.staticTexts["这是隔离测试公告，不会发布到生产。"].exists)
@@ -121,6 +135,13 @@ final class PUBOUITests: XCTestCase {
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chart.song.")).firstMatch.tap()
             XCTAssertTrue(app.staticTexts["按本站采集时间记录"].waitForExistence(timeout: 5))
             capture(app, "home-chart-history-\(dark)")
+            app.terminate()
+        }
+        for dark in [false, true] {
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--large-text"] + (dark ? ["--dark"] : []); app.launch()
+            XCTAssertTrue(app.buttons["timeline.home"].waitForExistence(timeout: 10))
+            capture(app, dark ? "home-header-large-dark" : "home-header-large-light")
+            checkHomeMore(app, screenshot: dark ? "home-more-large-dark" : "home-more-large-light")
             app.terminate()
         }
     }

@@ -85,7 +85,7 @@ struct TimelineView: View {
                 Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
             } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
                 .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
-        }.background(PUBOTheme.background).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 1) }
+        }.background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
     }
     private func load(older: Bool = false) async {
         guard !loading || requestTimeline != timeline else { return }
