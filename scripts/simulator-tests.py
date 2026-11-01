@@ -90,6 +90,14 @@ for index, template in enumerate(selected):
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=10)
         if bundle.exists():
+            try:
+                result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)],
+                                        capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    summary = json.loads(result.stdout)
+                    (root / f'ui-{index}-summary.json').write_text(json.dumps(summary, indent=2))
+            except (subprocess.TimeoutExpired, OSError, ValueError) as error:
+                print('Result summary unavailable: ' + str(error), flush=True)
             diagnostic(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(bundle),
                         '--output-path', str(screenshots)], timeout=90)
         if test_exit:

@@ -6,6 +6,20 @@ private struct HomeSnapshot: Codable {
     let value: JSONValue
 }
 
+enum HomeDestination: Hashable {
+    case announcement(JSONValue)
+    case chart(String)
+    case history(String, JSONValue)
+
+    @ViewBuilder var view: some View {
+        switch self {
+        case .announcement(let value): AnnouncementDetail(entry: Record(value))
+        case .chart(let key): ChartDetailView(chartKey: key)
+        case .history(let key, let song): ChartHistoryView(chartKey: key, song: song)
+        }
+    }
+}
+
 struct HomeAnnouncements: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
@@ -15,6 +29,7 @@ struct HomeAnnouncements: View {
     @State private var loading = false
     @State private var firstLoadFinished = false
     var refreshID: Int
+    var open: (HomeDestination) -> Void
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
 
     var body: some View {
@@ -28,9 +43,9 @@ struct HomeAnnouncements: View {
                 ScrollView(.horizontal) {
                     HStack(spacing: 20) {
                         ForEach(entries) { entry in
-                            NavigationLink { AnnouncementDetail(entry: entry) } label: {
+                            Button { open(.announcement(entry.raw)) } label: {
                                 Text(entry["title"].string ?? "公告").font(.subheadline).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle())
-                            }.buttonStyle(.plain).accessibilityIdentifier("home.announcement." + entry.id)
+                            }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text).accessibilityIdentifier("home.announcement." + entry.id)
                         }
                         if entries.isEmpty { Text(loading ? "加载中" : "暂无公告").font(.caption).foregroundStyle(PUBOTheme.secondary) }
                     }
@@ -99,6 +114,7 @@ struct HomeChartPanel: View {
     @State private var loading = false
     @State private var attempt = UUID()
     var refreshID: Int
+    var open: (HomeDestination) -> Void
     private var chart: JSONValue { data["selected"] }
     private var rows: [JSONValue] { HomeContent.chartRows(data, limit: 2) }
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
@@ -115,10 +131,10 @@ struct HomeChartPanel: View {
                     Text(chart["label"].string ?? "Melon TOP100").font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 }
                 Spacer(minLength: 0)
-                NavigationLink { ChartDetailView(chartKey: key) } label: { Text("详情").font(.caption).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.accent).accessibilityIdentifier("home.chartDetail")
+                Button { open(.chart(key)) } label: { Text("详情").font(.caption).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.accent).accessibilityIdentifier("home.chartDetail")
             }
             ForEach(rows, id: \.self) { row in
-                NavigationLink { ChartHistoryView(chartKey: key, song: row) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.buttonStyle(.plain)
+                Button { open(.history(key, row)) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text)
             }
             if rows.isEmpty { Text(loading ? "加载榜单中" : "当前范围暂无可展示歌曲").font(.caption).foregroundStyle(PUBOTheme.secondary).frame(minHeight: 44) }
             HStack(alignment: .center) {

@@ -22,14 +22,15 @@ struct TimelineView: View {
     @State private var homeRefresh = 0
     @State private var restoredSelection = false
     @State private var firstLoadFinished = false
+    @State private var homePath: [HomeDestination] = []
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $homePath) {
             List {
-                HomeAnnouncements(refreshID: homeRefresh)
-                HomeChartPanel(refreshID: homeRefresh)
+                HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
+                HomeChartPanel(refreshID: homeRefresh) { homePath.append($0) }
                 if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
                 if notes.isEmpty && !firstLoadFinished && error == nil {
@@ -41,6 +42,7 @@ struct TimelineView: View {
                 if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
                 Color.clear.frame(height: 56).listRowSeparator(.hidden).listRowBackground(Color.clear)
             }.puboList().toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: HomeDestination.self) { $0.view }
                 .safeAreaInset(edge: .top, spacing: 0) { header }
                 .overlay(alignment: .bottomTrailing) {
                     Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.black).frame(width: 52, height: 52).background(.white, in: Circle()).overlay(Circle().strokeBorder(PUBOTheme.divider, lineWidth: 1)).shadow(color: .black.opacity(0.15), radius: 4, y: 2) }

@@ -178,15 +178,15 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(newest.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["刷新首页"].exists)
         XCTAssertFalse(app.buttons["我的资料"].exists)
-        let before = newest.label
+        let before = Int(newest.label.split(separator: " ").last ?? "0") ?? 0
         app.collectionViews.firstMatch.swipeDown(velocity: .slow)
-        let changed = NSPredicate { _, _ in newest.exists && newest.label != before }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: changed, object: nil)], timeout: 10), .completed)
+        // Old rows remain in the list by design. Query the new row instead of
+        // holding the original accessibility element and expecting its label to mutate.
+        let refreshed = app.staticTexts["刷新样例 \(before + 1)"]
+        XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
         capture(app, "home-pull-to-refresh")
-        let afterPull = newest.label
         XCUIDevice.shared.press(.home); app.activate()
-        let resumed = NSPredicate { _, _ in newest.exists && newest.label != afterPull }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: resumed, object: nil)], timeout: 10), .completed)
+        XCTAssertTrue(app.staticTexts["刷新样例 \(before + 2)"].waitForExistence(timeout: 10))
         app.tabBars.buttons["我的"].tap()
         XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
         capture(app, "profile-avatar-tab")
