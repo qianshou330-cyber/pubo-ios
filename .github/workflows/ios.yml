@@ -31,6 +31,18 @@ jobs:
         run: python3 scripts/simulator-tests.py
       - name: Release simulator build
         run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Verify release metadata
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, plistlib
+          app = pathlib.Path('build/release/Build/Products/Release-iphonesimulator/PUBO.app')
+          data = plistlib.loads((app / 'Info.plist').read_bytes())
+          expected = {'CFBundleIdentifier': 'com.bolubo.native', 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '1', 'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1], 'CFBundleSupportedPlatforms': ['iPhoneSimulator']}
+          for key, value in expected.items():
+              assert data.get(key) == value, (key, data.get(key), value)
+          assert (app / 'PUBO').is_file()
+          pathlib.Path('build/release-metadata.json').write_text(json.dumps({'status': 'PASS', 'values': expected}, indent=2))
+          PY
       - name: Collect evidence
         if: always()
         uses: actions/upload-artifact@v4
