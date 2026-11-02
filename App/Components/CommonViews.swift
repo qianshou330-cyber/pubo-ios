@@ -17,13 +17,41 @@ struct Avatar: View {
     let user: Record
     var size: CGFloat = 40
     var body: some View {
-        AsyncImage(url: safeMediaURL(user["avatarUrl"].string)) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "person.crop.circle.fill").resizable().foregroundStyle(.secondary) }
-            .frame(width: size, height: size).clipShape(Circle()).accessibilityHidden(true)
+        ZStack {
+            AsyncImage(url: safeMediaURL(user["avatarUrl"].string)) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "person.crop.circle.fill").resizable().foregroundStyle(.secondary) }
+                .frame(width: size, height: size).clipShape(Circle())
+            ForEach(Array(user["avatarDecorations"].array.prefix(16).enumerated()), id: \.offset) { _, decoration in
+                if let url = safeMediaURL(decoration["url"].string) {
+                    AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+                        .frame(width: size * 1.5, height: size * 1.5)
+                        .scaleEffect(x: decoration["flipH"].bool ? -1 : 1, y: 1)
+                        .rotationEffect(.degrees(number(decoration["angle"]) * 360))
+                        .offset(x: size * number(decoration["offsetX"]), y: size * number(decoration["offsetY"]))
+                }
+            }
+        }.frame(width: size, height: size).accessibilityHidden(true)
+    }
+    private func number(_ value: JSONValue) -> Double { if case .number(let number) = value, number.isFinite { return max(-1, min(1, number)) }; return 0 }
+}
+
+struct RoleBadges: View {
+    let user: Record
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack {
+                ForEach(Record.list(user["badgeRoles"])) { role in
+                    HStack(spacing: 4) {
+                        if let url = safeMediaURL(role["iconUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.frame(width: 18, height: 18) }
+                        Text(role["name"].string ?? "角色")
+                    }.font(.caption).padding(5).background(PUBOTheme.button, in: Capsule())
+                }
+            }
+        }.scrollIndicators(.hidden)
     }
 }
 
 func safeMediaURL(_ text: String?) -> URL? {
-    guard let text, let url = URL(string: text), url.scheme == "https", url.user == nil, url.password == nil else { return nil }
+    guard let text, let url = URL(string: text), url.scheme == "https", let host = url.host, !host.isEmpty, url.user == nil, url.password == nil else { return nil }
     return url
 }
 
@@ -56,6 +84,7 @@ struct NoteText: View {
     var remoteEmojis: JSONValue = .null
     var expands = true
     @State private var emojiStore = InlineEmojiStore.shared
+    @State private var destination: NativeLinkTarget?
     private var parts: [String] {
         let pattern = try! NSRegularExpression(pattern: ":[a-zA-Z0-9_]+:")
         let ns = text as NSString
@@ -79,12 +108,19 @@ struct NoteText: View {
     private var rendered: Text {
         parts.reduce(Text("")) { output, part in
             if let key = urls.keys.first(where: { $0.hasPrefix(part + "https://") }), let image = emojiStore.images[key] { return output + Text(Image(uiImage: image)).baselineOffset(-3) }
-            return output + Text(part)
+            let source = NativeLink.linkedText(part)
+            let rich = (try? AttributedString(markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(part)
+            return output + Text(rich)
         }
     }
     var body: some View {
         rendered.textSelection(.enabled).frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
             .task(id: urls.keys.sorted().joined()) { await emojiStore.load(urls) }
+            .environment(\.openURL, OpenURLAction { url in
+                if let link = NativeLink(url) { destination = NativeLinkTarget(link: link); return .handled }
+                return NativeLink.publicURL(url.absoluteString) == nil ? .discarded : .systemAction
+            })
+            .sheet(item: $destination) { NativeLinkDestination(target: $0.link) }
     }
 }
 

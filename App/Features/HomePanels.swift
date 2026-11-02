@@ -28,34 +28,32 @@ struct HomeAnnouncements: View {
     @State private var cached = false
     @State private var loading = false
     @State private var firstLoadFinished = false
+    @State private var visible = false
+    @State private var editing: Record?
     var refreshID: Int
     var open: (HomeDestination) -> Void
-    private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
+    private var active: Bool { visible && session.selectedTab == 0 && scenePhase == .active }
 
     var body: some View {
         Group {
         if entries.isEmpty && !firstLoadFinished && error == nil {
             AnnouncementLoadingSkeleton()
-        } else {
+        } else if !entries.isEmpty || error != nil {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Label("站内公告", systemImage: "megaphone.fill").font(.caption.bold()).foregroundStyle(PUBOTheme.accent)
-                ScrollView(.horizontal) {
-                    HStack(spacing: 20) {
-                        ForEach(entries) { entry in
-                            Button { open(.announcement(entry.raw)) } label: {
-                                Text(entry["title"].string ?? "公告").font(.subheadline).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle())
-                            }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text).accessibilityIdentifier("home.announcement." + entry.id)
-                        }
-                        if entries.isEmpty { Text(loading ? "加载中" : "暂无公告").font(.caption).foregroundStyle(PUBOTheme.secondary) }
-                    }
-                }.scrollIndicators(.hidden)
+                RollingAnnouncementTitles(entries: entries, active: active) { open(.announcement($0.raw)) }
+                if session.user?["isAdmin"].bool == true && !entries.isEmpty {
+                    Menu { ForEach(entries) { entry in Button(entry["title"].string ?? "公告") { editing = entry } } } label: { Image(systemName: "square.and.pencil").frame(width: 44, height: 44) }.accessibilityLabel("修改公告")
+                }
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试公告") }
             }
             if cached || error != nil { Text(error == nil ? "公告缓存" : "公告刷新失败" ).font(.caption2).foregroundStyle(PUBOTheme.secondary) }
         }.padding(.horizontal, 10).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12))
         }
         }.puboListRow()
+            .onAppear { visible = true }.onDisappear { visible = false }
+            .sheet(item: $editing) { entry in AnnouncementEditor(original: entry) { Task { await load() } } }
             .task(id: "\(active)-\(refreshID)") {
                 guard active else { return }
                 if entries.isEmpty, let owner = session.user?.id,
@@ -91,16 +89,25 @@ struct HomeAnnouncements: View {
 }
 
 private struct AnnouncementDetail: View {
+    @Environment(AppSession.self) private var session
     let entry: Record
+    @State private var current: Record?
+    @State private var error: String?
+    private var shown: Record { current ?? entry }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(entry["title"].string ?? "站内公告").font(.title2.bold())
-                if let date = puboDate(entry["createdAt"].string) { Text(date, style: .date).font(.caption).foregroundStyle(PUBOTheme.secondary) }
-                NoteText(text: entry.text, remoteEmojis: .null)
+                Text(shown["title"].string ?? "站内公告").font(.title2.bold())
+                if let date = puboDate(shown["createdAt"].string) { Text(date, style: .date).font(.caption).foregroundStyle(PUBOTheme.secondary) }
+                NoteText(text: shown.text, remoteEmojis: .null)
+                if let url = safeMediaURL(shown["imageUrl"].string) { AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView() }; Link("打开公告原图", destination: url) }
+                if let error { ErrorBanner(message: error) }
                 Link("在本站查看公告", destination: Endpoint.origin.appendingPathComponent("announcements/" + entry.id))
             }.frame(maxWidth: .infinity, alignment: .leading).padding()
-        }.puboScreen().navigationTitle("站内公告")
+        }.puboScreen().navigationTitle("站内公告").task {
+            do { let value = Record(try await session.call("announcements/show", ["announcementId": .string(entry.id)])); try Task.checkCancellation(); guard value.id == entry.id else { throw APIError.invalidResponse }; current = value }
+            catch { if !Task.isCancelled { self.error = "最新公告读取失败，当前显示进入页面时的内容。" } }
+        }
     }
 }
 

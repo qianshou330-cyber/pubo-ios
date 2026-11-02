@@ -58,6 +58,32 @@ import XCTest
         XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForNonExistence(timeout: 10))
         XCTAssertTrue(quote.waitForExistence(timeout: 10))
     }
+    func testRealScheduledCreateAndCancel() async throws {
+        let app = launch(try await context())
+        XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 20)); app.buttons["home.compose"].tap()
+        let text = app.textViews["compose.text"]; text.tap(); text.typeText("Native scheduled proof")
+        app.buttons["compose.more"].tap(); app.buttons["定时发布"].tap(); app.buttons["compose.send"].tap()
+        XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
+        let created = try await proof("scheduled"); XCTAssertTrue(created)
+        app.tabBars.buttons["我的"].tap(); app.buttons["定时帖子"].tap()
+        XCTAssertTrue(app.staticTexts["Native scheduled proof"].waitForExistence(timeout: 10)); capture(app,"joint-real-scheduled-note")
+        app.buttons["取消定时，保留服务器草稿"].tap(); app.buttons["取消定时发布"].tap()
+        XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 10))
+        let cancelled = try await proof("scheduledCancelled"); XCTAssertTrue(cancelled)
+    }
+    func testRealAdminAnnouncementUsesSameAccountReauthentication() async throws {
+        let data = try await context(); let app = XCUIApplication()
+        app.launchArguments = ["--isolated-backend", "--reduce-motion"]
+        app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]
+        app.launch()
+        let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 20)); edit.tap(); app.buttons["隔离原生公告"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["admin.authorize"].waitForExistence(timeout: 10)); XCTAssertFalse(app.textFields["announcement.title"].exists)
+        app.buttons["admin.authorize"].tap()
+        let title = app.textFields["announcement.title"]; XCTAssertTrue(title.waitForExistence(timeout: 10)); title.tap(); title.typeText(" Edited")
+        let save = app.buttons["保存修改"]; for _ in 0..<5 where !save.isHittable { app.swipeUp() }; save.tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 10)); let changed = try await proof("announcementEdited"); XCTAssertTrue(changed)
+        capture(app,"joint-real-admin-announcement")
+    }
     func testRealChatEditRecallAndReaction() async throws {
         let app = launch(try await context())
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()

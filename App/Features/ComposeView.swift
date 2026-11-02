@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import AVFoundation
 import PUBOCore
 
 struct ComposeDraft: Codable {
@@ -12,6 +13,9 @@ struct ComposeDraft: Codable {
     var outcome = "ready"
     var lastFailure: String?
     var poll: PollDraft?
+    var localOnly: Bool?
+    var visibleUsers: [Record]?
+    var scheduledAt: Date?
 }
 
 struct ComposeView: View {
@@ -33,13 +37,16 @@ struct ComposeView: View {
     @State private var choosingEmoji = false
     @State private var showingPreview = false
     @State private var choosingDrive = false
+    @State private var choosingRecipient = false
+    @State private var editingFile: Record?
+    @State private var camera = false
     @FocusState private var editingText: Bool
     private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? "new") }
     private var editable: Bool { !busy && draft.outcome == "ready" }
-    private var canSend: Bool { editable && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
-    private var submitTitle: String { replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
+    private var canSend: Bool { editable && (draft.visibility != "specified" || !(draft.visibleUsers ?? []).isEmpty) && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
+    private var submitTitle: String { draft.scheduledAt != nil ? "定时发布" : replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
     private var submitIcon: String { replyTo != nil ? "arrowshape.turn.up.left" : renote != nil ? "quote.opening" : "paperplane" }
-    private var visibilityTitle: String { draft.visibility == "home" ? "首页" : draft.visibility == "followers" ? "关注者" : "公开" }
+    private var visibilityTitle: String { draft.visibility == "specified" ? "指定用户" : draft.visibility == "home" ? "首页" : draft.visibility == "followers" ? "关注者" : "公开" }
     private var visibilityIcon: String { draft.visibility == "home" ? "house" : draft.visibility == "followers" ? "lock" : "globe" }
 
     var body: some View {
@@ -60,8 +67,18 @@ struct ComposeView: View {
                             .overlay(alignment: .topLeading) {
                                 if draft.text.isEmpty { Text(replyTo != nil ? "写下你的回复…" : "有什么新鲜事？").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true) }
                             }.focused($editingText).disabled(!editable).accessibilityIdentifier("compose.text")
+                        if editable { ComposeSuggestions(text: $draft.text) }
+                        if draft.visibility == "specified" {
+                            ForEach(draft.visibleUsers ?? []) { user in HStack { Text(user.displayName); Spacer(); Button("移除") { draft.visibleUsers?.removeAll { $0.id == user.id }; save() } } }
+                            Button("添加可见用户") { choosingRecipient = true }.disabled(!editable)
+                        }
+                        if draft.scheduledAt != nil {
+                            DatePicker("发布时间", selection: Binding(get: { draft.scheduledAt ?? Date().addingTimeInterval(3600) }, set: { draft.scheduledAt = $0; save() }), in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                            Text("由 PUBO 服务器定时发布，关闭 App 后仍可执行。").font(.caption)
+                            Button("取消定时") { draft.scheduledAt = nil; save() }
+                        }
                         ForEach(draft.files) { file in
-                            HStack { Image(systemName: "paperclip"); Text(file["name"].string ?? "已上传附件").lineLimit(2); Spacer(); Button("移除") { draft.files.removeAll { $0.id == file.id }; save() } }
+                            HStack { Image(systemName: "paperclip"); Text(file["name"].string ?? "已上传附件").lineLimit(2); Spacer(); Button("设置") { editingFile = file }; Button("移除") { draft.files.removeAll { $0.id == file.id }; save() } }
                                 .font(.subheadline).padding(10).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)).disabled(!editable)
                         }
                         if draft.poll != nil {
@@ -76,6 +93,7 @@ struct ComposeView: View {
                                 Text("发送结果待确认").font(.headline)
                                 Text("请先检查自己的帖子。此接口不能保证重复提交只产生一条帖子，客户端不会自动重发。")
                                 if let user = session.user { NavigationLink("查看我的帖子") { ProfileView(userID: user.id) } }
+                                if draft.scheduledAt != nil { NavigationLink("核对定时帖子") { ScheduledNotesView() } }
                                 Button("已核对记录，恢复手动提交") { confirmRetry = true }
                             }.font(.callout).padding(12).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8))
                         }
@@ -98,6 +116,9 @@ struct ComposeView: View {
                 .onDisappear { uploadTask?.cancel() }
                 .sheet(isPresented: $choosingEmoji) { ReactionPicker { draft.text += $0 }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(isPresented: $choosingDrive) { DrivePicker { file in if draft.files.count < 16 && !draft.files.contains(where: { $0.id == file.id }) { draft.files.append(file); save() } }.environment(\.dynamicTypeSize, typeSize) }
+                .sheet(isPresented: $choosingRecipient) { UserPicker { user in if !(draft.visibleUsers ?? []).contains(where: { $0.id == user.id }) { draft.visibleUsers = (draft.visibleUsers ?? []) + [user]; save() } } }
+                .sheet(item: $editingFile) { file in AttachmentMetadataEditor(file: file) { current in draft.files = draft.files.map { $0.id == current.id ? current : $0 }; save() } }
+                .fullScreenCover(isPresented: $camera) { CameraCapture { result in camera = false; uploadTask = Task { await uploadCapture(result) } }.ignoresSafeArea() }
                 .photosPicker(isPresented: $showingPhotoPicker, selection: $selected, maxSelectionCount: max(1, 16 - draft.files.count), matching: .any(of: [.images, .videos]))
                 .confirmationDialog("只有确认原帖未发布时才重新提交，否则可能产生重复帖子。", isPresented: $confirmRetry) { Button("确认恢复手动提交") { draft.outcome = "ready"; save() } }
         }.interactiveDismissDisabled(busy)
@@ -114,13 +135,16 @@ struct ComposeView: View {
             }
             HStack(spacing: 4) {
                 Menu {
-                    Picker("可见范围", selection: $draft.visibility) { Text("公开").tag("public"); Text("首页").tag("home"); Text("关注者").tag("followers") }
+                    Picker("可见范围", selection: $draft.visibility) { Text("公开").tag("public"); Text("首页").tag("home"); Text("关注者").tag("followers"); Text("指定用户").tag("specified") }
+                    Toggle("仅本站发布", isOn: Binding(get: { draft.localOnly ?? false }, set: { draft.localOnly = $0; save() }))
                 } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44) }
                     .disabled(!editable).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
                 Menu {
                     Toggle("预览", isOn: $showingPreview)
                     Button("从网盘选择") { choosingDrive = true }.disabled(!editable || draft.files.count >= 16)
                     Button("添加投票") { draft.poll = PollDraft(); save() }.disabled(!editable || draft.poll != nil)
+                    Button("拍摄照片或视频") { Task { await openCamera() } }.disabled(!editable || draft.files.count >= 16)
+                    Button("定时发布") { draft.scheduledAt = Date().addingTimeInterval(3600); save() }.disabled(!editable || (session.user?["policies"]["scheduledNoteLimit"].int ?? 0) <= 0)
                     Button("保存并关闭") { if save() { dismiss() } }
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                     .disabled(busy).accessibilityLabel("更多").accessibilityIdentifier("compose.more")
@@ -183,24 +207,46 @@ struct ComposeView: View {
     private func send() async {
         guard !busy, draft.outcome == "ready" else { return }
         let poll: JSONValue?
-        do { poll = try draft.poll?.request() } catch { self.error = error.localizedDescription; return }
+        do {
+            poll = try draft.poll?.request()
+            if let date = draft.scheduledAt, date <= Date() { throw APIError(code: "INVALID_SCHEDULE", message: "请选择未来的发布时间。") }
+        } catch { self.error = error.localizedDescription; return }
         busy = true; draft.outcome = "sending"; defer { busy = false }
         guard save() else { draft.outcome = "ready"; return }
         var body: [String: JSONValue] = ["visibility": .string(draft.visibility)]
+        body["localOnly"] = .bool(draft.localOnly ?? false)
+        if draft.visibility == "specified" { body["visibleUserIds"] = .strings((draft.visibleUsers ?? []).map(\.id)) }
         if let poll { body["poll"] = poll }
         if !draft.files.isEmpty { body["fileIds"] = .strings(draft.files.map(\.id)) }
         if !draft.text.isEmpty { body["text"] = .string(draft.text.trimmingCharacters(in: .whitespacesAndNewlines)) }
         if draft.useCW { body["cw"] = .string(draft.cw) }
         if let replyTo { body["replyId"] = .string(replyTo.id) }
         if let renote { body["renoteId"] = .string(renote.id) }
+        if let date = draft.scheduledAt { body["scheduledAt"] = .number(floor(date.timeIntervalSince1970 * 1000)); body["isActuallyScheduled"] = .bool(true) }
         do {
-            let response = try await session.call("notes/create", body, mutation: true)
-            guard NoteReceipt.matches(response, authorID: ownerID ?? "", request: body) else { throw APIError.uncertain }
+            let scheduled = draft.scheduledAt != nil
+            let response = try await session.call(scheduled ? "notes/drafts/create" : "notes/create", body, mutation: true)
+            if scheduled {
+                guard response["createdDraft"]["scheduledAt"] == body["scheduledAt"], response["createdDraft"]["isActuallyScheduled"].bool,
+                      NoteReceipt.matches(.object(["createdNote": response["createdDraft"]]), authorID: ownerID ?? "", request: body) else { throw APIError.uncertain }
+            } else { guard NoteReceipt.matches(response, authorID: ownerID ?? "", request: body) else { throw APIError.uncertain } }
             draft = ComposeDraft(); save(); onSent(); dismiss()
         } catch {
             draft.outcome = (error as? APIError)?.code == "OUTCOME_UNKNOWN" ? "uncertain" : "ready"
             self.error = error.localizedDescription; draft.lastFailure = error.localizedDescription; save()
         }
+    }
+    private func openCamera() async {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else { error = "当前设备没有可用相机。"; return }
+        let owner = session.generation
+        let allowed = await AVCaptureDevice.requestAccess(for: .video)
+        guard owner == session.generation, !Task.isCancelled else { return }
+        if allowed { camera = true } else { error = "未获得相机权限，仍可从相册或网盘选择媒体。" }
+    }
+    private func uploadCapture(_ result: Result<(Data, String, String), Error>) async {
+        guard editable, ownerID == session.user?.id else { return }; busy = true; defer { busy = false }
+        do { let (data, name, mime) = try result.get(); let file = try await session.upload(data: data, name: name, mime: mime); try Task.checkCancellation(); draft.files.append(file); save() }
+        catch is CancellationError { } catch { self.error = error.localizedDescription }
     }
 }
 

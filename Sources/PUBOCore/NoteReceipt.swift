@@ -7,6 +7,8 @@ public enum NoteReceipt {
         return !note.id.isEmpty && note.user.id == authorID &&
             note.text == (request["text"]?.string ?? "") &&
             note["visibility"].string == (request["visibility"]?.string ?? "public") &&
+            note["localOnly"].bool == (request["localOnly"]?.bool ?? false) &&
+            ((request["visibility"]?.string != "specified") || Set(note["visibleUserIds"].array.compactMap(\.string)) == Set(request["visibleUserIds"]?.array.compactMap(\.string) ?? [])) &&
             note["cw"].string == request["cw"]?.string &&
             note["replyId"].string == request["replyId"]?.string &&
             note["renoteId"].string == request["renoteId"]?.string &&

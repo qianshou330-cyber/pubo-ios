@@ -26,6 +26,7 @@ final class AppSession {
     let store: ProtectedStore?
     let stream = StreamClient()
     let nativePush = NativePushController.shared
+    let admin = AdminAuthorization()
 
     init() {
         URLCache.shared = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 64 * 1024 * 1024, diskPath: "PUBOPublicMedia")
@@ -123,6 +124,7 @@ final class AppSession {
         return Record(value)
     }
     func logout() throws {
+        admin.clear()
         if !testMode { try KeychainStore.clear() }
         nativePush.logout()
         generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []

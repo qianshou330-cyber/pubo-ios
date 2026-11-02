@@ -15,8 +15,15 @@ actor FixtureTransport: HTTPTransport {
     private var favorites = Set<String>()
     private var profile = FixtureTransport.me
     private var oldMessage: JSONValue = .null
-    private let driveFile: JSONValue = .object(["id": .string("fixturefile"), "name": .string("测试图片.png"), "type": .string("image/png"), "size": .number(128), "isSensitive": .bool(false)])
+    private var driveFile: JSONValue = .object(["id": .string("fixturefile"), "name": .string("测试图片.png"), "type": .string("image/png"), "size": .number(128), "isSensitive": .bool(false)])
+    private var announcements: [JSONValue] = [.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "isActive": .bool(true), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。"), "updatedAt": .string("2026-11-02T00:00:00Z")])]
+    private var drafts: [JSONValue] = []
     init() {
+        var user = profile.object; var policies = user["policies"]!.object
+        policies["scheduledNoteLimit"] = .number(10); policies["avatarDecorationLimit"] = .number(2)
+        user["policies"] = .object(policies); user["isAdmin"] = .bool(ProcessInfo.processInfo.arguments.contains("--admin-preview")); profile = .object(user)
+        if ProcessInfo.processInfo.arguments.contains("--empty-announcements") { announcements = [] }
+        posts = posts.map { var value = $0.object; value["visibility"] = .string("public"); return .object(value) }
         if ProcessInfo.processInfo.arguments.contains("--search-unavailable") {
             var value = profile.object; var policies = value["policies"]!.object
             policies["canSearchNotes"] = .bool(false); policies["canSearchUsers"] = .bool(true)
@@ -65,13 +72,15 @@ actor FixtureTransport: HTTPTransport {
         case "signin-flow": response = .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup/request-phone-code": response = .null
-        case "users/show": response = body["userId"].string == "syntheticself" ? Self.me : Self.peer
+        case "users/show": response = body["userId"].string == "syntheticself" ? profile : Self.peer
         case "users/search": response = .array([Self.peer])
         case "notes/search": response = .array(posts.filter { ($0["text"].string ?? "").localizedCaseInsensitiveContains(body["query"].string ?? "") })
         case "hashtags/search": response = .strings(["PUBO", "A2OLITE"])
         case "notes/search-by-tag": response = .array(posts)
         case "drive/folders": response = body["folderId"].isNull ? .array([.object(["id": .string("fixturefolder"), "name": .string("测试文件夹")])]) : .array([])
         case "drive/files": response = .array([driveFile])
+        case "drive/files/show": response = driveFile
+        case "drive/files/update": var value = driveFile.object; for key in ["name", "comment", "isSensitive"] where !body[key].isNull { value[key] = body[key] }; driveFile = .object(value); response = driveFile
         case "notes/state": response = .object(["isFavorited": .bool(favorites.contains(body["noteId"].string ?? ""))])
         case "notes/favorites/create": favorites.insert(body["noteId"].string ?? ""); response = .null
         case "notes/favorites/delete": favorites.remove(body["noteId"].string ?? ""); response = .null
@@ -93,7 +102,17 @@ actor FixtureTransport: HTTPTransport {
                     "text": .string("刷新样例 \(timelineReads)"), "cw": .null, "files": .array([]), "reactions": .object([:])])
                 response = .array([sample] + posts)
             } else { response = .array(posts) }
-        case "announcements": response = .array([.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。")])])
+        case "announcements": response = .array(announcements)
+        case "announcements/show": response = announcements.first { $0["id"] == body["announcementId"] } ?? .null
+        case "admin/announcements/update":
+            if !profile["isAdmin"].bool { status = 403; response = .object(["error": .object(["code": .string("PERMISSION_DENIED")])]) }
+            else if let index = announcements.firstIndex(where: { $0["id"] == body["id"] }) { var value = announcements[index].object; for key in ["title", "text", "imageUrl"] { if let field = body.object[key] { value[key] = field } }; value["updatedAt"] = .string(ISO8601DateFormatter().string(from: Date())); announcements[index] = .object(value); response = .null }
+        case "notes/drafts/list": response = .array(drafts.filter { $0["isActuallyScheduled"].bool == body["scheduled"].bool })
+        case "notes/drafts/create":
+            counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("draft\(counter)"); value["user"] = profile; value["files"] = .array(body["fileIds"].array.map { .object(["id": $0]) }); value["poll"] = .null
+            drafts.append(.object(value)); response = .object(["createdDraft": .object(value)])
+        case "notes/drafts/update":
+            if let index = drafts.firstIndex(where: { $0["id"] == body["draftId"] }) { var value = drafts[index].object; value["scheduledAt"] = body["scheduledAt"]; value["isActuallyScheduled"] = body["isActuallyScheduled"]; drafts[index] = .object(value); response = .object(["updatedDraft": drafts[index]]) }
         case "music-charts/kpop-summary", "music-charts/kpop-chart":
             let key = body["chartKey"].string ?? "melon-top100"
             let chart = JSONValue.object(["chartKey": .string(key), "provider": .string(key == "genie-realtime" ? "genie" : "melon"), "label": .string(key == "genie-realtime" ? "Genie 实时榜" : "Melon TOP100"), "status": .string("available"), "rankBasis": .string("official_rank"), "coverage": .string("complete"), "sourceUrl": .string("https://www.melon.com/chart/index.htm"), "observedAt": .string("2026-11-01T15:00:00Z"), "lastSuccessAt": .string("2026-11-01T15:00:00Z")])
@@ -108,7 +127,8 @@ actor FixtureTransport: HTTPTransport {
             counter += 1
             let poll: JSONValue = body["poll"].isNull ? .null : .object(["choices": .array(body["poll"]["choices"].array.map { .object(["text": $0, "votes": .number(0), "isVoted": .bool(false)]) }), "multiple": body["poll"]["multiple"], "expiresAt": body["poll"]["expiresAt"].isNull ? .null : .string(ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(body["poll"]["expiresAt"].int) / 1000)))])
             let note = JSONValue.object(["id": .string("newpost\(counter)"), "user": Self.me, "text": body["text"], "cw": body["cw"], "visibility": body["visibility"], "replyId": body["replyId"], "renoteId": body["renoteId"], "files": .array(body["fileIds"].array.map { .object(["id": $0, "name": .string("测试图片.png")]) }), "reactions": .object([:]), "poll": poll])
-            posts.insert(note, at: 0); response = .object(["createdNote": note])
+            var fields = note.object; fields["localOnly"] = body["localOnly"]; fields["visibleUserIds"] = body["visibleUserIds"]
+            let complete = JSONValue.object(fields); posts.insert(complete, at: 0); response = .object(["createdNote": complete])
             if args.contains("--lost-post-response") { throw URLError(.networkConnectionLost) }
         case "i/notifications": response = .array([.object(["id": .string("notice1"), "type": .string("follow"), "user": Self.peer, "isRead": .bool(false)])])
         case "chat/conversations": response = .array([.object(["user": Self.peer, "lastMessage": .object(["id": .string("seedmessage"), "text": .string("点击开始聊天")]), "unreadCount": .number(0), "isMuted": .bool(false), "pinnedAt": .null])])

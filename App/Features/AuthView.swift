@@ -9,6 +9,7 @@ struct AuthView: View {
         var id: String { rawValue }
     }
     @State private var accountRoute: AccountRoute?
+    @State private var homePath: [HomeDestination] = []
     private var registration: Bool { accountRoute == .registration }
     @State private var username = ""
     @State private var password = ""
@@ -37,7 +38,7 @@ struct AuthView: View {
     private var serverRules: [String] { session.meta["serverRules"].array.compactMap(\.string) }
     private var policies: [(String, URL)] {
         [("服务条款", session.meta["tosUrl"].string ?? session.meta["termsOfServiceUrl"].string),
-         ("隐私政策", session.meta["privacyPolicyUrl"].string)].compactMap { title, raw in
+         ("隐私政策", safeMediaURL(session.meta["privacyPolicyUrl"].string)?.absoluteString ?? "https://bolubo.com/privacy.html")].compactMap { title, raw in
             guard let raw, let url = URL(string: raw), url.scheme == "https", url.host != nil,
                   url.user == nil, url.password == nil else { return nil }
             return (title, url)
@@ -53,7 +54,7 @@ struct AuthView: View {
         (!session.meta["disableRegistration"].bool || !invitation.isEmpty)
     }
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $homePath) {
             ScrollView {
                 VStack(spacing: 16) {
                     VStack(spacing: 0) {
@@ -74,8 +75,12 @@ struct AuthView: View {
                         .overlay(alignment: .top) { PUBOBrand(width: 220).offset(y: -42).accessibilityIdentifier("pubo.shell") }
                         .padding(.top, 42)
                     policyLinks
+                    HomeAnnouncements(refreshID: 0) { homePath.append($0) }
+                    HomeChartPanel(refreshID: 0) { homePath.append($0) }
+                    GuestFeed()
                 }.frame(maxWidth: 430).padding(.horizontal, 16).padding(.top, 60).padding(.bottom, 32).frame(maxWidth: .infinity)
             }.puboScreen().toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: HomeDestination.self) { $0.view }
                 .sheet(item: $accountRoute) { route in
                     accountForm(registration: route == .registration)
                         .environment(\.dynamicTypeSize, typeSize)
@@ -139,7 +144,7 @@ struct AuthView: View {
             }
             if !policies.isEmpty {
                 policyLinks
-                Toggle("我已阅读并同意以上条款", isOn: $agreedPolicy)
+                Toggle("我已阅读并同意以上条款", isOn: $agreedPolicy).accessibilityIdentifier("auth.agreePolicy")
             }
             Link("阅读基本注意事项", destination: URL(string: "https://misskey-hub.net/docs/for-users/onboarding/warning/")!)
             Toggle("我已阅读基本注意事项", isOn: $agreedNotes).accessibilityIdentifier("auth.agreeNotes")

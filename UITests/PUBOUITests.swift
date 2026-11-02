@@ -104,7 +104,7 @@ final class PUBOUITests: XCTestCase {
 
     func testHomePanelsAndChartNavigation() {
         for dark in [false, true] {
-            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--fixture-tab-avatar"] + (dark ? ["--dark"] : []); app.launch()
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--fixture-tab-avatar", "--reduce-motion"] + (dark ? ["--dark"] : []); app.launch()
             XCTAssertTrue(app.staticTexts["韩国女团音源榜"].waitForExistence(timeout: 10))
             let announcement = app.buttons["home.announcement.fixtureannouncement"]
             XCTAssertTrue(announcement.waitForExistence(timeout: 10))
@@ -324,7 +324,9 @@ final class PUBOUITests: XCTestCase {
             XCTAssertTrue(app.navigationBars["注册 PUBO"].waitForExistence(timeout: 5))
             XCTAssertFalse(app.buttons["auth.registrationContinue"].isEnabled)
             capture(app, dark ? "h5-sync-registration-intro-dark" : "h5-sync-registration-intro-light")
-            app.switches["auth.agreeNotes"].tap()
+            app.switches["auth.agreePolicy"].tap()
+            let agree = app.switches["auth.agreeNotes"]; for _ in 0..<4 where !agree.isHittable { app.swipeUp() }; agree.tap()
+            let next = app.buttons["auth.registrationContinue"]; for _ in 0..<4 where !next.isHittable { app.swipeUp() }
             app.buttons["auth.registrationContinue"].tap()
             XCTAssertTrue(app.textFields["auth.phone"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.secureTextFields["auth.confirmation"].exists)
@@ -363,6 +365,7 @@ final class PUBOUITests: XCTestCase {
     func testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out", "--dark", "--large-text"]; app.launch()
         XCTAssertTrue(app.buttons["auth.openRegister"].waitForExistence(timeout: 10)); app.buttons["auth.openRegister"].tap()
+        let policy = app.switches["auth.agreePolicy"]; for _ in 0..<5 where !policy.isHittable { app.swipeUp() }; XCTAssertTrue(policy.isHittable); policy.tap()
         let notes = app.switches["auth.agreeNotes"]
         for _ in 0..<5 where !notes.isHittable { app.swipeUp() }
         XCTAssertTrue(notes.isHittable); notes.tap()
@@ -552,6 +555,45 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["7 天最佳"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["变化依据：本站上次可比较记录"].exists)
         capture(app, "parity-chart-history")
+    }
+
+    func testGuestSeesPublicFeedAndEmptyAnnouncementsStayHidden() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out", "--empty-announcements", "--reduce-motion"]; app.launch()
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 10))
+        let title = app.staticTexts["韩国女团音源榜"]; for _ in 0..<5 where !title.isHittable { app.swipeUp() }
+        XCTAssertTrue(title.isHittable)
+        XCTAssertFalse(app.staticTexts["暂无公告"].exists); XCTAssertFalse(app.buttons["修改公告"].exists)
+        let post = app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"]
+        for _ in 0..<7 where !post.isHittable { app.swipeUp() }
+        XCTAssertTrue(post.isHittable); XCTAssertFalse(app.buttons["添加表情反应"].exists)
+        capture(app, "parity-guest-public-feed")
+    }
+
+    func testAdminAnnouncementEditRequiresReauthentication() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--admin-preview", "--reduce-motion"]; app.launch()
+        let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 10)); edit.tap()
+        app.buttons["欢迎加入 PUBO"].firstMatch.tap()
+        let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["announcement.title"].exists)
+        password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
+        let title = app.textFields["announcement.title"]; XCTAssertTrue(title.waitForExistence(timeout: 5)); title.tap(); title.typeText(" Edited")
+        let save = app.buttons["保存修改"]; for _ in 0..<5 where !save.isHittable { app.swipeUp() }; save.tap()
+        XCTAssertTrue(app.buttons["home.announcement.fixtureannouncement"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["home.announcement.fixtureannouncement"].label.contains("Edited"))
+        capture(app, "parity-admin-announcement")
+    }
+
+    func testScheduledPostReceiptAndCancel() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
+        XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10)); app.buttons["home.compose"].tap()
+        let editor = app.textViews["compose.text"]; editor.tap(); editor.typeText("Scheduled fixture")
+        app.buttons["compose.more"].tap(); app.buttons["定时发布"].tap()
+        app.buttons["compose.send"].tap()
+        XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["我的"].tap(); app.buttons["定时帖子"].tap()
+        XCTAssertTrue(app.staticTexts["Scheduled fixture"].waitForExistence(timeout: 5)); capture(app, "parity-scheduled-note")
+        app.buttons["取消定时，保留服务器草稿"].tap(); app.buttons["取消定时发布"].tap()
+        XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))
     }
 }
 

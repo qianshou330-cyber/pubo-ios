@@ -147,10 +147,10 @@ struct NoteCard: View {
                 if detail { NoteText(text: shown.text, remoteEmojis: shown["emojis"]) }
                 else { NavigationLink { NoteDetailView(noteID: shown.id) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情") }
                 ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file, noteID: shown.id) }
-                if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id) }
+                if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
                 if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
             }
-            HStack(spacing: 12) {
+            if session.user != nil { HStack(spacing: 12) {
                 Button { replying = true } label: { HStack(spacing: 4) { Image(systemName: "arrowshape.turn.up.left"); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(.caption) } }.frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
                 Menu {
                     Button("转发") { Task { await renote() } }
@@ -163,10 +163,12 @@ struct NoteCard: View {
                     Button("收藏帖子") { Task { await favorite(true) } }
                     Button("取消收藏") { Task { await favorite(false) } }
                     if ownDeleteID != nil { Button("删除帖子", role: .destructive) { confirmDelete = true } }
+                    if let id = ownDeleteID { Button((session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id) ? "取消置顶帖子" : "置顶到个人主页") { Task { await pin(id) } } }
                     if shown.user.id != session.user?.id { Button("举报帖子") { reporting = true }; Button("屏蔽作者", role: .destructive) { confirmBlock = true } }
                     Link("在网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id))
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作")
             }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.secondary).disabled(busy)
+            } else { Text("登录后可回复、转发或添加反应").font(.caption).foregroundStyle(.secondary) }
             if !shown["reactions"].object.isEmpty {
                 ScrollView(.horizontal) { HStack(spacing: 8) { ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in Text("\(reaction) \(shown["reactions"][reaction].int)").font(.caption).padding(.horizontal, 10).padding(.vertical, 6).background(PUBOTheme.button, in: Capsule()) } } }
             }
@@ -186,6 +188,17 @@ struct NoteCard: View {
             let state = try await session.call("notes/state", ["noteId": .string(shown.id)])
             if state["isFavorited"].bool != wanted { _ = try await session.call(wanted ? "notes/favorites/create" : "notes/favorites/delete", ["noteId": .string(shown.id)], mutation: true) }
             error = wanted ? "已收藏" : "已取消收藏"
+        } catch { self.error = error.localizedDescription }
+    }
+    private func pin(_ id: String) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        let wanted = !(session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id)
+        do {
+            do { _ = try await session.call(wanted ? "i/pin" : "i/unpin", ["noteId": .string(id)], mutation: true) }
+            catch { if (error as? APIError)?.code != "OUTCOME_UNKNOWN" { throw error } }
+            try await session.refreshUser()
+            guard (session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id) == wanted else { throw APIError.uncertain }
+            error = wanted ? "已置顶到个人主页" : "已取消置顶"
         } catch { self.error = error.localizedDescription }
     }
     private func deleteNote() async {

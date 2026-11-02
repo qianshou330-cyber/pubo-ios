@@ -18,15 +18,18 @@ struct ProfileView: View {
         List {
             if let user {
                 Section {
+                    if let url = safeMediaURL(user["bannerUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { PUBOTheme.button }.frame(height: 150).clipped().accessibilityLabel("个人主页背景图") }
                     HStack { Avatar(user: user, size: 64); VStack(alignment: .leading) { Text(user.displayName).font(.title2.bold()); Text("@" + (user["username"].string ?? "")).foregroundStyle(.secondary) } }
-                    if let description = user["description"].string { Text(description).textSelection(.enabled) }
+                    RoleBadges(user: user)
+                    if let description = user["description"].string { NoteText(text: description) }
+                    ForEach(Array(user["fields"].array.enumerated()), id: \.offset) { _, field in VStack(alignment: .leading) { Text(field["name"].string ?? "").font(.caption.bold()); NoteText(text: field["value"].string ?? "") } }
                     HStack {
                         NavigationLink("关注 \(user["followingCount"].int)") { FollowListView(userID: userID, followers: false) }
                         Spacer()
                         NavigationLink("关注者 \(user["followersCount"].int)") { FollowListView(userID: userID, followers: true) }
                     }.font(.callout)
                     if own { Button("编辑个人资料") { editing = true } }
-                    else {
+                    else if session.user != nil {
                         Button(user["isFollowing"].bool ? "取消关注" : "关注") { Task { await follow(user) } }.disabled(busy)
                         if user["host"].isNull { NavigationLink("发送私信") { ChatView(peer: user) } }
                         Menu("更多操作") {
@@ -37,6 +40,7 @@ struct ProfileView: View {
                 }
             }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
+            if let user, !user["pinnedNotes"].array.isEmpty { Section("置顶帖子") { ForEach(Record.list(user["pinnedNotes"])) { NoteCard(note: $0) } } }
             Section("帖子") { ForEach(notes) { NoteCard(note: $0) }; if hasMore && !notes.isEmpty { Button("加载更多") { Task { await loadNotes(older: true) } }.disabled(busy) } }
         }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
             .sheet(isPresented: $reporting) { ReportView(userID: userID) }
@@ -107,6 +111,8 @@ struct EditProfileView: View {
     @State private var banner: Record?
     @State private var photo: PhotosPickerItem?
     @State private var showPhotos = false
+    @State private var profileFields: [ProfileField] = []
+    @State private var restoredProfile = false
     var body: some View {
         NavigationStack {
             Form {
@@ -114,12 +120,19 @@ struct EditProfileView: View {
                 TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160)
                 mediaRow("头像", field: "avatarId", file: avatar)
                 mediaRow("背景图", field: "bannerId", file: banner)
+                Section("附加资料") {
+                    ForEach($profileFields) { $field in
+                        VStack { TextField("名称", text: $field.name); TextField("内容", text: $field.value, axis: .vertical); Button("移除此项", role: .destructive) { profileFields.removeAll { $0.id == field.id } } }
+                    }
+                    if profileFields.count < 16 { Button("添加附加资料") { profileFields.append(ProfileField()) } }
+                }
+                NavigationLink("头像装饰") { AvatarDecorationsView() }
                 if let error { Text(error).foregroundStyle(.red) }
             }.disabled(busy)
                 .puboForm().navigationTitle("编辑资料").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("保存") { Task { await save() } }.disabled(busy) }
-                }.task { name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? "" }
+                }.task { guard !restoredProfile else { return }; restoredProfile = true; name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? ""; profileFields = (session.user?["fields"].array ?? []).map { ProfileField(name: $0["name"].string ?? "", value: $0["value"].string ?? "") } }
                 .sheet(isPresented: $selectingMedia) { DrivePicker(imagesOnly: true) { selected in setMedia(selected) } }
                 .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
                 .onChange(of: photo) { _, item in Task { await upload(item) } }
@@ -150,11 +163,14 @@ struct EditProfileView: View {
     private func save() async {
         busy = true; defer { busy = false }
         var fields: [String: JSONValue] = ["name": .string(name), "description": .string(description)]
+        fields["fields"] = .array(profileFields.map { .object(["name": .string($0.name), "value": .string($0.value)]) })
         if let avatar { fields["avatarId"] = .string(avatar.id) }; if let banner { fields["bannerId"] = .string(banner.id) }
         do { _ = try await session.call("i/update", fields, mutation: true); try await session.refreshUser(); onSaved(); dismiss() }
         catch { self.error = error.localizedDescription }
     }
 }
+
+struct ProfileField: Identifiable { let id = UUID(); var name = ""; var value = "" }
 
 struct ReportView: View {
     @Environment(AppSession.self) private var session
@@ -187,7 +203,7 @@ struct MyAccountView: View {
         NavigationStack {
             Form {
                 if let user = session.user { Section { NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user, size: 56); Text(user.displayName).font(.title2.bold()) } } }.listRowBackground(PUBOTheme.panel) }
-                Section { NavigationLink("搜索") { SearchView() }; NavigationLink("我的收藏") { FavoritesView() } }.listRowBackground(PUBOTheme.panel)
+                Section { NavigationLink("搜索") { SearchView() }; NavigationLink("我的收藏") { FavoritesView() }; NavigationLink("定时帖子") { ScheduledNotesView() } }.listRowBackground(PUBOTheme.panel)
                 Section("私信隐私") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("谁可以发起聊天").font(.subheadline)
