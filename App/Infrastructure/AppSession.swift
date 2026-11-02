@@ -19,6 +19,9 @@ final class AppSession {
     private(set) var isolatedBackend = false
     var authorizationRequired = false
     var deletedNoteIDs = Set<String>()
+    var badges = NotificationBadges()
+    var chartPreferences = KpopPreferences()
+    private var unreadAttempt: UUID?
     private var started = false
     let store: ProtectedStore?
     let stream = StreamClient()
@@ -69,6 +72,7 @@ final class AppSession {
         } catch { self.error = error.localizedDescription }
         Task { await refreshMeta() }
         Task { await refreshEmojis() }
+        restoreChartPreferences()
     }
     func refreshMeta() async {
         do { meta = try await api.call("meta", body: ["detail": .bool(true)]); await nativePush.resume() }
@@ -92,6 +96,7 @@ final class AppSession {
         guard user == nil || user?.id == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "请授权当前账号。原账号和草稿已保留；换号请先退出登录。") }
         if !testMode { try KeychainStore.save(LoginSecret(token: token, userID: account.id)) }
         self.token = token; user = account; error = nil; authorizationRequired = false
+        restoreChartPreferences()
         resumeStream()
         Task { await nativePush.resume() }
     }
@@ -121,10 +126,38 @@ final class AppSession {
         if !testMode { try KeychainStore.clear() }
         nativePush.logout()
         generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
+        badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences()
         InlineEmojiStore.shared.clear()
         if !testMode { do { try store?.clear(); try PrivateFiles.clear() } catch { self.error = "账号已退出，但本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
         URLCache.shared.removeAllCachedResponses()
     }
     func refreshUser() async throws { user = Record(try await call("i")) }
     func resumeStream() { if let token, !testMode || isolatedBackend { stream.start(token: token) } }
+    func refreshUnread() async {
+        guard user != nil, unreadAttempt == nil else { return }
+        let attempt = UUID(); unreadAttempt = attempt
+        defer { if unreadAttempt == attempt { unreadAttempt = nil } }
+        do {
+            let account = try await call("i")
+            guard unreadAttempt == attempt else { return }
+            badges.notification = account["hasUnreadNotification"].bool
+            if account["policies"]["chatAvailability"].string != "unavailable" {
+                let summary = try await call("chat/unread-summary")
+                guard unreadAttempt == attempt else { return }
+                try badges.applyChat(summary)
+            } else { badges.chatCount = 0; badges.otherChat = false }
+        } catch { /* Preserve the last authoritative badges while offline. */ }
+    }
+    func restoreChartPreferences() {
+        chartPreferences = ((try? store?.read(KpopPreferences.self, account: user?.id ?? "guest", key: "kpop-preferences")) ?? KpopPreferences()).validated
+    }
+    func selectChart(_ key: String) {
+        chartPreferences.selectChart(key); saveChartPreferences()
+    }
+    func selectChartGroup(_ id: String) {
+        chartPreferences.groupID = id; chartPreferences = chartPreferences.validated; saveChartPreferences()
+    }
+    private func saveChartPreferences() {
+        try? store?.save(chartPreferences, account: user?.id ?? "guest", key: "kpop-preferences")
+    }
 }

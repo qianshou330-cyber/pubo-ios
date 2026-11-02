@@ -133,7 +133,7 @@ final class PUBOUITests: XCTestCase {
             app.buttons["home.chartDetail"].tap()
             XCTAssertTrue(app.navigationBars["Genie 实时榜"].waitForExistence(timeout: 5))
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chart.song.")).firstMatch.tap()
-            XCTAssertTrue(app.staticTexts["按本站采集时间记录"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["7 天最佳"].waitForExistence(timeout: 5))
             capture(app, "home-chart-history-\(dark)")
             app.terminate()
         }
@@ -522,6 +522,36 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(send.isHittable); XCTAssertTrue(send.isEnabled)
         XCTAssertEqual(input.value as? String, "draft")
         capture(app, "web-style-chat-large-keyboard")
+    }
+
+    func testHistoricalReferenceAndReturnToLatest() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--parity-preview"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        app.staticTexts["测试朋友"].firstMatch.tap()
+        let quote = app.buttons["chat.reference.chatquote003"]
+        XCTAssertTrue(quote.waitForExistence(timeout: 5))
+        let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "历史原消息已更新"), object: quote)
+        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+        quote.tap()
+        XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForExistence(timeout: 5))
+        capture(app, "parity-reference-context")
+        app.buttons["回到最新消息"].tap()
+        XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(quote.exists)
+    }
+
+    func testChartFallbackSearchAndHistory() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--parity-preview"]; app.launch()
+        XCTAssertTrue(app.buttons["home.chartDetail"].waitForExistence(timeout: 10)); app.buttons["home.chartDetail"].tap()
+        let song = app.buttons["chart.song.fixturesong"]
+        XCTAssertTrue(song.waitForExistence(timeout: 5)); XCTAssertTrue(song.label.contains("下降 1 位"))
+        let query = app.textFields["chart.filter.query"]; query.tap(); query.typeText("missing")
+        XCTAssertTrue(app.staticTexts["当前筛选没有匹配歌曲"].waitForExistence(timeout: 5)); XCTAssertFalse(song.exists)
+        query.tap(); query.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 7)); query.typeText("NEON\n")
+        XCTAssertTrue(song.waitForExistence(timeout: 5)); song.tap()
+        XCTAssertTrue(app.staticTexts["7 天最佳"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["变化依据：本站上次可比较记录"].exists)
+        capture(app, "parity-chart-history")
     }
 }
 

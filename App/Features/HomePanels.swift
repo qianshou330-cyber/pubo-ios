@@ -107,7 +107,7 @@ private struct AnnouncementDetail: View {
 struct HomeChartPanel: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
-    @State private var key = "melon-top100"
+    private var key: String { session.chartPreferences.chartKey }
     @State private var data: JSONValue = .null
     @State private var cached = false
     @State private var error: String?
@@ -140,7 +140,7 @@ struct HomeChartPanel: View {
             HStack(alignment: .center) {
                 Menu {
                     ForEach(data["charts"].array, id: \.self) { option in
-                        if let value = option["chartKey"].string { Button(option["label"].string ?? value) { key = value } }
+                        if let value = option["chartKey"].string { Button(option["label"].string ?? value) { session.selectChart(value) } }
                     }
                 } label: { Label(chart["provider"].string?.capitalized ?? "Melon", systemImage: "chevron.down").font(.caption).frame(minHeight: 44).padding(.horizontal, 10).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 10)) }
                 .accessibilityLabel("切换榜单").disabled(data["charts"].array.isEmpty)
@@ -182,96 +182,3 @@ struct HomeChartPanel: View {
     }
 }
 
-private struct ChartSongRow: View {
-    let row: JSONValue
-    var playlist = false
-    private var movement: String {
-        let change = row["sourceMovement"]
-        switch change["type"].string {
-        case "up": return "↑\(change["amount"].int)"
-        case "down": return "↓\(change["amount"].int)"
-        case "new": return "NEW"
-        case "same": return "="
-        default: return "—"
-        }
-    }
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("\(row["rank"].int)").font(.subheadline.bold()).monospacedDigit().frame(minWidth: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(row["title"].string ?? "").font(.subheadline).lineLimit(2)
-                Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.caption2).foregroundStyle(PUBOTheme.secondary)
-            }
-            Spacer(minLength: 4)
-            Text(movement).font(.caption).foregroundStyle(PUBOTheme.secondary)
-        }.frame(minHeight: 44).contentShape(Rectangle()).accessibilityElement(children: .combine)
-            .accessibilityLabel("\(playlist ? "歌单顺序" : "排名") \(row["rank"].int)，\(row["title"].string ?? "")，\(movement)")
-    }
-}
-
-struct ChartDetailView: View {
-    @Environment(AppSession.self) private var session
-    let chartKey: String
-    @State private var chart: JSONValue = .null
-    @State private var entries: [JSONValue] = []
-    @State private var offset = 0
-    @State private var more = true
-    @State private var busy = false
-    @State private var error: String?
-    var body: some View {
-        List {
-            Section {
-                Text(HomeContent.chartStatus(chart))
-                if !HomeContent.chartScope(chart).isEmpty { Text(HomeContent.chartScope(chart)).font(.caption) }
-                if let period = chart["sourceDate"].string ?? chart["sourcePeriod"].string { Text("来源期次：" + period).font(.caption) }
-                else if let date = puboDate(chart["observedAt"].string) { Text("采集时间：\(date.formatted())").font(.caption) }
-            }
-            ForEach(entries, id: \.self) { row in
-                NavigationLink { ChartHistoryView(chartKey: chartKey, song: row) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.accessibilityIdentifier("chart.song." + (row["songId"].string ?? ""))
-            }
-            if let error { ErrorBanner(message: error) { Task { await load(reset: false) } } }
-            if more { Button(busy ? "加载中" : "加载更多") { Task { await load(reset: false) } }.disabled(busy) }
-        }.puboList().navigationTitle(chart["label"].string ?? "韩国女团音源榜")
-            .task { await load(reset: true) }.refreshable { await load(reset: true) }
-    }
-    private func load(reset: Bool) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
-        do {
-            let start = reset ? 0 : offset
-            let value = try await session.call("music-charts/kpop-chart", ["chartKey": .string(chartKey), "offset": .number(Double(start)), "limit": .number(50)])
-            guard value["chart"]["chartKey"].string == chartKey else { throw APIError.invalidResponse }
-            let incoming = HomeContent.chartRows(value)
-            var seen = Set<String>(); let combined = (reset ? [] : entries) + incoming
-            entries = combined.filter { seen.insert($0["songId"].string ?? "").inserted }
-            offset = start + value["entries"].array.count; more = value["hasMore"].bool && !value["entries"].array.isEmpty
-            chart = value["chart"]; error = nil
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
-    }
-}
-
-private struct ChartHistoryView: View {
-    @Environment(AppSession.self) private var session
-    let chartKey: String
-    let song: JSONValue
-    @State private var data: JSONValue = .null
-    @State private var error: String?
-    var body: some View {
-        List {
-            Text(song["artists"].array.compactMap { $0["name"].string }.joined(separator: " / "))
-            Text(data["basis"].string == "official_period" ? "按来源官方期次记录" : "按本站采集时间记录").font(.caption).foregroundStyle(PUBOTheme.secondary)
-            ForEach(Array(data["points"].array.enumerated()), id: \.offset) { _, point in
-                VStack(alignment: .leading, spacing: 4) {
-                    if let date = puboDate(point["observedAt"].string) { Text(date.formatted()).font(.caption) }
-                    Text(point["result"].string == "ranked" ? "排名 \(point["rank"].int)" : point["result"].string == "not_listed" ? "本次来源范围未收录" : "暂无可靠数据")
-                    if point["gapBefore"].bool { Text("此前存在采集间隔").font(.caption2).foregroundStyle(PUBOTheme.secondary) }
-                }
-            }
-            if let error { ErrorBanner(message: error) { Task { await load() } } }
-            else if data["points"].array.isEmpty { Text(data.isNull ? "加载中" : "暂无历史记录") }
-        }.puboList().navigationTitle(song["title"].string ?? "歌曲历史").task { await load() }
-    }
-    private func load() async {
-        do { data = try await session.call("music-charts/kpop-history", ["chartKey": .string(chartKey), "songId": song["songId"]]); error = nil }
-        catch { if !Task.isCancelled { self.error = error.localizedDescription } }
-    }
-}

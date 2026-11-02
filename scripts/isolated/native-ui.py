@@ -13,7 +13,7 @@ try:
  subprocess.run(command,check=True,timeout=1200)
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
- assert summary.get('passedTests',0)==3 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All three real-backend UI tests must actually run'
+ assert summary.get('passedTests',0)==4 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All four real-backend UI tests must actually run'
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)

@@ -29,6 +29,11 @@ struct ChatView: View {
     @State private var confirmBlock = false
     @State private var syncEpoch = UUID()
     @State private var needsFullState = false
+    @State private var contextMode = false
+    @State private var contextBusy = false
+    @State private var hasNewer = false
+    @State private var highlightedID: String?
+    @State private var scrollTarget: String?
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
 
@@ -37,13 +42,15 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(spacing: 18) {
                     if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
-                    ForEach(messages) { message in bubble(message).id(message.id) }
+                    if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
+                    ForEach(messages) { message in bubble(message).id(message.id).background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12)) }
                     ForEach(pending) { item in pendingBubble(item) }
                     Color.clear.frame(height: 1).id("bottom")
                 }.padding(16)
             }.scrollDismissesKeyboard(.interactively)
-                .onChange(of: messages.last?.id) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+                .onChange(of: messages.last?.id) { _, _ in if !contextMode { proxy.scrollTo("bottom", anchor: .bottom) } }
                 .onChange(of: pending.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+                .onChange(of: scrollTarget) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
         }.safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
             .puboScreen().navigationTitle(peer.displayName)
             .toolbar(.hidden, for: .tabBar)
@@ -61,19 +68,20 @@ struct ChatView: View {
             .onChange(of: text) { _, _ in saveDraft() }
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
-            .onDisappear { recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+            .onDisappear { syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { text += $0 } }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
-            .sheet(item: $actionMessage) { message in ChatMessageActions(message: message, peerID: peer.id, ownerID: session.user?.id ?? "") { updated in syncEpoch = UUID(); messages = ChatRecords.merge(messages, [updated]) } }
+            .sheet(item: $actionMessage) { message in ChatMessageActions(message: message, peerID: peer.id, ownerID: session.user?.id ?? "") { updated in syncEpoch = UUID(); messages = ChatRecords.merge(messages, [updated]); updateDraft(targets: [updated], missing: []) } }
             .sheet(isPresented: $choosingDrive) { DrivePicker { file in Task { await importDrive(file) } } }
             .sheet(isPresented: $reporting) { ReportView(userID: peer.id, context: "私信会话：" + Endpoint.origin.appendingPathComponent("chat/user/" + peer.id).absoluteString) }
             .confirmationDialog("屏蔽对方后，将不能继续聊天。", isPresented: $confirmBlock) { Button("屏蔽对方", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(peer.id)], mutation: true); error = "已屏蔽对方" } catch { self.error = error.localizedDescription } } } }
     }
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if contextMode || hasNewer { Button("回到最新消息") { Task { await returnToLatest() } }.frame(minHeight: 44).disabled(contextBusy).accessibilityIdentifier("chat.latest") }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.error") }
-            if let reply { HStack { Text("回复：" + reply.text).lineLimit(2); Spacer(); Button("取消回复") { self.reply = nil } }.font(.caption).padding(8).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)) }
+            if let reply { HStack { Text("回复：" + ChatReferences.label(ChatReferences.summary(reply))).lineLimit(2); Spacer(); Button("取消回复") { self.reply = nil; saveDraft() } }.font(.caption).padding(8).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)) }
             if !attachments.isEmpty {
                 ScrollView(.horizontal) { HStack { ForEach(attachments) { file in
                     HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button { attachments.removeAll { $0.id == file.id }; saveDraft() } label: { Image(systemName: "xmark.circle") }.accessibilityLabel("移除附件") }.font(.caption).padding(8).background(PUBOTheme.button, in: Capsule())
@@ -105,7 +113,11 @@ struct ChatView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(PUBOTheme.secondary) }
                     else {
-                        if let quoted = message["replyTo"]["text"].string { Text("回复：" + quoted).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6)) }
+                        if !message["replyTo"].isNull {
+                            Button { if let id = message["replyToId"].string ?? message["replyTo"]["id"].string { Task { await openContext(id) } } } label: {
+                                Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
+                            }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
+                        }
                         if !message.text.isEmpty { NoteText(text: message.text, expands: false) }
                         ForEach(Record.list(message["attachments"])) { file in Button { preview = PrivatePreviewItem(attachment: file, messageID: message.id) } label: { Label(file["kind"].string == "voice" ? "语音消息" : (file["name"].string ?? "附件"), systemImage: file["kind"].string == "voice" ? "waveform" : "paperclip") } }
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
@@ -113,7 +125,7 @@ struct ChatView: View {
                 }.padding(.horizontal, 14).padding(.vertical, 10)
                     .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
                     .contextMenu {
-                        if message["recalledAt"].isNull { Button("引用回复") { reply = message }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
+                        if message["recalledAt"].isNull { Button("引用回复") { reply = message; saveDraft() }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
                         Button(own ? "编辑／撤回消息" : "消息反应／举报") { actionMessage = message }
                     }
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
@@ -124,7 +136,7 @@ struct ChatView: View {
                     if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
                     if !message["editedAt"].isNull { Text("已编辑") }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
-            }.task { if !own && scenePhase == .active { await markRead(message) } }
+            }.task(id: "\(contextMode)-\(scenePhase == .active)") { if !own && !contextMode && scenePhase == .active { await markRead(message) } }
             if !own { Spacer(minLength: 28) }
         }
     }
@@ -169,13 +181,13 @@ struct ChatView: View {
         do {
             var fields: [String: JSONValue] = ["userId": .string(peer.id), "limit": .number(50)]
             if older, let id = messages.first?.id { fields["untilId"] = .string(id) }
-            let result = Record.list(try await session.call("chat/messages/user-timeline", fields))
+            let result = contextMode && !older ? [] : Record.list(try await session.call("chat/messages/user-timeline", fields))
             guard epoch == syncEpoch, !Task.isCancelled else { return }
             messages = Array(ChatRecords.merge(messages, result).suffix(2_000))
-            if older || messages.count <= 50 { hasMore = result.count == 50 && messages.count < 2_000 }
+            if !contextMode || older { if older || messages.count <= 50 { hasMore = result.count == 50 && messages.count < 2_000 } }
             if let author = session.user?.id { pending.removeAll { item in result.contains { item.matches($0, authorID: author) } }; persist() }
             let all = needsFullState
-            let ids = Array(Set((all ? messages.map(\.id) : []) + Array(session.changedChatIDs))).sorted()
+            let ids = Array(Set((all ? messages.map(\.id) : []) + Array(session.changedChatIDs)).union(ChatReferences.ids(messages, draft: reply))).sorted()
             for offset in stride(from: 0, to: ids.count, by: 100) {
                 let batch = Array(ids[offset..<min(offset + 100, ids.count)])
                 let state = try await session.call("chat/messages/state", ["userId": .string(peer.id), "messageIds": .strings(batch)])
@@ -183,13 +195,48 @@ struct ChatView: View {
                 guard case .array = state["messages"], case .array = state["missingIds"] else { throw APIError.invalidResponse }
                 let updates = Record.list(state["messages"]).filter { batch.contains($0.id) }
                 let missing = state["missingIds"].array.compactMap(\.string).filter { batch.contains($0) }
-                messages = ChatRecords.merge(messages, updates, missingIDs: missing)
+                let visible = Set(messages.map(\.id))
+                messages = ChatRecords.merge(messages, updates.filter { visible.contains($0.id) }, missingIDs: missing)
+                messages = ChatReferences.reconcile(messages, targets: updates, missing: missing)
                 session.changedChatIDs.subtract(batch)
-                if let reply, missing.contains(reply.id) || updates.contains(where: { $0.id == reply.id && !$0["recalledAt"].isNull }) { self.reply = nil; saveDraft() }
+                updateDraft(targets: updates, missing: missing)
                 if let preview, missing.contains(preview.messageID) || updates.contains(where: { $0.id == preview.messageID && !$0["recalledAt"].isNull }) { self.preview = nil }
             }
             if all { needsFullState = false }
         } catch { self.error = error.localizedDescription }
+    }
+    private func updateDraft(targets: [Record], missing: [String]) {
+        guard let reply else { return }
+        if missing.contains(reply.id) || targets.contains(where: { $0.id == reply.id && !$0["recalledAt"].isNull }) {
+            self.reply = nil; error = "引用的原消息已撤回或不可用，正文已保留。"; saveDraft()
+        } else if let target = targets.first(where: { $0.id == reply.id && $0["revision"].int >= reply["revision"].int }) {
+            self.reply = target; saveDraft()
+        }
+    }
+    private func openContext(_ id: String) async {
+        guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
+        syncEpoch = UUID(); let epoch = syncEpoch; scrollTarget = nil
+        do {
+            let value = try await session.call("chat/messages/context", ["userId": .string(peer.id), "messageId": .string(id)])
+            guard epoch == syncEpoch, !Task.isCancelled else { return }
+            let rows = Record.list(value["messages"])
+            guard rows.contains(where: { $0.id == id }), rows.allSatisfy({ row in
+                Set([row["fromUserId"].string ?? "", row["toUserId"].string ?? ""]) == Set([peer.id, ownerID ?? ""]) && row["toRoomId"].isNull
+            }) else { throw APIError.invalidResponse }
+            contextMode = true; messages = ChatRecords.merge([], rows); hasMore = value["hasOlder"].bool; hasNewer = value["hasNewer"].bool
+            highlightedID = id; error = nil
+            await Task.yield(); guard epoch == syncEpoch else { return }; scrollTarget = id
+        } catch { if epoch == syncEpoch { error = "无法定位原消息：" + error.localizedDescription } }
+    }
+    private func returnToLatest() async {
+        guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
+        syncEpoch = UUID(); let epoch = syncEpoch
+        do {
+            let rows = Record.list(try await session.call("chat/messages/user-timeline", ["userId": .string(peer.id), "limit": .number(50)]))
+            guard epoch == syncEpoch, !Task.isCancelled else { return }
+            messages = ChatRecords.merge([], rows); contextMode = false; hasNewer = false; highlightedID = nil; hasMore = rows.count == 50; error = nil
+            scrollTarget = nil; await Task.yield(); scrollTarget = "bottom"
+        } catch { if epoch == syncEpoch { error = error.localizedDescription } }
     }
     private func sendNew() async {
         guard !busy else { return }
@@ -237,7 +284,7 @@ struct ChatView: View {
     }
     private func markRead(_ message: Record) async {
         guard message["readState"].string != "read" else { return }
-        do { _ = try await session.call("chat/messages/read", ["userId": .string(peer.id), "messageIds": .strings([message.id])], mutation: true) } catch { }
+        do { _ = try await session.call("chat/messages/read", ["userId": .string(peer.id), "messageIds": .strings([message.id])], mutation: true); await session.refreshUnread() } catch { }
     }
     private func uploadPhotos(_ items: [PhotosPickerItem]) async {
         guard !busy else { return }; busy = true; defer { busy = false; photos = [] }
@@ -290,9 +337,7 @@ struct PrivateAttachmentView: View {
         NavigationStack {
             Group {
                 if let error { ErrorBanner(message: error) }
-                else if let data, attachment["mime"].string?.hasPrefix("image/") == true, let image = UIImage(data: data) { ScrollView { Image(uiImage: image).resizable().scaledToFit() } }
-                else if let localURL, attachment["mime"].string?.hasPrefix("audio/") == true || attachment["mime"].string?.hasPrefix("video/") == true { MediaPlayer(url: localURL) }
-                else if let localURL { ShareLink("保存或打开此文件", item: localURL) }
+                else if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: attachment["mime"].string ?? "application/octet-stream", name: attachment["name"].string ?? "私信附件") }
                 else { ProgressView("正在验证附件权限…") }
             }.puboScreen().navigationTitle(attachment["name"].string ?? "私信附件").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { dismiss() } }
                 .task {

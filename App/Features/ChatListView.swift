@@ -54,7 +54,7 @@ struct ChatListView: View {
         } catch { self.error = error.localizedDescription }
     }
     private func settings(_ peer: String, _ key: String, _ value: Bool) async {
-        do { _ = try await session.call("chat/conversation-settings/update", ["userId": .string(peer), key: .bool(value)], mutation: true); await load() }
+        do { _ = try await session.call("chat/conversation-settings/update", ["userId": .string(peer), key: .bool(value)], mutation: true); await load(); await session.refreshUnread() }
         catch { self.error = error.localizedDescription }
     }
 }

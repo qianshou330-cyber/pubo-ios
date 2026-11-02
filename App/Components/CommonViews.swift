@@ -98,13 +98,13 @@ struct PublicMedia: View {
                 VStack(spacing: 8) { Label("敏感媒体不在 App 内显示", systemImage: "eye.slash"); Link("在网页查看原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + noteID)) }.font(.callout).frame(maxWidth: .infinity, minHeight: 100).background(PUBOTheme.button)
             } else if let url = safeMediaURL(file["url"].string) {
                 if file["type"].string?.hasPrefix("image/") == true {
-                    AsyncImage(url: safeMediaURL(file["thumbnailUrl"].string) ?? url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView().frame(height: 100) }
+                    Button { playing = true } label: { AsyncImage(url: safeMediaURL(file["thumbnailUrl"].string) ?? url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView().frame(height: 100) } }.buttonStyle(.plain)
                         .frame(maxHeight: 340).accessibilityLabel(file["comment"].string ?? "帖子图片")
                 } else if file["type"].string?.hasPrefix("video/") == true || file["type"].string?.hasPrefix("audio/") == true {
-                    Button { playing = true } label: { Label("播放媒体", systemImage: "play.circle.fill").frame(maxWidth: .infinity, minHeight: 100) }.sheet(isPresented: $playing) { MediaPlayer(url: url) }
+                    Button { playing = true } label: { Label("播放媒体", systemImage: "play.circle.fill").frame(maxWidth: .infinity, minHeight: 100) }
                 } else { Link(file["name"].string ?? "打开附件", destination: url) }
             }
-        }.clipShape(RoundedRectangle(cornerRadius: 12))
+        }.clipShape(RoundedRectangle(cornerRadius: 12)).sheet(isPresented: $playing) { PublicAttachmentPreview(file: file) }
     }
 }
 

@@ -44,6 +44,20 @@ import XCTest
         XCTAssertTrue(app.staticTexts["1 票 · 单选"].waitForExistence(timeout: 10)); capture(app,"joint-real-vote")
         let saved = try await proof("voted"); XCTAssertTrue(saved)
     }
+    func testRealHistoricalContextDoesNotMarkRead() async throws {
+        let data = try await context(); let app = launch(data)
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()
+        let peer = app.staticTexts["历史引用验收朋友"].firstMatch
+        XCTAssertTrue(peer.waitForExistence(timeout: 10)); peer.tap()
+        let quote = app.buttons["chat.reference." + data["quoteId"]!]
+        XCTAssertTrue(quote.waitForExistence(timeout: 10)); quote.tap()
+        XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForExistence(timeout: 10))
+        let unread = try await proof("contextUnread"); XCTAssertTrue(unread)
+        capture(app,"joint-real-history-context")
+        app.buttons["回到最新消息"].tap()
+        XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForNonExistence(timeout: 10))
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+    }
     func testRealChatEditRecallAndReaction() async throws {
         let app = launch(try await context())
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()

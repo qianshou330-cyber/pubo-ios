@@ -14,6 +14,7 @@ actor FixtureTransport: HTTPTransport {
     private var timelineReads = 0
     private var favorites = Set<String>()
     private var profile = FixtureTransport.me
+    private var oldMessage: JSONValue = .null
     private let driveFile: JSONValue = .object(["id": .string("fixturefile"), "name": .string("测试图片.png"), "type": .string("image/png"), "size": .number(128), "isSensitive": .bool(false)])
     init() {
         if ProcessInfo.processInfo.arguments.contains("--search-unavailable") {
@@ -29,6 +30,11 @@ actor FixtureTransport: HTTPTransport {
                 .object(["id": .string("chatpreview001"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("你好，欢迎来到 PUBO。"), "createdAt": .string(ISO8601DateFormatter().string(from: Date().addingTimeInterval(-120))), "attachments": .array([])]),
                 .object(["id": .string("chatpreview002"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": .string("收到，我们在这里聊天。"), "createdAt": .string(ISO8601DateFormatter().string(from: Date().addingTimeInterval(-60))), "attachments": .array([]), "readState": .string("read")])
             ]
+        }
+        if ProcessInfo.processInfo.arguments.contains("--parity-preview") {
+            oldMessage = .object(["id": .string("chatold000"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("历史原消息已更新"), "revision": .number(2), "attachments": .array([]), "readState": .string("unread")])
+            sent = [.object(["id": .string("chatquote003"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": .string("引用历史消息"), "attachments": .array([]), "replyToId": .string("chatold000"), "replyTo": .object(["id": .string("chatold000"), "text": .string("旧正文不应保留"), "revision": .number(1)])])]
+            var values = profile.object; values["hasUnreadNotification"] = .bool(true); profile = .object(values)
         }
     }
     private var posts: [JSONValue] = [
@@ -90,9 +96,11 @@ actor FixtureTransport: HTTPTransport {
         case "announcements": response = .array([.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。")])])
         case "music-charts/kpop-summary", "music-charts/kpop-chart":
             let key = body["chartKey"].string ?? "melon-top100"
-            let chart = JSONValue.object(["chartKey": .string(key), "provider": .string(key == "genie-realtime" ? "genie" : "melon"), "label": .string(key == "genie-realtime" ? "Genie 实时榜" : "Melon TOP100"), "status": .string("available"), "rankBasis": .string("official_rank"), "coverage": .string("complete"), "lastSuccessAt": .string("2026-11-01T15:00:00Z")])
-            let song = JSONValue.object(["songId": .string("fixturesong"), "title": .string("NEON"), "artists": .array([.object(["name": .string("A2O LITE")])]), "rank": .number(1), "groupIds": .strings(["a2o-lite"]), "sourceMovement": .object(["type": .string("same")])])
-            response = .object(["selected": chart, "chart": chart, "charts": .array([chart, .object(["chartKey": .string("genie-realtime"), "label": .string("Genie 实时榜")])]), "entries": .array([song]), "total": .number(1), "hasMore": .bool(false)])
+            let chart = JSONValue.object(["chartKey": .string(key), "provider": .string(key == "genie-realtime" ? "genie" : "melon"), "label": .string(key == "genie-realtime" ? "Genie 实时榜" : "Melon TOP100"), "status": .string("available"), "rankBasis": .string("official_rank"), "coverage": .string("complete"), "sourceUrl": .string("https://www.melon.com/chart/index.htm"), "observedAt": .string("2026-11-01T15:00:00Z"), "lastSuccessAt": .string("2026-11-01T15:00:00Z")])
+            let song = JSONValue.object(["songId": .string("fixturesong"), "title": .string("NEON"), "artists": .array([.object(["name": .string("A2O LITE")])]), "rank": .number(2), "bestRank7d": .number(1), "previousRank": .number(1), "change": .number(-1), "groupIds": .strings(["a2o-lite"]), "sourceMovement": .object(["type": .string(args.contains("--parity-preview") ? "unknown" : "same")])])
+            let query = body["query"].string ?? ""; let group = body["groupId"].string ?? ""
+            let matches = (query.isEmpty || "NEON A2O LITE".localizedCaseInsensitiveContains(query)) && (group.isEmpty || group == "a2o-lite")
+            response = .object(["selected": chart, "chart": chart, "charts": .array([chart, .object(["chartKey": .string("genie-realtime"), "label": .string("Genie 实时榜")])]), "entries": .array(matches ? [song] : []), "total": .number(matches ? 1 : 0), "hasMore": .bool(false)])
         case "music-charts/kpop-history": response = .object(["basis": .string("observation"), "points": .array([.object(["observedAt": .string("2026-11-01T15:00:00Z"), "result": .string("ranked"), "rank": .number(1)])])])
         case "notes/show": response = posts.first { $0["id"] == body["noteId"] } ?? posts[0]
         case "notes/replies": response = .array([])
@@ -105,10 +113,13 @@ actor FixtureTransport: HTTPTransport {
         case "i/notifications": response = .array([.object(["id": .string("notice1"), "type": .string("follow"), "user": Self.peer, "isRead": .bool(false)])])
         case "chat/conversations": response = .array([.object(["user": Self.peer, "lastMessage": .object(["id": .string("seedmessage"), "text": .string("点击开始聊天")]), "unreadCount": .number(0), "isMuted": .bool(false), "pinnedAt": .null])])
         case "chat/messages/user-timeline": response = .array(sent)
+        case "chat/unread-summary": response = .object(["unreadCount": .number(12), "notificationUnreadCount": .number(args.contains("--parity-preview") ? 2 : 0), "hasNotificationLegacyUnread": .bool(false), "hasUnreadRoom": .bool(false)])
+        case "chat/messages/context": response = .object(["messages": .array([oldMessage] + sent), "hasOlder": .bool(false), "hasNewer": .bool(true)])
         case "chat/messages/show": response = sent.first { $0["id"] == body["messageId"] } ?? .null
         case "chat/messages/state":
             let ids = body["messageIds"].array.compactMap(\.string)
-            response = .object(["messages": .array(sent.filter { ids.contains($0["id"].string ?? "") }), "missingIds": .strings(ids.filter { id in !sent.contains { $0["id"].string == id } })])
+            let known = sent + (oldMessage.isNull ? [] : [oldMessage])
+            response = .object(["messages": .array(known.filter { ids.contains($0["id"].string ?? "") }), "missingIds": .strings(ids.filter { id in !known.contains { $0["id"].string == id } })])
         case "chat/messages/update":
             if let index = sent.firstIndex(where: { $0["id"] == body["messageId"] }) {
                 if args.contains("--edit-conflict") && sent[index]["revision"].int == 0 {

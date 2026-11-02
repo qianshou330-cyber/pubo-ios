@@ -47,7 +47,7 @@ struct NotificationsView: View {
         } catch { self.error = error.localizedDescription }
     }
     private func markRead() async {
-        do { _ = try await session.call("notifications/mark-all-as-read", mutation: true); await load() }
+        do { _ = try await session.call("notifications/mark-all-as-read", mutation: true); await load(); await session.refreshUnread() }
         catch { self.error = error.localizedDescription }
     }
 }

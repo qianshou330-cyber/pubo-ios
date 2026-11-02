@@ -15,8 +15,8 @@ struct PUBOApp: App {
                 else {
                     TabView(selection: $session.selectedTab) {
                         TimelineView().tabItem { Label("动态", systemImage: "house") }.tag(0)
-                        NotificationsView().tabItem { Label("通知", systemImage: "bell") }.tag(1)
-                        ChatListView().tabItem { Label("私信", systemImage: "bubble.left.and.bubble.right") }.tag(2)
+                        NotificationsView().tabItem { Label("通知", systemImage: "bell") }.badge(session.badges.notificationLabel).tag(1)
+                        ChatListView().tabItem { Label("私信", systemImage: "bubble.left.and.bubble.right") }.badge(session.badges.chatLabel).tag(2)
                         MyAccountView().tabItem {
                             if let profileTabAvatar { Image(uiImage: profileTabAvatar).renderingMode(.original); Text("我的") }
                             else { Label("我的", systemImage: "person.crop.circle") }
@@ -28,6 +28,9 @@ struct PUBOApp: App {
                 .environment(\.dynamicTypeSize, session.testMode && ProcessInfo.processInfo.arguments.contains("--large-text") ? .accessibility3 : systemTypeSize)
                 .preferredColorScheme(session.testMode ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
                 .task { await session.start() }
+                .task(id: "\(session.generation)-\(session.user?.id ?? "guest")-\(session.streamRevision)-\(scenePhase == .active)") {
+                    if scenePhase == .active { await session.refreshUnread() }
+                }
                 .sheet(item: Binding(get: { session.nativePush.destination }, set: { session.nativePush.destination = $0 })) { destination in
                     NavigationStack {
                         Group { switch destination { case .chat(let peer): ChatView(peer: peer); case .note(let id): NoteDetailView(noteID: id) } }

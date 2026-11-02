@@ -45,6 +45,7 @@ public enum ChatRecords {
             if let old = values[item.id] {
                 if item["revision"].int < old["revision"].int || (!old["recalledAt"].isNull && item["recalledAt"].isNull) { continue }
                 var merged = item.raw.object
+                merged["replyTo"] = ChatReferences.newest(old["replyTo"], item["replyTo"])
                 // The lightweight state endpoint omits participants; preserve known display fields.
                 for key in ["fromUser", "toUser", "clientMessageId"] where merged[key] == nil { merged[key] = old[key] }
                 if !old["readAt"].isNull && item["readAt"].isNull { merged["readAt"] = old["readAt"]; merged["readState"] = .string("read") }
@@ -52,6 +53,7 @@ public enum ChatRecords {
             } else { values[item.id] = item }
         }
         for id in missingIDs { values.removeValue(forKey: id) }
-        return values.values.sorted { $0.id < $1.id }
+        let sorted = values.values.sorted { $0.id < $1.id }
+        return ChatReferences.reconcile(sorted, targets: sorted, missing: missingIDs)
     }
 }
