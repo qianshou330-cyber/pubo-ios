@@ -30,6 +30,8 @@ jobs:
         run: |
           swift scripts/brand-assets.swift
           xcodegen generate
+      - name: Compile native app before simulator boot
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
       - name: Build and test two iPhone sizes
         run: python3 scripts/simulator-tests.py
       - name: Release simulator build

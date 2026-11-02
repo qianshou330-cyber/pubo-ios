@@ -37,27 +37,37 @@ struct ChatView: View {
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
 
-    var body: some View {
+    private var messageList: some View {
+        LazyVStack(spacing: 18) {
+            if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
+            if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
+            ForEach(messages) { message in
+                bubble(message).id(message.id)
+                    .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
+            }
+            ForEach(pending) { item in pendingBubble(item) }
+            Color.clear.frame(height: 1).id("bottom")
+        }.padding(16)
+    }
+    private var messageScroll: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 18) {
-                    if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
-                    if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
-                    ForEach(messages) { message in bubble(message).id(message.id).background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12)) }
-                    ForEach(pending) { item in pendingBubble(item) }
-                    Color.clear.frame(height: 1).id("bottom")
-                }.padding(16)
-            }.scrollDismissesKeyboard(.interactively)
+            ScrollView { messageList }.scrollDismissesKeyboard(.interactively)
                 .onChange(of: messages.last?.id) { _, _ in if !contextMode { proxy.scrollTo("bottom", anchor: .bottom) } }
                 .onChange(of: pending.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
                 .onChange(of: scrollTarget) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
-        }.safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
+        }
+    }
+    private var chatLayout: some View {
+        messageScroll.safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
             .puboScreen().navigationTitle(peer.displayName)
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .principal) { HStack(spacing: 8) { Avatar(user: peer, size: 32); Text(peer.displayName).font(.headline).lineLimit(1) } }
                 ToolbarItem(placement: .topBarTrailing) { Menu { Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis") }.accessibilityLabel("聊天选项") }
             }
+    }
+    private var chatLifecycle: some View {
+        chatLayout
             .task {
                 session.stream.showChat(peer.id)
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
@@ -69,6 +79,9 @@ struct ChatView: View {
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
             .onDisappear { syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+    }
+    var body: some View {
+        chatLifecycle
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { text += $0 } }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
@@ -226,7 +239,7 @@ struct ChatView: View {
             contextMode = true; messages = ChatRecords.merge([], rows); hasMore = value["hasOlder"].bool; hasNewer = value["hasNewer"].bool
             highlightedID = id; error = nil
             await Task.yield(); guard epoch == syncEpoch else { return }; scrollTarget = id
-        } catch { if epoch == syncEpoch { error = "无法定位原消息：" + error.localizedDescription } }
+        } catch { if epoch == syncEpoch { self.error = "无法定位原消息：" + error.localizedDescription } }
     }
     private func returnToLatest() async {
         guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
@@ -236,7 +249,7 @@ struct ChatView: View {
             guard epoch == syncEpoch, !Task.isCancelled else { return }
             messages = ChatRecords.merge([], rows); contextMode = false; hasNewer = false; highlightedID = nil; hasMore = rows.count == 50; error = nil
             scrollTarget = nil; await Task.yield(); scrollTarget = "bottom"
-        } catch { if epoch == syncEpoch { error = error.localizedDescription } }
+        } catch { if epoch == syncEpoch { self.error = error.localizedDescription } }
     }
     private func sendNew() async {
         guard !busy else { return }
