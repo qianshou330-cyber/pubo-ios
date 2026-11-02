@@ -18,6 +18,11 @@ actor FixtureTransport: HTTPTransport {
     private var driveFile: JSONValue = .object(["id": .string("fixturefile"), "name": .string("测试图片.png"), "type": .string("image/png"), "size": .number(128), "isSensitive": .bool(false)])
     private var announcements: [JSONValue] = [.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "isActive": .bool(true), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。"), "updatedAt": .string("2026-11-02T00:00:00Z")])]
     private var drafts: [JSONValue] = []
+    private var contacts: [JSONValue] = []
+    private var rooms: [JSONValue] = []
+    private var roomMessages: [JSONValue] = []
+    private var collections: [String: [JSONValue]] = [:]
+    private var driveFolders: [JSONValue] = [.object(["id": .string("fixturefolder"), "name": .string("测试文件夹"), "parentId": .null])]
     init() {
         var user = profile.object; var policies = user["policies"]!.object
         policies["scheduledNoteLimit"] = .number(10); policies["avatarDecorationLimit"] = .number(2)
@@ -72,15 +77,15 @@ actor FixtureTransport: HTTPTransport {
         case "signin-flow": response = .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup/request-phone-code": response = .null
-        case "users/show": response = body["userId"].string == "syntheticself" ? profile : Self.peer
+        case "users/show": response = body["userIds"].isNull ? (body["userId"].string == "syntheticself" ? profile : Self.peer) : .array(body["userIds"].array.map { $0.string == "syntheticself" ? profile : Self.peer })
         case "users/search": response = .array([Self.peer])
         case "notes/search": response = .array(posts.filter { ($0["text"].string ?? "").localizedCaseInsensitiveContains(body["query"].string ?? "") })
         case "hashtags/search": response = .strings(["PUBO", "A2OLITE"])
         case "notes/search-by-tag": response = .array(posts)
-        case "drive/folders": response = body["folderId"].isNull ? .array([.object(["id": .string("fixturefolder"), "name": .string("测试文件夹")])]) : .array([])
+        case "drive/folders": response = .array(driveFolders.filter { $0["parentId"] == body["folderId"] })
         case "drive/files": response = .array([driveFile])
         case "drive/files/show": response = driveFile
-        case "drive/files/update": var value = driveFile.object; for key in ["name", "comment", "isSensitive"] where !body[key].isNull { value[key] = body[key] }; driveFile = .object(value); response = driveFile
+        case "drive/files/update": var value = driveFile.object; for key in ["name", "comment", "isSensitive", "folderId"] where body.object[key] != nil { value[key] = body[key] }; driveFile = .object(value); response = driveFile
         case "notes/state": response = .object(["isFavorited": .bool(favorites.contains(body["noteId"].string ?? ""))])
         case "notes/favorites/create": favorites.insert(body["noteId"].string ?? ""); response = .null
         case "notes/favorites/delete": favorites.remove(body["noteId"].string ?? ""); response = .null
@@ -127,7 +132,7 @@ actor FixtureTransport: HTTPTransport {
             counter += 1
             let poll: JSONValue = body["poll"].isNull ? .null : .object(["choices": .array(body["poll"]["choices"].array.map { .object(["text": $0, "votes": .number(0), "isVoted": .bool(false)]) }), "multiple": body["poll"]["multiple"], "expiresAt": body["poll"]["expiresAt"].isNull ? .null : .string(ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(body["poll"]["expiresAt"].int) / 1000)))])
             let note = JSONValue.object(["id": .string("newpost\(counter)"), "user": Self.me, "text": body["text"], "cw": body["cw"], "visibility": body["visibility"], "replyId": body["replyId"], "renoteId": body["renoteId"], "files": .array(body["fileIds"].array.map { .object(["id": $0, "name": .string("测试图片.png")]) }), "reactions": .object([:]), "poll": poll])
-            var fields = note.object; fields["localOnly"] = body["localOnly"]; fields["visibleUserIds"] = body["visibleUserIds"]
+            var fields = note.object; fields["localOnly"] = body["localOnly"]; fields["visibleUserIds"] = body["visibleUserIds"]; fields["channelId"] = body["channelId"]
             let complete = JSONValue.object(fields); posts.insert(complete, at: 0); response = .object(["createdNote": complete])
             if args.contains("--lost-post-response") { throw URLError(.networkConnectionLost) }
         case "i/notifications": response = .array([.object(["id": .string("notice1"), "type": .string("follow"), "user": Self.peer, "isRead": .bool(false)])])
@@ -171,9 +176,51 @@ actor FixtureTransport: HTTPTransport {
                 if args.contains("--lost-chat-response") { throw URLError(.networkConnectionLost) }
             }
         case "chat/attachments/create", "chat/attachments/import-drive": status = 400; response = .object(["error": .object(["code": .string("CHAT_FIRST_MESSAGE_TEXT_ONLY")])])
-        default: response = .null
+        default: response = parityResponse(path, body) ?? .null
         }
         let data = try JSONEncoder().encode(response)
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
+    }
+    private func parityResponse(_ path: String, _ body: JSONValue) -> JSONValue? {
+        if path == "drive" { return .object(["usage": .number(128), "driveUsage": .number(128), "chatUsage": .number(0), "reservedUsage": .number(0), "capacity": .number(104857600)]) }
+        if path == "drive/folders/create" {
+            counter += 1; let folder: JSONValue = .object(["id": .string("folder\(counter)"), "name": body["name"], "parentId": body["parentId"]]); driveFolders.append(folder); return folder
+        }
+        if path == "drive/folders/show" { return driveFolders.first { $0["id"] == body["folderId"] } ?? .null }
+        if path == "drive/folders/update", let index = driveFolders.firstIndex(where: { $0["id"] == body["folderId"] }) { var value = driveFolders[index].object; for key in ["name", "parentId"] where body.object[key] != nil { value[key] = body[key] }; driveFolders[index] = .object(value); return driveFolders[index] }
+        if path == "drive/folders/delete" { driveFolders.removeAll { $0["id"] == body["folderId"] }; return .null }
+        if path == "chat/contact-groups/list" { return .array(contacts) }
+        if path == "chat/contact-groups/create" { counter += 1; let value: JSONValue = .object(["id": .string("group\(counter)"), "name": body["name"], "userIds": .array([])]); contacts.append(value); return value }
+        if path.hasPrefix("chat/contact-groups/"), let index = contacts.firstIndex(where: { $0["id"] == body["groupId"] }) {
+            var value = contacts[index].object
+            if path.hasSuffix("/update") { value["name"] = body["name"] }
+            if path.hasSuffix("/add-user") { value["userIds"] = .array(contacts[index]["userIds"].array + [body["userId"]]) }
+            if path.hasSuffix("/remove-user") { value["userIds"] = .array(contacts[index]["userIds"].array.filter { $0 != body["userId"] }) }
+            contacts[index] = .object(value)
+            if path.hasSuffix("/delete") { contacts.remove(at: index) }; return .null
+        }
+        if path == "chat/rooms/create" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("room\(counter)"); value["ownerId"] = Self.me["id"]; rooms.append(.object(value)); return .object(value) }
+        if path == "chat/rooms/owned" { return .array(rooms) }
+        if path == "chat/rooms/joining" { return .array(rooms.map { .object(["id": $0["id"], "room": $0]) }) }
+        if path == "chat/rooms/invitations/inbox" { return .array([]) }
+        if path == "chat/rooms/show" { return rooms.first { $0["id"] == body["roomId"] } ?? .null }
+        if path == "chat/rooms/members" { return .array([.object(["id": .string("membership"), "user": profile])]) }
+        if path == "chat/messages/create-to-room" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("roommessage\(counter)"); value["fromUserId"] = Self.me["id"]; value["fromUser"] = profile; roomMessages.append(.object(value)); return .object(value) }
+        if path == "chat/messages/room-timeline" { return .array(roomMessages.filter { $0["toRoomId"] == body["roomId"] }.reversed()) }
+        if path == "chat/messages/search" { return .array((sent + roomMessages).filter { ($0["text"].string ?? "").contains(body["query"].string ?? "") }) }
+        if path == "notes/featured" { return .array(posts) }
+        if path == "notes/reactions" { return .array([.object(["id": .string("reaction1"), "user": Self.peer, "type": .string("❤️")])]) }
+        for kind in CollectionKind.allCases {
+            let rows = collections[kind.rawValue] ?? []
+            if path == kind.base + "/create" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("collection\(counter)"); value["userId"] = Self.me["id"]; value["user"] = profile; collections[kind.rawValue] = rows + [.object(value)]; return .object(value) }
+            if path == kind.base + "/show" { return rows.first { $0["id"] == body[kind.idKey] } ?? .null }
+            if path == kind.base + "/list" || path == kind.base + "/owned" || (kind == .gallery && path == "users/gallery/posts") { return .array(rows) }
+            if path == kind.base + "/update", let index = rows.firstIndex(where: { $0["id"] == body[kind.idKey] }) {
+                var updated = rows; var fields = rows[index].object; for (key, value) in body.object where key != "i" && key != kind.idKey { fields[key] = value }; updated[index] = .object(fields); collections[kind.rawValue] = updated; return updated[index]
+            }
+            if path == kind.base + "/delete" { collections[kind.rawValue] = rows.filter { $0["id"] != body[kind.idKey] }; return .null }
+            if path == kind.feed { return .array(posts) }
+        }
+        return nil
     }
 }

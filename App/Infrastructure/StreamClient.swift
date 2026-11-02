@@ -19,6 +19,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     private var notificationTask: Task<Void, Never>?
     private var timeline: String? = "home"
     private var peerID: String?
+    private var roomID: String?
 
     func showTimeline(_ name: String?) {
         guard timeline != name else { return }
@@ -26,8 +27,9 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     }
     func showChat(_ id: String?) {
         guard peerID != id else { return }
-        peerID = id; reconnectForContext()
+        peerID = id; roomID = nil; reconnectForContext()
     }
+    func showRoom(_ id: String?) { guard roomID != id else { return }; roomID = id; peerID = nil; reconnectForContext() }
     private func reconnectForContext() {
         guard let token = currentToken else { return }
         stop(); start(token: token)
@@ -56,6 +58,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                     self.socket = socket; socket.resume()
                     var channels: [(String, [String: JSONValue])] = [("main", [:])]
                     if let peer = self.peerID { channels.append(("chatUser", ["otherId": .string(peer)])) }
+                    else if let room = self.roomID { channels.append(("chatRoom", ["roomId": .string(room)])) }
                     else if let timeline = self.timeline, ["home", "local", "hybrid", "global"].contains(timeline) { channels.append((timeline + "Timeline", [:])) }
                     for (channel, parameters) in channels {
                         let packet: JSONValue = .object(["type": .string("connect"), "body": .object(["channel": .string(channel), "id": .string(channel), "params": .object(parameters)])])

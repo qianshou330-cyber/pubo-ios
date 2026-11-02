@@ -2,13 +2,42 @@ import XCTest
 
 /// Exercises the native UI against the pinned real backend on this runner's loopback network.
 @MainActor final class PUBOIntegrationTests: XCTestCase {
+    func testRealContactGroupCreation() async throws {
+        let app = launch(try await context())
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["联系人"].tap(); app.buttons["新建分组"].tap()
+        let name = app.alerts.textFields["分组名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native contacts proof"); app.alerts.buttons["保存"].tap()
+        XCTAssertTrue(app.staticTexts["Native contacts proof"].waitForExistence(timeout: 10)); let saved = try await proof("contactsCreated"); XCTAssertTrue(saved); capture(app,"joint-native-contacts")
+    }
+    func testRealRoomCreationAndMessage() async throws {
+        let app = launch(try await context())
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["群聊"].tap(); app.buttons["创建群聊"].tap()
+        let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room proof"); app.buttons["保存群聊"].tap()
+        let room = app.staticTexts["Native room proof"]; XCTAssertTrue(room.waitForExistence(timeout: 10)); room.tap()
+        let text = app.textFields["群聊消息"]; XCTAssertTrue(text.waitForExistence(timeout: 10)); text.tap(); text.typeText("Native room message proof"); app.buttons["发送"].tap()
+        XCTAssertTrue(app.staticTexts["Native room message proof"].waitForExistence(timeout: 10)); let saved = try await proof("roomMessageCreated"); XCTAssertTrue(saved); capture(app,"joint-native-room")
+    }
+    func testRealClipCreation() async throws {
+        let app = launch(try await context())
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap(); app.buttons["更多功能"].tap(); app.buttons["剪藏"].tap(); app.buttons["创建剪藏"].tap()
+        let name = app.textFields["名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native clip proof"); app.buttons["保存"].tap()
+        XCTAssertTrue(app.staticTexts["Native clip proof"].waitForExistence(timeout: 10)); let saved = try await proof("clipCreated"); XCTAssertTrue(saved); capture(app,"joint-native-clip")
+    }
+    func testRealDriveFolderCreation() async throws {
+        let app = launch(try await context())
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap(); app.buttons["网盘"].tap(); app.buttons["网盘新增"].tap(); app.buttons["新建文件夹"].tap()
+        let name = app.alerts.textFields["文件夹名称"]; name.tap(); name.typeText("Native folder proof"); app.alerts.buttons["创建"].tap()
+        XCTAssertTrue(app.staticTexts["Native folder proof"].waitForExistence(timeout: 10)); let saved = try await proof("folderCreated"); XCTAssertTrue(saved); capture(app,"joint-native-folder")
+    }
     override func setUpWithError() throws { continueAfterFailure = false }
     private func context() async throws -> [String: String] {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:61913/context")!)
-        request.timeoutInterval = 2
+        request.timeoutInterval = 15
         let data: Data
         do { (data, _) = try await URLSession.shared.data(for: request) }
-        catch { throw XCTSkip("The disposable real backend is only started by the native-integration job.") }
+        catch {
+            if ProcessInfo.processInfo.environment["PUBO_REQUIRE_ISOLATED_BACKEND"] == "1" { throw error }
+            throw XCTSkip("The disposable real backend is only started by the native-integration job.")
+        }
         return try JSONDecoder().decode([String: String].self, from: data)
     }
     private func launch(_ context: [String: String]) -> XCUIApplication {

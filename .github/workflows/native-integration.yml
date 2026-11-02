@@ -1,7 +1,7 @@
 name: Native app and isolated PUBO backend
 on:
   push:
-    branches: [main, 'parity-phase2-*']
+    branches: [main, 'parity-phase2-*', 'parity-phase3-*']
   workflow_dispatch:
 permissions:
   contents: read

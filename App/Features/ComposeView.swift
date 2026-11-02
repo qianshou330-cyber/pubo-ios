@@ -24,6 +24,7 @@ struct ComposeView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     var replyTo: Record? = nil
     var renote: Record? = nil
+    var channelID: String? = nil
     var onSent: () -> Void
     @State private var draft = ComposeDraft()
     @State private var selected: [PhotosPickerItem] = []
@@ -41,7 +42,7 @@ struct ComposeView: View {
     @State private var editingFile: Record?
     @State private var camera = false
     @FocusState private var editingText: Bool
-    private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? "new") }
+    private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? channelID ?? "new") }
     private var editable: Bool { !busy && draft.outcome == "ready" }
     private var canSend: Bool { editable && (draft.visibility != "specified" || !(draft.visibleUsers ?? []).isEmpty) && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
     private var submitTitle: String { draft.scheduledAt != nil ? "定时发布" : replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
@@ -57,6 +58,7 @@ struct ComposeView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if let replyTo { contextNote(replyTo, title: "回复 \(replyTo.user.displayName)") }
                         if let renote { contextNote(renote, title: "引用转发") }
+                        if channelID != nil { Text("此帖发布到所选频道；频道帖子使用公开可见范围。").font(.caption) }
                         if draft.useCW {
                             TextField("内容提示", text: $draft.cw).font(.subheadline).padding(.vertical, 10)
                                 .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 1) }
@@ -214,6 +216,10 @@ struct ComposeView: View {
         busy = true; draft.outcome = "sending"; defer { busy = false }
         guard save() else { draft.outcome = "ready"; return }
         var body: [String: JSONValue] = ["visibility": .string(draft.visibility)]
+        if let channelID {
+            guard draft.visibility == "public" else { draft.outcome = "ready"; save(); error = "频道发帖需要选择公开可见范围。"; return }
+            body["channelId"] = .string(channelID)
+        }
         body["localOnly"] = .bool(draft.localOnly ?? false)
         if draft.visibility == "specified" { body["visibleUserIds"] = .strings((draft.visibleUsers ?? []).map(\.id)) }
         if let poll { body["poll"] = poll }

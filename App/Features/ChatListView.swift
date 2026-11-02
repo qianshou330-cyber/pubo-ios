@@ -12,6 +12,9 @@ struct ChatListView: View {
     var body: some View {
         NavigationStack {
             List {
+                NavigationLink("聊天搜索") { ChatSearchView() }
+                NavigationLink("联系人") { ContactsView() }
+                NavigationLink("群聊") { RoomsView() }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
                 ForEach(conversations, id: \.conversationID) { row in
                     let user = Record(row["user"])

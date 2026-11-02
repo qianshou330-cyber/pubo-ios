@@ -82,6 +82,7 @@ struct TimelineView: View {
             Menu {
                 NavigationLink("搜索") { SearchView() }
                 NavigationLink("我的收藏") { FavoritesView() }
+                NavigationLink("更多功能") { MoreSocialView() }
                 Link("在网页查看时间线", destination: Endpoint.origin)
                 Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
                 Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
@@ -122,6 +123,8 @@ struct NoteCard: View {
     @State private var reporting = false
     @State private var confirmDelete = false
     @State private var confirmBlock = false
+    @State private var selectingClip = false
+    @State private var viewingReactions = false
     private var shown: Record { let n = current ?? note; return n.text.isEmpty && !n["renote"].isNull ? Record(n["renote"]) : n }
     private var ownDeleteID: String? { note.user.id == session.user?.id ? note.id : shown.user.id == session.user?.id ? shown.id : nil }
     var body: some View { if !session.deletedNoteIDs.contains(note.id) && !session.deletedNoteIDs.contains(shown.id) { content } }
@@ -162,6 +165,8 @@ struct NoteCard: View {
                 Menu {
                     Button("收藏帖子") { Task { await favorite(true) } }
                     Button("取消收藏") { Task { await favorite(false) } }
+                    Button("加入剪藏") { selectingClip = true }
+                    Button("查看反应详情") { viewingReactions = true }
                     if ownDeleteID != nil { Button("删除帖子", role: .destructive) { confirmDelete = true } }
                     if let id = ownDeleteID { Button((session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id) ? "取消置顶帖子" : "置顶到个人主页") { Task { await pin(id) } } }
                     if shown.user.id != session.user?.id { Button("举报帖子") { reporting = true }; Button("屏蔽作者", role: .destructive) { confirmBlock = true } }
@@ -179,6 +184,8 @@ struct NoteCard: View {
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
             .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
             .sheet(isPresented: $reporting) { ReportView(userID: shown.user.id, context: Endpoint.origin.appendingPathComponent("notes/" + shown.id).absoluteString) }
+            .sheet(isPresented: $selectingClip) { ClipPicker(noteID: shown.id) }
+            .sheet(isPresented: $viewingReactions) { NavigationStack { ReactionDetailsView(noteID: shown.id).toolbar { Button("关闭") { viewingReactions = false } } } }
             .confirmationDialog("删除后无法恢复这条帖子。", isPresented: $confirmDelete) { Button("删除帖子", role: .destructive) { Task { await deleteNote() } } }
             .confirmationDialog("屏蔽此用户？", isPresented: $confirmBlock) { Button("屏蔽", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(shown.user.id)], mutation: true); error = "已屏蔽" } catch { self.error = error.localizedDescription } } } }
     }

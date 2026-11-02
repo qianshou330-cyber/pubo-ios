@@ -127,11 +127,12 @@ struct NoteText: View {
 struct PublicMedia: View {
     let file: Record
     let noteID: String
+    var sourceURL: URL? = nil
     @State private var playing = false
     var body: some View {
         Group {
             if file["isSensitive"].bool {
-                VStack(spacing: 8) { Label("敏感媒体不在 App 内显示", systemImage: "eye.slash"); Link("在网页查看原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + noteID)) }.font(.callout).frame(maxWidth: .infinity, minHeight: 100).background(PUBOTheme.button)
+                VStack(spacing: 8) { Label("敏感媒体不在 App 内显示", systemImage: "eye.slash"); Link("在网页查看原帖", destination: sourceURL ?? Endpoint.origin.appendingPathComponent("notes/" + noteID)) }.font(.callout).frame(maxWidth: .infinity, minHeight: 100).background(PUBOTheme.button)
             } else if let url = safeMediaURL(file["url"].string) {
                 if file["type"].string?.hasPrefix("image/") == true {
                     Button { playing = true } label: { AsyncImage(url: safeMediaURL(file["thumbnailUrl"].string) ?? url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView().frame(height: 100) } }.buttonStyle(.plain)
@@ -157,21 +158,26 @@ struct ReactionPicker: View {
     @Environment(\.dismiss) private var dismiss
     let choose: (String) -> Void
     @State private var search = ""
+    @State private var category = "全部"
+    private var categories: [String] { ["全部", "常用"] + Array(Set(session.emojis.map { $0["category"].string ?? "未分类" })).sorted() }
     private var available: [JSONValue] {
         let roles = Set(session.user?["roles"].array.compactMap { $0["id"].string } ?? [])
         return session.emojis.filter {
             let allowed = Set($0["roleIdsThatCanBeUsedThisEmojiAsReaction"].array.compactMap(\.string))
-            return !$0["isSensitive"].bool && (allowed.isEmpty || !roles.isDisjoint(with: allowed)) && (search.isEmpty || ($0["name"].string ?? "").localizedCaseInsensitiveContains(search) || $0["aliases"].array.contains { ($0.string ?? "").localizedCaseInsensitiveContains(search) })
+            let named = ":" + ($0["name"].string ?? "") + ":"
+            let matchesCategory = category == "全部" || (category == "常用" ? session.recentEmojis.contains(named) : ($0["category"].string ?? "未分类") == category)
+            return matchesCategory && !$0["isSensitive"].bool && (allowed.isEmpty || !roles.isDisjoint(with: allowed)) && (search.isEmpty || ($0["name"].string ?? "").localizedCaseInsensitiveContains(search) || $0["aliases"].array.contains { ($0.string ?? "").localizedCaseInsensitiveContains(search) })
         }
     }
     var body: some View {
         NavigationStack {
             ScrollView {
+                Picker("表情分类", selection: $category) { ForEach(categories, id: \.self) { Text($0).tag($0) } }.padding(.horizontal)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 55))], spacing: 18) {
-                    ForEach(["❤️", "👍", "🔥", "🎉", "🥰", "👏", "😂", "😮"], id: \.self) { emoji in Button(emoji) { choose(emoji); dismiss() }.font(.title) }
+                    ForEach((category == "常用" ? session.recentEmojis.filter { !$0.hasPrefix(":") } : category == "全部" ? ["❤️", "👍", "🔥", "🎉", "🥰", "👏", "😂", "😮"] : []), id: \.self) { emoji in Button(emoji) { session.rememberEmoji(emoji); choose(emoji); dismiss() }.font(.title) }
                     ForEach(available, id: \.selfID) { emoji in
                         if let name = emoji["name"].string {
-                            Button { choose(":" + name + ":"); dismiss() } label: {
+                            Button { session.rememberEmoji(":" + name + ":"); choose(":" + name + ":"); dismiss() } label: {
                                 AsyncImage(url: safeMediaURL(emoji["url"].string)) { image in image.resizable().scaledToFit() } placeholder: { Text(":" + name + ":").font(.caption2) }.frame(width: 40, height: 40)
                             }.accessibilityLabel(name)
                         }

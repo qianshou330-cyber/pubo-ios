@@ -7,6 +7,7 @@ struct ChatView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
     let peer: Record
+    var initialMessageID: String? = nil
     @State private var messages: [Record] = []
     @State private var pending: [PendingChat] = []
     @State private var text = ""
@@ -34,8 +35,10 @@ struct ChatView: View {
     @State private var hasNewer = false
     @State private var highlightedID: String?
     @State private var scrollTarget: String?
+    @State private var searching = false
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
+    init(peer: Record, initialMessageID: String? = nil) { self.peer = peer; self.initialMessageID = initialMessageID; _contextMode = State(initialValue: initialMessageID != nil) }
 
     private var messageList: some View {
         LazyVStack(spacing: 18) {
@@ -63,7 +66,7 @@ struct ChatView: View {
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .principal) { HStack(spacing: 8) { Avatar(user: peer, size: 32); Text(peer.displayName).font(.headline).lineLimit(1) } }
-                ToolbarItem(placement: .topBarTrailing) { Menu { Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis") }.accessibilityLabel("聊天选项") }
+                ToolbarItem(placement: .topBarTrailing) { Menu { Button("搜索本会话") { searching = true }; Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis") }.accessibilityLabel("聊天选项") }
             }
     }
     private var chatLifecycle: some View {
@@ -71,7 +74,7 @@ struct ChatView: View {
             .task {
                 session.stream.showChat(peer.id)
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
-                await load()
+                if let initialMessageID { await openContext(initialMessageID) } else { await load() }
             }
             .task(id: session.streamRevision) { try? await Task.sleep(for: .milliseconds(500)); if !Task.isCancelled { await load() } }
             .task(id: session.connectionRevision) { await load(reconcileAll: true) }
@@ -82,6 +85,7 @@ struct ChatView: View {
     }
     var body: some View {
         chatLifecycle
+            .sheet(isPresented: $searching) { NavigationStack { ChatSearchView(peer: peer) { id in searching = false; Task { await openContext(id) } }.toolbar { Button("关闭") { searching = false } } } }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { text += $0 } }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }

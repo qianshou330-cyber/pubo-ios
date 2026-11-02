@@ -9,6 +9,7 @@ final class AppSession {
     private(set) var generation = UUID()
     var meta: JSONValue = .null
     var emojis: [JSONValue] = []
+    var recentEmojis: [String] = []
     var error: String?
     var restoring = true
     var selectedTab = 0
@@ -97,6 +98,7 @@ final class AppSession {
         guard user == nil || user?.id == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "请授权当前账号。原账号和草稿已保留；换号请先退出登录。") }
         if !testMode { try KeychainStore.save(LoginSecret(token: token, userID: account.id)) }
         self.token = token; user = account; error = nil; authorizationRequired = false
+        recentEmojis = ((try? store?.read([String].self, account: account.id, key: "recent-emojis")) ?? []).prefix(32).map { $0 }
         restoreChartPreferences()
         resumeStream()
         Task { await nativePush.resume() }
@@ -130,10 +132,22 @@ final class AppSession {
         generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
         badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences()
         InlineEmojiStore.shared.clear()
+        recentEmojis = []
         if !testMode { do { try store?.clear(); try PrivateFiles.clear() } catch { self.error = "账号已退出，但本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
         URLCache.shared.removeAllCachedResponses()
     }
     func refreshUser() async throws { user = Record(try await call("i")) }
+    func rememberEmoji(_ value: String) {
+        guard let owner = user?.id else { return }
+        recentEmojis = Array(([value] + recentEmojis.filter { $0 != value }).prefix(32))
+        try? store?.save(recentEmojis, account: owner, key: "recent-emojis")
+    }
+    func markPendingAction(_ key: String, pending: Bool) throws {
+        if testMode { return }
+        guard let owner = user?.id, let store else { throw APIError(code: "STORAGE_UNAVAILABLE", message: "无法保存操作状态，请暂时不要提交。") }
+        try store.save(pending, account: owner, key: key)
+    }
+    func hasPendingAction(_ key: String) -> Bool { guard let owner = user?.id else { return false }; return (try? store?.read(Bool.self, account: owner, key: key)) ?? false }
     func resumeStream() { if let token, !testMode || isolatedBackend { stream.start(token: token) } }
     func refreshUnread() async {
         guard user != nil, unreadAttempt == nil else { return }

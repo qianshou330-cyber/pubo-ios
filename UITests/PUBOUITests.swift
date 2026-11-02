@@ -1,6 +1,39 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    func testNativeContactGroupCreateAndAdd() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        app.buttons["联系人"].tap(); app.buttons["新建分组"].tap()
+        let name = app.alerts.textFields["分组名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native friends")
+        app.alerts.buttons["保存"].tap()
+        let group = app.staticTexts["Native friends"]; XCTAssertTrue(group.waitForExistence(timeout: 5)); group.tap()
+        app.buttons["添加联系人"].tap(); let query = app.textFields["userPicker.query"]; XCTAssertTrue(query.waitForExistence(timeout: 5)); query.tap(); query.typeText("friend")
+        app.staticTexts["测试朋友"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["测试朋友"].waitForExistence(timeout: 5)); capture(app, "parity-contact-group")
+    }
+    func testNativeRoomCreateAndSend() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap(); app.buttons["群聊"].tap()
+        app.buttons["创建群聊"].tap(); let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room")
+        app.buttons["保存群聊"].tap(); let room = app.staticTexts["Native room"]; XCTAssertTrue(room.waitForExistence(timeout: 5)); room.tap()
+        let text = app.textFields["群聊消息"]; XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap(); text.typeText("Room proof")
+        app.buttons["发送"].tap(); XCTAssertTrue(app.staticTexts["Room proof"].waitForExistence(timeout: 5)); capture(app, "parity-room-message")
+    }
+    func testNativeClipCreateAndOpenFeed() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["更多功能"].tap(); app.buttons["剪藏"].tap()
+        app.buttons["创建剪藏"].tap(); let name = app.textFields["名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native clip")
+        app.buttons["保存"].tap(); let clip = app.staticTexts["Native clip"]; XCTAssertTrue(clip.waitForExistence(timeout: 5)); clip.tap()
+        XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "parity-clip-feed")
+    }
+    func testNativeDriveFolderCreate() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["网盘"].tap()
+        XCTAssertTrue(app.buttons["网盘新增"].waitForExistence(timeout: 5)); app.buttons["网盘新增"].tap(); app.buttons["新建文件夹"].tap()
+        let field = app.alerts.textFields["文件夹名称"]; field.tap(); field.typeText("Native folder"); app.alerts.buttons["创建"].tap()
+        XCTAssertTrue(app.staticTexts["Native folder"].waitForExistence(timeout: 5)); capture(app, "parity-drive-folder")
+    }
     override func setUp() { continueAfterFailure = false }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)

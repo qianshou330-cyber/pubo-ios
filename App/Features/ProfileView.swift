@@ -203,7 +203,7 @@ struct MyAccountView: View {
         NavigationStack {
             Form {
                 if let user = session.user { Section { NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user, size: 56); Text(user.displayName).font(.title2.bold()) } } }.listRowBackground(PUBOTheme.panel) }
-                Section { NavigationLink("搜索") { SearchView() }; NavigationLink("我的收藏") { FavoritesView() }; NavigationLink("定时帖子") { ScheduledNotesView() } }.listRowBackground(PUBOTheme.panel)
+                Section { NavigationLink("搜索") { SearchView() }; NavigationLink("我的收藏") { FavoritesView() }; NavigationLink("定时帖子") { ScheduledNotesView() }; NavigationLink("网盘") { DriveManagerView() }; NavigationLink("更多功能") { MoreSocialView() } }.listRowBackground(PUBOTheme.panel)
                 Section("私信隐私") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("谁可以发起聊天").font(.subheadline)

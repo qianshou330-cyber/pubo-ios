@@ -32,6 +32,7 @@ struct AttachmentMetadataEditor: View {
     @Environment(\.dismiss) private var dismiss
     let file: Record
     let saved: (Record) -> Void
+    @State private var filename = ""
     @State private var comment = ""
     @State private var sensitive = false
     @State private var error: String?
@@ -40,26 +41,26 @@ struct AttachmentMetadataEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Text(file["name"].string ?? "附件")
+                TextField("文件名称", text: $filename)
                 TextField("媒体说明", text: $comment, axis: .vertical).lineLimit(3...8)
                 Toggle("敏感媒体", isOn: $sensitive)
                 Text("文件说明和敏感标记也会影响其他引用此文件的帖子。").font(.footnote)
                 if let error { ErrorBanner(message: error) }
-                Button(uncertain ? "核对文件最新状态" : "保存") { Task { await save() } }.disabled(busy || comment.count > 512)
+                Button(uncertain ? "核对文件最新状态" : "保存") { Task { await save() } }.disabled(busy || comment.count > 512 || filename.isEmpty)
             }.puboForm().navigationTitle("媒体设置").toolbar { Button("关闭") { dismiss() }.disabled(busy) }
-                .task { comment = file["comment"].string ?? ""; sensitive = file["isSensitive"].bool }
+                .task { filename = file["name"].string ?? ""; comment = file["comment"].string ?? ""; sensitive = file["isSensitive"].bool }
         }
     }
     private func save() async {
         guard !busy else { return }; busy = true; defer { busy = false }
         do {
             if !uncertain {
-                do { _ = try await session.call("drive/files/update", ["fileId": .string(file.id), "comment": .string(comment), "isSensitive": .bool(sensitive)], mutation: true) }
+                do { _ = try await session.call("drive/files/update", ["fileId": .string(file.id), "name": .string(filename), "comment": .string(comment), "isSensitive": .bool(sensitive)], mutation: true) }
                 catch { if (error as? APIError)?.code == "OUTCOME_UNKNOWN" { uncertain = true } else { throw error } }
             }
             let current = Record(try await session.call("drive/files/show", ["fileId": .string(file.id)]))
             guard current.id == file.id else { throw APIError.invalidResponse }
-            guard (current["comment"].string ?? "") == comment, current["isSensitive"].bool == sensitive else { uncertain = false; throw APIError(code: "FILE_CHANGED", message: "最新文件设置与预期不同；已保留输入，请核对后再保存。") }
+            guard current["name"].string == filename, (current["comment"].string ?? "") == comment, current["isSensitive"].bool == sensitive else { uncertain = false; throw APIError(code: "FILE_CHANGED", message: "最新文件设置与预期不同；已保留输入，请核对后再保存。") }
             saved(current); dismiss()
         } catch { self.error = error.localizedDescription }
     }
