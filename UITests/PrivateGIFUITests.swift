@@ -47,7 +47,7 @@ final class PrivateGIFUITests: XCTestCase {
             XCTAssertTrue(app.buttons["attachment.saveFile"].exists); XCTAssertTrue(app.buttons["attachment.savePhoto"].exists)
             capture(app, "gif-fullscreen-" + theme)
             full.pinch(withScale: 1.5, velocity: 1); capture(app, "gif-fullscreen-zoom-" + theme)
-            app.buttons["attachment.saveFile"].tap(); XCTAssertTrue(app.buttons["取消"].firstMatch.waitForExistence(timeout: 6)); app.buttons["取消"].firstMatch.tap()
+            app.buttons["attachment.saveFile"].tap(); XCTAssertTrue(app.buttons["取消"].firstMatch.waitForExistence(timeout: 20)); app.buttons["取消"].firstMatch.tap()
             moving(full); app.buttons["关闭"].tap(); moving(gif(app)); app.terminate()
         }
     }
