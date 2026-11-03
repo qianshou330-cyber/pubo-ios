@@ -1,0 +1,39 @@
+name: PUBO build88 large simulator retry
+on:
+  push:
+    branches: ['ci-gif88-large-retry-20261103']
+permissions:
+  contents: read
+jobs:
+  appearance:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 737d728efe536396a9e6464604c5969d29e0b4b5
+      - name: Verify fixed application source and prepare tools
+        run: |
+          test "$(git rev-parse HEAD)" = "737d728efe536396a9e6464604c5969d29e0b4b5"
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          mkdir -p build
+          git rev-parse HEAD > build/checked-out-source.txt
+          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+          python3 scripts/verify-image-dependency.py
+      - name: Unchanged build88 GIF favorites and chat tests on iPhone 17 Pro Max
+        env:
+          PUBO_SIM_SIZE: large
+        run: python3 scripts/private-gif-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gif-evidence-large-737d728efe536396a9e6464604c5969d29e0b4b5-retry
+          path: |
+            build/*.json
+            build/checked-out-source.txt
+            build/*.xcresult
+            build/screenshots/
+          retention-days: 14
