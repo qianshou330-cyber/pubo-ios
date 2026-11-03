@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   joint:
+    if: ${{ false }} # Superseded candidate; preserve source commit and stop old run.
     runs-on: macos-15
     timeout-minutes: 60
     env:
