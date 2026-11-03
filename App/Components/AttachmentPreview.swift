@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Photos
 import PUBOCore
+import SDWebImage
 
 struct AttachmentDocument: FileDocument {
     static let readableContentTypes: [UTType] = [.data]
@@ -46,13 +47,17 @@ struct AttachmentPreviewContent: View {
     let url: URL
     let mime: String
     let name: String
+    var gifImage: SDAnimatedImage? = nil
+    var imagePreviewDisabled = false
     @State private var exporting = false
     @State private var saving = false
     @State private var feedback: String?
     @State private var active = true
     var body: some View {
         VStack(spacing: 12) {
-            if mime.hasPrefix("image/"), let image = UIImage(data: data) { ZoomableImage(image: image).frame(maxWidth: .infinity, maxHeight: .infinity).frame(minHeight: 200) }
+            if let gifImage { PrivateGIFPlayer(image: gifImage, fullscreen: true) }
+            else if imagePreviewDisabled { Label("此图片无法预览，原文件仍可保存。", systemImage: "photo.badge.exclamationmark").padding() }
+            else if mime.hasPrefix("image/"), let image = UIImage(data: data) { ZoomableImage(image: image).frame(maxWidth: .infinity, maxHeight: .infinity).frame(minHeight: 200) }
             else if mime.hasPrefix("audio/") || mime.hasPrefix("video/") { MediaPlayer(url: url).frame(minHeight: 180) }
             else { Label(name, systemImage: "doc").padding() }
             HStack {

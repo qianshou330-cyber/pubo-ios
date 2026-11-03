@@ -37,8 +37,8 @@ struct PrivateInlineAttachment: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
     let attachment: Record
+    var mediaActive = true
     let open: () -> Void
-    @State private var image: UIImage?
     @State private var player: AVAudioPlayer?
     @State private var playing = false
     @State private var loading = false
@@ -48,8 +48,8 @@ struct PrivateInlineAttachment: View {
     private var picture: Bool { (attachment["mime"].string ?? "").hasPrefix("image/") }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if picture, let image {
-                Button(action: open) { Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: 240, maxHeight: 220).clipShape(RoundedRectangle(cornerRadius: 8)) }.buttonStyle(.plain).accessibilityLabel("查看私信图片")
+            if picture {
+                PrivateInlineImage(attachment: attachment, active: mediaActive, open: open)
             } else if voice {
                 Button { Task { await play() } } label: { Label(playing ? "暂停语音" : "播放语音", systemImage: playing ? "pause.fill" : "waveform").frame(minWidth: 130, minHeight: 44) }.disabled(loading)
                 Button("查看与保存语音", action: open).font(.caption).frame(minHeight: 44)
@@ -57,27 +57,17 @@ struct PrivateInlineAttachment: View {
                 Button(action: open) { Label(attachment["name"].string ?? "附件", systemImage: picture ? "photo" : "paperclip").lineLimit(2).frame(minHeight: 44) }
             }
             if loading { ProgressView("验证附件权限…").font(.caption) }
-            if let error { Text(error).font(.caption).foregroundStyle(.secondary); if picture { Button("重试图片") { Task { await loadImage() } } } }
-        }.task { active = true; if picture { await loadImage() } }
+            if let error { Text(error).font(.caption).foregroundStyle(.secondary) }
+        }.task { active = true }
             .onDisappear { active = false; clear() }
             .onChange(of: session.generation) { _, _ in active = false; clear() }
             .onChange(of: session.activeVoiceAttachmentID) { _, id in if id != attachment.id { player?.pause(); playing = false } }
-            .onChange(of: scenePhase) { _, phase in if phase != .active { player?.pause(); playing = false; image = nil } else if picture { Task { await loadImage() } } }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { player?.pause(); playing = false } }
             .task(id: playing) { if playing { try? await Task.sleep(for: .milliseconds(250)); while playing && !Task.isCancelled { if player?.isPlaying != true { playing = false }; try? await Task.sleep(for: .milliseconds(250)) } } }
     }
     private func content() async throws -> Data {
         guard active, scenePhase == .active, attachment["size"].int <= 50 * 1024 * 1024, let token = session.token else { throw APIError.invalidResponse }
         return try await session.api.privateAttachment(id: attachment.id, token: token)
-    }
-    private func loadImage() async {
-        guard !loading else { return }; loading = true; defer { loading = false }
-        let owner = session.generation
-        do {
-            let data = try await content(); guard active, owner == session.generation, scenePhase == .active, !Task.isCancelled else { return }
-            guard let source = CGImageSourceCreateWithData(data as CFData, nil), let decoded = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: 720] as CFDictionary) else { throw APIError.invalidResponse }
-            image = UIImage(cgImage: decoded); error = nil
-        }
-        catch { if active && owner == session.generation && !Task.isCancelled { self.error = "图片暂不可用，点击重试。" } }
     }
     private func play() async {
         guard !loading else { return }
@@ -94,5 +84,5 @@ struct PrivateInlineAttachment: View {
             playing = audio.play(); error = playing ? nil : "语音暂时无法播放。"
         } catch { if active && owner == session.generation { self.error = "语音不可用或权限已变化，请重试。" } }
     }
-    private func clear() { player?.stop(); player = nil; image = nil; playing = false }
+    private func clear() { player?.stop(); player = nil; playing = false }
 }

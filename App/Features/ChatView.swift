@@ -2,6 +2,7 @@ import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 import PUBOCore
+import SDWebImage
 
 struct ChatView: View {
     @Environment(AppSession.self) private var session
@@ -156,7 +157,7 @@ struct ChatView: View {
                             }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
                         }
                         if !message.text.isEmpty { NoteText(text: message.text, expands: false) }
-                        ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
+                        ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                     }
                 }.padding(.horizontal, 14).padding(.vertical, 10)
@@ -393,31 +394,44 @@ struct PrivatePreviewItem: Identifiable { var id: String { attachment.id }; let 
 struct PrivateAttachmentView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     let attachment: Record
     @State private var data: Data?
     @State private var localURL: URL?
     @State private var error: String?
+    @State private var gifImage: SDAnimatedImage?
+    @State private var imagePreviewDisabled = false
     var body: some View {
         NavigationStack {
             Group {
                 if let error { ErrorBanner(message: error) }
-                else if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: attachment["mime"].string ?? "application/octet-stream", name: attachment["name"].string ?? "私信附件") }
+                else if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: attachment["mime"].string ?? "application/octet-stream", name: attachment["name"].string ?? "私信附件", gifImage: gifImage, imagePreviewDisabled: imagePreviewDisabled) }
                 else { ProgressView("正在验证附件权限…") }
             }.puboScreen().navigationTitle(attachment["name"].string ?? "私信附件").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { dismiss() } }
-                .task {
+                .task(id: "\(session.generation)-\(scenePhase == .active)") {
+                    clear(); error = nil
+                    guard scenePhase == .active else { return }
                     do {
                         guard let token = session.token else { throw APIError.invalidResponse }
                         guard attachment["size"].int <= 50 * 1024 * 1024 else { throw APIError(code: "FILE_TOO_LARGE", message: "附件超过首版 50 MB 预览上限，请在网页打开。") }
                         let epoch = session.generation
                         let content = try await session.api.privateAttachment(id: attachment.id, token: token)
                         guard epoch == session.generation, !Task.isCancelled else { return }
-                        data = content
+                        var decoded: SDAnimatedImage?
+                        var previewDisabled = false
+                        if PrivateImageDecoder.isGIF(content) {
+                            do { decoded = try await PrivateImageDecoder.decode(content, maxPixel: 1280) as? SDAnimatedImage }
+                            catch { previewDisabled = true }
+                        }
+                        guard epoch == session.generation, scenePhase == .active, !Task.isCancelled else { return }
                         let ext = UTType(mimeType: attachment["mime"].string ?? "")?.preferredFilenameExtension ?? "bin"
                         let file = FileManager.default.temporaryDirectory.appendingPathComponent("pubo-private-\(UUID().uuidString).\(ext)")
-                        try content.write(to: file, options: [.atomic, .completeFileProtection]); localURL = file
-                    } catch { self.error = error.localizedDescription }
-                }.onDisappear { data = nil; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
+                        try content.write(to: file, options: [.atomic, .completeFileProtection])
+                        gifImage = decoded; imagePreviewDisabled = previewDisabled; localURL = file; data = content
+                    } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+                }.onDisappear { clear() }
         }
     }
+    private func clear() { data = nil; gifImage = nil; imagePreviewDisabled = false; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
 }
 

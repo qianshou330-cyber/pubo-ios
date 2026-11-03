@@ -12,6 +12,9 @@ actor FixtureTransport: HTTPTransport {
     private var sent: [JSONValue] = []
     private var counter = 0
     private var timelineReads = 0
+    #if DEBUG
+    private var gifReads = 0
+    #endif
     private var chartReads = 0
     private var favorites = Set<String>()
     private var profile = FixtureTransport.me
@@ -83,6 +86,26 @@ actor FixtureTransport: HTTPTransport {
         let path = request.url!.path.replacingOccurrences(of: "/api/", with: "")
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
+        #if DEBUG
+        if args.contains("--gif-preview") {
+            if path == "chat/messages/user-timeline" && sent.allSatisfy({ $0["id"].string != "gifmessage001" }) {
+                let own = args.contains("--gif-own")
+                let file: JSONValue = .object(["id": .string("gifattachment001"), "name": .string("PUBO-animation.gif"), "mime": .string(args.contains("--gif-static") ? "image/png" : "image/gif"), "kind": .string("image"), "size": .number(args.contains("--gif-too-large") ? 52_428_801 : Double(GIFTestFixtures.looping.count)), "width": .number(320), "height": .number(180), "hasPreview": .bool(true)])
+                sent = [.object(["id": .string("gifmessage001"), "fromUserId": own ? Self.me["id"] : Self.peer["id"], "toUserId": own ? Self.peer["id"] : Self.me["id"], "text": .string("分享一张 GIF 动图"), "createdAt": .string("2026-11-03T10:00:00Z"), "revision": .number(0), "attachments": .array([file]), "readState": .string("read")])]
+            }
+            if path == "chat/messages/user-timeline", body["i"].string == "synthetic-second" {
+                return (Data("[]".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+            }
+            if path == "chat/attachments/gifattachment001/original" {
+                gifReads += 1
+                let revoked = args.contains("--gif-revoke-after-first") && gifReads > 1
+                let recalled = sent.contains { $0["id"].string == "gifmessage001" && !$0["recalledAt"].isNull }
+                let allowed = request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-session" && !revoked && !recalled
+                let bytes = args.contains("--gif-corrupt") ? Data("GIF89a invalid fixture".utf8) : args.contains("--gif-finite") ? GIFTestFixtures.finite : args.contains("--gif-static") ? GIFTestFixtures.still : args.contains("--gif-large") ? GIFTestFixtures.large : GIFTestFixtures.looping
+                return (allowed ? bytes : Data(), HTTPURLResponse(url: request.url!, statusCode: allowed ? 200 : 403, httpVersion: nil, headerFields: ["Content-Type": "image/gif"])!)
+            }
+        }
+        #endif
         if args.contains("--slow-startup"), path == "i" { try await Task.sleep(for: .seconds(5)) }
         if args.contains("--skeleton-loading"), path.contains("timeline") || path == "announcements" || path == "music-charts/kpop-summary" { try await Task.sleep(for: .seconds(7)) }
         if args.contains("--skeleton-failure"), path.contains("timeline") { try await Task.sleep(for: .seconds(4)); throw URLError(.timedOut) }

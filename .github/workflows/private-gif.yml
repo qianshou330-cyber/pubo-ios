@@ -1,0 +1,66 @@
+name: PUBO private GIF alignment
+on:
+  push:
+    branches: ['ui-private-gif-*']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare fixed tools and core checks
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift test
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Release simulator
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Release device
+        run: |
+          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          python3 scripts/verify-image-dependency.py
+          python3 scripts/package-device.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gif-device-${{ github.sha }}
+          path: |
+            build/unsigned/
+            build/device-package.json
+            build/image-dependency.json
+          retention-days: 14
+  appearance:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [large, small]
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare tools and compile before simulator boot
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+          python3 scripts/verify-image-dependency.py
+      - name: GIF playback and existing chat regressions
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+        run: python3 scripts/private-gif-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gif-evidence-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/*.json
+            build/*.xcresult
+            build/screenshots/
+          retention-days: 14
