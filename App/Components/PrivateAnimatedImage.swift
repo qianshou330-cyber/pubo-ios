@@ -161,6 +161,12 @@ struct PrivateGIFPlayer: View {
                 } else {
                     GIFSurface(image: image, playing: visible && scenePhase == .active, identifier: identifier, open: open)
                         .frame(width: size.width, height: size.height).clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(alignment: .bottomLeading) {
+                            Text("GIF").font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.white).padding(.horizontal, 5).padding(.vertical, 2)
+                                .background(.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 4))
+                                .padding(5).allowsHitTesting(false).accessibilityIdentifier("private.gif.badge")
+                        }
                 }
         }.background(GeometryReader { geometry in
                 Color.clear.onAppear { visible = geometry.frame(in: .global).intersects(UIScreen.main.bounds) }

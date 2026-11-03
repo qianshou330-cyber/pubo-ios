@@ -40,7 +40,10 @@ final class PrivateGIFUITests: XCTestCase {
             wait(image, { $0.contains("frame=1;") }); capture(app, "gif-inline-" + theme + "-frame1")
             XCTAssertTrue((image.value as? String)?.contains("buffer=8388608") == true)
             XCTAssertFalse(app.buttons["private.gif.inline.toggle"].exists)
-            XCTAssertFalse(app.staticTexts["GIF"].exists)
+            let badge = app.staticTexts["private.gif.badge"]
+            XCTAssertTrue(badge.exists)
+            XCTAssertLessThanOrEqual(badge.frame.height, 30)
+            XCTAssertLessThanOrEqual(badge.frame.width, 50)
             image.tap()
             let full = gif(app, fullscreen: true); moving(full)
             XCTAssertFalse(app.buttons["private.gif.fullscreen.toggle"].exists)
