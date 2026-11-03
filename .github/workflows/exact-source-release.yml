@@ -1,0 +1,67 @@
+name: Exact source Release packages pending UI acceptance
+on:
+  push:
+    branches: [package-h5-final-20261103]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: '57'
+            source: 06f44dd0a7f05ef5d06d8cb8de2bdca1830fb952
+          - build: '66'
+            source: 27a6362b49e1fd7f80a2419d93fb562997d0fe7f
+    env:
+      EXACT_SOURCE: ${{ matrix.source }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.source }}
+      - name: Verify immutable source and configure tools
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXACT_SOURCE"
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          xcodebuild -version
+          brew install xcodegen
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Build Release simulator
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Verify Release simulator metadata
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,plistlib,importlib.util,os
+          app=pathlib.Path('build/release/Build/Products/Release-iphonesimulator/PUBO.app')
+          info=plistlib.loads((app/'Info.plist').read_bytes())
+          spec=importlib.util.spec_from_file_location('packaging','scripts/package-device.py')
+          packaging=importlib.util.module_from_spec(spec);spec.loader.exec_module(packaging)
+          version,build=packaging.project_version(pathlib.Path('project.yml').read_text())
+          expected={'CFBundleIdentifier':'com.bolubo.native','CFBundleShortVersionString':version,'CFBundleVersion':build,'MinimumOSVersion':'17.0','UIDeviceFamily':[1],'CFBundleSupportedPlatforms':['iPhoneSimulator']}
+          for key,value in expected.items():assert info.get(key)==value,(key,info.get(key),value)
+          assert 'NSAppTransportSecurity' not in info
+          assert (app/'PUBO').is_file()
+          pathlib.Path('build/release-metadata.json').write_text(json.dumps({'status':'PASS','commit':os.environ['EXACT_SOURCE'],'values':expected},indent=2))
+          pathlib.Path('build/acceptance-boundary.json').write_text(json.dumps({'commit':os.environ['EXACT_SOURCE'],'UIAcceptance':'Requires original exact-commit dual-device UI and real-backend evidence; this workflow does not replace tests','physicalDeviceTested':False},indent=2))
+          PY
+      - name: Build unsigned iPhoneOS Release
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+      - name: Package and verify exact source IPA
+        run: env GITHUB_SHA="$EXACT_SOURCE" python3 scripts/package-device.py
+      - name: Upload exact source Release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-source-release-${{ matrix.build }}-${{ matrix.source }}
+          path: |
+            build/unsigned/*.ipa
+            build/device-package.json
+            build/release-metadata.json
+            build/acceptance-boundary.json
+          if-no-files-found: error
+          retention-days: 7
