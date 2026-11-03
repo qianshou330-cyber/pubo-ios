@@ -3,26 +3,74 @@ import Charts
 import PUBOCore
 
 struct ChartSongRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let row: JSONValue
     var playlist = false
+    var compact = false
+    var change: ChartRankChange?
+    @State private var progress: CGFloat = 1
+    @State private var highlight = false
+    @State private var transitioning = false
     private var movement: ChartMovement { ChartMovement(row) }
     var body: some View {
         HStack(spacing: 8) {
-            Text("\(row["rank"].int)").font(.subheadline.bold()).monospacedDigit().frame(minWidth: 24)
-            if let url = safeMediaURL(row["albumCoverUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Image(systemName: "music.note") }.frame(width: 40, height: 40).clipped().accessibilityHidden(true) }
+            ZStack {
+                if transitioning, let change {
+                    Text("\(change.from)").offset(y: CGFloat(change.offset) * progress).opacity(1 - progress)
+                    Text("\(change.to)").offset(y: -CGFloat(change.offset) * (1 - progress)).opacity(progress)
+                } else { Text("\(row["rank"].int)") }
+            }.font(.system(size: 14, weight: .bold)).monospacedDigit().frame(minWidth: 24).accessibilityHidden(true)
+            if !compact, let url = safeMediaURL(row["albumCoverUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Image(systemName: "music.note") }.frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true) }
             VStack(alignment: .leading, spacing: 2) {
-                Text(row["title"].string ?? "").font(.subheadline).lineLimit(2)
-                Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.caption2).foregroundStyle(PUBOTheme.secondary)
+                Text(row["title"].string ?? "").font(.system(size: 14, weight: .medium)).lineLimit(compact ? 1 : 2)
+                Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.system(size: 11)).foregroundStyle(PUBOTheme.secondary).lineLimit(compact ? 1 : 2)
             }
             Spacer(minLength: 4)
             Text(movement.label).font(.caption).foregroundStyle(movement.direction > 0 ? .green : movement.direction < 0 ? .red : PUBOTheme.secondary)
         }.frame(minHeight: 44).contentShape(Rectangle()).accessibilityElement(children: .combine)
             .accessibilityLabel("\(playlist ? "歌单顺序" : "排名") \(row["rank"].int)，\(row["title"].string ?? "")，\(movement.explanation)")
+            .background(PUBOTheme.accent.opacity(highlight ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 8))
+            .task(id: change) {
+                transitioning = false; highlight = false; progress = 1
+                guard change != nil, !reduceMotion, !ProcessInfo.processInfo.arguments.contains("--reduce-motion") else { return }
+                var reset = Transaction(); reset.disablesAnimations = true
+                withTransaction(reset) { transitioning = true; progress = 0 }
+                do {
+                    try await Task.sleep(for: .milliseconds(16))
+                    withAnimation(.timingCurve(0, 0.5, 0.5, 1, duration: 0.2)) { progress = 1 }
+                    withAnimation(.easeOut(duration: 0.12)) { highlight = true }
+                    try await Task.sleep(for: .milliseconds(120))
+                    withAnimation(.easeOut(duration: 0.48)) { highlight = false }
+                    try await Task.sleep(for: .milliseconds(480))
+                    transitioning = false
+                } catch { transitioning = false; highlight = false; progress = 1 }
+            }
+    }
+}
+
+struct ChartSongSelection: Identifiable {
+    let key: String
+    let song: JSONValue
+    var chart: JSONValue = .null
+    var id: String { key + ":" + (song["songId"].string ?? "") }
+}
+
+struct ChartSongSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let selection: ChartSongSelection
+    var body: some View {
+        NavigationStack {
+            ChartHistoryView(chartKey: selection.key, song: selection.song, initialChart: selection.chart)
+                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { dismiss() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }.accessibilityLabel("关闭歌曲详情").accessibilityIdentifier("chart.sheet.close") } }
+        }.presentationDetents([.large]).presentationDragIndicator(.visible)
+            .presentationCornerRadius(20).presentationBackground(PUBOTheme.background)
+            .accessibilityIdentifier("chart.songSheet")
     }
 }
 
 struct ChartDetailView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let chartKey: String
     @State private var selectedKey = ""
     @State private var group = ""
@@ -35,10 +83,13 @@ struct ChartDetailView: View {
     @State private var error: String?
     @State private var attempt = UUID()
     @State private var loadedContext = ""
+    @State private var selection: ChartSongSelection?
+    @State private var changes: [String: ChartRankChange] = [:]
     private var key: String { selectedKey.isEmpty ? chartKey : selectedKey }
     var body: some View {
-        List {
-            Section("筛选") {
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
                 Picker("榜单", selection: Binding(get: { key }, set: { selectedKey = $0; session.selectChart($0) })) {
                     ForEach(KpopPreferences.chartKeys, id: \.self) { Text(chartName($0)).tag($0) }
                 }.accessibilityIdentifier("chart.filter.platform")
@@ -47,21 +98,27 @@ struct ChartDetailView: View {
                     ForEach(KpopPreferences.groups, id: \.0) { Text($0.1).tag($0.0) }
                 }.accessibilityIdentifier("chart.filter.group")
                 TextField("搜索歌曲或艺人", text: $query).submitLabel(.search).accessibilityIdentifier("chart.filter.query")
-            }
-            Section {
+            }.puboCard(padding: 12)
+            VStack(alignment: .leading, spacing: 6) {
                 Text(HomeContent.chartStatus(chart))
                 if !HomeContent.chartScope(chart).isEmpty { Text(HomeContent.chartScope(chart)).font(.caption) }
                 ChartPeriod(chart: chart)
-            }
-            ForEach(entries, id: \.self) { row in
-                NavigationLink { ChartHistoryView(chartKey: key, song: row, initialChart: chart) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.accessibilityIdentifier("chart.song." + (row["songId"].string ?? ""))
-            }
+            }.font(.caption).padding(.horizontal, 4)
+            VStack(spacing: 0) {
+              ForEach(entries, id: \.songIdentity) { row in
+                Button { selection = ChartSongSelection(key: key, song: row, chart: chart) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order", change: changes[row.songIdentity]).padding(.vertical, 4) }.buttonStyle(.plain).accessibilityIdentifier("chart.song." + row.songIdentity)
+                if row.songIdentity != entries.last?.songIdentity { Divider().overlay(PUBOTheme.divider) }
+              }
+            }.puboCard(padding: 12)
             if let error { ErrorBanner(message: error) { Task { await load(reset: entries.isEmpty) } } }
             if busy { ProgressView() }
             if entries.isEmpty && !busy && error == nil { Text(chart["coverage"].string == "preview" ? "当前来源预览范围未找到匹配歌曲" : "当前筛选没有匹配歌曲").foregroundStyle(.secondary) }
             if more && !entries.isEmpty { Button("加载更多") { Task { await load(reset: false) } }.disabled(busy) }
             if let url = safeMediaURL(chart["sourceUrl"].string) { Link("官方来源", destination: url) }
-        }.puboList().navigationTitle(chart["label"].string ?? chartName(key))
+          }.padding(12)
+        }.puboScreen().navigationTitle(chart["label"].string ?? chartName(key)).navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $selection) { ChartSongSheet(selection: $0) }
+            .scrollDismissesKeyboard(.interactively)
             .task { group = session.chartPreferences.groupID }
             .task(id: "\(key)|\(group)|\(query)") {
                 attempt = UUID(); busy = false
@@ -82,7 +139,11 @@ struct ChartDetailView: View {
             guard attempt == id, !Task.isCancelled else { return }
             guard value["chart"]["chartKey"].string == requestedKey else { throw APIError.invalidResponse }
             let incoming = HomeContent.chartRows(value)
-            var seen = Set<String>(); entries = ((reset ? [] : entries) + incoming).filter { seen.insert($0["songId"].string ?? "").inserted }
+            let previous = JSONValue.object(["chart": chart, "entries": .array(entries)])
+            changes = reset && !reduceMotion ? ChartRefresh.changes(previous: previous, incoming: value) : [:]
+            var seen = Set<String>()
+            let updated = ((reset ? [] : entries) + incoming).filter { seen.insert($0["songId"].string ?? "").inserted }
+            withAnimation(changes.isEmpty ? nil : .easeOut(duration: 0.35)) { entries = updated }
             offset = start + value["entries"].array.count; more = value["hasMore"].bool && !value["entries"].array.isEmpty
             chart = value["chart"]; error = nil
         } catch { if attempt == id && !Task.isCancelled { self.error = error.localizedDescription } }
@@ -94,9 +155,9 @@ struct ChartPeriod: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let period = chart["sourceDate"].string ?? chart["sourcePeriod"].string { Text("来源期次：" + period) }
-            else if let updated = puboDate(chart["sourceUpdatedAt"].string) { Text("来源更新时间：" + updated.formatted()) }
+            else if let updated = ChartClock.korean(chart["sourceUpdatedAt"].string) { Text("来源更新时间：" + updated) }
             else { Text("来源未提供明确期次") }
-            if let observed = puboDate(chart["observedAt"].string) { Text("本站观察时间：" + observed.formatted()) }
+            if let observed = ChartClock.korean(chart["observedAt"].string) { Text("本站观察时间：" + observed) }
             if chart["status"].string != "available", !chart["observedAt"].isNull { Text("当前展示上次取得的数据") }
         }.font(.caption).foregroundStyle(.secondary)
     }
@@ -115,41 +176,53 @@ struct ChartHistoryView: View {
     private var points: [ChartHistoryPoint] { ChartHistoryPoint.parse(data) }
     private var playlist: Bool { chart["rankBasis"].string == "playlist_order" }
     var body: some View {
-        List {
-            Section {
-                Text(song["artists"].array.compactMap { $0["name"].string }.joined(separator: " / "))
-                LabeledContent(playlist ? "歌单位置" : "当前排名", value: song["rank"].isNull ? "—" : String(song["rank"].int))
-                LabeledContent("涨跌", value: ChartMovement(song).label)
-                LabeledContent("7 天最佳", value: song["bestRank7d"].isNull ? "—" : String(song["bestRank7d"].int))
+        ScrollView {
+          VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(song["title"].string ?? "歌曲详情").font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
+                Text(song["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.subheadline).foregroundStyle(PUBOTheme.secondary)
+                HStack(spacing: 8) {
+                    statistic(playlist ? "歌单位置" : "当前排名", song["rank"].isNull ? "—" : String(song["rank"].int))
+                    statistic("涨跌", ChartMovement(song).label)
+                    statistic("7 天最佳", song["bestRank7d"].isNull ? "—" : String(song["bestRank7d"].int))
+                }
                 Text("变化依据：" + ChartMovement(song).basis).font(.caption).foregroundStyle(.secondary)
                 ChartPeriod(chart: chart)
                 if let metadataError { ErrorBanner(message: metadataError) { Task { await loadMetadata() } } }
             }
-            Section(data["basis"].string == "official_period" ? "7 天走势 · 官方期次" : "7 天走势 · 本站观察") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(data["basis"].string == "official_period" ? "7 天走势 · 官方期次" : "7 天走势 · 本站观察").font(.subheadline.bold())
                 if points.contains(where: { $0.rank != nil }) {
                     Chart(points) { point in
                         if let rank = point.rank {
                             LineMark(x: .value("日期", point.date), y: .value(playlist ? "歌单位置" : "排名", rank), series: .value("连续区段", point.segment)).foregroundStyle(PUBOTheme.accent)
                             PointMark(x: .value("日期", point.date), y: .value("位置", rank)).foregroundStyle(PUBOTheme.accent)
                         }
-                    }.chartYScale(domain: .automatic(includesZero: false, reversed: true)).frame(height: 200).accessibilityLabel("7 天排名走势，下方提供逐条记录")
+                    }.chartYScale(domain: .automatic(includesZero: false, reversed: true)).chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { value in AxisGridLine(); AxisValueLabel { if let date = value.as(Date.self) { Text(String(ChartClock.korean(date).dropFirst(5).prefix(5))) } } } }.frame(height: 180).accessibilityLabel("7 天排名走势，下方提供逐条记录")
                 }
+                DisclosureGroup("查看观测记录（\(points.count)）") {
                 ForEach(points) { point in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(point.date.formatted()).font(.caption)
+                        Text(ChartClock.korean(point.date)).font(.caption)
                         Text(point.rank.map { "\(playlist ? "歌单位置" : "排名") \($0)" } ?? (point.value["result"].string == "not_listed" ? "本次来源范围未收录" : "暂无可靠数据"))
                         if point.value["gapBefore"].bool { Text("此前存在采集间隔").font(.caption2).foregroundStyle(.secondary) }
                     }
                 }
+                }.font(.caption).accessibilityIdentifier("chart.history.records")
                 if busy { ProgressView() }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
                 else if points.isEmpty && !busy { Text("暂无历史记录") }
             }
             if let url = safeMediaURL(chart["sourceUrl"].string) { Link("官方来源", destination: url) }
             NavigationLink("查看完整榜单") { ChartDetailView(chartKey: chartKey) }
-        }.puboList().navigationTitle(song["title"].string ?? "歌曲历史")
+          }.padding(16)
+        }.puboScreen().navigationTitle("歌曲详情").navigationBarTitleDisplayMode(.inline)
             .task { chart = initialChart; await load() }
             .task { if initialChart.isNull { await loadMetadata() } }
+    }
+    private func statistic(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 6) { Text(title).font(.caption).foregroundStyle(PUBOTheme.secondary); Text(value).font(.title2.bold()).monospacedDigit() }
+            .frame(maxWidth: .infinity).padding(.vertical, 12).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 10))
     }
     private func load() async {
         guard !busy else { return }; busy = true; defer { busy = false }
@@ -160,6 +233,10 @@ struct ChartHistoryView: View {
         do { let value = try await session.call("music-charts/kpop-summary", ["chartKey": .string(chartKey)]); try Task.checkCancellation(); chart = value["selected"]; metadataError = nil }
         catch { if !Task.isCancelled { metadataError = "榜单来源信息加载失败" } }
     }
+}
+
+extension JSONValue {
+    var songIdentity: String { self["songId"].string ?? "" }
 }
 
 func chartName(_ key: String) -> String {

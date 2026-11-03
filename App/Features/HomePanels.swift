@@ -88,7 +88,7 @@ struct HomeAnnouncements: View {
     }
 }
 
-private struct AnnouncementDetail: View {
+struct AnnouncementDetail: View {
     @Environment(AppSession.self) private var session
     let entry: Record
     @State private var current: Record?
@@ -114,17 +114,20 @@ private struct AnnouncementDetail: View {
 struct HomeChartPanel: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var key: String { session.chartPreferences.chartKey }
     @State private var data: JSONValue = .null
     @State private var cached = false
     @State private var error: String?
     @State private var loading = false
     @State private var attempt = UUID()
+    @State private var changes: [String: ChartRankChange] = [:]
+    @State private var visible = false
     var refreshID: Int
     var open: (HomeDestination) -> Void
     private var chart: JSONValue { data["selected"] }
     private var rows: [JSONValue] { HomeContent.chartRows(data, limit: 2) }
-    private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
+    private var active: Bool { visible && session.selectedTab == 0 && scenePhase == .active }
     var body: some View {
         Group {
         if data.isNull && error == nil {
@@ -134,14 +137,14 @@ struct HomeChartPanel: View {
             HStack(spacing: 8) {
                 Image("ChartCover").resizable().scaledToFit().frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("韩国女团音源榜").font(.subheadline.bold())
+                    Text("韩国女团音源榜").font(.system(size: 14, weight: .bold))
                     Text(chart["label"].string ?? "Melon TOP100").font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 }
                 Spacer(minLength: 0)
                 Button { open(.chart(key)) } label: { Text("详情").font(.caption).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.accent).accessibilityIdentifier("home.chartDetail")
             }
-            ForEach(rows, id: \.self) { row in
-                Button { open(.history(key, row)) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order") }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text)
+            ForEach(rows, id: \.songIdentity) { row in
+                Button { open(.history(key, row)) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order", compact: true, change: changes[row.songIdentity]) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text).accessibilityIdentifier("home.song." + row.songIdentity)
             }
             if rows.isEmpty { Text(loading ? "加载榜单中" : "当前范围暂无可展示歌曲").font(.caption).foregroundStyle(PUBOTheme.secondary).frame(minHeight: 44) }
             HStack(alignment: .center) {
@@ -154,7 +157,7 @@ struct HomeChartPanel: View {
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(cached ? "本机缓存" : error != nil ? "刷新失败 · 上次数据" : HomeContent.chartStatus(chart))
-                    if let date = puboDate(chart["lastSuccessAt"].string) { Text("最近成功 \(date.formatted(date: .numeric, time: .shortened))") }
+                    if let date = ChartClock.korean(chart["lastSuccessAt"].string) { Text("最近成功 \(date)") }
                     let scope = HomeContent.chartScope(chart)
                     if !scope.isEmpty { Text(scope) }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
@@ -163,6 +166,7 @@ struct HomeChartPanel: View {
         }.puboCard(padding: 12)
         }
         }.puboListRow()
+            .onAppear { visible = true }.onDisappear { visible = false; changes = [:]; attempt = UUID() }
             .task(id: "\(active)-\(key)-\(refreshID)") {
                 guard active else { return }
                 if data["selected"]["chartKey"].string != key {
@@ -183,7 +187,9 @@ struct HomeChartPanel: View {
             try Task.checkCancellation()
             guard attempt == id, selected == key else { return }
             guard value["selected"]["chartKey"].string == selected else { throw APIError.invalidResponse }
-            data = value; cached = false; error = nil
+            changes = !cached && !reduceMotion && active ? ChartRefresh.changes(previous: data, incoming: value) : [:]
+            withAnimation(changes.isEmpty ? nil : .easeOut(duration: 0.35)) { data = value }
+            cached = false; error = nil
             if let owner = session.user?.id { try? session.store?.save(HomeSnapshot(savedAt: Date(), value: value), account: owner, key: "chart-" + selected) }
         } catch is CancellationError { } catch { if attempt == id && !Task.isCancelled { self.error = error.localizedDescription } }
     }

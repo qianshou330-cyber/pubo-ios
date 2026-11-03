@@ -23,6 +23,7 @@ struct TimelineView: View {
     @State private var restoredSelection = false
     @State private var firstLoadFinished = false
     @State private var homePath: [HomeDestination] = []
+    @State private var songSelection: ChartSongSelection?
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
 
@@ -30,7 +31,10 @@ struct TimelineView: View {
         NavigationStack(path: $homePath) {
             List {
                 HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
-                HomeChartPanel(refreshID: homeRefresh) { homePath.append($0) }
+                HomeChartPanel(refreshID: homeRefresh) { destination in
+                    if case .history(let key, let song) = destination { songSelection = ChartSongSelection(key: key, song: song) }
+                    else { homePath.append(destination) }
+                }
                 if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                 if let error { ErrorBanner(message: error) { Task { await load() } } }
                 if notes.isEmpty && !firstLoadFinished && error == nil {
@@ -49,6 +53,7 @@ struct TimelineView: View {
                         .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
                 }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
+                .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
                 .refreshable { homeRefresh += 1; await load() }
                 .task(id: timeline) {
                     if !restoredSelection {
@@ -81,6 +86,7 @@ struct TimelineView: View {
             PUBOTimelineSelector(selection: $timeline, available: choices, compact: true)
             Menu {
                 NavigationLink("搜索") { SearchView() }
+                NavigationLink("站内公告") { AnnouncementsView() }
                 NavigationLink("我的收藏") { FavoritesView() }
                 NavigationLink("更多功能") { MoreSocialView() }
                 Link("在网页查看时间线", destination: Endpoint.origin)
@@ -88,7 +94,7 @@ struct TimelineView: View {
                 Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
             } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
                 .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
-        }.background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
+        }.background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
     private func load(older: Bool = false) async {
         guard !loading || requestTimeline != timeline else { return }
@@ -130,18 +136,24 @@ struct NoteCard: View {
     var body: some View { if !session.deletedNoteIDs.contains(note.id) && !session.deletedNoteIDs.contains(shown.id) { content } }
     private var content: some View {
         VStack(alignment: .leading, spacing: 6) {
-            NavigationLink { ProfileView(userID: shown.user.id) } label: {
-                HStack(alignment: .top, spacing: 8) {
-                    Avatar(user: shown.user, size: 38)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) { Text(shown.user.displayName).font(.subheadline.bold()); if shown.user["isBot"].bool { Text("bot").font(.caption2).padding(.horizontal, 3).overlay(RoundedRectangle(cornerRadius: 3).stroke(PUBOTheme.divider)) } }
-                        Text("@" + (shown.user["username"].string ?? "") + (shown.user["host"].string.map { "@" + $0 } ?? "")).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                    if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1) }
-                    Image(systemName: shown["visibility"].string == "followers" ? "lock" : shown["visibility"].string == "specified" ? "envelope" : "globe").font(.caption2).foregroundStyle(PUBOTheme.secondary)
-                }
-            }.buttonStyle(.plain)
+            HStack(alignment: .top, spacing: 8) {
+                NavigationLink { ProfileView(userID: shown.user.id) } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        Avatar(user: shown.user, size: 38)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) { Text(shown.user.displayName).font(.subheadline.bold()); if shown.user["isBot"].bool { Text("bot").font(.caption2).padding(.horizontal, 3).overlay(RoundedRectangle(cornerRadius: 3).stroke(PUBOTheme.divider)) } }
+                            Text("@" + (shown.user["username"].string ?? "") + (shown.user["host"].string.map { "@" + $0 } ?? "")).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
+                        }
+                    }.frame(minHeight: 44)
+                }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
+                Spacer(minLength: 0)
+                NavigationLink { NoteDetailView(noteID: shown.id) } label: {
+                    HStack(spacing: 4) {
+                        if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).lineLimit(1) }
+                        Image(systemName: shown["visibility"].string == "followers" ? "lock" : shown["visibility"].string == "specified" ? "envelope" : "globe")
+                    }.font(.caption2).foregroundStyle(PUBOTheme.secondary).frame(minWidth: 44, minHeight: 44)
+                }.buttonStyle(.plain).accessibilityLabel("查看帖子时间和详情").accessibilityIdentifier("note.timestamp." + shown.id)
+            }
             if let cw = shown["cw"].string {
                 Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }
                     .buttonStyle(.borderless).accessibilityValue(revealCW ? "已展开" : "已隐藏")

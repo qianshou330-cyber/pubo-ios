@@ -12,6 +12,7 @@ actor FixtureTransport: HTTPTransport {
     private var sent: [JSONValue] = []
     private var counter = 0
     private var timelineReads = 0
+    private var chartReads = 0
     private var favorites = Set<String>()
     private var profile = FixtureTransport.me
     private var oldMessage: JSONValue = .null
@@ -31,6 +32,10 @@ actor FixtureTransport: HTTPTransport {
         user["policies"] = .object(policies); user["isAdmin"] = .bool(ProcessInfo.processInfo.arguments.contains("--admin-preview")); profile = .object(user)
         if ProcessInfo.processInfo.arguments.contains("--moderator-preview") { var values = profile.object; values["isModerator"] = .bool(true); profile = .object(values) }
         if ProcessInfo.processInfo.arguments.contains("--empty-announcements") { announcements = [] }
+        if ProcessInfo.processInfo.arguments.contains("--home-motion") {
+            announcements.append(.object(["id": .string("fixtureannouncement2"), "display": .string("marquee"), "isActive": .bool(true), "silence": .bool(true), "title": .string("音乐与朋友，让每一天更精彩"), "text": .string("这是第二条公开公告的隔离样例。")]))
+            announcements.append(.object(["id": .string("fixturepast"), "display": .string("normal"), "isActive": .bool(false), "title": .string("历史公告样例"), "text": .string("已结束公告仍可查看。")]))
+        }
         posts = posts.map { var value = $0.object; value["visibility"] = .string("public"); return .object(value) }
         if ProcessInfo.processInfo.arguments.contains("--search-unavailable") {
             var value = profile.object; var policies = value["policies"]!.object
@@ -123,7 +128,8 @@ actor FixtureTransport: HTTPTransport {
                     "text": .string("刷新样例 \(timelineReads)"), "cw": .null, "files": .array([]), "reactions": .object([:])])
                 response = .array([sample] + posts)
             } else { response = .array(posts) }
-        case "announcements": response = .array(announcements)
+        case "announcements": response = .array(announcements.filter { (body["display"].isNull || $0["display"] == body["display"]) && (body["isActive"].isNull || $0["isActive"] == body["isActive"]) })
+        case "i/read-announcement": response = .null
         case "announcements/show": response = announcements.first { $0["id"] == body["announcementId"] } ?? .null
         case "admin/announcements/update":
             if !profile["isAdmin"].bool { status = 403; response = .object(["error": .object(["code": .string("PERMISSION_DENIED")])]) }
@@ -141,7 +147,18 @@ actor FixtureTransport: HTTPTransport {
             let query = body["query"].string ?? ""; let group = body["groupId"].string ?? ""
             let matches = (query.isEmpty || "NEON A2O LITE".localizedCaseInsensitiveContains(query)) && (group.isEmpty || group == "a2o-lite")
             response = .object(["selected": chart, "chart": chart, "charts": .array([chart, .object(["chartKey": .string("genie-realtime"), "label": .string("Genie 实时榜")])]), "entries": .array(matches ? [song] : []), "total": .number(matches ? 1 : 0), "hasMore": .bool(false)])
-        case "music-charts/kpop-history": response = .object(["basis": .string("observation"), "points": .array([.object(["observedAt": .string("2026-11-01T15:00:00Z"), "result": .string("ranked"), "rank": .number(1)])])])
+            if args.contains("--home-motion") {
+                if path == "music-charts/kpop-summary" { chartReads += 1 }
+                let changed = chartReads % 2 == 0
+                var first = song.object; first["rank"] = .number(changed ? 1 : 4); first["sourceMovement"] = .object(["type": .string(changed ? "up" : "same"), "amount": .number(changed ? 3 : 0)])
+                var second = song.object; second["songId"] = .string("fixturesong2"); second["title"] = .string("LEMONADE"); second["artists"] = .array([.object(["name": .string("aespa")])]); second["groupIds"] = .strings(["aespa"]); second["rank"] = .number(changed ? 4 : 1); second["sourceMovement"] = .object(["type": .string(changed ? "down" : "new"), "amount": .number(3)])
+                var values = response.object
+                values["entries"] = .array([JSONValue.object(first), .object(second)].filter { (query.isEmpty || ($0["title"].string ?? "").localizedCaseInsensitiveContains(query)) && (group.isEmpty || $0["groupIds"].array.contains(.string(group))) })
+                response = .object(values)
+            }
+        case "music-charts/kpop-history":
+            response = .object(["basis": .string("observation"), "points": .array([.object(["observedAt": .string("2026-11-01T15:00:00Z"), "result": .string("ranked"), "rank": .number(1)])])])
+            if args.contains("--home-motion") { response = .object(["basis": .string("observation"), "points": .array((0..<7).map { .object(["observedAt": .string("2026-10-\(25 + $0)T15:00:00Z"), "result": .string("ranked"), "rank": .number(Double([8, 6, 7, 5, 4, 2, 1][$0]))]) })]) }
         case "notes/show": response = posts.first { $0["id"] == body["noteId"] } ?? posts[0]
         case "notes/replies": response = .array([])
         case "notes/create":
