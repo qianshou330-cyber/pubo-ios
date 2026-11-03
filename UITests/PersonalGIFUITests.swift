@@ -21,11 +21,13 @@ final class PersonalGIFUITests: XCTestCase {
         collect(app); XCTAssertEqual(app.staticTexts["chat.sticker.notice"].label, "已经收藏过这张表情包")
         library(app); XCTAssertEqual(cells(app).count, 1); capture(app, "gif-favorites-light")
         cells(app).firstMatch.tap(); XCTAssertTrue(app.staticTexts["PUBO-sticker.gif"].waitForExistence(timeout: 10)); capture(app, "gif-favorite-ready-to-send")
+        app.buttons["移除附件"].tap(); XCTAssertFalse(app.staticTexts["chat.sticker.notice"].exists)
+        library(app); cells(app).firstMatch.tap(); XCTAssertTrue(app.staticTexts["PUBO-sticker.gif"].waitForExistence(timeout: 10))
         app.buttons["chat.send"].tap(); XCTAssertTrue(app.staticTexts["PUBO-sticker.gif"].waitForNonExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["已读"].firstMatch.waitForExistence(timeout: 10)); XCTAssertFalse(app.staticTexts["chat.pending.error"].exists); capture(app, "gif-favorite-sent")
+        XCTAssertTrue(app.staticTexts["已读"].firstMatch.waitForExistence(timeout: 10)); XCTAssertFalse(app.staticTexts["chat.pending.error"].exists); XCTAssertFalse(app.staticTexts["chat.sticker.notice"].exists); capture(app, "gif-favorite-sent")
     }
     func testAutomaticCompressionInvalidInputAndRemove() {
-        let app = launch(flags: ["--dark"]); library(app); app.buttons["stickers.test.large"].tap()
+        let app = launch(flags: ["--dark", "--sticker-import-testing"]); library(app); app.buttons["stickers.test.large"].tap()
         XCTAssertTrue(app.staticTexts["stickers.notice"].waitForExistence(timeout: 40)); XCTAssertTrue(app.staticTexts["stickers.notice"].label.contains("自动压缩")); XCTAssertEqual(cells(app).count, 1); capture(app, "gif-favorites-compressed-dark")
         app.buttons["stickers.test.invalid"].tap(); XCTAssertTrue(app.staticTexts["stickers.error"].waitForExistence(timeout: 10)); XCTAssertEqual(cells(app).count, 1)
         cells(app).firstMatch.press(forDuration: 1); app.buttons["移除收藏"].tap(); app.buttons["移除收藏"].firstMatch.tap()

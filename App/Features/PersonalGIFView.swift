@@ -48,7 +48,7 @@ struct PersonalGIFView: View {
                     HStack {
                         Button { importing = true } label: { Label("添加 GIF", systemImage: "plus") }.accessibilityIdentifier("stickers.import")
                         Spacer()
-                        PhotosPicker(selection: $photo, matching: .images) { Label("从相册添加", systemImage: "photo") }
+                        PhotosPicker(selection: $photo, matching: .images, preferredItemEncoding: .current) { Label("从相册添加", systemImage: "photo") }
                     }.buttonStyle(.bordered).disabled(busy)
                     Text("每张不超过 100KB，超出时自动压缩。压缩可能降低清晰度和帧率。").font(.caption).foregroundStyle(PUBOTheme.secondary)
                     if busy { ProgressView("正在处理 GIF…") }
@@ -65,7 +65,7 @@ struct PersonalGIFView: View {
                     }
                     Text("点选后加入输入框，再点击发送。收藏仅保存在此 iPhone，按账号隔离；退出该账号或卸载 App 会清除。").font(.caption).foregroundStyle(PUBOTheme.secondary)
                     #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--sticker-testing") {
+                    if ProcessInfo.processInfo.arguments.contains("--sticker-import-testing") {
                         Button("测试导入超限 GIF") { start { GIFTestFixtures.compressible } }.accessibilityIdentifier("stickers.test.large")
                         Button("测试导入损坏 GIF") { start { Data("GIF89a broken".utf8) } }.accessibilityIdentifier("stickers.test.invalid")
                     }

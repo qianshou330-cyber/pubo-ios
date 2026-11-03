@@ -125,7 +125,7 @@ struct ChatView: View {
             if let reply { HStack { Text("回复：" + ChatReferences.label(ChatReferences.summary(reply))).lineLimit(2); Spacer(); Button("取消回复") { self.reply = nil; saveDraft() } }.font(.caption).padding(8).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)) }
             if !attachments.isEmpty {
                 ScrollView(.horizontal) { HStack { ForEach(attachments) { file in
-                    HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button { attachments.removeAll { $0.id == file.id }; saveDraft() } label: { Image(systemName: "xmark.circle") }.accessibilityLabel("移除附件") }.font(.caption).padding(8).background(PUBOTheme.button, in: Capsule())
+                    HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button { attachments.removeAll { $0.id == file.id }; stickerNotice = nil; saveDraft() } label: { Image(systemName: "xmark.circle") }.accessibilityLabel("移除附件") }.font(.caption).padding(8).background(PUBOTheme.button, in: Capsule())
                 } } }
             }
             CursorTextEditor(text: $text, selection: $textSelection, enabled: !busy, identifier: "chat.input", placeholder: "在此输入信息")
@@ -294,7 +294,7 @@ struct ChatView: View {
         let item = PendingChat(recipientID: peer.id, text: text, attachmentIDs: attachments.map(\.id), replyToID: reply?.id)
         pending.append(item)
         guard persist() else { pending.removeAll { $0.id == item.id }; return }
-        text = ""; attachments = []; reply = nil; saveDraft()
+        text = ""; attachments = []; reply = nil; stickerNotice = nil; saveDraft()
         await send(item)
     }
     private func send(_ original: PendingChat) async {
