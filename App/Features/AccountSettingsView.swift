@@ -15,10 +15,10 @@ struct AccountManagerView: View {
                 HStack {
                     Button { Task { await select(account) } } label: {
                         VStack(alignment: .leading) { Text(account.displayName ?? account.username ?? account.userID); Text("@" + (account.username ?? account.userID)).font(.caption) }
-                    }.disabled(busy || account.userID == session.user?.id).accessibilityIdentifier("accounts.select." + account.userID)
+                    }.buttonStyle(.borderless).frame(minHeight: 44).disabled(busy || account.userID == session.user?.id).accessibilityIdentifier("accounts.select." + account.userID)
                     Spacer()
                     if account.userID == session.user?.id { Image(systemName: "checkmark").accessibilityLabel("当前账号") }
-                    Button("退出", role: .destructive) { removing = account }.disabled(busy)
+                    Button("退出", role: .destructive) { removing = account }.buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44).disabled(busy).accessibilityIdentifier("accounts.remove." + account.userID)
                 }
             }
             Button("添加 PUBO 账号") { adding = true }.accessibilityIdentifier("accounts.add")

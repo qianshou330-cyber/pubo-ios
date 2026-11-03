@@ -74,6 +74,13 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["第二个测试账号"].waitForExistence(timeout: 5))
         for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap(); XCTAssertTrue(app.buttons["accounts.select.syntheticself"].waitForExistence(timeout: 5)); app.buttons["accounts.select.syntheticself"].tap()
         app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5)); capture(app, "native-account-switch")
+        for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap()
+        let remove = app.buttons["accounts.remove.syntheticsecond"]; XCTAssertTrue(remove.waitForExistence(timeout: 5)); remove.tap()
+        XCTAssertTrue(app.alerts.buttons["取消"].waitForExistence(timeout: 5)); app.alerts.buttons["取消"].tap()
+        XCTAssertTrue(app.buttons["accounts.select.syntheticsecond"].exists); XCTAssertTrue(app.buttons["accounts.select.syntheticself"].exists)
+        remove.tap(); app.alerts.buttons["退出这个账号"].tap()
+        XCTAssertTrue(remove.waitForNonExistence(timeout: 5)); XCTAssertTrue(app.buttons["accounts.select.syntheticself"].exists)
+        XCTAssertFalse(app.buttons["accounts.select.syntheticself"].isEnabled)
     }
     func testNativeContactGroupCreateAndAdd() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
