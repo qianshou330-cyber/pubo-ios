@@ -28,7 +28,7 @@ struct ChartSongRow: View {
                 Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.system(size: artistSize)).foregroundStyle(PUBOTheme.secondary).lineLimit(compact ? 1 : 2)
             }
             Spacer(minLength: 4)
-            Text(movement.label).font(.caption).foregroundStyle(movement.direction > 0 ? .green : movement.direction < 0 ? .red : PUBOTheme.secondary)
+            Text(movement.label).font(.caption).foregroundStyle(chartMovementColor(movement))
         }.frame(minHeight: 44).contentShape(Rectangle()).accessibilityElement(children: .combine)
             .accessibilityLabel("\(playlist ? "歌单顺序" : "排名") \(row["rank"].int)，\(row["title"].string ?? "")，\(movement.explanation)")
             .background(PUBOTheme.accent.opacity(highlight ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 8))
@@ -213,10 +213,11 @@ struct ChartHistoryView: View {
                 Text(song["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.subheadline).foregroundStyle(PUBOTheme.secondary)
                 HStack(spacing: 8) {
                     statistic(playlist ? "歌单位置" : "当前排名", song["rank"].isNull ? "—" : String(song["rank"].int))
-                    statistic("涨跌", ChartMovement(song).label)
+                    statistic("涨跌", ChartMovement(song).label, color: chartMovementColor(ChartMovement(song)))
                     statistic("7 天最佳", song["bestRank7d"].isNull ? "—" : String(song["bestRank7d"].int))
                 }
                 Text("变化依据：" + ChartMovement(song).basis).font(.caption).foregroundStyle(.secondary)
+                if !HomeContent.chartScope(chart).isEmpty { Text(HomeContent.chartScope(chart)).font(.caption).foregroundStyle(.secondary) }
                 ChartPeriod(chart: chart)
                 if let metadataError { ErrorBanner(message: metadataError) { Task { await loadMetadata() } } }
             }
@@ -239,10 +240,15 @@ struct ChartHistoryView: View {
                     .accessibilityLabel("7 天排名走势，名次范围 1 至 \(maxRank)，下方提供逐条记录")
                     .accessibilityIdentifier("chart.history.plot")
                 }
-                DisclosureGroup("查看观测记录（\(points.count)）") {
+                Text(data["basis"].string == "official_period" ? "按来源榜期显示；日榜日期用于定位，不代表实际公布时刻。空白不补排名，预览未检出不等于全榜未上榜。" : "按本站观察时间显示；空白不补排名，预览未检出不等于全榜未上榜。")
+                    .font(.caption).foregroundStyle(PUBOTheme.secondary).accessibilityIdentifier("chart.history.basis")
+                DisclosureGroup("查看排名记录（\(points.count)）") {
                 ForEach(points) { point in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(ChartClock.korean(point.date)).font(.caption)
+                        if data["basis"].string == "official_period" {
+                            Text("官方榜期：" + ((point.value["sourcePeriod"].string?.count == 10 ? point.value["sourcePeriod"].string : nil) ?? ChartClock.korean(point.date))).font(.caption)
+                            if let observed = ChartClock.korean(point.value["observedAt"].string) { Text("本站观察时间：" + observed).font(.caption2).foregroundStyle(PUBOTheme.secondary) }
+                        } else { Text("本站观察时间：" + ChartClock.korean(point.date)).font(.caption) }
                         Text(point.rank.map { "\(playlist ? "歌单位置" : "排名") \($0)" } ?? (point.value["result"].string == "not_listed" ? "本次来源范围未收录" : "暂无可靠数据"))
                         if point.value["gapBefore"].bool { Text("此前存在采集间隔").font(.caption2).foregroundStyle(.secondary) }
                     }
@@ -263,8 +269,8 @@ struct ChartHistoryView: View {
                 await history
             }
     }
-    private func statistic(_ title: String, _ value: String) -> some View {
-        VStack(spacing: 6) { Text(title).font(.caption).foregroundStyle(PUBOTheme.secondary); Text(value).font(.title2.bold()).monospacedDigit() }
+    private func statistic(_ title: String, _ value: String, color: Color = PUBOTheme.text) -> some View {
+        VStack(spacing: 6) { Text(title).font(.caption).foregroundStyle(PUBOTheme.secondary); Text(value).font(.title2.bold()).monospacedDigit().foregroundStyle(color) }
             .frame(maxWidth: .infinity).padding(.vertical, 12).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 10))
     }
     private func load() async {
@@ -284,4 +290,9 @@ extension JSONValue {
 
 func chartName(_ key: String) -> String {
     ["melon-top100": "Melon TOP100", "melon-hot100": "Melon HOT100", "melon-hot100-d30": "Melon HOT100 · 30天", "melon-daily": "Melon 日榜", "genie-realtime": "Genie 实时榜", "bugs-realtime": "Bugs 实时榜", "flo": "FLO", "apple": "Apple Music", "spotify": "Spotify", "tencent": "腾讯音乐", "billboard-korea-global-k-songs": "Billboard 韩国全球歌曲榜"][key] ?? key
+}
+
+/// Match the H5 chart convention: upward red, downward green.
+private func chartMovementColor(_ movement: ChartMovement) -> Color {
+    movement.direction > 0 ? .red : movement.direction < 0 ? .green : PUBOTheme.secondary
 }
