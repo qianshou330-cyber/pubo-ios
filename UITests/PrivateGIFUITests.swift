@@ -18,8 +18,13 @@ final class PrivateGIFUITests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     private func wait(_ item: XCUIElement, _ predicate: @escaping (String) -> Bool, timeout: TimeInterval = 8) {
-        let condition = NSPredicate { object, _ in predicate((object as? XCUIElement)?.value as? String ?? "") }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: condition, object: item)], timeout: timeout), .completed)
+        // Avoid sampling exactly once per second: the fixture itself has a one-second cycle.
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if predicate(item.value as? String ?? "") { return }
+            Thread.sleep(forTimeInterval: 0.07)
+        }
+        XCTFail("GIF did not reach the expected playback state: \(item.value as? String ?? "missing")")
     }
     private func moving(_ image: XCUIElement) {
         XCTAssertTrue(image.waitForExistence(timeout: 8))
@@ -55,7 +60,7 @@ final class PrivateGIFUITests: XCTestCase {
     }
     func testFiniteLoopStopsWithoutBeingRestartedByViewUpdates() {
         let app = launch(["--gif-finite"]); let image = gif(app)
-        XCTAssertTrue(image.waitForExistence(timeout: 8)); wait(image, { $0.contains("frame=2;") && $0.contains("playing=false") }, timeout: 12)
+        XCTAssertTrue(image.waitForExistence(timeout: 8)); wait(image, { $0.contains("frame=2;") && $0.contains("loops=2;") && $0.contains("playing=false") }, timeout: 12)
         let final = image.value as? String; Thread.sleep(forTimeInterval: 1.2); XCTAssertEqual(image.value as? String, final)
         capture(app, "gif-finite-stopped")
     }

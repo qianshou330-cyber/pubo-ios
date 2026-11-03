@@ -45,7 +45,7 @@ enum PrivateImageDecoder {
     }
 }
 
-/// Frame timing, GIF disposal/transparency and loop counts are handled by the pinned native decoder.
+/// Frame timing and GIF disposal/transparency are handled by the pinned native decoder.
 /// Only a bounded frame buffer is retained; all frames are never eagerly expanded.
 final class ProtectedGIFImageView: SDAnimatedImageView {
     private var requestedPlayback = false
@@ -56,7 +56,7 @@ final class ProtectedGIFImageView: SDAnimatedImageView {
         autoPlayAnimatedImage = false
         clearBufferWhenStopped = true
         resetFrameIndexWhenStopped = false
-        shouldCustomLoopCount = false
+        shouldCustomLoopCount = true
         playbackRate = 1
         maxBufferSize = 8 * 1024 * 1024
         runLoopMode = .common
@@ -71,12 +71,27 @@ final class ProtectedGIFImageView: SDAnimatedImageView {
     @objc private func openImage() { open?() }
     override func accessibilityActivate() -> Bool { guard let open else { return false }; open(); return true }
     func configure(_ value: SDAnimatedImage, playing: Bool, identifier: String, open: (() -> Void)?) {
-        if image !== value { stopAnimating(); effectivePlayback = false; image = value }
+        if image !== value {
+            stopAnimating(); effectivePlayback = false
+            // Browsers interpret a positive GIF count as repeats AFTER the first play.
+            // SDAnimatedImageView expects total plays; an absent extension means play once.
+            animationRepeatCount = Self.browserPlayCount(value)
+            image = value
+        }
         self.open = open
         accessibilityIdentifier = identifier
         accessibilityTraits = open == nil ? [.image] : [.image, .button]
         requestedPlayback = playing
         reconcile()
+    }
+    private static func browserPlayCount(_ image: SDAnimatedImage) -> Int {
+        guard let data = image.animatedImageData,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyProperties(source, nil) as? [CFString: Any],
+              let gif = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any],
+              let loops = gif[kCGImagePropertyGIFLoopCount] as? NSNumber else { return 1 }
+        let repeats = max(0, min(65535, loops.intValue))
+        return repeats == 0 ? 0 : repeats + 1
     }
     private func reconcile() {
         let next = requestedPlayback && window != nil && !isHidden

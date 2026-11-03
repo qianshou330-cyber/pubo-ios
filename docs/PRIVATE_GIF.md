@@ -1,4 +1,4 @@
-# 私信 GIF（0.8.1 / build79）
+# 私信 GIF（0.8.1 / build80）
 
 基于已验收 build78。会话内及原图预览使用原生 SDAnimatedImageView 播放已获准读取的 GIF，保留原帧时长、透明度/处置方式及循环次数；不预解码全部帧。可暂停/继续、点开双指缩放。减少动态或调暗闪烁时默认静态，允许主动播放。
 
@@ -8,10 +8,13 @@ SDWebImage 5.21.7 固定提交 `2de3a496eaf6df9a1312862adcfd54acd73c39c0`，MIT 
 
 H5 实际会话缩略图由服务端生成静态 WebP，打开原图才播放 GIF；本轮不修改 H5/backend。配对图使用同一组合成 GIF，必须明确区分缩略图与原图。
 
+有限循环按浏览器语义处理：缺少循环扩展播放一次，0 无限循环，正数 N 表示首次播放后再重复 N 次。将该数转换为原生播放器的总播放次数；仅切换图片时读取元数据。UI 专项使用 loop=1 的文件核对结束时累计播放两轮，不因视图刷新自行重启。
+
 CI先完成实际编译再运行同型号 iPhone17 Pro Max、辅助SE3的8项GIF测试、6项社交专项及8项相关回归。新增测试覆盖像素帧变化、暂停/恢复、有限循环、放大/保存取消、减少动态、后台重新鉴权、撤回、换号、静态PNG、超限与损坏文件。当前为源码冻结前的实施记录，实际运行结果与未验项以交付目录验收文件为准。真实 iPhone、iOS17、签名安装/升级及触摸性能不可用模拟器代替。
 
 参考：
 - https://github.com/SDWebImage/SDWebImage/tree/5.21.7
 - https://developer.apple.com/documentation/imageio/cgimagesourcecreatethumbnailatindex(_:_:_:)
+- https://chromium.googlesource.com/chromium/src/+/42b474cc4899601a878d04b6c9245737b81cf231/third_party/blink/renderer/platform/image-decoders/webp/webp_image_decoder.cc (GIF repetition count uses N + 1 cycles)
 
 后续构建：`xcodegen generate` 后按 README 构建；CI核对解析的依赖提交。回退到78不修改服务器或任何数据。所有旧包保留。
