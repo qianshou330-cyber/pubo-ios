@@ -24,7 +24,7 @@ const owner=await api('signup',{username:'isolated_owner',password:ownerPassword
 // A fresh instance defaults to disallowing note search. Exercise the real supported API
 // with a permitted ordinary account, without changing any production role policy.
 const before=await api('meta');
-await api('admin/roles/update-default-policies',{policies:{...before.policies,canSearchNotes:true,scheduledNoteLimit:10}},owner.token);
+await api('admin/roles/update-default-policies',{policies:{...before.policies,canSearchNotes:true,scheduledNoteLimit:10,canInvite:true}},owner.token);
 const announcement=await api('admin/announcements/create',{title:'隔离原生公告',text:'Synthetic announcement',imageUrl:null,display:'marquee'},owner.token);
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
@@ -68,7 +68,8 @@ const control=createServer(async(req,res)=>{
    const roomMessages=room?await api('chat/messages/room-timeline',{roomId:room.id,limit:100},alice.token):[];
    const folders=await api('drive/folders',{limit:100},alice.token);
    const clips=await api('clips/list',{limit:100},alice.token);
-   const daily={contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
+   const privacy=await api('i',{},alice.token); const invites=await api('invite/list',{limit:100},alice.token); const mutes=await api('mute/list',{limit:100},alice.token);
+   const daily={privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
    const reacted=reactionMessage.reactions.some(x=>x.user.id===alice.id&&x.reaction.replace(/\ufe0f/g,'')==='❤');
    res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
   }
@@ -78,3 +79,4 @@ const control=createServer(async(req,res)=>{
 await new Promise(resolve=>control.listen(61913,'127.0.0.1',resolve));
 console.log('Isolated native integration ready; synthetic credentials remain in memory.');
 process.on('SIGTERM',async()=>{control.close();await harness.teardown();process.exit(0);});
+

@@ -1,6 +1,32 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    private func openSettings(_ app: XCUIApplication) {
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
+        let settings = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !settings.isHittable { app.swipeUp() }; XCTAssertTrue(settings.isHittable); settings.tap()
+    }
+    func testNativePrivacyAndVerificationStatus() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
+        app.buttons["认证申请"].tap(); XCTAssertTrue(app.staticTexts["尚未申请"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["提交认证申请"].isEnabled)
+        app.navigationBars.buttons.firstMatch.tap(); app.buttons["隐私与内容偏好"].tap()
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); toggle.tap()
+        let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap(); XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 5))
+        capture(app, "native-privacy-settings")
+    }
+    func testNativeInvitationCreationAndReceipt() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app); app.buttons["邀请"].tap()
+        XCTAssertTrue(app.buttons["创建邀请码"].waitForExistence(timeout: 5)); app.buttons["创建邀请码"].tap(); app.buttons["确认创建"].tap()
+        XCTAssertTrue(app.staticTexts["SYNTHETIC-INVITE"].waitForExistence(timeout: 5)); capture(app, "native-invitations")
+    }
+    func testMultipleAccountsSwitchAndPreserveOtherAccount() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--multi-account-preview"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
+        let link = app.buttons["多账号管理"]; for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap()
+        let second = app.buttons["accounts.select.syntheticsecond"]; XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["第二个测试账号"].waitForExistence(timeout: 5))
+        for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap(); XCTAssertTrue(app.buttons["accounts.select.syntheticself"].waitForExistence(timeout: 5)); app.buttons["accounts.select.syntheticself"].tap()
+        app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5)); capture(app, "native-account-switch")
+    }
     func testNativeContactGroupCreateAndAdd() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()

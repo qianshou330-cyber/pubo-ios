@@ -5,7 +5,9 @@ import FoundationNetworking
 
 public protocol HTTPTransport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
+    func cancelAll() async
 }
+public extension HTTPTransport { func cancelAll() async {} }
 
 private final class DenyRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -28,11 +30,17 @@ public final class URLSessionTransport: HTTPTransport, @unchecked Sendable {
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         return (data, http)
     }
+    public func cancelAll() async {
+        await withCheckedContinuation { continuation in
+            session.getAllTasks { tasks in tasks.forEach { $0.cancel() }; continuation.resume() }
+        }
+    }
 }
 
 public actor APIClient {
     private let transport: any HTTPTransport
     public init(transport: any HTTPTransport = URLSessionTransport()) { self.transport = transport }
+    public func cancelAll() async { await transport.cancelAll() }
 
     public func call(_ path: String, body: [String: JSONValue] = [:], token: String? = nil, mutation: Bool = false) async throws -> JSONValue {
         var fields = body

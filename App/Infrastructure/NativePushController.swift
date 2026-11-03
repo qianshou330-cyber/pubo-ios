@@ -131,10 +131,10 @@ enum NativePushDestination: Identifiable {
     }
 
     /// Clear local delivery immediately; a bounded best-effort request uses the old authorization only.
-    func logout() {
+    func logout(preservePreference: Bool = false) {
         epoch = UUID(); let inFlight = registrationTask; registrationTask?.cancel(); registrationTask = nil
         if let session, !session.testMode {
-            if let owner = session.user?.id { UserDefaults.standard.removeObject(forKey: preference(owner)) }
+            if !preservePreference, let owner = session.user?.id { UserDefaults.standard.removeObject(forKey: preference(owner)) }
             if let token = session.token {
                 let api = session.api; let fields = operation()
                 Task { await inFlight?.value; _ = try? await api.call("native-push/unregister", body: fields, token: token, mutation: true) }

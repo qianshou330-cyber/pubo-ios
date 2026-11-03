@@ -216,7 +216,7 @@ struct MyAccountView: View {
                 }
                 .listRowBackground(PUBOTheme.panel)
                 Section("账号") {
-                    NavigationLink("锁屏推送") { NativePushSettingsView() }
+                    NavigationLink("多账号管理") { AccountManagerView() }; NavigationLink("账号与隐私设置") { AccountSettingsView() }; NavigationLink("锁屏推送") { NativePushSettingsView() }
                     if session.authorizationRequired { Text("需要补充授权以使用新增功能。取消授权不会删除草稿。").font(.footnote) }
                     Button(authorizing ? "正在授权…" : "重新授权（保留草稿）") { Task { authorizing = true; defer { authorizing = false }; do { let token = try await authorization.login(api: session.api); try await session.install(token: token); error = "授权已更新，请手动重试原操作。" } catch { self.error = error.localizedDescription } } }.disabled(authorizing)
                     Link("找回密码", destination: Endpoint.origin.appendingPathComponent("reset-password"))
@@ -236,7 +236,7 @@ struct MyAccountView: View {
                 .listRowBackground(PUBOTheme.panel)
                 if let error { Text(error).foregroundStyle(.secondary) }
             }.puboForm().navigationTitle("我的").task { chatScope = session.user?["chatScope"].string ?? "mutual" }
-                .confirmationDialog("退出后清除本机登录信息、草稿与聊天待发记录。", isPresented: $confirmLogout) { Button("退出登录", role: .destructive) { do { try session.logout() } catch { self.error = error.localizedDescription } } }
+                .confirmationDialog("只清除当前账号的登录信息、草稿与待发记录；其他账号保留。", isPresented: $confirmLogout) { Button("退出登录", role: .destructive) { Task { do { try await session.logout() } catch { self.error = error.localizedDescription } } } }
         }
     }
 }
@@ -257,8 +257,9 @@ struct DeleteAccountView: View {
             Button("申请永久删除账号", role: .destructive) { confirmed = true }.disabled(password.isEmpty || busy)
             if let error { Text(error).foregroundStyle(.red) }
         }.puboForm().navigationTitle("删除账号").confirmationDialog("确认删除你的 PUBO 账号？", isPresented: $confirmed) {
-            Button("确认永久删除", role: .destructive) { Task { busy = true; defer { busy = false; password = ""; otp = "" }; do { var body: [String: JSONValue] = ["password": .string(password)]; if !otp.isEmpty { body["token"] = .string(otp) }; _ = try await session.call("i/delete-account", body, mutation: true); try session.logout() } catch { self.error = error.localizedDescription } } }
+            Button("确认永久删除", role: .destructive) { Task { busy = true; defer { busy = false; password = ""; otp = "" }; do { var body: [String: JSONValue] = ["password": .string(password)]; if !otp.isEmpty { body["token"] = .string(otp) }; _ = try await session.call("i/delete-account", body, mutation: true); try await session.logout() } catch { self.error = error.localizedDescription } } }
         }.onDisappear { password = ""; otp = "" }
     }
 }
+
 

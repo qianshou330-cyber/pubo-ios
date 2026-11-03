@@ -2,6 +2,28 @@ import XCTest
 
 /// Exercises the native UI against the pinned real backend on this runner's loopback network.
 @MainActor final class PUBOIntegrationTests: XCTestCase {
+    private func openAccountSettings(_ app: XCUIApplication) {
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
+        let target = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !target.isHittable { app.swipeUp() }; XCTAssertTrue(target.isHittable); target.tap()
+    }
+    func testRealPrivacyUpdate() async throws {
+        let app = launch(try await context()); openAccountSettings(app); app.buttons["隐私与内容偏好"].tap()
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 10)); toggle.tap()
+        let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap()
+        XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 10)); let saved = try await proof("privacyChanged"); XCTAssertTrue(saved)
+    }
+    func testRealInvitationCreation() async throws {
+        let app = launch(try await context()); openAccountSettings(app); app.buttons["邀请"].tap()
+        XCTAssertTrue(app.buttons["创建邀请码"].waitForExistence(timeout: 10)); app.buttons["创建邀请码"].tap(); app.buttons["确认创建"].tap()
+        XCTAssertTrue(app.buttons["删除邀请码"].waitForExistence(timeout: 10)); let saved = try await proof("invitationCreated"); XCTAssertTrue(saved)
+    }
+    func testRealMuteCreateAndRemove() async throws {
+        let app = launch(try await context()); openAccountSettings(app); app.buttons["静音与屏蔽"].tap(); app.buttons["添加用户"].tap()
+        let field = app.textFields["userPicker.query"]; XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("native_bob")
+        app.staticTexts["隔离测试朋友"].firstMatch.tap(); app.buttons["确认"].tap()
+        XCTAssertTrue(app.buttons["移除"].waitForExistence(timeout: 10)); let saved = try await proof("muted"); XCTAssertTrue(saved)
+        app.buttons["移除"].tap(); app.buttons["确认移除"].tap(); XCTAssertTrue(app.buttons["移除"].waitForNonExistence(timeout: 10)); let removed = try await proof("notMuted"); XCTAssertTrue(removed)
+    }
     func testRealContactGroupCreation() async throws {
         let app = launch(try await context())
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["联系人"].tap(); app.buttons["新建分组"].tap()

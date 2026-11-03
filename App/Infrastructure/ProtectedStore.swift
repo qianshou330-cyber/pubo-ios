@@ -25,9 +25,9 @@ final class ProtectedStore {
     func save<T: Encodable>(_ value: T, account: String, key: String) throws {
         try JSONEncoder().encode(value).write(to: file(account: account, key: key), options: [.atomic, .completeFileProtection])
     }
-    func clear() throws {
-        for url in try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) {
-            try FileManager.default.removeItem(at: url)
-        }
+    func clear(account: String) throws {
+        guard account.range(of: "^[a-zA-Z0-9_-]+$", options: .regularExpression) != nil else { throw APIError.invalidResponse }
+        let directory = root.appendingPathComponent(account, isDirectory: true)
+        if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
     }
 }

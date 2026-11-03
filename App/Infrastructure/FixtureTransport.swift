@@ -22,6 +22,8 @@ actor FixtureTransport: HTTPTransport {
     private var rooms: [JSONValue] = []
     private var roomMessages: [JSONValue] = []
     private var collections: [String: [JSONValue]] = [:]
+    private var invitations: [JSONValue] = []
+    private var mutedUsers: [JSONValue] = []
     private var driveFolders: [JSONValue] = [.object(["id": .string("fixturefolder"), "name": .string("测试文件夹"), "parentId": .null])]
     init() {
         var user = profile.object; var policies = user["policies"]!.object
@@ -72,7 +74,16 @@ actor FixtureTransport: HTTPTransport {
         switch path {
         case "meta": response = .object(["name": .string("PUBO"), "disableRegistration": .bool(false), "emailRequiredForSignup": .bool(false)])
         case "emojis": response = .object(["emojis": .array([])])
-        case "i": response = profile
+        case "i": response = body["i"].string == "synthetic-second" ? .object(["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]) : profile
+        case "verification/show": response = .null
+        case "invite/limit": response = .object(["remaining": .number(10)])
+        case "invite/list": response = .array(invitations)
+        case "invite/create": counter += 1; response = .object(["id": .string("invitation\(counter)"), "code": .string("SYNTHETIC-INVITE"), "usedBy": .null]); invitations.append(response)
+        case "invite/delete": invitations.removeAll { $0["id"] == body["inviteId"] }; response = .null
+        case "mute/list": response = .array(mutedUsers)
+        case "mute/create": mutedUsers = [.object(["id": .string("muting1"), "mutee": Self.peer])]; response = .null
+        case "mute/delete": mutedUsers = []; response = .null
+        case "renote-mute/list", "blocking/list", "chat/blocking/list", "i/apps", "i/signin-history", "users/achievements": response = .array([])
         case "i/update": var values = profile.object; for (key, value) in body.object where key != "i" { values[key] = value }; profile = .object(values); response = profile
         case "signin-flow": response = .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])

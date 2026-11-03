@@ -2,6 +2,7 @@ import SwiftUI
 import PUBOCore
 
 struct AuthView: View {
+    var addingAccount = false
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
     private enum AccountRoute: String, Identifiable {
@@ -74,6 +75,7 @@ struct AuthView: View {
                         }
                         .overlay(alignment: .top) { PUBOBrand(width: 220).offset(y: -42).accessibilityIdentifier("pubo.shell") }
                         .padding(.top, 42)
+                    if !addingAccount && !session.savedAccounts.isEmpty { NavigationLink("选择已保存的 PUBO 账号") { AccountManagerView() } }
                     policyLinks
                     HomeAnnouncements(refreshID: 0) { homePath.append($0) }
                     HomeChartPanel(refreshID: 0) { homePath.append($0) }
@@ -272,13 +274,13 @@ struct AuthView: View {
                 if !invitation.isEmpty { body["invitationCode"] = .string(invitation) }
                 let response = try await session.api.call("signup", body: body, mutation: true)
                 guard let token = response["token"].string else { message = "注册申请已提交，请按网站要求完成邮箱验证后登录。"; return }
-                try await session.install(token: token)
+                try await session.install(token: token, allowSwitch: addingAccount)
             } else {
                 if needsCaptcha && !needOTP { await authorize(); return }
                 var body: [String: JSONValue] = ["username": .string(username), "password": .string(password)]
                 if !otp.isEmpty { body["token"] = .string(otp) }
                 let response = try await session.api.call("signin-flow", body: body, mutation: true)
-                if let token = response["i"].string, response["finished"].bool { try await session.install(token: token) }
+                if let token = response["i"].string, response["finished"].bool { try await session.install(token: token, allowSwitch: addingAccount) }
                 else if response["next"].string == "totp" { needOTP = true; return }
                 else { await authorize(); return }
             }
@@ -287,8 +289,9 @@ struct AuthView: View {
     }
     private func authorize() async {
         busy = true; defer { busy = false }
-        do { let token = try await webAuth.login(api: session.api); try await session.install(token: token) }
+        do { let token = try await webAuth.login(api: session.api); try await session.install(token: token, allowSwitch: addingAccount) }
         catch { message = error.localizedDescription }
     }
 }
+
 

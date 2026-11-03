@@ -6,6 +6,8 @@ final class AppSession {
     let api: APIClient
     private(set) var token: String?
     private(set) var user: Record?
+    private(set) var savedAccounts: [LoginSecret] = []
+    private var changingAccount = false
     private(set) var generation = UUID()
     var meta: JSONValue = .null
     var emojis: [JSONValue] = []
@@ -28,6 +30,7 @@ final class AppSession {
     let stream = StreamClient()
     let nativePush = NativePushController.shared
     let admin = AdminAuthorization()
+    let security = AdminAuthorization(requiresManager: false)
 
     init() {
         URLCache.shared = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 64 * 1024 * 1024, diskPath: "PUBOPublicMedia")
@@ -67,11 +70,15 @@ final class AppSession {
                 if isolatedBackend {
                     guard let synthetic = ProcessInfo.processInfo.environment["PUBO_ISOLATED_TOKEN"], !synthetic.isEmpty else { throw APIError.invalidResponse }
                     try await install(token: synthetic)
-                } else if !ProcessInfo.processInfo.arguments.contains("--logged-out") { try await install(token: "synthetic-session") }
+                } else if !ProcessInfo.processInfo.arguments.contains("--logged-out") {
+                    try await install(token: "synthetic-session")
+                    if ProcessInfo.processInfo.arguments.contains("--multi-account-preview") { try await install(token: "synthetic-second", allowSwitch: true); try await install(token: "synthetic-session", allowSwitch: true) }
+                }
             } else if let secret = try KeychainStore.load() {
                 try await install(token: secret.token)
             }
         } catch { self.error = error.localizedDescription }
+        reloadAccounts()
         Task { await refreshMeta() }
         Task { await refreshEmojis() }
         restoreChartPreferences()
@@ -91,19 +98,30 @@ final class AppSession {
             try? store?.save(values, account: "public", key: "emojis")
         } catch { /* Keep known emoji data; never block account UI. */ }
     }
-    func install(token: String) async throws {
+    func install(token: String, allowSwitch: Bool = false, expectedID: String? = nil) async throws {
+        guard !changingAccount else { throw CancellationError() }
+        changingAccount = true; defer { changingAccount = false }
         let epoch = generation
         let account = Record(try await api.call("i", token: token))
         guard !account.id.isEmpty, epoch == generation else { throw CancellationError() }
-        guard user == nil || user?.id == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "请授权当前账号。原账号和草稿已保留；换号请先退出登录。") }
-        if !testMode { try KeychainStore.save(LoginSecret(token: token, userID: account.id)) }
+        guard expectedID == nil || expectedID == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "登录信息不属于所选账号。") }
+        guard allowSwitch || user == nil || user?.id == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "请授权当前账号；添加其他账号请从多账号管理进入。原有草稿已保留。") }
+        let secret = LoginSecret(token: token, userID: account.id, username: account["username"].string, displayName: account.displayName)
+        if !testMode { try KeychainStore.save(secret) }
+        if user?.id != account.id {
+            generation = UUID(); stream.stop(); admin.clear(); security.clear()
+            await api.cancelAll(); nativePush.logout(preservePreference: true)
+            clearAccountMemory()
+        }
         self.token = token; user = account; error = nil; authorizationRequired = false
+        if testMode { savedAccounts.removeAll { $0.userID == account.id }; savedAccounts.append(secret) } else { reloadAccounts() }
         recentEmojis = ((try? store?.read([String].self, account: account.id, key: "recent-emojis")) ?? []).prefix(32).map { $0 }
         restoreChartPreferences()
         resumeStream()
         Task { await nativePush.resume() }
     }
     func call(_ path: String, _ fields: [String: JSONValue] = [:], mutation: Bool = false) async throws -> JSONValue {
+        guard !changingAccount else { throw CancellationError() }
         let epoch = generation
         let credential = token
         do {
@@ -117,6 +135,7 @@ final class AppSession {
         }
     }
     func upload(data: Data, name: String, mime: String, peer: String? = nil, voice: Bool = false) async throws -> Record {
+        guard !changingAccount else { throw CancellationError() }
         guard let token else { throw APIError(code: "CREDENTIAL_REQUIRED", message: "请先登录。") }
         let epoch = generation
         var fields = ["name": name]
@@ -125,16 +144,30 @@ final class AppSession {
         guard epoch == generation else { throw CancellationError() }
         return Record(value)
     }
-    func logout() throws {
-        admin.clear()
-        if !testMode { try KeychainStore.clear() }
+    func logout() async throws {
+        guard !changingAccount, let owner = user?.id else { return }
+        changingAccount = true; defer { changingAccount = false }
+        if !testMode { try KeychainStore.remove(owner) }
+        generation = UUID(); stream.stop(); admin.clear(); security.clear()
+        await api.cancelAll()
         nativePush.logout()
-        generation = UUID(); stream.stop(); token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
-        badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences()
-        InlineEmojiStore.shared.clear()
-        recentEmojis = []
-        if !testMode { do { try store?.clear(); try PrivateFiles.clear() } catch { self.error = "账号已退出，但本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
-        URLCache.shared.removeAllCachedResponses()
+        clearAccountMemory(); savedAccounts.removeAll { $0.userID == owner }; reloadAccounts(); restoreChartPreferences()
+        if !testMode { do { try store?.clear(account: owner) } catch { self.error = "账号已退出，但该账号本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
+    }
+    private func clearAccountMemory() {
+        token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
+        badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences(); recentEmojis = []
+        InlineEmojiStore.shared.clear(); try? PrivateFiles.clear(); URLCache.shared.removeAllCachedResponses()
+    }
+    func reloadAccounts() { if !testMode { do { savedAccounts = try KeychainStore.vault().accounts } catch { self.error = error.localizedDescription } } }
+    func switchAccount(_ id: String) async throws {
+        guard let secret = savedAccounts.first(where: { $0.userID == id }) else { throw APIError.invalidResponse }
+        try await install(token: secret.token, allowSwitch: true, expectedID: id)
+    }
+    func removeSavedAccount(_ id: String) async throws {
+        if user?.id == id { try await logout(); return }
+        if !testMode { try KeychainStore.remove(id); try store?.clear(account: id) }
+        savedAccounts.removeAll { $0.userID == id }
     }
     func refreshUser() async throws { user = Record(try await call("i")) }
     func rememberEmoji(_ value: String) {

@@ -6,6 +6,8 @@ import FoundationNetworking
 
 actor TestTransport: HTTPTransport {
     var requests: [URLRequest] = []
+    var cancellations = 0
+    func cancelAll() async { cancellations += 1 }
     let status: Int
     let body: String
     let fail: Bool
@@ -18,6 +20,10 @@ actor TestTransport: HTTPTransport {
 }
 
 final class APIClientTests: XCTestCase {
+    func testAccountSwitchCancellationReachesTransport() async {
+        let transport = TestTransport(); let client = APIClient(transport: transport)
+        await client.cancelAll(); let count = await transport.cancellations; XCTAssertEqual(count, 1)
+    }
     func testPrivateAttachmentUsesHeaderNotQuery() async throws {
         let transport = TestTransport("file")
         _ = try await APIClient(transport: transport).privateAttachment(id: "testid", token: "synthetic-token")

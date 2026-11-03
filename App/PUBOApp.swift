@@ -47,7 +47,8 @@ struct PUBOApp: App {
                     let image = await ProfileTabAvatar.load(url)
                     if !Task.isCancelled { profileTabAvatar = image }
                 }
-                .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream(); Task { await session.nativePush.resume() } } else { session.stream.stop(); session.admin.clear() } }
+                .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream(); Task { await session.nativePush.resume() } } else { session.stream.stop(); session.admin.clear(); session.security.clear() } }
         }
     }
 }
+
