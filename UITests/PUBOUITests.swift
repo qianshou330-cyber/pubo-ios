@@ -107,7 +107,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["更多功能"].tap(); app.buttons["剪藏"].tap()
         app.buttons["创建剪藏"].tap(); let name = app.textFields["名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native clip")
         app.buttons["保存"].tap(); let clip = app.staticTexts["Native clip"]; XCTAssertTrue(clip.waitForExistence(timeout: 5)); clip.tap()
-        XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "parity-clip-feed")
+        XCTAssertTrue(app.buttons["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "parity-clip-feed")
     }
     func testNativeDriveFolderCreate() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
@@ -194,9 +194,9 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.buttons["timeline.home"].waitForExistence(timeout: 10))
         for _ in 0..<5 where !warning.isHittable { app.swipeUp() }
         XCTAssertTrue(warning.waitForExistence(timeout: 10))
-        XCTAssertFalse(app.staticTexts["这段文字需要展开内容警告后查看"].exists)
+        XCTAssertFalse(app.buttons["这段文字需要展开内容警告后查看"].exists)
         warning.tap()
-        let content = app.staticTexts["这段文字需要展开内容警告后查看"]
+        let content = app.buttons["这段文字需要展开内容警告后查看"]
         XCTAssertTrue(content.waitForExistence(timeout: 5))
         XCTAssertEqual(warning.value as? String, "已展开")
         capture(app, "web-style-content-warning-expanded")
@@ -310,7 +310,7 @@ final class PUBOUITests: XCTestCase {
 
     func testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
-        let newest = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "刷新样例 ")).firstMatch
+        let newest = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label BEGINSWITH %@", "note.open.refresh", "刷新样例 ")).firstMatch
         XCTAssertTrue(newest.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["刷新首页"].exists)
         XCTAssertFalse(app.buttons["我的资料"].exists)
@@ -322,14 +322,14 @@ final class PUBOUITests: XCTestCase {
             .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.86)))
         // Old rows remain in the list by design. Query the new row instead of
         // holding the original accessibility element and expecting its label to mutate.
-        let refreshed = app.staticTexts["刷新样例 \(before + 1)"]
+        let refreshed = app.buttons["刷新样例 \(before + 1)"]
         XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
         capture(app, "home-pull-to-refresh")
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.staticTexts["刷新样例 \(before + 2)"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["刷新样例 \(before + 2)"].waitForExistence(timeout: 10))
         app.tabBars.buttons["我的"].tap()
         XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
         capture(app, "profile-avatar-tab")
@@ -533,15 +533,15 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
         app.buttons["搜索"].tap()
         let search = app.textFields["search.query"]; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("PUBO\n")
-        XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5))
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 5)); capture(app, "social-search-favorite")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.buttons["我的收藏"].tap()
-        XCTAssertTrue(app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "social-favorites")
+        XCTAssertTrue(app.buttons["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "social-favorites")
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["删除帖子"].tap()
         app.buttons["删除帖子"].firstMatch.tap()
-        let deleted = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"])
+        let deleted = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["欢迎来到 PUBO。原生界面测试 :test:"])
         XCTAssertEqual(XCTWaiter.wait(for: [deleted], timeout: 5), .completed)
     }
 

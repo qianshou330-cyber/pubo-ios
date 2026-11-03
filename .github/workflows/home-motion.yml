@@ -52,24 +52,10 @@ jobs:
           xcodegen generate
       - name: Compile before simulator boot
         run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Real motion capture and click targets
+      - name: Real motion capture and complete regression
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_HOME_MOTION: '1'
-          PUBO_MOTION_ONLY: '1'
-        run: python3 scripts/simulator-tests.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: home-motion-${{ matrix.size }}-${{ github.sha }}
-          path: |
-            build/motion-*.json
-            build/motion-*.xcresult
-            build/screenshots/
-          retention-days: 14
-      - name: Complete existing regression
-        env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
         run: python3 scripts/simulator-tests.py
       - uses: actions/upload-artifact@v4
         if: always()
