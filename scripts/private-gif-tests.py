@@ -9,7 +9,7 @@ device=next(d for d in phones if ('SE' in d['name'] if small else d['name']=='iP
 identifier=subprocess.check_output(['xcrun','simctl','create','PUBO GIF '+device['name'],device['deviceTypeIdentifier'],device['runtime']],text=True,timeout=60).strip()
 record={'device':device['name'],'udid':identifier,'tests':'PENDING','productionRequests':0};(root/'gif-environment.json').write_text(json.dumps(record))
 regressions=['testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testMultipleAccountsSwitchAndPreserveOtherAccount','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNativeLoginAndFourTabs']
-groups=[('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
+groups=[('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
 try:
     boot(identifier,root/'gif-boot.json')
     for name,selection in groups:

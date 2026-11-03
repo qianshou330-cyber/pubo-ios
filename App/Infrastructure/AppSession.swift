@@ -28,6 +28,7 @@ final class AppSession {
     private var unreadAttempt: UUID?
     private var started = false
     let store: ProtectedStore?
+    let gifStickers: GIFStickerVault?
     let stream = StreamClient()
     let nativePush = NativePushController.shared
     let admin = AdminAuthorization()
@@ -50,6 +51,14 @@ final class AppSession {
         api = APIClient()
         #endif
         store = testing || isolated ? nil : try? ProtectedStore()
+        do {
+            let parent = testing || isolated ? FileManager.default.temporaryDirectory : try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let folder = parent.appendingPathComponent(testing || isolated ? "PUBO-GIF-UI-tests" : "PUBO-GIF", isDirectory: true)
+            #if DEBUG
+            if testing && ProcessInfo.processInfo.arguments.contains("--reset-stickers"), FileManager.default.fileExists(atPath: folder.path) { try FileManager.default.removeItem(at: folder) }
+            #endif
+            gifStickers = try GIFStickerVault(root: folder)
+        } catch { gifStickers = nil }
         isolatedBackend = isolated
         testMode = testing || isolated
         nativePush.session = self
@@ -153,7 +162,7 @@ final class AppSession {
         await api.cancelAll()
         nativePush.logout()
         clearAccountMemory(); savedAccounts.removeAll { $0.userID == owner }; reloadAccounts(); restoreChartPreferences()
-        if !testMode { do { try store?.clear(account: owner) } catch { self.error = "账号已退出，但该账号本机缓存清理失败，请重新打开 App 后检查。"; throw error } }
+        do { try clearLocalAccountData(owner) } catch { self.error = "账号已退出，但该账号本机数据清理失败，请重新打开 App 后检查。"; throw error }
     }
     private func clearAccountMemory() {
         token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
@@ -167,8 +176,15 @@ final class AppSession {
     }
     func removeSavedAccount(_ id: String) async throws {
         if user?.id == id { try await logout(); return }
-        if !testMode { try KeychainStore.remove(id); try store?.clear(account: id) }
+        if !testMode { try KeychainStore.remove(id) }
+        try clearLocalAccountData(id)
         savedAccounts.removeAll { $0.userID == id }
+    }
+    private func clearLocalAccountData(_ id: String) throws {
+        var failure: Error?
+        if !testMode { do { try store?.clear(account: id) } catch { failure = error } }
+        do { try gifStickers?.clear(account: id) } catch { if failure == nil { failure = error } }
+        if let failure { throw failure }
     }
     func refreshUser() async throws { user = Record(try await call("i")) }
     func rememberEmoji(_ value: String) {

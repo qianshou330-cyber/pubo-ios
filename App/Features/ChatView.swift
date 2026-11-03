@@ -31,6 +31,9 @@ struct ChatView: View {
     @State private var ownerID: String?
     @State private var preview: PrivatePreviewItem?
     @State private var choosingEmoji = false
+    @State private var stickerTask: Task<Void, Never>?
+    @State private var stickerBusy = false
+    @State private var stickerNotice: String?
     @State private var choosingDrive = false
     @State private var actionMessage: Record?
     @State private var reporting = false
@@ -98,14 +101,15 @@ struct ChatView: View {
             .task(id: session.connectionRevision) { await load(reconcileAll: true) }
             .onChange(of: text) { _, _ in saveDraft() }
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
-            .onChange(of: scenePhase) { _, phase in if phase != .active { recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
-            .onDisappear { syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { stickerTask?.cancel(); recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
+            .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil }
+            .onDisappear { stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
     }
     var body: some View {
         chatLifecycle
             .sheet(isPresented: $searching) { NavigationStack { ChatSearchView(peer: peer) { id in searching = false; Task { await openContext(id) } }.toolbar { Button("关闭") { searching = false } } } }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
-            .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &text, selection: &textSelection) } }
+            .sheet(isPresented: $choosingEmoji) { ChatEmojiPicker(chooseEmoji: { TextInsertion.insert($0, into: &text, selection: &textSelection) }, chooseGIF: { data in let epoch = session.generation; Task { guard epoch == session.generation else { return }; await attachSticker(data) } }) }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
             .sheet(item: $actionMessage) { message in ChatMessageActions(message: message, peerID: peer.id, ownerID: session.user?.id ?? "") { updated in syncEpoch = UUID(); messages = ChatRecords.merge(messages, [updated]); updateDraft(targets: [updated], missing: []) } }
             .sheet(isPresented: $choosingDrive) { DrivePicker { file in Task { await importDrive(file) } } }
@@ -116,6 +120,8 @@ struct ChatView: View {
         VStack(alignment: .leading, spacing: 8) {
             if contextMode || hasNewer || unreadBelow { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { await returnToLatest() } }.frame(minHeight: 44).disabled(contextBusy).accessibilityIdentifier("chat.latest") }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.error") }
+            if stickerBusy { ProgressView("正在收藏表情包…").font(.caption) }
+            if let stickerNotice { Text(stickerNotice).font(.caption).foregroundStyle(PUBOTheme.secondary).accessibilityIdentifier("chat.sticker.notice") }
             if let reply { HStack { Text("回复：" + ChatReferences.label(ChatReferences.summary(reply))).lineLimit(2); Spacer(); Button("取消回复") { self.reply = nil; saveDraft() } }.font(.caption).padding(8).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8)) }
             if !attachments.isEmpty {
                 ScrollView(.horizontal) { HStack { ForEach(attachments) { file in
@@ -164,6 +170,12 @@ struct ChatView: View {
                     .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
                     .contextMenu {
                         if message["recalledAt"].isNull { Button("引用回复") { reply = message; saveDraft() }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
+                        if message["recalledAt"].isNull {
+                            let gifs = Record.list(message["attachments"]).filter { $0["mime"].string == "image/gif" }
+                            ForEach(Array(gifs.enumerated()), id: \.element.id) { index, file in
+                                Button(gifs.count == 1 ? "收藏表情包" : "收藏 GIF \(index + 1)") { collectSticker(file) }.disabled(stickerBusy)
+                            }
+                        }
                         Button(own ? "编辑／撤回消息" : "消息反应／举报") { actionMessage = message }
                     }
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
@@ -353,6 +365,33 @@ struct ChatView: View {
             guard !value.id.isEmpty else { throw APIError.uncertain }
             attachments.append(value); saveDraft()
         } catch { self.error = error.localizedDescription; saveDraft() }
+    }
+    private func collectSticker(_ attachment: Record) {
+        guard !stickerBusy, let account = session.user?.id, let credential = session.token else { return }
+        let epoch = session.generation; stickerBusy = true; stickerNotice = nil
+        stickerTask = Task { @MainActor in
+            defer { stickerBusy = false }
+            do {
+                guard attachment["size"].int <= GIFStickerCodec.inputLimit else { throw GIFStickerError.tooLarge }
+                let original = try await session.api.privateAttachment(id: attachment.id, token: credential)
+                let prepared = try await GIFStickerCodec.prepare(original)
+                try Task.checkCancellation()
+                guard epoch == session.generation, account == session.user?.id, scenePhase == .active else { return }
+                guard let vault = session.gifStickers else { throw GIFStickerError.unavailable }
+                let result = try vault.add(prepared, account: account)
+                stickerNotice = result.inserted ? (prepared.wasCompressed ? "已自动压缩并收藏 · \(prepared.data.count / 1000)KB" : "已收藏表情包") : "已经收藏过这张表情包"
+            } catch is CancellationError { }
+            catch { if epoch == session.generation { stickerNotice = error.localizedDescription } }
+        }
+    }
+    private func attachSticker(_ data: Data) async {
+        guard !busy, attachments.count < 10, data.count <= GIFStickerCodec.byteLimit else { return }
+        let epoch = session.generation; busy = true; defer { busy = false }
+        do {
+            let file = try await session.upload(data: data, name: "PUBO-sticker.gif", mime: "image/gif", peer: peer.id)
+            guard epoch == session.generation, !Task.isCancelled else { return }
+            attachments.append(file); saveDraft(); stickerNotice = "表情包已添加，点击发送即可"
+        } catch { if epoch == session.generation { self.error = error.localizedDescription } }
     }
     private func loadConversation() async {
         let owner = session.generation

@@ -62,9 +62,13 @@ final class PrivateGIFUITests: XCTestCase {
             while picker.exists && Date() < deadline {
                 let back = picker.buttons["BackButton"]
                 if back.exists && back.isHittable {
-                    back.tap()
+                    let frame = back.frame
+                    app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
                 } else if cancel.exists && cancel.isHittable {
-                    cancel.tap()
+                    // Use the observed control's position: Files can replace its AX element
+                    // between the existence check and XCUI's query re-resolution during tap.
+                    let frame = cancel.frame
+                    app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
                     if picker.waitForNonExistence(timeout: 3) { break }
                 } else {
                     Thread.sleep(forTimeInterval: 0.2)

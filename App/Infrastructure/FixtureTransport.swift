@@ -14,6 +14,7 @@ actor FixtureTransport: HTTPTransport {
     private var timelineReads = 0
     #if DEBUG
     private var gifReads = 0
+    private var stickerUpload: Data?
     #endif
     private var chartReads = 0
     private var favorites = Set<String>()
@@ -87,6 +88,32 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if args.contains("--sticker-testing") {
+            func jsonReply(_ value: JSONValue, _ status: Int = 200) throws -> (Data, HTTPURLResponse) {
+                (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+            }
+            func stickerFile() -> JSONValue { .object(["id": .string("gifuploaded001"), "name": .string("PUBO-sticker.gif"), "mime": .string("image/gif"), "kind": .string("image"), "size": .number(Double(stickerUpload?.count ?? 0)), "hasPreview": .bool(true)]) }
+            if path == "chat/attachments/create" {
+                if args.contains("--sticker-upload-denied") { return try jsonReply(.object(["error": .object(["code": .string("CHAT_FIRST_MESSAGE_TEXT_ONLY")])]), 400) }
+                let form = request.httpBody ?? Data()
+                guard let boundary = request.value(forHTTPHeaderField: "Content-Type")?.components(separatedBy: "boundary=").last,
+                      let start = form.range(of: Data("Content-Type: image/gif\r\n\r\n".utf8))?.upperBound,
+                      let end = form.range(of: Data(("\r\n--" + boundary + "--").utf8), options: .backwards)?.lowerBound, start < end,
+                      end - start <= GIFStickerCodec.byteLimit,
+                      form.range(of: Data("name=\"toUserId\"\r\n\r\nsyntheticpeer\r\n".utf8)) != nil,
+                      form.range(of: Data("name=\"i\"\r\n\r\nsynthetic-session\r\n".utf8)) != nil else { return try jsonReply(.object(["error": .object(["code": .string("INVALID_STICKER_UPLOAD")])]), 400) }
+                stickerUpload = Data(form[start..<end]); return try jsonReply(stickerFile())
+            }
+            if path == "chat/attachments/gifuploaded001/original" {
+                let allowed = request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-session"
+                return (allowed ? stickerUpload ?? Data() : Data(), HTTPURLResponse(url: request.url!, statusCode: allowed ? 200 : 403, httpVersion: nil, headerFields: ["Content-Type": "image/gif"])!)
+            }
+            if path == "chat/messages/create-to-user", body["attachmentIds"].array.contains(.string("gifuploaded001")), stickerUpload != nil {
+                counter += 1
+                let note: JSONValue = .object(["id": .string("stickerreceipt\(counter)"), "fromUserId": Self.me["id"], "toUserId": Self.peer["id"], "text": body["text"], "attachments": .array([stickerFile()]), "clientMessageId": body["clientMessageId"], "createdAt": .string(ISO8601DateFormatter().string(from: Date())), "readState": .string("read")])
+                sent.append(note); return try jsonReply(note)
+            }
+        }
         if args.contains("--gif-preview") {
             if path == "chat/messages/user-timeline" && sent.allSatisfy({ $0["id"].string != "gifmessage001" }) {
                 let own = args.contains("--gif-own")

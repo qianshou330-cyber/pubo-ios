@@ -147,10 +147,11 @@ struct PrivateGIFPlayer: View {
     let image: SDAnimatedImage
     var fullscreen = false
     var open: (() -> Void)? = nil
+    var maxInlineSize = CGSize(width: 240, height: 220)
     @State private var visible = false
     private var identifier: String { fullscreen ? "private.gif.fullscreen" : "private.gif.inline" }
     private var size: CGSize {
-        let scale = min(min(240 / max(1, image.size.width), 220 / max(1, image.size.height)), 1)
+        let scale = min(min(maxInlineSize.width / max(1, image.size.width), maxInlineSize.height / max(1, image.size.height)), 1)
         return CGSize(width: image.size.width * scale, height: image.size.height * scale)
     }
     var body: some View {
