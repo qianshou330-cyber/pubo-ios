@@ -32,18 +32,18 @@ final class PrivateGIFUITests: XCTestCase {
         let initial = image.value as? String ?? ""
         wait(image, { $0 != initial && $0.contains("playing=true") })
     }
-    func testInlineAnimationPauseAndZoomPreviewInBothThemes() {
+    func testAutomaticInlineAndZoomPreviewWithoutPlaybackControlsInBothThemes() {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light"
             let app = launch(dark ? ["--dark"] : []); let image = gif(app); moving(image)
             wait(image, { $0.contains("frame=0;") }); capture(app, "gif-inline-" + theme + "-frame0")
             wait(image, { $0.contains("frame=1;") }); capture(app, "gif-inline-" + theme + "-frame1")
             XCTAssertTrue((image.value as? String)?.contains("buffer=8388608") == true)
-            app.buttons["private.gif.inline.toggle"].tap(); wait(image, { $0.contains("playing=false") })
-            let paused = image.value as? String; Thread.sleep(forTimeInterval: 1.1); XCTAssertEqual(image.value as? String, paused)
-            capture(app, "gif-paused-" + theme)
-            app.buttons["private.gif.inline.toggle"].tap(); moving(image); image.tap()
+            XCTAssertFalse(app.buttons["private.gif.inline.toggle"].exists)
+            XCTAssertFalse(app.staticTexts["GIF"].exists)
+            image.tap()
             let full = gif(app, fullscreen: true); moving(full)
+            XCTAssertFalse(app.buttons["private.gif.fullscreen.toggle"].exists)
             XCTAssertTrue(app.buttons["attachment.saveFile"].exists); XCTAssertTrue(app.buttons["attachment.savePhoto"].exists)
             capture(app, "gif-fullscreen-" + theme)
             full.pinch(withScale: 1.5, velocity: 1); capture(app, "gif-fullscreen-zoom-" + theme)
@@ -64,12 +64,12 @@ final class PrivateGIFUITests: XCTestCase {
             moving(full); app.buttons["关闭"].tap(); moving(gif(app)); app.terminate()
         }
     }
-    func testReduceMotionStartsStillAndExplicitPlayWorks() {
+    func testAutomaticPlaybackResumesAfterForegroundWithReducedInterfaceMotion() {
         let app = launch(["--reduce-motion"]); let image = gif(app)
-        XCTAssertTrue(image.waitForExistence(timeout: 8)); wait(image, { $0.contains("playing=false") })
-        let first = image.value as? String; Thread.sleep(forTimeInterval: 1.1); XCTAssertEqual(image.value as? String, first)
-        capture(app, "gif-reduced-motion")
-        app.buttons["private.gif.inline.toggle"].tap(); moving(image)
+        moving(image); XCTAssertFalse(app.buttons["private.gif.inline.toggle"].exists)
+        capture(app, "gif-autoplay-motion-setting")
+        XCUIDevice.shared.press(.home); Thread.sleep(forTimeInterval: 1); app.activate()
+        moving(gif(app)); capture(app, "gif-auto-resumed")
     }
     func testFiniteLoopStopsWithoutBeingRestartedByViewUpdates() {
         let app = launch(["--gif-finite"]); let image = gif(app)

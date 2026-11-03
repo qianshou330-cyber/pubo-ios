@@ -144,48 +144,28 @@ private struct ZoomableGIFSurface: UIViewRepresentable {
 
 struct PrivateGIFPlayer: View {
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityDimFlashingLights) private var dimFlashing
     let image: SDAnimatedImage
     var fullscreen = false
     var open: (() -> Void)? = nil
-    @State private var userPlayback: Bool?
     @State private var visible = false
-    private var staticDefault: Bool {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--ui-testing") && ProcessInfo.processInfo.arguments.contains("--reduce-motion") { return true }
-        #endif
-        return reduceMotion || dimFlashing
-    }
-    private var requested: Bool { userPlayback ?? !staticDefault }
     private var identifier: String { fullscreen ? "private.gif.fullscreen" : "private.gif.inline" }
     private var size: CGSize {
         let scale = min(min(240 / max(1, image.size.width), 220 / max(1, image.size.height)), 1)
         return CGSize(width: image.size.width * scale, height: image.size.height * scale)
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Group {
+        Group {
                 if fullscreen {
-                    ZoomableGIFSurface(image: image, playing: requested && visible && scenePhase == .active, identifier: identifier)
+                    ZoomableGIFSurface(image: image, playing: visible && scenePhase == .active, identifier: identifier)
                         .frame(maxWidth: .infinity, maxHeight: .infinity).frame(minHeight: 200)
                 } else {
-                    GIFSurface(image: image, playing: requested && visible && scenePhase == .active, identifier: identifier, open: open)
+                    GIFSurface(image: image, playing: visible && scenePhase == .active, identifier: identifier, open: open)
                         .frame(width: size.width, height: size.height).clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-            }.background(GeometryReader { geometry in
+        }.background(GeometryReader { geometry in
                 Color.clear.onAppear { visible = geometry.frame(in: .global).intersects(UIScreen.main.bounds) }
                     .onChange(of: geometry.frame(in: .global)) { _, frame in visible = frame.intersects(UIScreen.main.bounds) }
-            })
-            HStack {
-                Text("GIF").font(.caption).foregroundStyle(.secondary)
-                Spacer(minLength: 8)
-                Button { userPlayback = !requested } label: { Label(requested ? "暂停" : "播放", systemImage: requested ? "pause.fill" : "play.fill").font(.caption).frame(minHeight: 44) }
-                    .accessibilityLabel(requested ? "暂停 GIF" : "播放 GIF").accessibilityIdentifier(identifier + ".toggle")
-            }.frame(maxWidth: fullscreen ? .infinity : size.width)
-        }.onDisappear { visible = false }
-            .onChange(of: reduceMotion) { _, _ in userPlayback = nil }
-            .onChange(of: dimFlashing) { _, _ in userPlayback = nil }
+        }).onDisappear { visible = false }
     }
 }
 
