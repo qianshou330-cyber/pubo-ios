@@ -53,14 +53,21 @@ final class PrivateGIFUITests: XCTestCase {
             // iOS may reopen the last folder, where the leading button goes back to Browse.
             // Scope to Files so we never dismiss the underlying attachment viewer instead.
             let cancel = picker.buttons.matching(NSPredicate(format: "label IN %@", ["取消", "Cancel", "关闭", "Close"])).firstMatch
-            for _ in 0..<5 {
-                if cancel.exists { break }
+            // Files initially exposes Cancel, then restores its last folder asynchronously.
+            // Re-evaluate both controls until dismissed instead of caching that transient state.
+            let deadline = Date().addingTimeInterval(30)
+            while picker.exists && Date() < deadline {
                 let back = picker.buttons["BackButton"]
-                guard back.exists else { break }
-                back.tap()
+                if back.exists && back.isHittable {
+                    back.tap()
+                } else if cancel.exists && cancel.isHittable {
+                    cancel.tap()
+                    if picker.waitForNonExistence(timeout: 3) { break }
+                } else {
+                    Thread.sleep(forTimeInterval: 0.2)
+                }
             }
-            XCTAssertTrue(cancel.waitForExistence(timeout: 8)); cancel.tap()
-            XCTAssertTrue(picker.waitForNonExistence(timeout: 8))
+            XCTAssertFalse(picker.exists, "Files picker must close after cancellation")
             moving(full); app.buttons["关闭"].tap(); moving(gif(app)); app.terminate()
         }
     }

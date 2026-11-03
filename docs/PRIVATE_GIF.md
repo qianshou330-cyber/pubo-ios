@@ -1,4 +1,4 @@
-# 私信 GIF（0.8.1 / build84）
+# 私信 GIF（0.8.1 / build85）
 
 基于已验收 build78。按用户最新要求，会话内及原图预览加载成功后自动播放，不显示 GIF 标识、暂停或播放按钮；点图打开原图并可双指缩放。使用原生 SDAnimatedImageView 播放已获准读取的 GIF，保留原帧时长、透明度/处置方式及循环次数，不预解码全部帧。界面减少动态选项不将 GIF 文件变为静态，与 H5 原图行为一致；离屏/后台停止并清理，回到前台重新鉴权后自动播放。其他界面的减少动态支持不变。
 
@@ -18,3 +18,5 @@ CI先完成实际编译再运行同型号 iPhone17 Pro Max、辅助SE3的8项GIF
 - https://chromium.googlesource.com/chromium/src/+/42b474cc4899601a878d04b6c9245737b81cf231/third_party/blink/renderer/platform/image-decoders/webp/webp_image_decoder.cc (GIF repetition count uses N + 1 cycles)
 
 后续构建：`xcodegen generate` 后按 README 构建；CI核对解析的依赖提交。回退到78不修改服务器或任何数据。所有旧包保留。
+
+Build85仅修正Files取消测试：系统先暴露Cancel再异步恢复上次目录，需持续重查Back/Cancel直到选择器消失；自动播放App实现与84一致。
