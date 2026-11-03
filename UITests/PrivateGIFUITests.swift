@@ -47,7 +47,20 @@ final class PrivateGIFUITests: XCTestCase {
             XCTAssertTrue(app.buttons["attachment.saveFile"].exists); XCTAssertTrue(app.buttons["attachment.savePhoto"].exists)
             capture(app, "gif-fullscreen-" + theme)
             full.pinch(withScale: 1.5, velocity: 1); capture(app, "gif-fullscreen-zoom-" + theme)
-            app.buttons["attachment.saveFile"].tap(); XCTAssertTrue(app.buttons["取消"].firstMatch.waitForExistence(timeout: 20)); app.buttons["取消"].firstMatch.tap()
+            app.buttons["attachment.saveFile"].tap()
+            let picker = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+            XCTAssertTrue(picker.waitForExistence(timeout: 20))
+            // iOS may reopen the last folder, where the leading button goes back to Browse.
+            // Scope to Files so we never dismiss the underlying attachment viewer instead.
+            let cancel = picker.buttons.matching(NSPredicate(format: "label IN %@", ["取消", "Cancel", "关闭", "Close"])).firstMatch
+            for _ in 0..<5 {
+                if cancel.exists { break }
+                let back = picker.buttons["BackButton"]
+                guard back.exists else { break }
+                back.tap()
+            }
+            XCTAssertTrue(cancel.waitForExistence(timeout: 8)); cancel.tap()
+            XCTAssertTrue(picker.waitForNonExistence(timeout: 8))
             moving(full); app.buttons["关闭"].tap(); moving(gif(app)); app.terminate()
         }
     }
