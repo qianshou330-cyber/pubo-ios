@@ -1,0 +1,27 @@
+name: Stop superseded GIF candidates
+on:
+  push:
+    branches: ['ci-stop-superseded-gif-20261103']
+permissions:
+  actions: write
+  contents: read
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const obsolete = [
+              [41649980175, 'a102cde436602d704e2375d499356fbffbed9a42'],
+              [41652721136, 'c3d1f3580d604b629af2c532f3bf8433274de015']
+            ];
+            for (const [run_id, expected] of obsolete) {
+              const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id});
+              if (run.head_sha !== expected) throw new Error('Unexpected candidate commit');
+              if (run.status !== 'completed') {
+                await github.rest.actions.cancelWorkflowRun({...context.repo, run_id});
+                core.info('Stopped superseded GIF run ' + run_id);
+              } else core.info('Already completed ' + run_id);
+            }
