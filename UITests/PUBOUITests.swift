@@ -1,6 +1,15 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    func testAccountDeletionRequiresSameAccountSecuritySession() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        let entry = app.buttons["删除账号"]; for _ in 0..<9 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
+        let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["申请永久删除账号"].exists)
+        password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
+        let delete = app.buttons["申请永久删除账号"]; XCTAssertTrue(delete.waitForExistence(timeout: 5)); XCTAssertFalse(delete.isEnabled)
+        capture(app, "account-delete-security-gate")
+    }
     func testServiceConnectionUsesAccountReauthenticationAndNativeControls() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
         let entry = app.buttons["服务连接"]; for _ in 0..<5 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()

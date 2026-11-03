@@ -1,3 +1,5 @@
+> 历史记录：本文件保留0.2.0/build22原验收。最新实现与证据请看PARITY_ROADMAP.md、ADMIN_COVERAGE.md及对应构建DELIVERY.md。
+
 # 开发验收记录
 
 ## 2026-11-01 工程建立

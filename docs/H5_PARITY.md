@@ -1,3 +1,5 @@
+> 历史记录：本文件保留0.2.0/build22原验收。最新实现与证据请看PARITY_ROADMAP.md、ADMIN_COVERAGE.md及对应构建DELIVERY.md。
+
 # H5 与原生 App 功能自查
 
 核对日期：2026-11-02。对象：PUBO 正式 H5 对应源码 `pubo-home-first-visit-work` 与原生 0.2.0/build22（自动化与真实隔离后端联合验收通过）。**结论：当前 App 是核心社交原生首版，没有 H5 的全部功能。界面接近不代表功能等同。**

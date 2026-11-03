@@ -1,4 +1,4 @@
-import { randomBytes, createHash, createHmac } from 'node:crypto';
+import { randomBytes, randomUUID, createHash, createHmac } from 'node:crypto';
 import { writeFile, readFile, readdir, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
@@ -21,6 +21,7 @@ export async function prepareVerificationFixture(){
 }
 export async function verifyExtendedContracts(api,owner,destination){
  const checks={};
+ try {
  const password=randomBytes(24).toString('hex');
  const subject=await api('signup',{username:'contract_subject',password});
  const stranger=await api('signup',{username:'contract_other',password:randomBytes(24).toString('hex')});
@@ -86,5 +87,10 @@ export async function verifyExtendedContracts(api,owner,destination){
  if(!(await api('i',{},subject.token)).twoFactorEnabled||recovery.backupCodes.length!==5)throw new Error('TOTP setup failed');checks.totpSetupAndRecovery=true;
  await api('i/2fa/unregister',{password:newPassword,token:recovery.backupCodes[0]},subject.token);
  if((await api('i',{},subject.token)).twoFactorEnabled)throw new Error('TOTP not disabled');checks.totpDisableWithRecovery=true;
+ const restricted=await api('miauth/gen-token',{session:randomUUID(),name:'Disposable deletion scope test',permission:['read:account']},subject.token);
+ checks.appTokenCannotDeleteAccount=await rejects('i/delete-account',{password:newPassword},restricted.token,'ACCESS_DENIED');
+ await api('i/delete-account',{password:newPassword},subject.token);
+ if(!(await api('i',{},subject.token)).isDeleted)throw new Error('Account deletion was not acknowledged');checks.sameAccountDeletionAcknowledged=true;
  await writeFile(destination,JSON.stringify({status:'PASS',productionAPIRequests:0,scanner:'strict synthetic PNG hash allow-list; real antivirus NOT_TESTED',checks},null,2));
+ } catch(error) { await writeFile(destination,JSON.stringify({status:'FAIL',productionAPIRequests:0,checks,error:String(error.message)},null,2));throw error; }
 }
