@@ -203,6 +203,8 @@ struct ChartHistoryView: View {
     @State private var busy = false
     private var points: [ChartHistoryPoint] { ChartHistoryPoint.parse(data) }
     private var playlist: Bool { chart["rankBasis"].string == "playlist_order" }
+    private var maxRank: Int { max(2, ChartMovement.integer(chart["maxRank"]) ?? 200) }
+    private var rankTicks: [Int] { Array(Set([1, maxRank] + Array(stride(from: max(1, maxRank / 5), through: maxRank, by: max(1, maxRank / 5))))).sorted() }
     var body: some View {
         ScrollView {
           VStack(alignment: .leading, spacing: 16) {
@@ -223,10 +225,19 @@ struct ChartHistoryView: View {
                 if points.contains(where: { $0.rank != nil }) {
                     Chart(points) { point in
                         if let rank = point.rank {
-                            LineMark(x: .value("日期", point.date), y: .value(playlist ? "歌单位置" : "排名", rank), series: .value("连续区段", point.segment)).foregroundStyle(PUBOTheme.accent)
-                            PointMark(x: .value("日期", point.date), y: .value("位置", rank)).foregroundStyle(PUBOTheme.accent)
+                            LineMark(x: .value("日期", point.date), y: .value(playlist ? "歌单位置" : "排名", rank), series: .value("连续区段", point.segment)).lineStyle(StrokeStyle(lineWidth: 2)).foregroundStyle(PUBOTheme.accent)
+                            PointMark(x: .value("日期", point.date), y: .value("位置", rank)).symbolSize(16).foregroundStyle(PUBOTheme.accent)
                         }
-                    }.chartYScale(domain: .automatic(includesZero: false, reversed: true)).chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { value in AxisGridLine(); AxisValueLabel { if let date = value.as(Date.self) { Text(String(ChartClock.korean(date).dropFirst(5).prefix(5))) } } } }.frame(height: 180).accessibilityLabel("7 天排名走势，下方提供逐条记录")
+                    }
+                    .chartYScale(domain: .automatic(includesZero: false, reversed: true, dataType: Int.self) { domain in domain = [1, maxRank] })
+                    .chartYAxis { AxisMarks(position: .leading, values: rankTicks) { value in AxisGridLine(); AxisValueLabel { if let rank = value.as(Int.self) { Text("\(rank)") } } } }
+                    .chartXScale(domain: .automatic(dataType: Date.self) { domain in
+                        if let from = data["from"].string.flatMap(SocialContent.date), let to = data["to"].string.flatMap(SocialContent.date), from < to { domain = [from, to] }
+                    })
+                    .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { value in AxisValueLabel { if let date = value.as(Date.self) { Text(String(ChartClock.korean(date).dropFirst(5).prefix(5))) } } } }
+                    .chartLegend(.hidden).frame(height: 240)
+                    .accessibilityLabel("7 天排名走势，名次范围 1 至 \(maxRank)，下方提供逐条记录")
+                    .accessibilityIdentifier("chart.history.plot")
                 }
                 DisclosureGroup("查看观测记录（\(points.count)）") {
                 ForEach(points) { point in
