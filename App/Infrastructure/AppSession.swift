@@ -75,7 +75,7 @@ final class AppSession {
                     if ProcessInfo.processInfo.arguments.contains("--multi-account-preview") { try await install(token: "synthetic-second", allowSwitch: true); try await install(token: "synthetic-session", allowSwitch: true) }
                 }
             } else if let secret = try KeychainStore.load() {
-                try await install(token: secret.token)
+                try await install(token: secret.token, expectedID: secret.userID)
             }
         } catch { self.error = error.localizedDescription }
         reloadAccounts()
@@ -210,3 +210,4 @@ final class AppSession {
         try? store?.save(chartPreferences, account: user?.id ?? "guest", key: "kpop-preferences")
     }
 }
+
