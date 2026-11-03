@@ -1,4 +1,4 @@
-import json,pathlib,subprocess,sys
+import json,os,pathlib,subprocess,sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from simulator_boot import boot
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
@@ -10,7 +10,7 @@ result={'status':'RUNNING','device':template['name'],'runtime':template['runtime
 try:
  boot(device,root/'integration-boot.json')
  command=['xcodebuild','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination','platform=iOS Simulator,id='+device,'-derivedDataPath','build/integration-derived','-resultBundlePath','build/integration-ui.xcresult','-parallel-testing-enabled','NO','-only-testing:PUBOUITests/PUBOIntegrationTests','CODE_SIGNING_ALLOWED=NO','test']
- subprocess.run(command,check=True,timeout=1200)
+ subprocess.run(command,check=True,timeout=1200,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1'})
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
  assert summary.get('passedTests',0)==6 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All six real-backend UI tests must actually run'

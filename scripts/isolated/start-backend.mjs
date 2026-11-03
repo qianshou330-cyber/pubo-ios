@@ -25,7 +25,7 @@ const owner=await api('signup',{username:'isolated_owner',password:ownerPassword
 // with a permitted ordinary account, without changing any production role policy.
 const before=await api('meta');
 await api('admin/roles/update-default-policies',{policies:{...before.policies,canSearchNotes:true,scheduledNoteLimit:10}},owner.token);
-const announcement=await api('admin/announcements/create',{title:'隔离原生公告',text:'Synthetic announcement',display:'marquee'},owner.token);
+const announcement=await api('admin/announcements/create',{title:'隔离原生公告',text:'Synthetic announcement',imageUrl:null,display:'marquee'},owner.token);
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
 await api('i/update',{name:'原生验收用户',chatScope:'mutual'},alice.token);

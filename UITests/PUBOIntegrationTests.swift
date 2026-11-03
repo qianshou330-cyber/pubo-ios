@@ -5,10 +5,13 @@ import XCTest
     override func setUpWithError() throws { continueAfterFailure = false }
     private func context() async throws -> [String: String] {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:61913/context")!)
-        request.timeoutInterval = 2
+        request.timeoutInterval = 15
         let data: Data
         do { (data, _) = try await URLSession.shared.data(for: request) }
-        catch { throw XCTSkip("The disposable real backend is only started by the native-integration job.") }
+        catch {
+            if ProcessInfo.processInfo.environment["PUBO_REQUIRE_ISOLATED_BACKEND"] == "1" { throw error }
+            throw XCTSkip("The disposable real backend is only started by the native-integration job.")
+        }
         return try JSONDecoder().decode([String: String].self, from: data)
     }
     private func launch(_ context: [String: String]) -> XCUIApplication {
@@ -76,7 +79,7 @@ import XCTest
         app.launchArguments = ["--isolated-backend", "--reduce-motion"]
         app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]
         app.launch()
-        let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 20)); edit.tap(); app.buttons["隔离原生公告"].firstMatch.tap()
+        let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 20)); edit.tap(); app.buttons["修改：隔离原生公告"].tap()
         XCTAssertTrue(app.buttons["admin.authorize"].waitForExistence(timeout: 10)); XCTAssertFalse(app.textFields["announcement.title"].exists)
         app.buttons["admin.authorize"].tap()
         let title = app.textFields["announcement.title"]; XCTAssertTrue(title.waitForExistence(timeout: 10)); title.tap(); title.typeText(" Edited")

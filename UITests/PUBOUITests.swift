@@ -563,16 +563,17 @@ final class PUBOUITests: XCTestCase {
         let title = app.staticTexts["韩国女团音源榜"]; for _ in 0..<5 where !title.isHittable { app.swipeUp() }
         XCTAssertTrue(title.isHittable)
         XCTAssertFalse(app.staticTexts["暂无公告"].exists); XCTAssertFalse(app.buttons["修改公告"].exists)
-        let post = app.staticTexts["欢迎来到 PUBO。原生界面测试 :test:"]
+        let post = app.buttons["note.open.fixturepost002"]
         for _ in 0..<7 where !post.isHittable { app.swipeUp() }
         XCTAssertTrue(post.isHittable); XCTAssertFalse(app.buttons["添加表情反应"].exists)
+        post.tap(); XCTAssertTrue(app.navigationBars["帖子"].waitForExistence(timeout: 5))
         capture(app, "parity-guest-public-feed")
     }
 
     func testAdminAnnouncementEditRequiresReauthentication() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--admin-preview", "--reduce-motion"]; app.launch()
         let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 10)); edit.tap()
-        app.buttons["欢迎加入 PUBO"].firstMatch.tap()
+        app.buttons["announcement.edit.fixtureannouncement"].tap()
         let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5))
         XCTAssertFalse(app.textFields["announcement.title"].exists)
         password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()

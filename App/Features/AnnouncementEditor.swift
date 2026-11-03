@@ -14,7 +14,7 @@ struct AnnouncementEditor: View {
     @State private var error: String?
     @State private var baseline: Record?
     var body: some View {
-        NavigationStack {
+        Group {
             AdminGate {
                 Form {
                     TextField("公告标题", text: $title).accessibilityIdentifier("announcement.title")
@@ -26,7 +26,7 @@ struct AnnouncementEditor: View {
                 }.puboForm().navigationTitle("修改公告").disabled(busy)
                     .task { if baseline == nil { select(original) } }
             }.toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() }.disabled(busy) } }
-        }.interactiveDismissDisabled(busy)
+        }.toolbar(.visible, for: .navigationBar).interactiveDismissDisabled(busy)
     }
     private func select(_ value: Record) { baseline = value; title = value["title"].string ?? ""; text = value.text; imageURL = value["imageUrl"].string ?? ""; conflict = false; error = nil }
     private func latest() async throws -> Record {
@@ -86,7 +86,7 @@ struct RollingAnnouncementTitles: View {
     private var titles: some View {
         HStack(spacing: 28) {
             ForEach(entries) { entry in
-                Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.subheadline).lineLimit(1).frame(minHeight: 44) }
+                Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.subheadline).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle()) }
                     .buttonStyle(.plain).accessibilityIdentifier("home.announcement." + entry.id)
             }
         }
