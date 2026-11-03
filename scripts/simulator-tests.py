@@ -75,6 +75,13 @@ for index, template in enumerate(selected):
                    '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
                    '-derivedDataPath', 'build/debug', '-resultBundlePath', str(bundle),
                    '-parallel-testing-enabled', 'NO', '-only-testing:PUBOUITests/PUBOUITests', 'CODE_SIGNING_ALLOWED=NO', 'test']
+        if os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
+            command.remove('-only-testing:PUBOUITests/PUBOUITests')
+            command[-1:-1] = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
+                'testWelcomeRegistrationSheetCanCloseAndLogin',
+                'testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable',
+                'testPasswordVisibilityAndAccountChangePreserveSafety',
+                'testNativeLoginAndFourTabs']]
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
@@ -88,6 +95,19 @@ for index, template in enumerate(selected):
                     raise TimeoutError('UI runner exceeded 30 minutes')
         test_exit = process.returncode
         record['tests'] = 'PASS' if test_exit == 0 else 'FAIL'
+        if test_exit == 0 and os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
+            subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', identifier,
+                            'com.bolubo.native', '--ui-testing', '--logged-out', '--system-appearance'], check=True, timeout=45)
+            video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264', str(screenshots / 'brand-theme-switch.mp4')])
+            try:
+                for theme in ['light', 'dark', 'light']:
+                    subprocess.run(['xcrun', 'simctl', 'ui', identifier, 'appearance', theme], check=True, timeout=20)
+                    time.sleep(3)
+                    subprocess.run(['xcrun', 'simctl', 'io', identifier, 'screenshot', str(screenshots / ('brand-' + theme + '.png'))], check=True, timeout=30)
+            finally:
+                video.send_signal(signal.SIGINT)
+                try: video.wait(timeout=30)
+                except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
         if test_exit == 0 and index == 0:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',

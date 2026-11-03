@@ -89,9 +89,12 @@ extension View {
 
 struct PUBOBrand: View {
     var width: CGFloat = 200
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
-        Image("Brand").resizable().scaledToFit().frame(width: width, height: width * 221 / 660)
-            .shadow(color: .black.opacity(0.32), radius: 3, y: 2)
+        Image("Brand").renderingMode(.template).resizable().scaledToFit()
+            .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+            .frame(width: width, height: width * 221 / 660)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.32 : 0.12), radius: 3, y: 2)
             .accessibilityLabel("PUBO")
     }
 }

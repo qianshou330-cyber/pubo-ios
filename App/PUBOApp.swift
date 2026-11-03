@@ -26,7 +26,7 @@ struct PUBOApp: App {
             }.environment(session).tint(PUBOTheme.accent).foregroundStyle(PUBOTheme.text)
                 .environment(\.locale, Locale(identifier: "zh_CN"))
                 .environment(\.dynamicTypeSize, session.testMode && ProcessInfo.processInfo.arguments.contains("--large-text") ? .accessibility3 : systemTypeSize)
-                .preferredColorScheme(session.testMode ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
+                .preferredColorScheme(session.testMode && !ProcessInfo.processInfo.arguments.contains("--system-appearance") ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
                 .task { await session.start() }
                 .task(id: "\(session.generation)-\(session.user?.id ?? "guest")-\(session.streamRevision)-\(scenePhase == .active)") {
                     if scenePhase == .active { await session.refreshUnread() }
