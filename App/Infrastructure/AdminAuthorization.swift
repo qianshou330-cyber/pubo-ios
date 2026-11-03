@@ -36,11 +36,11 @@ import PUBOCore
             guard requestEpoch == epoch, accountEpoch == session.generation else { throw CancellationError() }
             return result
         } catch {
-            if ["PERMISSION_DENIED", "AUTHENTICATION_FAILED", "CREDENTIAL_REQUIRED"].contains((error as? APIError)?.code ?? "") { clear() }
+            if ["PERMISSION_DENIED", "ROLE_PERMISSION_DENIED", "ACCESS_DENIED", "AUTHENTICATION_FAILED", "CREDENTIAL_REQUIRED"].contains((error as? APIError)?.code ?? "") { clear() }
             throw error
         }
     }
-    static func canManage(_ user: Record) -> Bool { user["isAdmin"].bool || user["isModerator"].bool }
+    static func canManage(_ user: Record) -> Bool { user["isAdmin"].bool || user["isModerator"].bool || user["policies"]["canManageCustomEmojis"].bool || user["policies"]["canManageAvatarDecorations"].bool }
 }
 
 struct AdminGate<Content: View>: View {

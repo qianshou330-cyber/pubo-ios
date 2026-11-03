@@ -52,6 +52,13 @@ const context={token:alice.token,userId:alice.id,peerId:bob.id,noteId:note.creat
 // Loopback-only ephemeral credentials; never logged, written to artifacts, or sent to production.
 const control=createServer(async(req,res)=>{
  try {
+  if(req.method==='POST'&&req.url==='/prepare-test'){
+   // Reset only shared synthetic settings: a failed test must not hide the next test's poll.
+   const rows=await api('mute/list',{limit:100},alice.token);
+   if(rows.some(x=>x.muteeId===bob.id)) await api('mute/delete',{userId:bob.id},alice.token);
+   await api('i/update',{hideOnlineStatus:false},alice.token);
+   res.writeHead(204);res.end();return;
+  }
   if(req.method==='GET'&&req.url==='/context'){res.setHeader('content-type','application/json');res.end(JSON.stringify(context));return;}
   if(req.method==='GET'&&req.url==='/proof'){
    const favorites=await api('i/favorites',{limit:100},alice.token);

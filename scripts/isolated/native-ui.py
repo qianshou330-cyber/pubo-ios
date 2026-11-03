@@ -19,6 +19,12 @@ except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)
  raise
 finally:
+ try:
+  import urllib.request
+  with urllib.request.urlopen('http://127.0.0.1:61913/proof',timeout=20) as response: receipts=json.load(response)
+  assert isinstance(receipts,dict) and all(isinstance(k,str) and isinstance(v,bool) for k,v in receipts.items())
+  (root/'integration-final-receipts.json').write_text(json.dumps(receipts,indent=2))
+ except Exception as error: result['receiptError']=type(error).__name__
  if (root/'integration-ui.xcresult').exists():
   try:
    summary=subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult'],timeout=60)

@@ -8,7 +8,7 @@ import XCTest
     }
     func testRealPrivacyUpdate() async throws {
         let app = launch(try await context()); openAccountSettings(app); app.buttons["隐私与内容偏好"].tap()
-        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 10)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); toggle.tap()
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 10)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); XCTAssertEqual(toggle.value as? String, "0"); toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap(); let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
         let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap()
         XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 10)); let saved = try await proof("privacyChanged"); XCTAssertTrue(saved)
     }
@@ -55,7 +55,11 @@ import XCTest
         var request = URLRequest(url: URL(string: "http://127.0.0.1:61913/context")!)
         request.timeoutInterval = 15
         let data: Data
-        do { (data, _) = try await URLSession.shared.data(for: request) }
+        do {
+            var reset = URLRequest(url: URL(string: "http://127.0.0.1:61913/prepare-test")!); reset.httpMethod = "POST"; reset.timeoutInterval = 15
+            let (_, response) = try await URLSession.shared.data(for: reset); XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
+            (data, _) = try await URLSession.shared.data(for: request)
+        }
         catch {
             if ProcessInfo.processInfo.environment["PUBO_REQUIRE_ISOLATED_BACKEND"] == "1" { throw error }
             throw XCTSkip("The disposable real backend is only started by the native-integration job.")
@@ -113,7 +117,7 @@ import XCTest
         let app = launch(try await context())
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 20)); app.buttons["home.compose"].tap()
         let text = app.textViews["compose.text"]; text.tap(); text.typeText("Native scheduled proof")
-        app.buttons["compose.more"].tap(); app.buttons["定时发布"].tap(); app.buttons["compose.send"].tap()
+        app.buttons["compose.more"].tap(); app.buttons["定时发布"].tap(); app.buttons["compose.send"].tap(); XCTAssertTrue(text.waitForNonExistence(timeout: 15))
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
         let created = try await proof("scheduled"); XCTAssertTrue(created)
         app.tabBars.buttons["我的"].tap(); app.buttons["定时帖子"].tap()
