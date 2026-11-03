@@ -76,6 +76,11 @@ def main():
             if data[:4] == b'\xcf\xfa\xed\xfe':
                 binaries[str(path.relative_to(app))] = inspect_macho(data)
     require('PUBO' in binaries, 'Missing verified native binary')
+    video = app / 'login-background.mp4'
+    poster = app / 'login-background-poster.jpg'
+    require(video.is_file() and 0 < video.stat().st_size < 1_000_000, 'Login background must be bundled and below 1 MB')
+    require(poster.is_file(), 'Missing static login background fallback')
+    require(hashlib.sha256(video.read_bytes()).digest() == hashlib.sha256(Path('App/Resources/login-background.mp4').read_bytes()).digest(), 'Bundled video differs from verified source')
     codesign = subprocess.run(['codesign', '-dv', str(app)], capture_output=True, text=True)
     require(codesign.returncode != 0 and 'not signed at all' in codesign.stderr,
             'codesign did not confirm unsigned app')

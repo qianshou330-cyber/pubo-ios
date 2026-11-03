@@ -10,6 +10,7 @@ struct AuthView: View {
         var id: String { rawValue }
     }
     @State private var accountRoute: AccountRoute?
+    @State private var backgroundPaused = false
     @State private var homePath: [HomeDestination] = []
     @State private var songSelection: ChartSongSelection?
     private var registration: Bool { accountRoute == .registration }
@@ -86,7 +87,10 @@ struct AuthView: View {
                     NavigationLink("查看全部站内公告") { AnnouncementsView() }
                     GuestFeed()
                 }.frame(maxWidth: 430).padding(.horizontal, 16).padding(.top, 60).padding(.bottom, 32).frame(maxWidth: .infinity)
-            }.puboScreen().toolbar(.hidden, for: .navigationBar)
+            }.puboScreen(background: false)
+                .background { AuthVideoBackground(active: homePath.isEmpty && accountRoute == nil && songSelection == nil, paused: backgroundPaused) }
+                .overlay(alignment: .topTrailing) { backgroundControl.padding(12) }
+                .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeDestination.self) { $0.view }
                 .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
                 .sheet(item: $accountRoute) { route in
@@ -94,6 +98,14 @@ struct AuthView: View {
                         .environment(\.dynamicTypeSize, typeSize)
                 }
         }
+    }
+    private var backgroundControl: some View {
+        Button { backgroundPaused.toggle() } label: {
+            Image(systemName: backgroundPaused ? "play.fill" : "pause.fill")
+                .font(.system(size: 13, weight: .semibold)).frame(width: 44, height: 44)
+                .background(PUBOTheme.panel.opacity(0.94), in: Circle())
+        }.buttonStyle(.plain).accessibilityLabel(backgroundPaused ? "继续背景动画" : "暂停背景动画")
+            .accessibilityIdentifier("auth.backgroundToggle")
     }
     private func open(_ route: AccountRoute) {
         loginPasswordStep = false; registrationForm = false
@@ -120,10 +132,15 @@ struct AuthView: View {
                     if !registration || registrationForm { authorizationOptions(registration: registration) }
                 }.padding(24).frame(maxWidth: 500).frame(maxWidth: .infinity)
             }.id("\(registration)-\(registrationForm)-\(loginPasswordStep)")
-                .background(PUBOTheme.panel).puboScreen().scrollDismissesKeyboard(.interactively)
+                .puboScreen(background: false)
+                .background {
+                    if registration { PUBOTheme.panel.ignoresSafeArea() }
+                    else { AuthVideoBackground(paused: backgroundPaused, softened: true) }
+                }.scrollDismissesKeyboard(.interactively)
                 .navigationTitle(registration ? "注册 PUBO" : "登录 PUBO")
                 .toolbar(.visible, for: .navigationBar)
                 .toolbar {
+                    if !registration { ToolbarItem(placement: .topBarTrailing) { backgroundControl } }
                     ToolbarItem(placement: .cancellationAction) {
                         Button("关闭") { accountRoute = nil }.disabled(busy).accessibilityIdentifier("auth.close")
                     }

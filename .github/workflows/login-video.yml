@@ -1,0 +1,66 @@
+name: PUBO login video
+on:
+  push:
+    branches: ['ui-auth-video-*']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare fixed tools and core checks
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift test
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Release simulator
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Release device
+        run: |
+          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          python3 scripts/package-device.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: login-video-device-${{ github.sha }}
+          path: |
+            build/unsigned/
+            build/device-package.json
+          retention-days: 14
+  appearance:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [large, small]
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare fixed tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Compile before simulator boot
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Existing auth regressions and actual theme switch recording
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_AUTH_APPEARANCE: '1'
+          PUBO_AUTH_VIDEO: '1'
+        run: python3 scripts/simulator-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: login-video-evidence-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/*.json
+            build/*.xcresult
+            build/screenshots/
+          retention-days: 14

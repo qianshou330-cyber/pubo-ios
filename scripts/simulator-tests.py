@@ -48,6 +48,24 @@ for index, template in enumerate(selected):
         print('Booting fresh simulator: ' + device['name'], flush=True)
         boot(identifier, root / f'boot-{index}.json')
         record['boot'] = 'READY'
+        if os.environ.get('PUBO_AUTH_VIDEO') == '1':
+            motion_bundle = root / f'video-{index}.xcresult'
+            video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264', str(screenshots / 'auth-video-interactions.mp4')])
+            try:
+                motion = subprocess.run(['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
+                    '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
+                    '-derivedDataPath', 'build/debug', '-resultBundlePath', str(motion_bundle), '-parallel-testing-enabled', 'NO',
+                    '-only-testing:PUBOUITests/AuthVideoUITests', 'CODE_SIGNING_ALLOWED=NO', 'test'], timeout=720)
+                record['videoTests'] = 'PASS' if motion.returncode == 0 else 'FAIL'
+            finally:
+                video.send_signal(signal.SIGINT)
+                try: video.wait(timeout=30)
+                except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
+                if motion_bundle.exists():
+                    diagnostic(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(motion_bundle), '--output-path', str(screenshots / 'video')], 90)
+                    result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(motion_bundle)], capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0: (root / f'video-{index}-summary.json').write_text(result.stdout)
+            if motion.returncode: raise RuntimeError('Login video tests failed')
         if os.environ.get('PUBO_HOME_MOTION') == '1':
             motion_bundle = root / f'motion-{index}.xcresult'
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264', str(screenshots / 'home-chart-announcement.mp4')])
