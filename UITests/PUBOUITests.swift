@@ -35,7 +35,8 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--admin-preview"]; app.launch(); enterAdmin(app)
         let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("认证审批")
         let list = app.buttons["admin.operation.admin/verification/list"]; XCTAssertTrue(list.waitForExistence(timeout: 5)); list.tap()
-        XCTAssertTrue(app.staticTexts["读取完成；暂无记录。"].waitForExistence(timeout: 5)); XCTAssertTrue(app.buttons["admin.submit"].exists)
+        XCTAssertTrue(app.staticTexts["读取完成；暂无记录。"].waitForExistence(timeout: 5))
+        let submit = app.buttons["admin.submit"]; for _ in 0..<8 where !submit.isHittable { app.swipeUp() }; XCTAssertTrue(submit.isHittable)
         capture(app, "admin-empty-verification")
     }
     func testModeratorDoesNotSeeAdminOnlyVerificationOrConfiguration() {
