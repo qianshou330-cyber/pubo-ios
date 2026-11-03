@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validate:
+    if: ${{ false }} # Superseded candidate; preserve source commit and stop old run.
     runs-on: macos-15
     timeout-minutes: 65
     steps:
