@@ -15,7 +15,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(policy.waitForExistence(timeout: 5))
         capture(app, screenshot)
         // Dismiss outside the menu without following an external link.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.95)).tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.12)).tap()
         XCTAssertTrue(policy.waitForNonExistence(timeout: 5))
     }
     func testShellLaunches() {
