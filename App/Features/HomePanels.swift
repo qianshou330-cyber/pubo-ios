@@ -8,12 +8,14 @@ private struct HomeSnapshot: Codable {
 
 enum HomeDestination: Hashable {
     case announcement(JSONValue)
+    case announcementEdit(JSONValue)
     case chart(String)
     case history(String, JSONValue)
 
     @ViewBuilder var view: some View {
         switch self {
         case .announcement(let value): AnnouncementDetail(entry: Record(value))
+        case .announcementEdit(let value): AnnouncementEditor(original: Record(value)) {}
         case .chart(let key): ChartDetailView(chartKey: key)
         case .history(let key, let song): ChartHistoryView(chartKey: key, song: song)
         }
@@ -29,7 +31,6 @@ struct HomeAnnouncements: View {
     @State private var loading = false
     @State private var firstLoadFinished = false
     @State private var visible = false
-    @State private var editing: Record?
     var refreshID: Int
     var open: (HomeDestination) -> Void
     private var active: Bool { visible && session.selectedTab == 0 && scenePhase == .active }
@@ -44,7 +45,7 @@ struct HomeAnnouncements: View {
                 Label("站内公告", systemImage: "megaphone.fill").font(.caption.bold()).foregroundStyle(PUBOTheme.accent)
                 RollingAnnouncementTitles(entries: entries, active: active) { open(.announcement($0.raw)) }
                 if session.user?["isAdmin"].bool == true && !entries.isEmpty {
-                    Menu { ForEach(entries) { entry in Button(entry["title"].string ?? "公告") { editing = entry } } } label: { Image(systemName: "square.and.pencil").frame(width: 44, height: 44) }.accessibilityLabel("修改公告")
+                    Menu { ForEach(entries) { entry in Button("修改：" + (entry["title"].string ?? "公告")) { open(.announcementEdit(entry.raw)) }.accessibilityIdentifier("announcement.edit." + entry.id) } } label: { Image(systemName: "square.and.pencil").frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).accessibilityLabel("修改公告")
                 }
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试公告") }
             }
@@ -53,7 +54,6 @@ struct HomeAnnouncements: View {
         }
         }.puboListRow()
             .onAppear { visible = true }.onDisappear { visible = false }
-            .sheet(item: $editing) { entry in AnnouncementEditor(original: entry) { Task { await load() } } }
             .task(id: "\(active)-\(refreshID)") {
                 guard active else { return }
                 if entries.isEmpty, let owner = session.user?.id,

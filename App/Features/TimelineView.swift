@@ -148,7 +148,7 @@ struct NoteCard: View {
             }
             if shown["cw"].isNull || revealCW {
                 if detail { NoteText(text: shown.text, remoteEmojis: shown["emojis"]) }
-                else { NavigationLink { NoteDetailView(noteID: shown.id) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情") }
+                else { NavigationLink { NoteDetailView(noteID: shown.id) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情").accessibilityIdentifier("note.open." + shown.id) }
                 ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file, noteID: shown.id) }
                 if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
                 if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }

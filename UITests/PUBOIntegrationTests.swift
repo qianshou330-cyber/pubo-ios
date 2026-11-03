@@ -105,7 +105,7 @@ import XCTest
         app.launchArguments = ["--isolated-backend", "--reduce-motion"]
         app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]
         app.launch()
-        let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 20)); edit.tap(); app.buttons["隔离原生公告"].firstMatch.tap()
+        let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 20)); edit.tap(); app.buttons["修改：隔离原生公告"].tap()
         XCTAssertTrue(app.buttons["admin.authorize"].waitForExistence(timeout: 10)); XCTAssertFalse(app.textFields["announcement.title"].exists)
         app.buttons["admin.authorize"].tap()
         let title = app.textFields["announcement.title"]; XCTAssertTrue(title.waitForExistence(timeout: 10)); title.tap(); title.typeText(" Edited")
