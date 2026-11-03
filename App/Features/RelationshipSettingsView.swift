@@ -23,7 +23,10 @@ struct RelationshipSettingsView: View {
             Button("添加用户") { picker = true }.disabled(busy)
             ForEach(rows) { row in
                 let target = target(row)
-                HStack { NavigationLink { ProfileView(userID: target.id) } label: { HStack { Avatar(user: target); VStack(alignment: .leading) { Text(target.displayName); if let date = puboDate(row["expiresAt"].string) { Text("到期 " + date.formatted()).font(.caption) } } } }; Button("移除") { removing = row }.disabled(busy) }
+                VStack(alignment: .leading, spacing: 8) {
+                    NavigationLink { ProfileView(userID: target.id) } label: { HStack { Avatar(user: target); VStack(alignment: .leading) { Text(target.displayName); if let date = puboDate(row["expiresAt"].string) { Text("到期 " + date.formatted()).font(.caption) } } } }.buttonStyle(.plain)
+                    Button("移除") { removing = row }.buttonStyle(.borderless).frame(minHeight: 44).disabled(busy)
+                }
             }
             if more { Button("加载更多") { Task { await load() } }.disabled(busy) }
             if let error { ErrorBanner(message: error) }

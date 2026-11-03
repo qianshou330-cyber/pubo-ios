@@ -5,14 +5,15 @@ struct NativeAdminView: View {
     @Environment(AppSession.self) private var session
     @State private var query = ""
     private var available: [AdminEndpoint] { (AdminCatalog.shared?.endpoints ?? []).filter { $0.available(to: session.user?.raw ?? .null) && $0.id != "admin/verification/document" } }
-    private var groups: [String] { Array(Set(available.map { AdminCatalog.group($0.id) })).sorted() }
+    private var filtered: [AdminEndpoint] { available.filter { query.isEmpty || AdminCatalog.title($0.id).localizedCaseInsensitiveContains(query) || AdminCatalog.group($0.id).contains(query) || $0.id.localizedCaseInsensitiveContains(query) } }
+    private var groups: [String] { Array(Set(filtered.map { AdminCatalog.group($0.id) })).sorted() }
     var body: some View {
         AdminGate {
             List {
                 Section { Text("操作权限由服务器实时检查。离开前台或闲置 15 分钟后，需要重新验证。").font(.footnote) }
                 ForEach(groups, id: \.self) { group in
                     Section(group) {
-                        ForEach(available.filter { AdminCatalog.group($0.id) == group && (query.isEmpty || AdminCatalog.title($0.id).localizedCaseInsensitiveContains(query) || group.contains(query)) }) { endpoint in
+                        ForEach(filtered.filter { AdminCatalog.group($0.id) == group }) { endpoint in
                             NavigationLink { AdminOperationView(endpoint: endpoint) } label: { Label(AdminCatalog.title(endpoint.id), systemImage: endpoint.mutation ? "square.and.pencil" : "list.bullet.rectangle") }.accessibilityIdentifier("admin.operation." + endpoint.id)
                         }
                     }

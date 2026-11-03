@@ -36,7 +36,7 @@ import PUBOCore
             guard requestEpoch == epoch, accountEpoch == session.generation else { throw CancellationError() }
             return result
         } catch {
-            if ["PERMISSION_DENIED", "AUTHENTICATION_FAILED", "CREDENTIAL_REQUIRED"].contains((error as? APIError)?.code ?? "") { clear() }
+            if ["PERMISSION_DENIED", "ROLE_PERMISSION_DENIED", "ACCESS_DENIED", "AUTHENTICATION_FAILED", "CREDENTIAL_REQUIRED"].contains((error as? APIError)?.code ?? "") { clear() }
             throw error
         }
     }

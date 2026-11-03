@@ -26,7 +26,7 @@ export async function verifyExtendedContracts(api,owner,destination){
  const stranger=await api('signup',{username:'contract_other',password:randomBytes(24).toString('hex')});
  async function rejects(path,fields,token,expected){
   const response=await fetch('http://127.0.0.1:61812/api/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...fields,i:token})});
-  const value=await response.json();if(response.ok||(expected&&value?.error?.code!==expected))throw new Error('Expected isolated rejection: '+path+' '+response.status);return true;
+  const value=await response.json();if(response.ok||(expected&&value?.error?.code!==expected))throw new Error('Expected isolated rejection: '+path+' '+response.status+' '+(value?.error?.code??''));return true;
  }
  async function upload(path,fields={}){
   const body=new FormData();body.set('i',subject.token);for(const [key,value]of Object.entries(fields))body.set(key,value);body.set('file',new Blob([fixture],{type:'image/png'}),'synthetic.png');
@@ -40,7 +40,7 @@ export async function verifyExtendedContracts(api,owner,destination){
  if(detail.status!=='pending')throw new Error('Verification not pending');
  const document=await api('admin/verification/document',{applicationId:application.id,documentId:front.id},owner.token);
  if(document.mime!=='image/png'||createHash('sha256').update(Buffer.from(document.data,'base64')).digest('hex')!==digest)throw new Error('Protected document mismatch');checks.adminProtectedDocument=true;
- checks.otherAccountDocumentDenied=await rejects('admin/verification/document',{applicationId:application.id,documentId:front.id},stranger.token,'PERMISSION_DENIED');
+ checks.otherAccountDocumentDenied=await rejects('admin/verification/document',{applicationId:application.id,documentId:front.id},stranger.token,'ROLE_PERMISSION_DENIED');
  const drive=await api('drive',{},subject.token);if(drive.usage!==beforeDrive.usage)throw new Error('Verification material entered drive');checks.verificationOutsideDrive=true;
  for(const name of await readdir(process.env.MISSKEY_VERIFICATION_STORAGE_PATH)){const bytes=await readFile(join(process.env.MISSKEY_VERIFICATION_STORAGE_PATH,name));if(bytes.includes(fixture))throw new Error('Unencrypted verification fixture');}checks.encryptedMaterialStorage=true;
  await api('admin/verification/approve',{applicationId:application.id,approvedType:'other',reason:'Synthetic isolated approval'},owner.token);

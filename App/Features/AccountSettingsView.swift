@@ -70,8 +70,8 @@ struct PrivacySettingsView: View {
             NavigationLink("静音关键词与服务器") { ContentMuteSettingsView() }
             NavigationLink("旧帖可见性") { OlderNotesPrivacyView() }
             Button("保存修改") { Task { await save() } }.disabled(busy || original.isNull)
-            if let error { ErrorBanner(message: error) }
         }.puboForm().navigationTitle("隐私与内容偏好").task { if original.isNull { await load() } }
+            .safeAreaInset(edge: .top) { if let error { Text(error).font(.footnote).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel).accessibilityIdentifier("privacy.status") } }
     }
     private func load() async {
         do { original = try await session.call("i"); for key in switches.map(\.0) + ["followingVisibility", "followersVisibility"] { values[key] = original[key] }; error = nil } catch { self.error = error.localizedDescription }

@@ -31,8 +31,8 @@ struct NotificationPreferencesView: View {
             }
             Section("邮件通知") { ForEach(names.filter { ["mention", "reply", "quote", "follow", "receiveFollowRequest"].contains($0.0) }, id: \.0) { key, title in Toggle(title, isOn: Binding(get: { emailTypes.contains(key) }, set: { if $0 { emailTypes.insert(key) } else { emailTypes.remove(key) } })) }.disabled(original.isNull || busy) }
             Button("保存通知偏好") { Task { await save() } }.disabled(busy || original.isNull)
-            if let error { Text(error).foregroundStyle(.secondary) }
         }.puboForm().navigationTitle("通知偏好").task { await load() }
+            .safeAreaInset(edge: .top) { if let error { Text(error).font(.footnote).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel) } }
     }
     private func load() async {
         guard original.isNull else { return }
@@ -73,8 +73,8 @@ struct OlderNotesPrivacyView: View {
             Section("较早帖子仅关注者可见") { OlderNotesThreshold(value: $followers) }.disabled(original.isNull || busy)
             Section("较早帖子隐藏") { OlderNotesThreshold(value: $hidden) }.disabled(original.isNull || busy)
             Button("保存旧帖可见性") { Task { await save() } }.disabled(original.isNull || busy)
-            if let error { Text(error) }
         }.puboForm().navigationTitle("旧帖可见性").task { guard original.isNull else { return }; do { original = try await session.call("i"); followers = original["makeNotesFollowersOnlyBefore"]; hidden = original["makeNotesHiddenBefore"] } catch { self.error = error.localizedDescription } }
+            .safeAreaInset(edge: .top) { if let error { Text(error).font(.footnote).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel) } }
     }
     private func save() async {
         guard !busy else { return }; busy = true; defer { busy = false }

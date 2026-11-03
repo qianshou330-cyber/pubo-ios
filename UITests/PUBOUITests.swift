@@ -46,9 +46,9 @@ final class PUBOUITests: XCTestCase {
     }
     func testNativePrivacyAndVerificationStatus() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
-        app.buttons["认证申请"].tap(); XCTAssertTrue(app.staticTexts["尚未申请"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["提交认证申请"].isEnabled)
+        app.buttons["认证申请"].tap(); XCTAssertTrue(app.staticTexts["尚未申请"].waitForExistence(timeout: 5)); let submit = app.buttons["提交认证申请"]; for _ in 0..<6 where !submit.exists { app.swipeUp() }; XCTAssertTrue(submit.exists); XCTAssertFalse(submit.isEnabled)
         app.navigationBars.buttons.firstMatch.tap(); app.buttons["隐私与内容偏好"].tap()
-        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); toggle.tap()
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); XCTAssertEqual(toggle.value as? String, "0"); toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap(); let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
         let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap(); XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 5))
         capture(app, "native-privacy-settings")
     }
