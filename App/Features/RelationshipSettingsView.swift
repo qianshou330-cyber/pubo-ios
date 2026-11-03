@@ -29,11 +29,13 @@ struct RelationshipSettingsView: View {
             if let error { ErrorBanner(message: error) }
         }.puboForm().navigationTitle("静音与屏蔽").task(id: kind) { revision = UUID(); rows = []; users = [:]; more = true; await load() }
             .sheet(isPresented: $picker, onDismiss: { adding = selectedUser; selectedUser = nil }) { UserPicker { selectedUser = $0 } }
-            .confirmationDialog("确认对这个用户设置\(kind == "blocking" ? "屏蔽？屏蔽会影响关注关系。" : kind == "chat/blocking" ? "聊天屏蔽？" : "静音？")", isPresented: Binding(get: { adding != nil }, set: { if !$0 { adding = nil } })) {
-                Button("确认") { if let user = adding { Task { await update(id: user.id, remove: false) } } }
+            .alert("确认对这个用户设置\(kind == "blocking" ? "屏蔽？屏蔽会影响关注关系。" : kind == "chat/blocking" ? "聊天屏蔽？" : "静音？")", isPresented: Binding(get: { adding != nil }, set: { if !$0 { adding = nil } }), presenting: adding) { user in
+                Button("确认") { Task { await update(id: user.id, remove: false) } }
+                Button("取消", role: .cancel) { adding = nil }
             }
-            .confirmationDialog("确认移除这项设置？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
-                Button("确认移除") { if let row = removing { Task { await update(id: target(row).id, remove: true) } } }
+            .alert("确认移除这项设置？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), presenting: removing) { row in
+                Button("确认移除", role: .destructive) { let id = target(row).id; Task { await update(id: id, remove: true) } }
+                Button("取消", role: .cancel) { removing = nil }
             }
     }
     private func target(_ row: Record) -> Record { if kind == "chat/blocking" { return users[row["userId"].string ?? ""] ?? Record(.object(["id": row["userId"], "username": row["userId"]])) }; return Record(row[userKey]) }
@@ -84,7 +86,7 @@ struct InvitationsView: View {
             if let error { ErrorBanner(message: error) }
         }.puboForm().navigationTitle("邀请").privacySensitive().task { uncertain = session.hasPendingAction("invite-create"); await load() }
             .confirmationDialog("创建一个新的邀请码？", isPresented: $confirming) { Button("确认创建") { Task { await create() } } }
-            .confirmationDialog("删除后此邀请码不能再使用。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) { Button("确认删除", role: .destructive) { if let item = removing { Task { do { _ = try await session.call("invite/delete", ["inviteId": .string(item.id)], mutation: true); rows.removeAll { $0.id == item.id } } catch { self.error = error.localizedDescription } } } } }
+            .alert("删除后此邀请码不能再使用。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), presenting: removing) { item in Button("确认删除", role: .destructive) { Task { do { _ = try await session.call("invite/delete", ["inviteId": .string(item.id)], mutation: true); rows.removeAll { $0.id == item.id } } catch { self.error = error.localizedDescription } } }; Button("取消", role: .cancel) { removing = nil } }
     }
     private func load() async {
         guard !busy else { return }; busy = true; defer { busy = false }
@@ -102,7 +104,7 @@ struct AchievementsView: View {
     @State private var rows: [JSONValue] = []
     @State private var error: String?
     var body: some View {
-        List { ForEach(rows, id: \.self) { item in VStack(alignment: .leading) { Label(item["name"].string ?? "成就", systemImage: "medal"); if case .number(let milliseconds) = item["unlockedAt"] { Text(Date(timeIntervalSince1970: milliseconds / 1000), style: .date).font(.caption) } } }; if let error { ErrorBanner(message: error) } else if rows.isEmpty { Text("暂无已获得成就") } }
+        List { ForEach(rows, id: \.self) { item in VStack(alignment: .leading) { Label(NativeStrings.achievement(item["name"].string ?? "成就"), systemImage: "medal"); Text(NativeStrings.achievement(item["name"].string ?? "", field: "description")).font(.caption).foregroundStyle(.secondary); if case .number(let milliseconds) = item["unlockedAt"] { Text(Date(timeIntervalSince1970: milliseconds / 1000), style: .date).font(.caption) } } }; if let error { ErrorBanner(message: error) } else if rows.isEmpty { Text("暂无已获得成就") } }
             .puboForm().navigationTitle("成就").task { do { if let user = session.user { rows = try await session.call("users/achievements", ["userId": .string(user.id)]).array } } catch { self.error = error.localizedDescription } }
     }
 }

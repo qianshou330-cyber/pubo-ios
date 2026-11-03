@@ -2,6 +2,20 @@ import XCTest
 @testable import PUBOCore
 
 final class AdminSchemaTests: XCTestCase {
+    func testBulkPartialSuccessAndDeletionAreDistinguished() {
+        let fields: [String: JSONValue] = ["ids": .strings(["a", "b", "missing"]), "category": .string("new")]
+        let rows: [JSONValue] = [.object(["id": .string("a"), "category": .string("new")]), .object(["id": .string("b"), "category": .string("old")])]
+        XCTAssertEqual(AdminSchema.bulkResults(operation: "set-category-bulk", fields: fields, rows: rows), ["a": true, "b": false, "missing": false])
+        XCTAssertEqual(AdminSchema.bulkResults(operation: "delete-bulk", fields: fields, rows: rows), ["a": false, "b": false, "missing": true])
+    }
+    func testCombinedObjectSchemaPreservesRequiredFields() throws {
+        let schema: JSONValue = .object(["allOf": .array([.object(["type": .string("object"), "properties": .object(["id": .object(["type": .string("string")])]), "required": .strings(["id"])]), .object(["type": .string("object"), "properties": .object(["name": .object(["type": .string("string")])])])])])
+        let form = AdminSchema.form(schema)
+        XCTAssertEqual(form["type"].string, "object")
+        XCTAssertNotNil(form["properties"].object["name"])
+        XCTAssertThrowsError(try AdminSchema.validate(.object(["name": .string("test")]), schema: schema))
+        XCTAssertNoThrow(try AdminSchema.validate(.object(["id": .string("target"), "name": .string("test")]), schema: schema))
+    }
     func testVerificationAllStatusIsValidButEmptyStringIsNot() throws {
         let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["status": .object(["type": .string("string"), "enum": .strings(["pending", "approved", "rejected", "revoked", "all"])]), "type": .object(["type": .string("string"), "nullable": .bool(true), "enum": .array([.string("actor"), .null])])])])
         XCTAssertNoThrow(try AdminSchema.validate(.object(["status": .string("all"), "type": .null]), schema: schema))

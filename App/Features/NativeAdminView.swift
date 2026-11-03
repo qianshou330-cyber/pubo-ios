@@ -41,6 +41,7 @@ struct AdminOperationView: View {
     @State private var error: String?
     @State private var status: String?
     @State private var fieldSearch = ""
+    @State private var revealPassword = false
     @State private var requestGeneration = UUID()
     private var schema: JSONValue { AdminSchema.form(endpoint.schema) }
     private var keys: [String] { schema["properties"].object.keys.sorted().filter { fieldSearch.isEmpty || AdminLabels.title($0).localizedCaseInsensitiveContains(fieldSearch) || $0.localizedCaseInsensitiveContains(fieldSearch) } }
@@ -62,14 +63,19 @@ struct AdminOperationView: View {
                     if busy { ProgressView() }
                 }
                 if !result.isNull { Section("服务器返回") { AdminResultView(value: result, source: endpoint.id, context: values) } }
+                if endpoint.id == "admin/reset-password", let password = result["password"].string {
+                    Section("新临时密码") { Text("请安全告知账号持有人，并让其及时更换。离开此页后不保留。").font(.footnote); Toggle("显示临时密码", isOn: $revealPassword); if revealPassword { Text(password).font(.system(.body, design: .monospaced)).textSelection(.enabled).privacySensitive() } }
+                }
                 if canLoadMore { Button("加载下一页") { Task { await fetch(more: true) } }.disabled(busy) }
             }.puboForm().navigationTitle(AdminCatalog.title(endpoint.id))
                 .task { await initialize() }
-                .confirmationDialog("确认“\(AdminCatalog.title(endpoint.id))”？", isPresented: $confirmation, titleVisibility: .visible) {
+                .alert("确认“\(AdminCatalog.title(endpoint.id))”？", isPresented: $confirmation) {
                     Button("确认提交", role: destructive ? .destructive : nil) { Task { await submit() } }
+                    Button("取消", role: .cancel) {}
                 } message: { Text(AdminOperations.effect(endpoint.id) + "\n涉及：" + currentPayload.keys.sorted().map(AdminLabels.title).joined(separator: "、")) }
                 .onChange(of: scenePhase) { _, phase in if phase != .active { clearSensitive() } }
                 .onChange(of: session.admin.unlocked) { _, unlocked in if !unlocked { clearSensitive() } }
+                .onDisappear { if endpoint.id == "admin/reset-password" { result = .null; revealPassword = false } }
         }
     }
     @ViewBuilder private func field(_ key: String) -> some View {
@@ -129,6 +135,7 @@ struct AdminOperationView: View {
     private func submit() async {
         guard !busy, !locked else { return }; busy = true; defer { busy = false }; let generation = requestGeneration
         var sent = false
+        var definitelyRejected = false
         do {
             try await session.refreshUser()
             guard endpoint.available(to: session.user?.raw ?? .null) else { throw APIError(code: "PERMISSION_DENIED", message: "当前账号已无此操作权限。") }
@@ -143,8 +150,15 @@ struct AdminOperationView: View {
             try AdminSchema.validate(.object(body), schema: endpoint.schema)
             guard generation == requestGeneration else { throw CancellationError() }
             try session.markPendingAction(pendingKey, pending: true); locked = true; sent = true
-            let response = try await session.admin.call(session: session, path: endpoint.id, fields: body, mutation: true)
+            var response: JSONValue = .null
+            do { response = try await session.admin.call(session: session, path: endpoint.id, fields: body, mutation: true) }
+            catch {
+                if let failure = error as? APIError, failure.code != "OUTCOME_UNKNOWN" { definitelyRejected = true; throw error }
+                guard (error as? APIError)?.code == "OUTCOME_UNKNOWN", let verified = try? await AdminOperations.verify(endpoint, fields: body, session: session) else { throw error }
+                response = verified
+            }
             guard generation == requestGeneration else { return }
+            if let verified = try await AdminOperations.verify(endpoint, fields: body, session: session) { response = verified }
             result = response; status = "服务器已受理。异步清理、导入或队列任务请在对应列表查看完成结果。"
             try session.markPendingAction(pendingKey, pending: false); locked = false; error = nil
             if AdminOperations.snapshot(endpoint.id, fields: values) != nil && !destructive { baseline = .null; status = "服务器已受理。再次编辑前请读取最新记录。" }
@@ -152,7 +166,7 @@ struct AdminOperationView: View {
         } catch {
             guard generation == requestGeneration else { return }
             // A definite API rejection did not mutate; transport failures stay durably locked.
-            if sent, let failure = error as? APIError, failure.code != "OUTCOME_UNKNOWN" { try? session.markPendingAction(pendingKey, pending: false); locked = false }
+            if sent && definitelyRejected { try? session.markPendingAction(pendingKey, pending: false); locked = false }
             self.error = error.localizedDescription
         }
     }
@@ -174,8 +188,8 @@ struct AdminResultView: View {
                 }
             } else if case .object(let fields) = safe {
                 ForEach(fields.keys.sorted(), id: \.self) { key in
-                    if case .object = fields[key]! { NavigationLink(AdminLabels.title(key)) { List { AdminResultView(value: fields[key]!, source: source, context: context) }.puboForm().navigationTitle(AdminLabels.title(key)) } }
-                    else if case .array = fields[key]! { NavigationLink { List { AdminResultView(value: fields[key]!, source: source, context: context) }.puboForm().navigationTitle(AdminLabels.title(key)) } label: { LabeledContent(AdminLabels.title(key), value: AdminLabels.value(fields[key]!)) } }
+                    if case .object = fields[key]! { NavigationLink(AdminLabels.title(key)) { AdminGate { List { AdminResultView(value: fields[key]!, source: source, context: context) }.puboForm().navigationTitle(AdminLabels.title(key)) } } }
+                    else if case .array = fields[key]! { NavigationLink { AdminGate { List { AdminResultView(value: fields[key]!, source: source, context: context) }.puboForm().navigationTitle(AdminLabels.title(key)) } } label: { LabeledContent(AdminLabels.title(key), value: AdminLabels.value(fields[key]!)) } }
                     else { VStack(alignment: .leading, spacing: 4) { Text(AdminLabels.title(key)).font(.caption).foregroundStyle(.secondary); Text(AdminLabels.value(fields[key]!)).textSelection(.enabled) } }
                 }
             } else { Text(AdminLabels.value(safe)) }
@@ -191,10 +205,10 @@ struct AdminRecordView: View {
     var context: [String: JSONValue]
     private var actions: [AdminEndpoint] { (AdminCatalog.shared?.endpoints ?? []).filter { $0.available(to: session.user?.raw ?? .null) && AdminCatalog.group($0.id) == AdminCatalog.group(source) && $0.id != source && $0.id != "admin/verification/document" && !$0.id.hasSuffix("/create") && !$0.id.hasSuffix("/list") } }
     var body: some View {
-        List {
+        AdminGate { List {
             Section { AdminResultView(value: value) }
             if source.contains("verification/"), let id = value["id"].string { NavigationLink("查看申请与受保护材料") { AdminVerificationDetail(applicationID: id) } }
             if !value["id"].isNull || !value["host"].isNull || !value["inbox"].isNull { Section("操作此记录") { ForEach(actions) { endpoint in NavigationLink(AdminCatalog.title(endpoint.id)) { AdminOperationView(endpoint: endpoint, seed: value, context: context) } } } }
-        }.puboForm().navigationTitle("记录详情")
+        }.puboForm().navigationTitle("记录详情") }
     }
 }

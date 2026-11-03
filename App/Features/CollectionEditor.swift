@@ -113,6 +113,7 @@ struct CollectionEditor: View {
                 if request.isEmpty { dismiss(); return }
                 let fresh = try await session.call(kind.base + "/show", [kind.idKey: .string(item.id)])
                 guard request.keys.allSatisfy({ fresh[$0] == (baseline[$0] ?? .null) }) else { throw APIError(code: "CONFLICT", message: "内容已被更新，请关闭后重新打开核对。") }
+                request = CollectionFields.update(request, kind: kind, latest: fresh)
                 let wanted = request; request[kind.idKey] = .string(item.id)
                 do { _ = try await session.call(kind.base + "/update", request, mutation: true) }
                 catch { if (error as? APIError)?.code != "OUTCOME_UNKNOWN" { throw error } }

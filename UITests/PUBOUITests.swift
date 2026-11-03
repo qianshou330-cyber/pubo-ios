@@ -1,6 +1,22 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    func testServiceConnectionUsesAccountReauthenticationAndNativeControls() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
+        let entry = app.buttons["服务连接"]; for _ in 0..<5 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
+        let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
+        let create = app.buttons["创建 Webhook"]; XCTAssertTrue(create.waitForExistence(timeout: 5)); create.tap()
+        XCTAssertTrue(app.textFields["接收地址"].waitForExistence(timeout: 5)); XCTAssertTrue(app.secureTextFields["密钥（留空表示不设置）"].exists)
+        capture(app, "account-service-connection-empty-form")
+    }
+    func testNativeNotificationPreferencesSave() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app); app.buttons["通知偏好"].tap()
+        let picker = app.buttons["notification.preference.follow"]; XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: picker); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+        picker.tap(); app.buttons["不接收"].tap()
+        let save = app.buttons["保存通知偏好"]; for _ in 0..<16 where !save.isHittable { app.swipeUp() }; XCTAssertTrue(save.isHittable); save.tap()
+        XCTAssertTrue(app.staticTexts["已保存通知偏好"].waitForExistence(timeout: 5)); capture(app, "account-notification-preferences")
+    }
     private func enterAdmin(_ app: XCUIApplication) {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
         let entry = app.buttons["admin.entry"]; for _ in 0..<6 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
@@ -32,7 +48,7 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
         app.buttons["认证申请"].tap(); XCTAssertTrue(app.staticTexts["尚未申请"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["提交认证申请"].isEnabled)
         app.navigationBars.buttons.firstMatch.tap(); app.buttons["隐私与内容偏好"].tap()
-        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); toggle.tap()
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); toggle.tap()
         let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap(); XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 5))
         capture(app, "native-privacy-settings")
     }

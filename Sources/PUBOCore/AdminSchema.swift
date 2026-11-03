@@ -26,6 +26,7 @@ public enum AdminSchema {
         if let first = (schema["anyOf"].array + schema["oneOf"].array).first { parts.append(first) }
         for part in parts { let merged = form(part); properties.merge(merged["properties"].object) { _, new in new }; required.formUnion(merged["required"].array.compactMap(\.string)) }
         var result = schema.object; result["properties"] = .object(properties); result["required"] = .strings(required.sorted())
+        if !properties.isEmpty { result["type"] = .string("object") }
         return .object(result)
     }
     public static func initial(_ schema: JSONValue) -> JSONValue {
@@ -86,6 +87,23 @@ public enum AdminSchema {
         case .array(let items): return .array(items.map(redacted))
         default: return value
         }
+    }
+    public static func bulkResults(operation: String, fields: [String: JSONValue], rows: [JSONValue]) -> [String: Bool] {
+        let expected = JSONValue.object(fields)
+        return Dictionary(uniqueKeysWithValues: Set(expected["ids"].array.compactMap(\.string)).map { id in
+            let row = rows.first { $0["id"].string == id }
+            if operation == "delete-bulk" { return (id, row == nil) }
+            guard let row else { return (id, false) }
+            let aliases = Set(expected["aliases"].array.compactMap(\.string)), actual = Set(row["aliases"].array.compactMap(\.string))
+            switch operation {
+            case "set-category-bulk": return (id, row["category"] == expected["category"])
+            case "set-license-bulk": return (id, row["license"] == expected["license"])
+            case "set-aliases-bulk": return (id, actual == aliases)
+            case "add-aliases-bulk": return (id, aliases.isSubset(of: actual))
+            case "remove-aliases-bulk": return (id, aliases.isDisjoint(with: actual))
+            default: return (id, false)
+            }
+        })
     }
     private static func invalid(_ path: String, _ message: String) -> APIError { APIError(code: "INVALID_ADMIN_FORM", message: path + "：" + message) }
 }

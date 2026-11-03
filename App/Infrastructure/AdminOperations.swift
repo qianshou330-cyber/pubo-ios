@@ -15,11 +15,15 @@ enum AdminOperations {
         var values = AdminSchema.initial(schema).object
         for (key, field) in schema["properties"].object where field.object["default"] != nil { values[key] = field["default"] }
         if schema["properties"].object["limit"] != nil { values["limit"] = .number(30) }
+        if endpoint.id == "admin/roles/create" { values["condFormula"] = .object(["id": .string(UUID().uuidString), "type": .string("isLocal")]) }
+        if endpoint.id == "admin/emoji/set-category-bulk" { values["category"] = .null }
+        if endpoint.id == "admin/emoji/set-license-bulk" { values["license"] = .null }
         return values
     }
     static func seed(_ record: JSONValue, for endpoint: AdminEndpoint, context: [String: JSONValue] = [:]) -> [String: JSONValue] {
         let properties = AdminSchema.form(endpoint.schema)["properties"].object
         var result = defaults(endpoint)
+        if !record.object.isEmpty { for key in result.keys where AdminSchema.isSecret(key) { result.removeValue(forKey: key) } }
         for key in properties.keys {
             if let supplied = context[key] { result[key] = supplied }
             if let value = record.object[key], !AdminSchema.isSecret(key) { result[key] = value }
@@ -80,6 +84,36 @@ enum AdminOperations {
         return values
     }
     static func pendingKey(_ id: String) -> String { "admin-pending-" + SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined() }
+    @MainActor static func verify(_ endpoint: AdminEndpoint, fields: [String: JSONValue], session: AppSession) async throws -> JSONValue? {
+        if endpoint.id.hasPrefix("admin/emoji/"), endpoint.id.hasSuffix("-bulk") {
+            var rows: [JSONValue] = [], cursor: String?, seen = Set<String>()
+            repeat {
+                var query: [String: JSONValue] = ["limit": .number(100)]; if let cursor { query["untilId"] = .string(cursor) }
+                let page = try await session.admin.call(session: session, path: "admin/emoji/list", fields: query)
+                guard case .array = page else { throw APIError.invalidResponse }
+                rows += page.array
+                guard page.array.count == 100 else { break }
+                guard let next = page.array.last?["id"].string, seen.insert(next).inserted else { throw APIError.invalidResponse }; cursor = next
+            } while true
+            let outcomes = AdminSchema.bulkResults(operation: endpoint.id.split(separator: "/").last.map(String.init) ?? "", fields: fields, rows: rows)
+            let confirmed = outcomes.values.filter { $0 }.count
+            guard !outcomes.isEmpty, confirmed == outcomes.count else { throw APIError(code: "BULK_PARTIAL", message: "已核对 \(confirmed)/\(outcomes.count) 项符合预期。其余记录可能已被修改或不存在，请逐项核对；不会自动重复整个批次。") }
+            return .object(["confirmedItems": .number(Double(confirmed))])
+        }
+        guard let request = snapshot(endpoint.id, fields: fields) else { return nil }
+        let actual = try await read(request, session: session)
+        if endpoint.id.hasPrefix("admin/verification/") {
+            let expected = ["approve":"approved", "reject":"rejected", "revoke":"revoked"][endpoint.id.split(separator: "/").last.map(String.init) ?? ""]
+            if let expected { guard actual["status"].string == expected else { throw APIError.uncertain }; return actual }
+        }
+        if endpoint.id.hasSuffix("/update") || ["admin/update-meta", "admin/update-user-note", "admin/roles/update-default-policies"].contains(endpoint.id) {
+            let expected = fields.filter { !identities.contains($0.key) }
+            let current = comparable(actual, endpoint: endpoint.id)
+            guard expected.allSatisfy({ current[$0.key] == $0.value }) else { throw APIError.uncertain }
+            return actual
+        }
+        return nil
+    }
     static func effect(_ id: String) -> String {
         if id.contains("delete") || id.contains("cleanup") || id.contains("clean-") || id.contains("/clear") { return "将删除所选记录或清理指定范围的数据。删除操作可能无法撤销。" }
         if id.contains("suspend") { return "将改变此用户或实例的访问、发布或联邦通信状态。" }

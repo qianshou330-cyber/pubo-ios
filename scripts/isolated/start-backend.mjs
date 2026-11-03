@@ -3,11 +3,13 @@ import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { verifyAdminContracts } from './admin-contract.mjs';
+import { prepareVerificationFixture, verifyExtendedContracts } from './extended-contract.mjs';
 
 if (process.env.GITHUB_ACTIONS !== 'true' || process.env.NODE_ENV !== 'test') throw new Error('Disposable test runner required');
 const root = join(process.env.RUNNER_TEMP, 'pubo-isolated-backend/packages/backend');
 process.chdir(root);
 process.env.MISSKEY_VERIFICATION_ENCRYPTION_KEY=randomBytes(32).toString('hex');
+await prepareVerificationFixture();
 const { loadConfig } = await import(pathToFileURL(join(root, 'built/config.js')));
 const config = loadConfig();
 if (config.url !== 'http://127.0.0.1:61812' || config.db.db !== 'pubo_native_integration' || config.db.host !== '127.0.0.1' || config.redis.host !== '127.0.0.1' || config.nativePush?.enabled) throw new Error('Unsafe integration configuration');
@@ -30,6 +32,7 @@ const announcement=await api('admin/announcements/create',{title:'隔离原生�
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
 await verifyAdminContracts(api,owner,alice,join(process.env.GITHUB_WORKSPACE,'build/integration-admin-contract.json'));
+await verifyExtendedContracts(api,owner,join(process.env.GITHUB_WORKSPACE,'build/integration-extended-contract.json'));
 await api('i/update',{name:'原生验收用户',chatScope:'mutual'},alice.token);
 await api('i/update',{name:'隔离测试朋友',chatScope:'mutual'},bob.token);
 const note=await api('notes/create',{text:'PUBO joint proof #PUBO',visibility:'public'},alice.token);

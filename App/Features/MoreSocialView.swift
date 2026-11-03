@@ -19,6 +19,10 @@ struct MoreSocialView: View {
                 Link("主题 · 网页版", destination: Endpoint.origin.appendingPathComponent("settings/theme"))
                 Link("插件 · 网页版", destination: Endpoint.origin.appendingPathComponent("settings/plugin"))
                 Link("网页脚本工具 · 网页版", destination: Endpoint.origin.appendingPathComponent("scratchpad"))
+                Link("网页界面偏好 · 网页版", destination: Endpoint.origin.appendingPathComponent("settings/preferences"))
+                Link("网页导航与状态栏 · 网页版", destination: Endpoint.origin.appendingPathComponent("settings/navbar"))
+                Link("网页 CSS · 网页版", destination: Endpoint.origin.appendingPathComponent("settings/custom-css"))
+                Link("网页数据与配置文件 · 网页版", destination: Endpoint.origin.appendingPathComponent("settings/account-data"))
                 Text("游戏 · 服务器当前关闭").foregroundStyle(.secondary)
             }
         }.puboList().navigationTitle("更多功能")

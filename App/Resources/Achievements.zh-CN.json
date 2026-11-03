@@ -1,0 +1,317 @@
+{
+  "source": "Misskey zh-CN localization, AGPL-3.0; original locale retained in audited H5 checkout",
+  "items": {
+    "notes1": {
+      "title": "初来乍到",
+      "description": "第一次发帖"
+    },
+    "notes10": {
+      "title": "一些帖子",
+      "description": "发布了 10 篇帖子"
+    },
+    "notes100": {
+      "title": "很多帖子",
+      "description": "发布了 100 篇帖子"
+    },
+    "notes500": {
+      "title": "满是帖子",
+      "description": "发布了 500 篇帖子"
+    },
+    "notes1000": {
+      "title": "积帖成山",
+      "description": "发布了 1,000 篇帖子"
+    },
+    "notes5000": {
+      "title": "帖如泉涌",
+      "description": "发布了 5,000 篇帖子"
+    },
+    "notes10000": {
+      "title": "超级帖",
+      "description": "发布了 10,000 篇帖子"
+    },
+    "notes20000": {
+      "title": "还想要更多帖子",
+      "description": "发布了 20,000 篇帖子"
+    },
+    "notes30000": {
+      "title": "帖子帖子帖子",
+      "description": "发布了 30,000 篇帖子"
+    },
+    "notes40000": {
+      "title": "帖子工厂",
+      "description": "发布了 40,000 篇帖子"
+    },
+    "notes50000": {
+      "title": "帖子星球",
+      "description": "发布了 50,000 篇帖子"
+    },
+    "notes60000": {
+      "title": "帖子类星体",
+      "description": "发布了 60,000 篇帖子"
+    },
+    "notes70000": {
+      "title": "帖子黑洞",
+      "description": "发布了 70,000 篇帖子"
+    },
+    "notes80000": {
+      "title": "帖子星系",
+      "description": "发布了 80,000 篇帖子"
+    },
+    "notes90000": {
+      "title": "帖子起源",
+      "description": "发布了 90,000 篇帖子"
+    },
+    "notes100000": {
+      "title": "ALL YOUR NOTE ARE BELONG TO US",
+      "description": "发布了 100,000 篇帖子"
+    },
+    "login3": {
+      "title": "初学者 I",
+      "description": "累计登录 3 天"
+    },
+    "login7": {
+      "title": "初学者 II",
+      "description": "累计登录 7 天"
+    },
+    "login15": {
+      "title": "初学者 III",
+      "description": "累计登录 15 天"
+    },
+    "login30": {
+      "title": "Misskist Ⅰ",
+      "description": "累计登录 30 天"
+    },
+    "login60": {
+      "title": "Misskist Ⅱ",
+      "description": "累计登录 60 天"
+    },
+    "login100": {
+      "title": "Misskist Ⅲ",
+      "description": "累计登入 100 天"
+    },
+    "login200": {
+      "title": "定期联系Ⅰ",
+      "description": "累计登录 200 天"
+    },
+    "login300": {
+      "title": "定期联系Ⅱ",
+      "description": "累计登录 300 天"
+    },
+    "login400": {
+      "title": "定期联系Ⅲ",
+      "description": "累计登录 400 天"
+    },
+    "login500": {
+      "title": "老熟人Ⅰ",
+      "description": "累计登录 500 天"
+    },
+    "login600": {
+      "title": "老熟人Ⅱ",
+      "description": "累计登录 600 天"
+    },
+    "login700": {
+      "title": "老熟人Ⅲ",
+      "description": "累计登录 700 天"
+    },
+    "login800": {
+      "title": "帖子大师 Ⅰ",
+      "description": "累计登录 800 天"
+    },
+    "login900": {
+      "title": "帖子大师 Ⅱ",
+      "description": "累计登录 900 天"
+    },
+    "login1000": {
+      "title": "帖子大师 Ⅲ",
+      "description": "累计登录 1000 天"
+    },
+    "noteClipped1": {
+      "title": "忍不住想加入便签",
+      "description": "第一次将帖子加入便签"
+    },
+    "noteFavorited1": {
+      "title": "观星者",
+      "description": "第一次将帖子加入收藏"
+    },
+    "myNoteFavorited1": {
+      "title": "想要星星",
+      "description": "自己的帖子被其他人收藏了"
+    },
+    "profileFilled": {
+      "title": "整装待发",
+      "description": "设置了个人资料"
+    },
+    "markedAsCat": {
+      "title": "我是猫",
+      "description": "将账户设定为一只猫"
+    },
+    "following1": {
+      "title": "首次关注",
+      "description": "第一次关注别人"
+    },
+    "following10": {
+      "title": "关注，跟随",
+      "description": "关注超过 10 人"
+    },
+    "following50": {
+      "title": "我的朋友很多",
+      "description": "关注超过 50 人"
+    },
+    "following100": {
+      "title": "胜友如云",
+      "description": "关注超过 100 人"
+    },
+    "following300": {
+      "title": "朋友成群",
+      "description": "关注数超过 300"
+    },
+    "followers1": {
+      "title": "最初的关注者",
+      "description": "第一次被关注"
+    },
+    "followers10": {
+      "title": "关注我吧！",
+      "description": "拥有超过 10 名关注者"
+    },
+    "followers50": {
+      "title": "三五成群",
+      "description": "拥有超过 50 名关注者"
+    },
+    "followers100": {
+      "title": "胜友如云",
+      "description": "拥有超过 100 名关注者"
+    },
+    "followers300": {
+      "title": "排列成行",
+      "description": "拥有超过 300 名关注者"
+    },
+    "followers500": {
+      "title": "信号塔",
+      "description": "拥有超过 500 名关注者"
+    },
+    "followers1000": {
+      "title": "大影响家",
+      "description": "拥有超过 1000 名关注者"
+    },
+    "collectAchievements30": {
+      "title": "成就收藏家",
+      "description": "获得超过 30 个成就"
+    },
+    "viewAchievements3min": {
+      "title": "成就爱好者",
+      "description": "盯着成就看三分钟"
+    },
+    "iLoveMisskey": {
+      "title": "I Love Misskey",
+      "description": "发布 \"I ❤ #Misskey\" 帖子"
+    },
+    "foundTreasure": {
+      "title": "寻宝",
+      "description": "发现了隐藏的宝藏"
+    },
+    "client30min": {
+      "title": "休息一下！",
+      "description": "启动客户端超过 30 分钟"
+    },
+    "client60min": {
+      "title": "Misskey 重度依赖",
+      "description": "启动客户端超过 60 分钟"
+    },
+    "noteDeletedWithin1min": {
+      "title": "欲言又止",
+      "description": "发帖后一分钟内就将其删除"
+    },
+    "postedAtLateNight": {
+      "title": "夜猫子",
+      "description": "深夜发布帖子"
+    },
+    "postedAt0min0sec": {
+      "title": "报时",
+      "description": "在 0 点发布一篇帖子"
+    },
+    "selfQuote": {
+      "title": "自我引用",
+      "description": "引用了自己的帖子"
+    },
+    "htl20npm": {
+      "title": "流动的时间线",
+      "description": "首页时间线中，帖子加载速度超过每分钟20篇"
+    },
+    "viewInstanceChart": {
+      "title": "分析师",
+      "description": "查看了服务器信息中的图表"
+    },
+    "outputHelloWorldOnScratchpad": {
+      "title": "Hello, world!",
+      "description": "在 AiScript 控制台中输出 hello world"
+    },
+    "open3windows": {
+      "title": "多窗口",
+      "description": "打开了三个或更多的窗口"
+    },
+    "driveFolderCircularReference": {
+      "title": "循环引用",
+      "description": "试图对网盘中的文件夹进行循环嵌套"
+    },
+    "reactWithoutRead": {
+      "title": "有好好读过吗？",
+      "description": "在含有100字以上的帖子被发出三秒内做出回应"
+    },
+    "clickedClickHere": {
+      "title": "点这里",
+      "description": "点了这里"
+    },
+    "justPlainLucky": {
+      "title": "超高校级的幸运",
+      "description": "每 10 秒有 0.005% 的概率自动获得"
+    },
+    "setNameToSyuilo": {
+      "title": "上帝情结",
+      "description": "将名称设定为 syuilo"
+    },
+    "passedSinceAccountCreated1": {
+      "title": "一周年",
+      "description": "账户创建时间超过 1 年"
+    },
+    "passedSinceAccountCreated2": {
+      "title": "二周年",
+      "description": "账户创建时间超过 2 年"
+    },
+    "passedSinceAccountCreated3": {
+      "title": "三周年",
+      "description": "账户创建时间超过 3 年"
+    },
+    "loggedInOnBirthday": {
+      "title": "生日快乐",
+      "description": "在生日当天登录"
+    },
+    "loggedInOnNewYearsDay": {
+      "title": "恭贺新禧",
+      "description": "在元旦登入"
+    },
+    "cookieClicked": {
+      "title": "饼干点点乐",
+      "description": "点击了饼干"
+    },
+    "brainDiver": {
+      "title": "Brain Diver",
+      "description": "发布了包含 Brain Diver 链接的帖子"
+    },
+    "smashTestNotificationButton": {
+      "title": "过度测试",
+      "description": "短时间内连续测试通知"
+    },
+    "tutorialCompleted": {
+      "title": "Misskey 初学者课程 结业证书",
+      "description": "完成了教学"
+    },
+    "bubbleGameExplodingHead": {
+      "title": "🤯",
+      "description": "你合成出了游戏里最大的Emoji"
+    },
+    "bubbleGameDoubleExplodingHead": {
+      "title": "两个🤯",
+      "description": "你合成出了2个游戏里最大的Emoji"
+    }
+  }
+}
