@@ -73,7 +73,11 @@ final class SocialAlignmentUITests: XCTestCase {
         XCTAssertEqual((editor.value as? String)?.count, 61, "连续键盘输入不能丢字或失焦")
         XCTAssertTrue(app.staticTexts["compose.limit"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["compose.send"].isEnabled)
         capture(app, "social-post-limit")
-        editor.typeText(XCUIKeyboardKey.delete.rawValue); XCTAssertTrue(app.buttons["compose.send"].isEnabled)
+        editor.typeText(XCUIKeyboardKey.delete.rawValue)
+        let updatedText = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", String(repeating: "a", count: 60)), object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [updatedText], timeout: 5), .completed)
+        let enabledSend = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["compose.send"])
+        XCTAssertEqual(XCTWaiter.wait(for: [enabledSend], timeout: 5), .completed)
     }
     func testUncertainRoomSendKeepsDraftAndPreventsDuplicate() {
         let app = launch(["--lost-room-response"]); openRoom(app)
