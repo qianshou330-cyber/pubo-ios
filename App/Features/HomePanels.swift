@@ -97,13 +97,13 @@ struct AnnouncementDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(shown["title"].string ?? "站内公告").font(.title2.bold())
-                if let date = puboDate(shown["createdAt"].string) { Text(date, style: .date).font(.caption).foregroundStyle(PUBOTheme.secondary) }
+                Label(shown["title"].string ?? "站内公告", systemImage: "info.circle").font(.headline)
                 NoteText(text: shown.text, remoteEmojis: .null)
                 if let url = safeMediaURL(shown["imageUrl"].string) { AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView() }; Link("打开公告原图", destination: url) }
+                if let date = puboDate(shown["createdAt"].string) { Text("创建日期：" + date.formatted()).font(.caption).foregroundStyle(PUBOTheme.secondary) }
                 if let error { ErrorBanner(message: error) }
                 Link("在本站查看公告", destination: Endpoint.origin.appendingPathComponent("announcements/" + entry.id))
-            }.frame(maxWidth: .infinity, alignment: .leading).padding()
+            }.font(.system(size: 14)).frame(maxWidth: .infinity, alignment: .leading).puboCard().padding(12)
         }.puboScreen().navigationTitle("站内公告").task {
             do { let value = Record(try await session.call("announcements/show", ["announcementId": .string(entry.id)])); try Task.checkCancellation(); guard value.id == entry.id else { throw APIError.invalidResponse }; current = value }
             catch { if !Task.isCancelled { self.error = "最新公告读取失败，当前显示进入页面时的内容。" } }
@@ -138,7 +138,7 @@ struct HomeChartPanel: View {
                 Image("ChartCover").resizable().scaledToFit().frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("韩国女团音源榜").font(.system(size: 14, weight: .bold))
-                    Text(chart["label"].string ?? "Melon TOP100").font(.caption2).foregroundStyle(PUBOTheme.secondary)
+                    Text("每小时更新 · " + (chart["label"].string ?? "Melon TOP100")).font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 }
                 Spacer(minLength: 0)
                 Button { open(.chart(key)) } label: { Text("详情").font(.caption).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.accent).accessibilityIdentifier("home.chartDetail")
@@ -157,7 +157,7 @@ struct HomeChartPanel: View {
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(cached ? "本机缓存" : error != nil ? "刷新失败 · 上次数据" : HomeContent.chartStatus(chart))
-                    if let date = ChartClock.korean(chart["lastSuccessAt"].string) { Text("最近成功 \(date)") }
+                    if let date = ChartClock.korean(chart["lastSuccessAt"].string) { Text("最近成功 " + String(date.dropFirst(5).prefix(11))).accessibilityLabel("最近成功 " + date) }
                     let scope = HomeContent.chartScope(chart)
                     if !scope.isEmpty { Text(scope) }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)

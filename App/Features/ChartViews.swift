@@ -86,20 +86,46 @@ struct ChartDetailView: View {
     @State private var selection: ChartSongSelection?
     @State private var changes: [String: ChartRankChange] = [:]
     private var key: String { selectedKey.isEmpty ? chartKey : selectedKey }
+    private var platform: String { key.hasPrefix("melon-") ? "melon" : key }
     var body: some View {
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 12) {
-                Picker("榜单", selection: Binding(get: { key }, set: { selectedKey = $0; session.selectChart($0) })) {
-                    ForEach(KpopPreferences.chartKeys, id: \.self) { Text(chartName($0)).tag($0) }
-                }.accessibilityIdentifier("chart.filter.platform")
-                Picker("女团", selection: Binding(get: { group }, set: { group = $0; session.selectChartGroup($0) })) {
-                    Text("全部女团").tag("")
-                    ForEach(KpopPreferences.groups, id: \.0) { Text($0.1).tag($0.0) }
-                }.accessibilityIdentifier("chart.filter.group")
-                TextField("搜索歌曲或艺人", text: $query).submitLabel(.search).accessibilityIdentifier("chart.filter.query")
-            }.puboCard(padding: 12)
+                HStack(spacing: 12) {
+                    Image("ChartCover").resizable().scaledToFit().frame(width: 44, height: 44).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) { Text("韩国女团音源榜").font(.headline); Text("韩国榜单 · 每小时更新").font(.caption) }
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("选择音乐平台").font(.caption)
+                        Picker("选择音乐平台", selection: Binding(get: { platform }, set: { value in let chosen = value == "melon" ? session.chartPreferences.lastMelonChart : value; selectedKey = chosen; session.selectChart(chosen) })) {
+                            Text("Melon").tag("melon")
+                            ForEach(Array(KpopPreferences.chartKeys.dropFirst(4)), id: \.self) { Text(chartName($0)).tag($0) }
+                        }.labelsHidden().frame(maxWidth: .infinity, minHeight: 44).overlay(RoundedRectangle(cornerRadius: 10).stroke(PUBOTheme.divider)).accessibilityIdentifier("chart.filter.platform")
+                    }.frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("选择团体").font(.caption)
+                        Picker("选择团体", selection: Binding(get: { group }, set: { group = $0; session.selectChartGroup($0) })) {
+                            Text("全部女团").tag("")
+                            ForEach(KpopPreferences.groups, id: \.0) { Text($0.1).tag($0.0) }
+                        }.labelsHidden().frame(maxWidth: .infinity, minHeight: 44).overlay(RoundedRectangle(cornerRadius: 10).stroke(PUBOTheme.divider)).accessibilityIdentifier("chart.filter.group")
+                    }.frame(maxWidth: .infinity)
+                }
+                Text("搜索歌曲").font(.caption)
+                TextField("搜索歌曲或艺人", text: $query).submitLabel(.search).padding(12).frame(minHeight: 44).overlay(RoundedRectangle(cornerRadius: 10).stroke(PUBOTheme.divider)).accessibilityIdentifier("chart.filter.query")
+                if platform == "melon" {
+                    Divider()
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 4) {
+                        ForEach(Array(KpopPreferences.chartKeys.prefix(4)), id: \.self) { value in
+                            Button { selectedKey = value; session.selectChart(value) } label: {
+                                Text(chartName(value)).font(.caption.weight(key == value ? .bold : .regular)).frame(maxWidth: .infinity, minHeight: 44).background(key == value ? PUBOTheme.ownBubble : .clear, in: RoundedRectangle(cornerRadius: 10))
+                            }.buttonStyle(.plain).foregroundStyle(key == value ? PUBOTheme.accent : PUBOTheme.text).accessibilityAddTraits(key == value ? .isSelected : []).accessibilityIdentifier("chart.category." + value)
+                        }
+                    }
+                }
+            }.puboCard(padding: 16)
             VStack(alignment: .leading, spacing: 6) {
+                HStack { Text(chart["label"].string ?? chartName(key)).font(.headline); Spacer(); Button("刷新") { Task { await load(reset: true) } }.frame(minHeight: 44).disabled(busy).accessibilityIdentifier("chart.refresh") }
                 Text(HomeContent.chartStatus(chart))
                 if !HomeContent.chartScope(chart).isEmpty { Text(HomeContent.chartScope(chart)).font(.caption) }
                 ChartPeriod(chart: chart)
@@ -154,7 +180,7 @@ struct ChartPeriod: View {
     let chart: JSONValue
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let period = chart["sourceDate"].string ?? chart["sourcePeriod"].string { Text("来源期次：" + period) }
+            if let period = chart["sourceDate"].string ?? chart["sourcePeriod"].string { Text("来源期次：" + (period.contains("T") ? ChartClock.korean(period) ?? period : period)) }
             else if let updated = ChartClock.korean(chart["sourceUpdatedAt"].string) { Text("来源更新时间：" + updated) }
             else { Text("来源未提供明确期次") }
             if let observed = ChartClock.korean(chart["observedAt"].string) { Text("本站观察时间：" + observed) }
@@ -216,13 +242,13 @@ struct ChartHistoryView: View {
             if let url = safeMediaURL(chart["sourceUrl"].string) { Link("官方来源", destination: url) }
             NavigationLink("查看完整榜单") { ChartDetailView(chartKey: chartKey) }
           }.padding(16)
-        }.puboScreen().navigationTitle("歌曲详情").navigationBarTitleDisplayMode(.inline)
+        }.background(PUBOTheme.panel).puboScreen().navigationTitle("歌曲记录").navigationBarTitleDisplayMode(.inline)
             .task { chart = initialChart; await load() }
             .task { if initialChart.isNull { await loadMetadata() } }
     }
     private func statistic(_ title: String, _ value: String) -> some View {
         VStack(spacing: 6) { Text(title).font(.caption).foregroundStyle(PUBOTheme.secondary); Text(value).font(.title2.bold()).monospacedDigit() }
-            .frame(maxWidth: .infinity).padding(.vertical, 12).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 10))
+            .frame(maxWidth: .infinity).padding(.vertical, 12).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 10))
     }
     private func load() async {
         guard !busy else { return }; busy = true; defer { busy = false }

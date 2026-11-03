@@ -66,6 +66,10 @@ for index, template in enumerate(selected):
                     result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(motion_bundle)], capture_output=True, text=True, timeout=60)
                     if result.returncode == 0: (root / f'motion-{index}-summary.json').write_text(result.stdout)
             if motion.returncode: raise RuntimeError('Home motion or click-target tests failed')
+            if os.environ.get('PUBO_MOTION_ONLY') == '1':
+                test_exit = 0
+                record['tests'] = 'FOCUSED_ONLY'
+                continue
         print('Simulator boot complete; starting isolated UI tests', flush=True)
         command = ['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
                    '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
