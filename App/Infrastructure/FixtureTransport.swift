@@ -29,6 +29,7 @@ actor FixtureTransport: HTTPTransport {
         var user = profile.object; var policies = user["policies"]!.object
         policies["scheduledNoteLimit"] = .number(10); policies["avatarDecorationLimit"] = .number(2)
         user["policies"] = .object(policies); user["isAdmin"] = .bool(ProcessInfo.processInfo.arguments.contains("--admin-preview")); profile = .object(user)
+        if ProcessInfo.processInfo.arguments.contains("--moderator-preview") { var values = profile.object; values["isModerator"] = .bool(true); profile = .object(values) }
         if ProcessInfo.processInfo.arguments.contains("--empty-announcements") { announcements = [] }
         posts = posts.map { var value = $0.object; value["visibility"] = .string("public"); return .object(value) }
         if ProcessInfo.processInfo.arguments.contains("--search-unavailable") {
@@ -76,6 +77,10 @@ actor FixtureTransport: HTTPTransport {
         case "emojis": response = .object(["emojis": .array([])])
         case "i": response = body["i"].string == "synthetic-second" ? .object(["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]) : profile
         case "verification/show": response = .null
+        case "admin/verification/list": response = .array([])
+        case "admin/show-users": response = .array([profile, Self.peer])
+        case "admin/announcements/list": response = .array(announcements)
+        case "admin/announcements/create": counter += 1; var fields = body.object; fields.removeValue(forKey: "i"); fields["id"] = .string("adminannouncement\(counter)"); fields["isActive"] = .bool(true); response = .object(fields); announcements.append(response)
         case "invite/limit": response = .object(["remaining": .number(10)])
         case "invite/list": response = .array(invitations)
         case "invite/create": counter += 1; response = .object(["id": .string("invitation\(counter)"), "code": .string("SYNTHETIC-INVITE"), "usedBy": .null]); invitations.append(response)

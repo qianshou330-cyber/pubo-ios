@@ -1,6 +1,29 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    private func enterAdmin(_ app: XCUIApplication) {
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        let entry = app.buttons["admin.entry"]; for _ in 0..<6 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
+        let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
+    }
+    func testNativeAdminVerificationListUsesValidFilters() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--admin-preview"]; app.launch(); enterAdmin(app)
+        let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("认证审批")
+        let list = app.buttons["admin.operation.admin/verification/list"]; XCTAssertTrue(list.waitForExistence(timeout: 5)); list.tap()
+        XCTAssertTrue(app.staticTexts["读取完成；暂无记录。"].waitForExistence(timeout: 5)); XCTAssertTrue(app.buttons["admin.submit"].exists)
+        capture(app, "admin-empty-verification")
+    }
+    func testModeratorDoesNotSeeAdminOnlyVerificationOrConfiguration() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--moderator-preview"]; app.launch(); enterAdmin(app)
+        let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("认证审批")
+        XCTAssertFalse(app.buttons["admin.operation.admin/verification/list"].exists)
+        search.tap(); search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4)); search.typeText("站点配置")
+        XCTAssertFalse(app.buttons["admin.operation.admin/update-meta"].exists)
+    }
+    func testOrdinaryAccountHasNoNativeAdminEntry() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        for _ in 0..<5 { XCTAssertFalse(app.buttons["admin.entry"].exists); app.swipeUp() }
+    }
     private func openSettings(_ app: XCUIApplication) {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
         let settings = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !settings.isHittable { app.swipeUp() }; XCTAssertTrue(settings.isHittable); settings.tap()
@@ -74,7 +97,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(policy.waitForExistence(timeout: 5))
         capture(app, screenshot)
         // Dismiss outside the menu without following an external link.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.95)).tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.12)).tap()
         XCTAssertTrue(policy.waitForNonExistence(timeout: 5))
     }
     func testShellLaunches() {
@@ -656,4 +679,5 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))
     }
 }
+
 

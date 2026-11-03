@@ -216,6 +216,7 @@ struct MyAccountView: View {
                 }
                 .listRowBackground(PUBOTheme.panel)
                 Section("账号") {
+                    if let user = session.user, AdminAuthorization.canManage(user) { NavigationLink("管理后台") { NativeAdminView() }.accessibilityIdentifier("admin.entry") }
                     NavigationLink("多账号管理") { AccountManagerView() }; NavigationLink("账号与隐私设置") { AccountSettingsView() }; NavigationLink("锁屏推送") { NativePushSettingsView() }
                     if session.authorizationRequired { Text("需要补充授权以使用新增功能。取消授权不会删除草稿。").font(.footnote) }
                     Button(authorizing ? "正在授权…" : "重新授权（保留草稿）") { Task { authorizing = true; defer { authorizing = false }; do { let token = try await authorization.login(api: session.api); try await session.install(token: token); error = "授权已更新，请手动重试原操作。" } catch { self.error = error.localizedDescription } } }.disabled(authorizing)

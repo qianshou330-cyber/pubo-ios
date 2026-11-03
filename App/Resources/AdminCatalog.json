@@ -1,0 +1,7143 @@
+{
+  "source": "PUBO audited H5/backend endpoint schemas; regenerated only during development",
+  "endpoints": [
+    {
+      "id": "admin/abuse-report/notification-recipient/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "email",
+              "webhook"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "systemWebhookId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "isActive",
+          "name",
+          "method"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:abuse-report:notification-recipient",
+      "mutation": true
+    },
+    {
+      "id": "admin/abuse-report/notification-recipient/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:abuse-report:notification-recipient",
+      "mutation": true
+    },
+    {
+      "id": "admin/abuse-report/notification-recipient/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "webhook"
+              ]
+            }
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:abuse-report:notification-recipient",
+      "mutation": false
+    },
+    {
+      "id": "admin/abuse-report/notification-recipient/show",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:abuse-report:notification-recipient",
+      "mutation": false
+    },
+    {
+      "id": "admin/abuse-report/notification-recipient/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "email",
+              "webhook"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "systemWebhookId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id",
+          "isActive",
+          "name",
+          "method"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:abuse-report:notification-recipient",
+      "mutation": true
+    },
+    {
+      "id": "admin/abuse-user-reports",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "reporterOrigin": {
+            "type": "string",
+            "enum": [
+              "combined",
+              "local",
+              "remote"
+            ],
+            "default": "combined"
+          },
+          "targetUserOrigin": {
+            "type": "string",
+            "enum": [
+              "combined",
+              "local",
+              "remote"
+            ],
+            "default": "combined"
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:abuse-user-reports",
+      "mutation": false
+    },
+    {
+      "id": "admin/accounts/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^\\w{1,20}$"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "setupPassword": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": true
+    },
+    {
+      "id": "admin/accounts/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:account",
+      "mutation": true
+    },
+    {
+      "id": "admin/accounts/find-by-email",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:account",
+      "mutation": false
+    },
+    {
+      "id": "admin/ad/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memo": {
+            "type": "string"
+          },
+          "place": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "ratio": {
+            "type": "integer"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "startsAt": {
+            "type": "integer"
+          },
+          "imageUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dayOfWeek": {
+            "type": "integer"
+          },
+          "isSensitive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "url",
+          "memo",
+          "place",
+          "priority",
+          "ratio",
+          "expiresAt",
+          "startsAt",
+          "imageUrl",
+          "dayOfWeek"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:ad",
+      "mutation": true
+    },
+    {
+      "id": "admin/ad/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:ad",
+      "mutation": true
+    },
+    {
+      "id": "admin/ad/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "publishing": {
+            "type": "boolean",
+            "default": null,
+            "nullable": true
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:ad",
+      "mutation": false
+    },
+    {
+      "id": "admin/ad/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "memo": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "imageUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "place": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "ratio": {
+            "type": "integer"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "startsAt": {
+            "type": "integer"
+          },
+          "dayOfWeek": {
+            "type": "integer"
+          },
+          "isSensitive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:ad",
+      "mutation": true
+    },
+    {
+      "id": "admin/announcements/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 0
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "error",
+              "success"
+            ],
+            "default": "info"
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "banner",
+              "dialog",
+              "marquee"
+            ],
+            "default": "normal"
+          },
+          "forExistingUsers": {
+            "type": "boolean",
+            "default": false
+          },
+          "silence": {
+            "type": "boolean",
+            "default": false
+          },
+          "needConfirmationToRead": {
+            "type": "boolean",
+            "default": false
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "title",
+          "text",
+          "imageUrl"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:announcements",
+      "mutation": true
+    },
+    {
+      "id": "admin/announcements/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:announcements",
+      "mutation": true
+    },
+    {
+      "id": "admin/announcements/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "all",
+              "active",
+              "archived"
+            ],
+            "default": "active"
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:announcements",
+      "mutation": false
+    },
+    {
+      "id": "admin/announcements/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 0
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "error",
+              "success"
+            ]
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "banner",
+              "dialog",
+              "marquee"
+            ]
+          },
+          "forExistingUsers": {
+            "type": "boolean"
+          },
+          "silence": {
+            "type": "boolean"
+          },
+          "needConfirmationToRead": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:announcements",
+      "mutation": true
+    },
+    {
+      "id": "admin/avatar-decorations/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "roleIdsThatCanBeUsedThisDecoration": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "url"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageAvatarDecorations",
+      "kind": "write:admin:avatar-decorations",
+      "mutation": true
+    },
+    {
+      "id": "admin/avatar-decorations/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageAvatarDecorations",
+      "kind": "write:admin:avatar-decorations",
+      "mutation": true
+    },
+    {
+      "id": "admin/avatar-decorations/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id",
+            "nullable": true
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageAvatarDecorations",
+      "kind": "read:admin:avatar-decorations",
+      "mutation": false
+    },
+    {
+      "id": "admin/avatar-decorations/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "roleIdsThatCanBeUsedThisDecoration": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageAvatarDecorations",
+      "kind": "write:admin:avatar-decorations",
+      "mutation": true
+    },
+    {
+      "id": "admin/captcha/current",
+      "schema": {},
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:meta",
+      "mutation": false
+    },
+    {
+      "id": "admin/captcha/save",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "none",
+              "hcaptcha",
+              "mcaptcha",
+              "recaptcha",
+              "turnstile",
+              "testcaptcha"
+            ]
+          },
+          "captchaResult": {
+            "type": "string",
+            "nullable": true
+          },
+          "sitekey": {
+            "type": "string",
+            "nullable": true
+          },
+          "secret": {
+            "type": "string",
+            "nullable": true
+          },
+          "instanceUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "provider"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:meta",
+      "mutation": true
+    },
+    {
+      "id": "admin/delete-account",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:delete-account",
+      "mutation": true
+    },
+    {
+      "id": "admin/delete-all-files-of-a-user",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:delete-all-files-of-a-user",
+      "mutation": true
+    },
+    {
+      "id": "admin/drive/clean-remote-files",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:drive",
+      "mutation": true
+    },
+    {
+      "id": "admin/drive/cleanup",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:drive",
+      "mutation": true
+    },
+    {
+      "id": "admin/drive/files",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^[a-zA-Z0-9\\/\\-*]+$"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "combined",
+              "local",
+              "remote"
+            ],
+            "default": "local"
+          },
+          "hostname": {
+            "type": "string",
+            "nullable": true,
+            "default": null,
+            "description": "The local host is represented with `null`."
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:drive",
+      "mutation": false
+    },
+    {
+      "id": "admin/drive/show-file",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "fileId": {
+                "type": "string",
+                "format": "misskey:id"
+              }
+            },
+            "required": [
+              "fileId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ]
+          }
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:drive",
+      "mutation": false
+    },
+    {
+      "id": "admin/emoji/add-aliases-bulk",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "misskey:id"
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids",
+          "aliases"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/add",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+$"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "description": "Use `null` to reset the category."
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "license": {
+            "type": "string",
+            "nullable": true
+          },
+          "isSensitive": {
+            "type": "boolean"
+          },
+          "localOnly": {
+            "type": "boolean"
+          },
+          "roleIdsThatCanBeUsedThisEmojiAsReaction": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "fileId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/copy",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "emojiId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "emojiId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/delete-bulk",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "misskey:id"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/import-zip",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "fileId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/list-remote",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "host": {
+            "type": "string",
+            "nullable": true,
+            "default": null,
+            "description": "Use `null` to represent the local host."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "read:admin:emoji",
+      "mutation": false
+    },
+    {
+      "id": "admin/emoji/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "read:admin:emoji",
+      "mutation": false
+    },
+    {
+      "id": "admin/emoji/remove-aliases-bulk",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "misskey:id"
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids",
+          "aliases"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/set-aliases-bulk",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "misskey:id"
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids",
+          "aliases"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/set-category-bulk",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "misskey:id"
+            }
+          },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "description": "Use `null` to reset the category."
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/set-license-bulk",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "misskey:id"
+            }
+          },
+          "license": {
+            "type": "string",
+            "nullable": true,
+            "description": "Use `null` to reset the license."
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/emoji/update",
+      "schema": {
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "misskey:id"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "fileId": {
+                "type": "string",
+                "format": "misskey:id"
+              },
+              "category": {
+                "type": "string",
+                "nullable": true,
+                "description": "Use `null` to reset the category."
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "license": {
+                "type": "string",
+                "nullable": true
+              },
+              "isSensitive": {
+                "type": "boolean"
+              },
+              "localOnly": {
+                "type": "boolean"
+              },
+              "roleIdsThatCanBeUsedThisEmojiAsReaction": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "write:admin:emoji",
+      "mutation": true
+    },
+    {
+      "id": "admin/federation/delete-all-files",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:federation",
+      "mutation": true
+    },
+    {
+      "id": "admin/federation/refresh-remote-instance-metadata",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:federation",
+      "mutation": true
+    },
+    {
+      "id": "admin/federation/remove-all-following",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:federation",
+      "mutation": true
+    },
+    {
+      "id": "admin/federation/update-instance",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "isSuspended": {
+            "type": "boolean"
+          },
+          "moderationNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:federation",
+      "mutation": true
+    },
+    {
+      "id": "admin/forward-abuse-user-report",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "reportId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:resolve-abuse-user-report",
+      "mutation": true
+    },
+    {
+      "id": "admin/get-index-stats",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:index-stats",
+      "mutation": false
+    },
+    {
+      "id": "admin/get-table-stats",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:table-stats",
+      "mutation": false
+    },
+    {
+      "id": "admin/get-user-ips",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:user-ips",
+      "mutation": false
+    },
+    {
+      "id": "admin/invite/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 1
+          },
+          "expiresAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:invite-codes",
+      "mutation": true
+    },
+    {
+      "id": "admin/invite/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 30
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "unused",
+              "used",
+              "expired",
+              "all"
+            ],
+            "default": "all"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "+createdAt",
+              "-createdAt",
+              "+usedAt",
+              "-usedAt"
+            ]
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:invite-codes",
+      "mutation": false
+    },
+    {
+      "id": "admin/meta",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:meta",
+      "mutation": false
+    },
+    {
+      "id": "admin/promo/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "noteId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "expiresAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "noteId",
+          "expiresAt"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:promo",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/clear",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "*",
+              "completed",
+              "wait",
+              "active",
+              "paused",
+              "prioritized",
+              "delayed",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "queue",
+          "state"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:queue",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/deliver-delayed",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/inbox-delayed",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/jobs",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          },
+          "state": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "active",
+                "wait",
+                "delayed",
+                "completed",
+                "failed"
+              ]
+            }
+          },
+          "search": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "state"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/pause",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          }
+        },
+        "required": [
+          "queue"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:queue",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/promote-jobs",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          }
+        },
+        "required": [
+          "queue"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:queue",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/queue-stats",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          }
+        },
+        "required": [
+          "queue"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/queues",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/remove-job",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          },
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "jobId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:queue",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/resume",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          }
+        },
+        "required": [
+          "queue"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:queue",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/retry-job",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          },
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "jobId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:queue",
+      "mutation": true
+    },
+    {
+      "id": "admin/queue/show-job-logs",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          },
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "jobId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/show-job",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "enum": [
+              "system",
+              "endedPollNotification",
+              "postScheduledNote",
+              "deliver",
+              "inbox",
+              "db",
+              "relationship",
+              "objectStorage",
+              "userWebhookDeliver",
+              "systemWebhookDeliver"
+            ]
+          },
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "jobId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/queue/stats",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:queue",
+      "mutation": false
+    },
+    {
+      "id": "admin/relays/add",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "inbox": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "inbox"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:relays",
+      "mutation": true
+    },
+    {
+      "id": "admin/relays/list",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:relays",
+      "mutation": false
+    },
+    {
+      "id": "admin/relays/remove",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "inbox": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "inbox"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:relays",
+      "mutation": true
+    },
+    {
+      "id": "admin/reset-password",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:reset-password",
+      "mutation": true
+    },
+    {
+      "id": "admin/resolve-abuse-user-report",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "resolvedAs": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "reject",
+              null
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "reportId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:resolve-abuse-user-report",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/assign",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "roleId",
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "conditional"
+            ]
+          },
+          "condFormula": {
+            "type": "object"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "isModerator": {
+            "type": "boolean"
+          },
+          "isAdministrator": {
+            "type": "boolean"
+          },
+          "isExplorable": {
+            "type": "boolean",
+            "default": false
+          },
+          "asBadge": {
+            "type": "boolean"
+          },
+          "preserveAssignmentOnMoveAccount": {
+            "type": "boolean"
+          },
+          "canEditMembersByModerator": {
+            "type": "boolean"
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "policies": {
+            "type": "object",
+            "properties": {
+              "gtlAvailable": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "ltlAvailable": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canPublicNote": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "mentionLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 20
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canInvite": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "inviteLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 0
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "inviteLimitCycle": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10080
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "inviteExpirationTime": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 0
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canManageCustomEmojis": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canManageAvatarDecorations": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canSearchNotes": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canSearchUsers": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canUseTranslator": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canHideAds": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canCreateChannel": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "driveCapacityMb": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 100
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "maxFileSizeMb": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 30
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "alwaysMarkNsfw": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canUpdateBioMedia": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "pinLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 5
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "antennaLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 5
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "wordMuteLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 200
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "webhookLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 3
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "clipLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "noteEachClipsLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 200
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "userListLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "userEachUserListsLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 50
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "rateLimitFactor": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "avatarDecorationLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportAntennas": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportBlocking": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportFollowing": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportMuting": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportUserLists": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "chatAvailability": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "available",
+                      "readonly",
+                      "unavailable"
+                    ],
+                    "default": "available"
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "uploadableFileTypes": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [
+                      "text/*",
+                      "application/json",
+                      "image/*",
+                      "video/*",
+                      "audio/*"
+                    ]
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "noteDraftLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "scheduledNoteLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "watermarkAvailable": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "color",
+          "iconUrl",
+          "target",
+          "condFormula",
+          "isPublic",
+          "isModerator",
+          "isAdministrator",
+          "asBadge",
+          "canEditMembersByModerator",
+          "displayOrder",
+          "policies"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "roleId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/list",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:roles",
+      "mutation": false
+    },
+    {
+      "id": "admin/roles/show",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "roleId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:roles",
+      "mutation": false
+    },
+    {
+      "id": "admin/roles/unassign",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "roleId",
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/update-default-policies",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "policies": {
+            "type": "object",
+            "properties": {
+              "gtlAvailable": {
+                "type": "boolean",
+                "default": true
+              },
+              "ltlAvailable": {
+                "type": "boolean",
+                "default": true
+              },
+              "canPublicNote": {
+                "type": "boolean",
+                "default": true
+              },
+              "mentionLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 20
+              },
+              "canInvite": {
+                "type": "boolean",
+                "default": false
+              },
+              "inviteLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 0
+              },
+              "inviteLimitCycle": {
+                "type": "number",
+                "minimum": 0,
+                "default": 10080
+              },
+              "inviteExpirationTime": {
+                "type": "number",
+                "minimum": 0,
+                "default": 0
+              },
+              "canManageCustomEmojis": {
+                "type": "boolean",
+                "default": false
+              },
+              "canManageAvatarDecorations": {
+                "type": "boolean",
+                "default": false
+              },
+              "canSearchNotes": {
+                "type": "boolean",
+                "default": false
+              },
+              "canSearchUsers": {
+                "type": "boolean",
+                "default": true
+              },
+              "canUseTranslator": {
+                "type": "boolean",
+                "default": true
+              },
+              "canHideAds": {
+                "type": "boolean",
+                "default": false
+              },
+              "canCreateChannel": {
+                "type": "boolean",
+                "default": true
+              },
+              "driveCapacityMb": {
+                "type": "number",
+                "minimum": 0,
+                "default": 100
+              },
+              "maxFileSizeMb": {
+                "type": "number",
+                "minimum": 0,
+                "default": 30
+              },
+              "alwaysMarkNsfw": {
+                "type": "boolean",
+                "default": false
+              },
+              "canUpdateBioMedia": {
+                "type": "boolean",
+                "default": true
+              },
+              "pinLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 5
+              },
+              "antennaLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 5
+              },
+              "wordMuteLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 200
+              },
+              "webhookLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 3
+              },
+              "clipLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 10
+              },
+              "noteEachClipsLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 200
+              },
+              "userListLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 10
+              },
+              "userEachUserListsLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 50
+              },
+              "rateLimitFactor": {
+                "type": "number",
+                "minimum": 0,
+                "default": 1
+              },
+              "avatarDecorationLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 1
+              },
+              "canImportAntennas": {
+                "type": "boolean",
+                "default": false
+              },
+              "canImportBlocking": {
+                "type": "boolean",
+                "default": false
+              },
+              "canImportFollowing": {
+                "type": "boolean",
+                "default": false
+              },
+              "canImportMuting": {
+                "type": "boolean",
+                "default": false
+              },
+              "canImportUserLists": {
+                "type": "boolean",
+                "default": false
+              },
+              "chatAvailability": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "readonly",
+                  "unavailable"
+                ],
+                "default": "available"
+              },
+              "uploadableFileTypes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [
+                  "text/*",
+                  "application/json",
+                  "image/*",
+                  "video/*",
+                  "audio/*"
+                ]
+              },
+              "noteDraftLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 10
+              },
+              "scheduledNoteLimit": {
+                "type": "number",
+                "minimum": 0,
+                "default": 1
+              },
+              "watermarkAvailable": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          }
+        },
+        "required": [
+          "policies"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "conditional"
+            ]
+          },
+          "condFormula": {
+            "type": "object"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "isModerator": {
+            "type": "boolean"
+          },
+          "isAdministrator": {
+            "type": "boolean"
+          },
+          "isExplorable": {
+            "type": "boolean"
+          },
+          "asBadge": {
+            "type": "boolean"
+          },
+          "preserveAssignmentOnMoveAccount": {
+            "type": "boolean"
+          },
+          "canEditMembersByModerator": {
+            "type": "boolean"
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "policies": {
+            "type": "object",
+            "properties": {
+              "gtlAvailable": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "ltlAvailable": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canPublicNote": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "mentionLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 20
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canInvite": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "inviteLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 0
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "inviteLimitCycle": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10080
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "inviteExpirationTime": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 0
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canManageCustomEmojis": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canManageAvatarDecorations": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canSearchNotes": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canSearchUsers": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canUseTranslator": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canHideAds": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canCreateChannel": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "driveCapacityMb": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 100
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "maxFileSizeMb": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 30
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "alwaysMarkNsfw": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canUpdateBioMedia": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "pinLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 5
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "antennaLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 5
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "wordMuteLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 200
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "webhookLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 3
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "clipLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "noteEachClipsLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 200
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "userListLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "userEachUserListsLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 50
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "rateLimitFactor": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "avatarDecorationLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportAntennas": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportBlocking": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportFollowing": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportMuting": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "canImportUserLists": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "chatAvailability": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "available",
+                      "readonly",
+                      "unavailable"
+                    ],
+                    "default": "available"
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "uploadableFileTypes": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [
+                      "text/*",
+                      "application/json",
+                      "image/*",
+                      "video/*",
+                      "audio/*"
+                    ]
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "noteDraftLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "scheduledNoteLimit": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              },
+              "watermarkAvailable": {
+                "type": "object",
+                "properties": {
+                  "useDefault": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "useDefault",
+                  "priority",
+                  "value"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "roleId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/roles/users",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
+        },
+        "required": [
+          "roleId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:roles",
+      "mutation": false
+    },
+    {
+      "id": "admin/send-email",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "text"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:send-email",
+      "mutation": true
+    },
+    {
+      "id": "admin/server-info",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:server-info",
+      "mutation": false
+    },
+    {
+      "id": "admin/show-moderation-logs",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "userId": {
+            "type": "string",
+            "format": "misskey:id",
+            "nullable": true
+          },
+          "search": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:show-moderation-log",
+      "mutation": false
+    },
+    {
+      "id": "admin/show-user",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:show-user",
+      "mutation": false
+    },
+    {
+      "id": "admin/show-users",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "+follower",
+              "-follower",
+              "+createdAt",
+              "-createdAt",
+              "+updatedAt",
+              "-updatedAt",
+              "+lastActiveDate",
+              "-lastActiveDate"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "all",
+              "alive",
+              "available",
+              "admin",
+              "moderator",
+              "adminOrModerator",
+              "suspended"
+            ],
+            "default": "all"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "combined",
+              "local",
+              "remote"
+            ],
+            "default": "combined"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "hostname": {
+            "type": "string",
+            "nullable": true,
+            "default": null,
+            "description": "The local host is represented with `null`."
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:show-user",
+      "mutation": false
+    },
+    {
+      "id": "admin/suspend-user",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:suspend-user",
+      "mutation": true
+    },
+    {
+      "id": "admin/system-webhook/create",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "abuseReport",
+                "abuseReportResolved",
+                "userCreated",
+                "inactiveModeratorsWarning",
+                "inactiveModeratorsInvitationOnlyChanged"
+              ]
+            }
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "secret": {
+            "type": "string",
+            "maxLength": 1024,
+            "default": ""
+          }
+        },
+        "required": [
+          "isActive",
+          "name",
+          "on",
+          "url"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:system-webhook",
+      "mutation": true
+    },
+    {
+      "id": "admin/system-webhook/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:system-webhook",
+      "mutation": true
+    },
+    {
+      "id": "admin/system-webhook/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "abuseReport",
+                "abuseReportResolved",
+                "userCreated",
+                "inactiveModeratorsWarning",
+                "inactiveModeratorsInvitationOnlyChanged"
+              ]
+            }
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:system-webhook",
+      "mutation": true
+    },
+    {
+      "id": "admin/system-webhook/show",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:system-webhook",
+      "mutation": true
+    },
+    {
+      "id": "admin/system-webhook/test",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "webhookId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "abuseReport",
+              "abuseReportResolved",
+              "userCreated",
+              "inactiveModeratorsWarning",
+              "inactiveModeratorsInvitationOnlyChanged"
+            ]
+          },
+          "override": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "nullable": false
+              },
+              "secret": {
+                "type": "string",
+                "nullable": false
+              }
+            }
+          }
+        },
+        "required": [
+          "webhookId",
+          "type"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:system-webhook",
+      "mutation": true
+    },
+    {
+      "id": "admin/system-webhook/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "abuseReport",
+                "abuseReportResolved",
+                "userCreated",
+                "inactiveModeratorsWarning",
+                "inactiveModeratorsInvitationOnlyChanged"
+              ]
+            }
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "secret": {
+            "type": "string",
+            "maxLength": 1024,
+            "default": ""
+          }
+        },
+        "required": [
+          "id",
+          "isActive",
+          "name",
+          "on",
+          "url"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:system-webhook",
+      "mutation": true
+    },
+    {
+      "id": "admin/unset-mfa",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:unset-mfa",
+      "mutation": true
+    },
+    {
+      "id": "admin/unset-user-avatar",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:unset-user-avatar",
+      "mutation": true
+    },
+    {
+      "id": "admin/unset-user-banner",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:unset-user-banner",
+      "mutation": true
+    },
+    {
+      "id": "admin/unsuspend-user",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:unsuspend-user",
+      "mutation": true
+    },
+    {
+      "id": "admin/update-abuse-user-report",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "moderationNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reportId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:resolve-abuse-user-report",
+      "mutation": true
+    },
+    {
+      "id": "admin/update-meta",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "disableRegistration": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "pinnedUsers": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "hiddenTags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockedHosts": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "sensitiveWords": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prohibitedWords": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prohibitedWordsForNameOfUser": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "themeColor": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "mascotImageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "bannerUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "serverErrorImageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "infoImageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "notFoundImageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "app192IconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "app512IconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "backgroundImageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "logoImageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "defaultLightTheme": {
+            "type": "string",
+            "nullable": true
+          },
+          "defaultDarkTheme": {
+            "type": "string",
+            "nullable": true
+          },
+          "clientOptions": {
+            "type": "object",
+            "nullable": false,
+            "properties": {
+              "entrancePageStyle": {
+                "type": "string",
+                "nullable": false,
+                "enum": [
+                  "classic",
+                  "simple"
+                ]
+              },
+              "showTimelineForVisitor": {
+                "type": "boolean",
+                "nullable": false
+              },
+              "showActivitiesForVisitor": {
+                "type": "boolean",
+                "nullable": false
+              }
+            }
+          },
+          "cacheRemoteFiles": {
+            "type": "boolean"
+          },
+          "cacheRemoteSensitiveFiles": {
+            "type": "boolean"
+          },
+          "emailRequiredForSignup": {
+            "type": "boolean"
+          },
+          "enableHcaptcha": {
+            "type": "boolean"
+          },
+          "hcaptchaSiteKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "hcaptchaSecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableMcaptcha": {
+            "type": "boolean"
+          },
+          "mcaptchaSiteKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "mcaptchaInstanceUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mcaptchaSecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableRecaptcha": {
+            "type": "boolean"
+          },
+          "recaptchaSiteKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "recaptchaSecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableTurnstile": {
+            "type": "boolean"
+          },
+          "turnstileSiteKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "turnstileSecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableTestcaptcha": {
+            "type": "boolean"
+          },
+          "googleAnalyticsMeasurementId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sensitiveMediaDetection": {
+            "type": "string",
+            "enum": [
+              "none",
+              "all",
+              "local",
+              "remote"
+            ]
+          },
+          "sensitiveMediaDetectionSensitivity": {
+            "type": "string",
+            "enum": [
+              "medium",
+              "low",
+              "high",
+              "veryLow",
+              "veryHigh"
+            ]
+          },
+          "setSensitiveFlagAutomatically": {
+            "type": "boolean"
+          },
+          "enableSensitiveMediaDetectionForVideos": {
+            "type": "boolean"
+          },
+          "sensitiveMediaDetectionApiUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "sensitiveMediaDetectionApiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sensitiveMediaDetectionTimeout": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sensitiveMediaDetectionMaxImagesPerRequest": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "maintainerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "maintainerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "langs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deeplAuthKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "deeplIsPro": {
+            "type": "boolean"
+          },
+          "enableEmail": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "smtpSecure": {
+            "type": "boolean"
+          },
+          "smtpHost": {
+            "type": "string",
+            "nullable": true
+          },
+          "smtpPort": {
+            "type": "integer",
+            "nullable": true
+          },
+          "smtpUser": {
+            "type": "string",
+            "nullable": true
+          },
+          "smtpPass": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableServiceWorker": {
+            "type": "boolean"
+          },
+          "swPublicKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "swPrivateKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "tosUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "repositoryUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "feedbackUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "impressumUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "privacyPolicyUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "inquiryUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "useObjectStorage": {
+            "type": "boolean"
+          },
+          "objectStorageBaseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectStorageBucket": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectStoragePrefix": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9-._]*$",
+            "nullable": true
+          },
+          "objectStorageEndpoint": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectStorageRegion": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectStoragePort": {
+            "type": "integer",
+            "nullable": true
+          },
+          "objectStorageAccessKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectStorageSecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectStorageUseSSL": {
+            "type": "boolean"
+          },
+          "objectStorageUseProxy": {
+            "type": "boolean"
+          },
+          "objectStorageSetPublicRead": {
+            "type": "boolean"
+          },
+          "objectStorageS3ForcePathStyle": {
+            "type": "boolean"
+          },
+          "enableIpLogging": {
+            "type": "boolean"
+          },
+          "enableActiveEmailValidation": {
+            "type": "boolean"
+          },
+          "enableVerifymailApi": {
+            "type": "boolean"
+          },
+          "verifymailAuthKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableTruemailApi": {
+            "type": "boolean"
+          },
+          "truemailInstance": {
+            "type": "string",
+            "nullable": true
+          },
+          "truemailAuthKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "enableChartsForRemoteUser": {
+            "type": "boolean"
+          },
+          "enableChartsForFederatedInstances": {
+            "type": "boolean"
+          },
+          "enableStatsForFederatedInstances": {
+            "type": "boolean"
+          },
+          "enableServerMachineStats": {
+            "type": "boolean"
+          },
+          "enableIdenticonGeneration": {
+            "type": "boolean"
+          },
+          "serverRules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bannedEmailDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preservedUsernames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "manifestJsonOverride": {
+            "type": "string"
+          },
+          "enableFanoutTimeline": {
+            "type": "boolean"
+          },
+          "enableFanoutTimelineDbFallback": {
+            "type": "boolean"
+          },
+          "perLocalUserUserTimelineCacheMax": {
+            "type": "integer"
+          },
+          "perRemoteUserUserTimelineCacheMax": {
+            "type": "integer"
+          },
+          "perUserHomeTimelineCacheMax": {
+            "type": "integer"
+          },
+          "perUserListTimelineCacheMax": {
+            "type": "integer"
+          },
+          "enableReactionsBuffering": {
+            "type": "boolean"
+          },
+          "notesPerOneAd": {
+            "type": "integer"
+          },
+          "silencedHosts": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "mediaSilencedHosts": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "summalyProxy": {
+            "type": "string",
+            "nullable": true,
+            "description": "[Deprecated] Use \"urlPreviewSummaryProxyUrl\" instead."
+          },
+          "urlPreviewEnabled": {
+            "type": "boolean"
+          },
+          "urlPreviewAllowRedirect": {
+            "type": "boolean"
+          },
+          "urlPreviewTimeout": {
+            "type": "integer"
+          },
+          "urlPreviewMaximumContentLength": {
+            "type": "integer"
+          },
+          "urlPreviewRequireContentLength": {
+            "type": "boolean"
+          },
+          "urlPreviewUserAgent": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlPreviewSummaryProxyUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlPreviewSensitiveList": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "federation": {
+            "type": "string",
+            "enum": [
+              "all",
+              "none",
+              "specified"
+            ]
+          },
+          "federationHosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deliverSuspendedSoftware": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "software": {
+                  "type": "string"
+                },
+                "versionRange": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "software",
+                "versionRange"
+              ]
+            }
+          },
+          "singleUserMode": {
+            "type": "boolean"
+          },
+          "ugcVisibilityForVisitor": {
+            "type": "string",
+            "enum": [
+              "all",
+              "local",
+              "none"
+            ]
+          },
+          "proxyRemoteFiles": {
+            "type": "boolean"
+          },
+          "signToActivityPubGet": {
+            "type": "boolean"
+          },
+          "allowExternalApRedirect": {
+            "type": "boolean"
+          },
+          "enableRemoteNotesCleaning": {
+            "type": "boolean"
+          },
+          "remoteNotesCleaningExpiryDaysForEachNotes": {
+            "type": "number"
+          },
+          "remoteNotesCleaningMaxProcessingDurationInMinutes": {
+            "type": "number"
+          },
+          "showRoleBadgesOfRemoteUsers": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:meta",
+      "mutation": true
+    },
+    {
+      "id": "admin/update-proxy-account",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "nullable": true
+          }
+        }
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:account",
+      "mutation": true
+    },
+    {
+      "id": "admin/update-user-note",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "text"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": true,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:user-note",
+      "mutation": true
+    },
+    {
+      "id": "admin/verification/approve",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "approvedType": {
+            "type": "string",
+            "enum": [
+              "actor",
+              "singer",
+              "model",
+              "contentCreator",
+              "novelist",
+              "other",
+              null
+            ],
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 512,
+            "nullable": true
+          }
+        },
+        "required": [
+          "applicationId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/verification/document",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "applicationId",
+          "documentId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:show-user",
+      "mutation": false
+    },
+    {
+      "id": "admin/verification/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "revoked",
+              "all"
+            ],
+            "default": "pending"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "actor",
+              "singer",
+              "model",
+              "contentCreator",
+              "novelist",
+              "other",
+              null
+            ],
+            "nullable": true,
+            "default": null
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "default": 0
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:show-user",
+      "mutation": false
+    },
+    {
+      "id": "admin/verification/reject",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 512,
+            "nullable": true
+          }
+        },
+        "required": [
+          "applicationId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/verification/revoke",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 512,
+            "nullable": true
+          }
+        },
+        "required": [
+          "applicationId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:admin:roles",
+      "mutation": true
+    },
+    {
+      "id": "admin/verification/show",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "applicationId"
+        ]
+      },
+      "requireAdmin": true,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:admin:show-user",
+      "mutation": false
+    },
+    {
+      "id": "v2/admin/emoji/list",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "updatedAtFrom": {
+                "type": "string"
+              },
+              "updatedAtTo": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "uri": {
+                "type": "string"
+              },
+              "publicUrl": {
+                "type": "string"
+              },
+              "originalUrl": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "aliases": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "license": {
+                "type": "string"
+              },
+              "isSensitive": {
+                "type": "boolean"
+              },
+              "localOnly": {
+                "type": "boolean"
+              },
+              "hostType": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "remote",
+                  "all"
+                ],
+                "default": "all"
+              },
+              "roleIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "misskey:id"
+                }
+              }
+            }
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "page": {
+            "type": "integer"
+          },
+          "sortKeys": {
+            "type": "array",
+            "default": [
+              "-id"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "+id",
+                "-id",
+                "+updatedAt",
+                "-updatedAt",
+                "+name",
+                "-name",
+                "+host",
+                "-host",
+                "+uri",
+                "-uri",
+                "+publicUrl",
+                "-publicUrl",
+                "+type",
+                "-type",
+                "+aliases",
+                "-aliases",
+                "+category",
+                "-category",
+                "+license",
+                "-license",
+                "+isSensitive",
+                "-isSensitive",
+                "+localOnly",
+                "-localOnly",
+                "+roleIdsThatCanBeUsedThisEmojiAsReaction",
+                "-roleIdsThatCanBeUsedThisEmojiAsReaction"
+              ]
+            }
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "canManageCustomEmojis",
+      "kind": "read:admin:emoji",
+      "mutation": false
+    },
+    {
+      "id": "stats",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "get-online-users-count",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "federation/instances",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "nullable": true,
+            "description": "Omit or use `null` to not filter by host."
+          },
+          "blocked": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "notResponding": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "suspended": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "silenced": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "federating": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "subscribing": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "publishing": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 30
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          },
+          "sort": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "+pubSub",
+              "-pubSub",
+              "+notes",
+              "-notes",
+              "+users",
+              "-users",
+              "+following",
+              "-following",
+              "+followers",
+              "-followers",
+              "+firstRetrievedAt",
+              "-firstRetrievedAt",
+              "+latestRequestReceivedAt",
+              "-latestRequestReceivedAt",
+              null
+            ]
+          }
+        },
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "federation/show-instance",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "federation/update-remote-user",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": true
+    },
+    {
+      "id": "roles/users",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "untilId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "sinceDate": {
+            "type": "integer"
+          },
+          "untilDate": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
+        },
+        "required": [
+          "roleId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "charts/users",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "span": {
+            "type": "string",
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 30
+          },
+          "offset": {
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "span"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "charts/notes",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "span": {
+            "type": "string",
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 30
+          },
+          "offset": {
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "span"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "charts/active-users",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "span": {
+            "type": "string",
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 30
+          },
+          "offset": {
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "span"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "charts/ap-request",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "span": {
+            "type": "string",
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 30
+          },
+          "offset": {
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "span"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "retention",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "server-info",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": false
+    },
+    {
+      "id": "drive/files/show",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "fileId": {
+                "type": "string",
+                "format": "misskey:id"
+              }
+            },
+            "required": [
+              "fileId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ]
+          }
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "read:drive",
+      "mutation": false
+    },
+    {
+      "id": "drive/files/update",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "misskey:id"
+          },
+          "folderId": {
+            "type": "string",
+            "format": "misskey:id",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSensitive": {
+            "type": "boolean"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "fileId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:drive",
+      "mutation": true
+    },
+    {
+      "id": "drive/files/delete",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "misskey:id"
+          }
+        },
+        "required": [
+          "fileId"
+        ]
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": false,
+      "requiredRolePolicy": "",
+      "kind": "write:drive",
+      "mutation": true
+    },
+    {
+      "id": "export-custom-emojis",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "requireAdmin": false,
+      "requireModerator": false,
+      "secure": true,
+      "requiredRolePolicy": "",
+      "kind": "",
+      "mutation": true
+    }
+  ],
+  "pageCalls": {
+    "pages/admin/abuse-report/notification-recipient.editor.vue": [
+      "admin/abuse-report/notification-recipient/create",
+      "admin/abuse-report/notification-recipient/update",
+      "admin/system-webhook/list",
+      "admin/show-users",
+      "admin/abuse-report/notification-recipient/show"
+    ],
+    "pages/admin/abuse-report/notification-recipient.item.vue": [],
+    "pages/admin/abuse-report/notification-recipient.vue": [
+      "admin/abuse-report/notification-recipient/delete",
+      "admin/abuse-report/notification-recipient/list"
+    ],
+    "pages/admin/abuses.vue": [],
+    "pages/admin/ads.vue": [
+      "admin/ad/list",
+      "admin/ad/delete",
+      "admin/ad/create",
+      "admin/ad/update"
+    ],
+    "pages/admin/announcements.vue": [
+      "admin/announcements/list",
+      "admin/announcements/delete",
+      "admin/announcements/update",
+      "admin/announcements/create"
+    ],
+    "pages/admin/bot-protection.vue": [
+      "admin/captcha/current",
+      "admin/captcha/save"
+    ],
+    "pages/admin/branding.vue": [
+      "admin/meta",
+      "admin/update-meta"
+    ],
+    "pages/admin/custom-emojis-manager.impl.ts": [],
+    "pages/admin/custom-emojis-manager.local.list.logs.vue": [],
+    "pages/admin/custom-emojis-manager.local.list.search.vue": [],
+    "pages/admin/custom-emojis-manager.local.list.vue": [
+      "admin/emoji/update",
+      "admin/emoji/delete-bulk",
+      "v2/admin/emoji/list"
+    ],
+    "pages/admin/custom-emojis-manager.logs.vue": [],
+    "pages/admin/custom-emojis-manager.register.vue": [
+      "admin/emoji/add",
+      "drive/folders"
+    ],
+    "pages/admin/custom-emojis-manager.remote.vue": [
+      "admin/emoji/copy",
+      "v2/admin/emoji/list"
+    ],
+    "pages/admin/custom-emojis-manager2.stories.impl.ts": [],
+    "pages/admin/custom-emojis-manager2.vue": [],
+    "pages/admin/database.vue": [
+      "admin/get-table-stats"
+    ],
+    "pages/admin/email-settings.vue": [
+      "admin/meta",
+      "admin/send-email",
+      "admin/update-meta"
+    ],
+    "pages/admin/external-services.vue": [
+      "admin/meta",
+      "admin/update-meta"
+    ],
+    "pages/admin/federation-job-queue.chart.chart.vue": [],
+    "pages/admin/federation-job-queue.chart.vue": [],
+    "pages/admin/federation-job-queue.vue": [
+      "admin/queue/clear",
+      "admin/queue/promote-jobs"
+    ],
+    "pages/admin/federation.vue": [],
+    "pages/admin/files.vue": [
+      "admin/drive/clean-remote-files"
+    ],
+    "pages/admin/index.vue": [
+      "admin/abuse-user-reports",
+      "admin/invite/create"
+    ],
+    "pages/admin/invites.vue": [
+      "admin/invite/create"
+    ],
+    "pages/admin/job-queue.chart.vue": [],
+    "pages/admin/job-queue.job.vue": [
+      "admin/queue/retry-job",
+      "admin/queue/remove-job",
+      "admin/queue/show-job-logs"
+    ],
+    "pages/admin/job-queue.vue": [
+      "admin/queue/queues",
+      "admin/queue/queue-stats",
+      "admin/queue/jobs",
+      "admin/queue/clear",
+      "admin/queue/promote-jobs",
+      "admin/queue/pause",
+      "admin/queue/resume",
+      "admin/queue/show-job"
+    ],
+    "pages/admin/moderation.vue": [
+      "admin/meta",
+      "admin/update-meta"
+    ],
+    "pages/admin/modlog.ModLog.vue": [],
+    "pages/admin/modlog.vue": [],
+    "pages/admin/object-storage.vue": [
+      "admin/meta",
+      "admin/update-meta"
+    ],
+    "pages/admin/overview.active-users.vue": [
+      "charts/active-users"
+    ],
+    "pages/admin/overview.ap-requests.stories.impl.ts": [],
+    "pages/admin/overview.ap-requests.vue": [
+      "charts/ap-request"
+    ],
+    "pages/admin/overview.federation.vue": [],
+    "pages/admin/overview.heatmap.vue": [],
+    "pages/admin/overview.instances.vue": [
+      "federation/instances"
+    ],
+    "pages/admin/overview.moderators.vue": [
+      "admin/show-users"
+    ],
+    "pages/admin/overview.pie.vue": [],
+    "pages/admin/overview.queue.chart.vue": [],
+    "pages/admin/overview.queue.vue": [],
+    "pages/admin/overview.retention.vue": [],
+    "pages/admin/overview.stats.vue": [
+      "stats"
+    ],
+    "pages/admin/overview.users.vue": [
+      "admin/show-users"
+    ],
+    "pages/admin/overview.vue": [
+      "admin/drive/files",
+      "admin/server-info",
+      "admin/show-users",
+      "federation/instances"
+    ],
+    "pages/admin/performance.vue": [
+      "admin/meta",
+      "admin/update-meta"
+    ],
+    "pages/admin/relays.vue": [
+      "admin/relays/add",
+      "admin/relays/remove",
+      "admin/relays/list"
+    ],
+    "pages/admin/roles.edit.vue": [
+      "admin/roles/show",
+      "admin/roles/update",
+      "admin/roles/create"
+    ],
+    "pages/admin/roles.editor.vue": [],
+    "pages/admin/roles.policy-editor.folder.vue": [],
+    "pages/admin/roles.policy-editor.vue": [],
+    "pages/admin/roles.role.vue": [
+      "admin/roles/show",
+      "admin/roles/delete",
+      "admin/roles/assign",
+      "admin/roles/unassign"
+    ],
+    "pages/admin/roles.vue": [
+      "admin/roles/list",
+      "admin/roles/update-default-policies"
+    ],
+    "pages/admin/RolesEditorFormula.vue": [],
+    "pages/admin/security.vue": [
+      "admin/meta",
+      "admin/update-meta"
+    ],
+    "pages/admin/server-rules.vue": [
+      "admin/update-meta"
+    ],
+    "pages/admin/settings.vue": [
+      "admin/meta",
+      "users/show",
+      "admin/update-meta",
+      "admin/update-proxy-account"
+    ],
+    "pages/admin/system-webhook.item.vue": [],
+    "pages/admin/system-webhook.vue": [
+      "admin/system-webhook/delete",
+      "admin/system-webhook/list"
+    ],
+    "pages/admin/users.vue": [
+      "admin/accounts/create"
+    ],
+    "pages/admin/verification.vue": [
+      "users/show"
+    ],
+    "pages/admin-user.vue": [
+      "users/show",
+      "admin/show-user",
+      "admin/get-user-ips",
+      "admin/update-user-note",
+      "federation/update-remote-user",
+      "admin/reset-password",
+      "admin/unset-mfa",
+      "admin/unset-user-avatar",
+      "admin/unset-user-banner",
+      "admin/delete-all-files-of-a-user",
+      "admin/delete-account",
+      "admin/roles/list",
+      "admin/roles/assign",
+      "admin/roles/unassign",
+      "ap/get"
+    ],
+    "pages/admin-file.vue": [
+      "drive/files/show",
+      "admin/drive/show-file"
+    ],
+    "pages/custom-emojis-manager.vue": [
+      "admin/emoji/copy",
+      "export-custom-emojis",
+      "admin/emoji/import-zip",
+      "admin/emoji/set-category-bulk",
+      "admin/emoji/set-license-bulk",
+      "admin/emoji/add-aliases-bulk",
+      "admin/emoji/remove-aliases-bulk",
+      "admin/emoji/set-aliases-bulk",
+      "admin/emoji/delete-bulk"
+    ],
+    "pages/avatar-decorations.vue": [
+      "admin/avatar-decorations/list"
+    ]
+  }
+}

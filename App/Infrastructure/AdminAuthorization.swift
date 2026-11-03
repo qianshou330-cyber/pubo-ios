@@ -40,7 +40,7 @@ import PUBOCore
             throw error
         }
     }
-    static func canManage(_ user: Record) -> Bool { user["isAdmin"].bool || user["isModerator"].bool }
+    static func canManage(_ user: Record) -> Bool { user["isAdmin"].bool || user["isModerator"].bool || user["policies"]["canManageCustomEmojis"].bool || user["policies"]["canManageAvatarDecorations"].bool }
 }
 
 struct AdminGate<Content: View>: View {

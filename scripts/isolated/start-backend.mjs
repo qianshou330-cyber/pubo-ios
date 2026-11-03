@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { verifyAdminContracts } from './admin-contract.mjs';
 
 if (process.env.GITHUB_ACTIONS !== 'true' || process.env.NODE_ENV !== 'test') throw new Error('Disposable test runner required');
 const root = join(process.env.RUNNER_TEMP, 'pubo-isolated-backend/packages/backend');
@@ -28,6 +29,7 @@ await api('admin/roles/update-default-policies',{policies:{...before.policies,ca
 const announcement=await api('admin/announcements/create',{title:'隔离原生公告',text:'Synthetic announcement',imageUrl:null,display:'marquee'},owner.token);
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
+await verifyAdminContracts(api,owner,alice,join(process.env.GITHUB_WORKSPACE,'build/integration-admin-contract.json'));
 await api('i/update',{name:'原生验收用户',chatScope:'mutual'},alice.token);
 await api('i/update',{name:'隔离测试朋友',chatScope:'mutual'},bob.token);
 const note=await api('notes/create',{text:'PUBO joint proof #PUBO',visibility:'public'},alice.token);
@@ -69,7 +71,8 @@ const control=createServer(async(req,res)=>{
    const folders=await api('drive/folders',{limit:100},alice.token);
    const clips=await api('clips/list',{limit:100},alice.token);
    const privacy=await api('i',{},alice.token); const invites=await api('invite/list',{limit:100},alice.token); const mutes=await api('mute/list',{limit:100},alice.token);
-   const daily={privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
+   const adminAnnouncements=await api('admin/announcements/list',{status:'all',limit:100},owner.token);
+   const daily={adminAnnouncementCreated:adminAnnouncements.some(x=>x.title==='Native administrator announcement'&&x.text==='Native administrator body'),privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
    const reacted=reactionMessage.reactions.some(x=>x.user.id===alice.id&&x.reaction.replace(/\ufe0f/g,'')==='❤');
    res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
   }

@@ -2,6 +2,23 @@ import XCTest
 
 /// Exercises the native UI against the pinned real backend on this runner's loopback network.
 @MainActor final class PUBOIntegrationTests: XCTestCase {
+    func testRealNativeAdminCreatesAnnouncement() async throws {
+        let data = try await context(); let app = XCUIApplication(); app.launchArguments = ["--isolated-backend"]
+        app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
+        let entry = app.buttons["admin.entry"]; for _ in 0..<7 where !entry.isHittable { app.swipeUp() }; entry.tap()
+        XCTAssertTrue(app.buttons["admin.authorize"].waitForExistence(timeout: 5)); app.buttons["admin.authorize"].tap()
+        let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 10)); search.tap(); search.typeText("公告")
+        app.buttons["admin.operation.admin/announcements/create"].tap()
+        for (field, content) in [("text", "Native administrator body"), ("title", "Native administrator announcement")] {
+            let target = app.descendants(matching: .any).matching(identifier: "admin.field." + field).firstMatch
+            for _ in 0..<10 where !target.isHittable { app.swipeUp() }; XCTAssertTrue(target.isHittable); target.tap(); target.typeText(content)
+        }
+        let submit = app.buttons["admin.submit"]; for _ in 0..<7 where !submit.isHittable { app.swipeUp() }; submit.tap()
+        XCTAssertTrue(app.buttons["确认提交"].waitForExistence(timeout: 5)); app.buttons["确认提交"].tap()
+        let result = app.staticTexts["admin.status"]; for _ in 0..<10 where !result.isHittable { app.swipeDown() }; XCTAssertTrue(result.waitForExistence(timeout: 10)); XCTAssertTrue(result.label.contains("已受理"))
+        let saved = try await proof("adminAnnouncementCreated"); XCTAssertTrue(saved)
+    }
     private func openAccountSettings(_ app: XCUIApplication) {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
         let target = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !target.isHittable { app.swipeUp() }; XCTAssertTrue(target.isHittable); target.tap()
