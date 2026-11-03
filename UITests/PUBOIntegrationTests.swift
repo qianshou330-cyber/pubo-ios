@@ -101,11 +101,13 @@ import XCTest
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
     func testRealSearchAndFavorite() async throws {
-        let app = launch(try await context())
+        let data = try await context(); let app = launch(data)
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
         app.buttons["搜索"].tap()
         let field = app.textFields["search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
-        guard app.staticTexts["PUBO joint proof #PUBO"].waitForExistence(timeout: 15) else { capture(app,"joint-search-failure"); XCTFail("Search must return the real seeded post"); return }
+        let result = app.buttons["note.open." + data["noteId"]!]
+        guard result.waitForExistence(timeout: 15) else { capture(app,"joint-search-failure"); XCTFail("Search must return the real seeded post ID"); return }
+        XCTAssertEqual(result.label, "PUBO joint proof #PUBO")
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 10)); capture(app,"joint-real-search-favorite")
         let saved = try await proof("favorite"); XCTAssertTrue(saved)
