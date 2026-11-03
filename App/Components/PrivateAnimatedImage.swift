@@ -120,6 +120,10 @@ private struct GIFSurface: UIViewRepresentable {
     let identifier: String
     let open: (() -> Void)?
     func makeUIView(context: Context) -> ProtectedGIFImageView { ProtectedGIFImageView(frame: .zero) }
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: ProtectedGIFImageView, context: Context) -> CGSize? {
+        // UIKit's image intrinsic size must not override the conversation bubble's bounds.
+        CGSize(width: proposal.width ?? 240, height: proposal.height ?? 220)
+    }
     func updateUIView(_ view: ProtectedGIFImageView, context: Context) { view.configure(image, playing: playing, identifier: identifier, open: open) }
     static func dismantleUIView(_ view: ProtectedGIFImageView, coordinator: ()) { view.clear() }
 }
