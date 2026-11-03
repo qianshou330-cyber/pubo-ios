@@ -11,6 +11,8 @@ struct ChartSongRow: View {
     @State private var progress: CGFloat = 1
     @State private var highlight = false
     @State private var transitioning = false
+    @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 14
+    @ScaledMetric(relativeTo: .caption2) private var artistSize: CGFloat = 11
     private var movement: ChartMovement { ChartMovement(row) }
     var body: some View {
         HStack(spacing: 8) {
@@ -19,11 +21,11 @@ struct ChartSongRow: View {
                     Text("\(change.from)").offset(y: CGFloat(change.offset) * progress).opacity(1 - progress)
                     Text("\(change.to)").offset(y: -CGFloat(change.offset) * (1 - progress)).opacity(progress)
                 } else { Text("\(row["rank"].int)") }
-            }.font(.system(size: 14, weight: .bold)).monospacedDigit().frame(minWidth: 24).accessibilityHidden(true)
+            }.font(.system(size: titleSize, weight: .bold)).monospacedDigit().frame(minWidth: 24).accessibilityHidden(true)
             if !compact, let url = safeMediaURL(row["albumCoverUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Image(systemName: "music.note") }.frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true) }
             VStack(alignment: .leading, spacing: 2) {
-                Text(row["title"].string ?? "").font(.system(size: 14, weight: .medium)).lineLimit(compact ? 1 : 2)
-                Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.system(size: 11)).foregroundStyle(PUBOTheme.secondary).lineLimit(compact ? 1 : 2)
+                Text(row["title"].string ?? "").font(.system(size: titleSize, weight: .medium)).lineLimit(compact ? 1 : 2)
+                Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.system(size: artistSize)).foregroundStyle(PUBOTheme.secondary).lineLimit(compact ? 1 : 2)
             }
             Spacer(minLength: 4)
             Text(movement.label).font(.caption).foregroundStyle(movement.direction > 0 ? .green : movement.direction < 0 ? .red : PUBOTheme.secondary)
@@ -180,7 +182,7 @@ struct ChartPeriod: View {
     let chart: JSONValue
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let period = chart["sourceDate"].string ?? chart["sourcePeriod"].string { Text("来源期次：" + (period.contains("T") ? ChartClock.korean(period) ?? period : period)) }
+            if let period = chart["sourcePeriod"].string ?? chart["sourceDate"].string { Text("来源期次：" + (period.contains("T") ? ChartClock.korean(period) ?? period : period)) }
             else if let updated = ChartClock.korean(chart["sourceUpdatedAt"].string) { Text("来源更新时间：" + updated) }
             else { Text("来源未提供明确期次") }
             if let observed = ChartClock.korean(chart["observedAt"].string) { Text("本站观察时间：" + observed) }
@@ -243,8 +245,12 @@ struct ChartHistoryView: View {
             NavigationLink("查看完整榜单") { ChartDetailView(chartKey: chartKey) }
           }.padding(16)
         }.background(PUBOTheme.panel).puboScreen().navigationTitle("歌曲记录").navigationBarTitleDisplayMode(.inline)
-            .task { chart = initialChart; await load() }
-            .task { if initialChart.isNull { await loadMetadata() } }
+            .task {
+                chart = initialChart
+                async let history: Void = load()
+                if initialChart.isNull { await loadMetadata() }
+                await history
+            }
     }
     private func statistic(_ title: String, _ value: String) -> some View {
         VStack(spacing: 6) { Text(title).font(.caption).foregroundStyle(PUBOTheme.secondary); Text(value).font(.title2.bold()).monospacedDigit() }

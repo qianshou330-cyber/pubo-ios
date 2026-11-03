@@ -80,7 +80,7 @@ struct AuthView: View {
                     policyLinks
                     HomeAnnouncements(refreshID: 0) { homePath.append($0) }
                     HomeChartPanel(refreshID: 0) { destination in
-                        if case .history(let key, let song) = destination { songSelection = ChartSongSelection(key: key, song: song) }
+                        if case .history(let key, let song, let chart) = destination { songSelection = ChartSongSelection(key: key, song: song, chart: chart) }
                         else { homePath.append(destination) }
                     }
                     NavigationLink("查看全部站内公告") { AnnouncementsView() }

@@ -60,6 +60,7 @@ struct PUBOButtonStyle: ButtonStyle {
 extension View {
     func puboScreen() -> some View {
         foregroundStyle(PUBOTheme.text).tint(PUBOTheme.accent)
+            .modifier(NoteCardNavigation())
             .background(PUBOTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)

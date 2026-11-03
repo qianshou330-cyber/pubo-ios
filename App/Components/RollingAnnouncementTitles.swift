@@ -18,16 +18,19 @@ struct RollingAnnouncementTitles: View {
     @State private var elapsed: TimeInterval = 0
     @State private var hovered = false
     @FocusState private var focused: Bool
+    @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 14
     private var staticMode: Bool { reduceMotion || voiceOver || ProcessInfo.processInfo.arguments.contains("--reduce-motion") }
     private var paused: Bool { !active || hovered || focused || staticMode }
 
     private func titles(copy: Bool = false) -> some View {
         HStack(spacing: 40) {
             ForEach(entries) { entry in
-                Button { open(entry) } label: {
-                    Text(entry["title"].string ?? "公告").font(.system(size: 14)).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle())
-                }.buttonStyle(.plain).focused($focused)
-                    .accessibilityIdentifier(copy ? "announcement.copy" : "home.announcement." + entry.id)
+                if copy {
+                    Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle()).onTapGesture { open(entry) }
+                } else {
+                    Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle()) }
+                        .buttonStyle(.plain).focused($focused).accessibilityIdentifier("home.announcement." + entry.id)
+                }
             }
         }.padding(.trailing, 40).fixedSize(horizontal: true, vertical: false).accessibilityHidden(copy)
     }

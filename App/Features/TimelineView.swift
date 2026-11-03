@@ -32,7 +32,7 @@ struct TimelineView: View {
             List {
                 HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
                 HomeChartPanel(refreshID: homeRefresh) { destination in
-                    if case .history(let key, let song) = destination { songSelection = ChartSongSelection(key: key, song: song) }
+                    if case .history(let key, let song, let chart) = destination { songSelection = ChartSongSelection(key: key, song: song, chart: chart) }
                     else { homePath.append(destination) }
                 }
                 if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
@@ -115,6 +115,7 @@ struct TimelineView: View {
 }
 
 struct NoteCard: View {
+    @Environment(\.openNoteCard) private var navigate
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
     let note: Record
@@ -137,7 +138,7 @@ struct NoteCard: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
-                NavigationLink { ProfileView(userID: shown.user.id) } label: {
+                Button { navigate(.author(shown.user.id)) } label: {
                     HStack(alignment: .top, spacing: 8) {
                         Avatar(user: shown.user, size: 38)
                         VStack(alignment: .leading, spacing: 2) {
@@ -147,7 +148,7 @@ struct NoteCard: View {
                     }.frame(minHeight: 44)
                 }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
                 Spacer(minLength: 0)
-                NavigationLink { NoteDetailView(noteID: shown.id) } label: {
+                Button { navigate(.note(shown.id)) } label: {
                     HStack(spacing: 4) {
                         if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).lineLimit(1) }
                         Image(systemName: shown["visibility"].string == "followers" ? "lock" : shown["visibility"].string == "specified" ? "envelope" : "globe")
@@ -160,7 +161,7 @@ struct NoteCard: View {
             }
             if shown["cw"].isNull || revealCW {
                 if detail { NoteText(text: shown.text, remoteEmojis: shown["emojis"]) }
-                else { NavigationLink { NoteDetailView(noteID: shown.id) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情").accessibilityIdentifier("note.open." + shown.id) }
+                else { Button { navigate(.note(shown.id)) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情").accessibilityIdentifier("note.open." + shown.id) }
                 ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file, noteID: shown.id) }
                 if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
                 if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }

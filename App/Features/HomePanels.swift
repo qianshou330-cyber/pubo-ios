@@ -10,14 +10,14 @@ enum HomeDestination: Hashable {
     case announcement(JSONValue)
     case announcementEdit(JSONValue)
     case chart(String)
-    case history(String, JSONValue)
+    case history(String, JSONValue, JSONValue)
 
     @ViewBuilder var view: some View {
         switch self {
         case .announcement(let value): AnnouncementDetail(entry: Record(value))
         case .announcementEdit(let value): AnnouncementEditor(original: Record(value)) {}
         case .chart(let key): ChartDetailView(chartKey: key)
-        case .history(let key, let song): ChartHistoryView(chartKey: key, song: song)
+        case .history(let key, let song, let chart): ChartHistoryView(chartKey: key, song: song, initialChart: chart)
         }
     }
 }
@@ -103,7 +103,7 @@ struct AnnouncementDetail: View {
                 if let date = puboDate(shown["createdAt"].string) { Text("创建日期：" + date.formatted()).font(.caption).foregroundStyle(PUBOTheme.secondary) }
                 if let error { ErrorBanner(message: error) }
                 Link("在本站查看公告", destination: Endpoint.origin.appendingPathComponent("announcements/" + entry.id))
-            }.font(.system(size: 14)).frame(maxWidth: .infinity, alignment: .leading).puboCard().padding(12)
+            }.font(.subheadline).frame(maxWidth: .infinity, alignment: .leading).puboCard().padding(12)
         }.puboScreen().navigationTitle("站内公告").task {
             do { let value = Record(try await session.call("announcements/show", ["announcementId": .string(entry.id)])); try Task.checkCancellation(); guard value.id == entry.id else { throw APIError.invalidResponse }; current = value }
             catch { if !Task.isCancelled { self.error = "最新公告读取失败，当前显示进入页面时的内容。" } }
@@ -137,14 +137,14 @@ struct HomeChartPanel: View {
             HStack(spacing: 8) {
                 Image("ChartCover").resizable().scaledToFit().frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("韩国女团音源榜").font(.system(size: 14, weight: .bold))
+                    Text("韩国女团音源榜").font(.subheadline.bold())
                     Text("每小时更新 · " + (chart["label"].string ?? "Melon TOP100")).font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 }
                 Spacer(minLength: 0)
                 Button { open(.chart(key)) } label: { Text("详情").font(.caption).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.accent).accessibilityIdentifier("home.chartDetail")
             }
             ForEach(rows, id: \.songIdentity) { row in
-                Button { open(.history(key, row)) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order", compact: true, change: changes[row.songIdentity]) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text).accessibilityIdentifier("home.song." + row.songIdentity)
+                Button { open(.history(key, row, chart)) } label: { ChartSongRow(row: row, playlist: chart["rankBasis"].string == "playlist_order", compact: true, change: changes[row.songIdentity]) }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.text).accessibilityIdentifier("home.song." + row.songIdentity)
             }
             if rows.isEmpty { Text(loading ? "加载榜单中" : "当前范围暂无可展示歌曲").font(.caption).foregroundStyle(PUBOTheme.secondary).frame(minHeight: 44) }
             HStack(alignment: .center) {
@@ -183,7 +183,11 @@ struct HomeChartPanel: View {
         let id = UUID(); attempt = id; let selected = key; loading = true
         defer { if attempt == id { loading = false } }
         do {
-            let value = try await session.call("music-charts/kpop-summary", ["chartKey": .string(selected)])
+            var fields: [String: JSONValue] = ["chartKey": .string(selected)]
+            #if DEBUG
+            if session.testMode && !session.isolatedBackend && ProcessInfo.processInfo.arguments.contains("--home-motion") { fields["_fixtureRefresh"] = .number(Double(refreshID)) }
+            #endif
+            let value = try await session.call("music-charts/kpop-summary", fields)
             try Task.checkCancellation()
             guard attempt == id, selected == key else { return }
             guard value["selected"]["chartKey"].string == selected else { throw APIError.invalidResponse }

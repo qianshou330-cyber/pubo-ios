@@ -244,7 +244,7 @@ final class PUBOUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["这是隔离测试公告，不会发布到生产。"].exists)
             app.navigationBars.buttons.firstMatch.tap()
             app.buttons["切换榜单"].tap(); app.buttons["Genie 实时榜"].tap()
-            XCTAssertTrue(app.staticTexts["Genie 实时榜"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Genie 实时榜")).firstMatch.waitForExistence(timeout: 5))
             app.buttons["home.chartDetail"].tap()
             XCTAssertTrue(app.navigationBars["Genie 实时榜"].waitForExistence(timeout: 5))
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chart.song.")).firstMatch.tap()
