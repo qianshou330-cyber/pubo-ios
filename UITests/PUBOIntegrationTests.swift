@@ -20,7 +20,10 @@ import XCTest
     func testRealMuteCreateAndRemove() async throws {
         let app = launch(try await context()); openAccountSettings(app); app.buttons["静音与屏蔽"].tap(); app.buttons["添加用户"].tap()
         let field = app.textFields["userPicker.query"]; XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("native_bob")
-        app.staticTexts["隔离测试朋友"].firstMatch.tap(); app.buttons["确认"].tap()
+        app.staticTexts["隔离测试朋友"].firstMatch.tap()
+        let confirmation = app.alerts.buttons["确认"]; XCTAssertTrue(confirmation.waitForExistence(timeout: 10))
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: confirmation); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+        confirmation.tap(); XCTAssertTrue(app.alerts.firstMatch.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.buttons["移除"].waitForExistence(timeout: 10)); let saved = try await proof("muted"); XCTAssertTrue(saved)
         app.buttons["移除"].tap(); app.buttons["确认移除"].tap(); XCTAssertTrue(app.buttons["移除"].waitForNonExistence(timeout: 10)); let removed = try await proof("notMuted"); XCTAssertTrue(removed)
     }
