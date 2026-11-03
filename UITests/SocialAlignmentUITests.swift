@@ -53,7 +53,7 @@ final class SocialAlignmentUITests: XCTestCase {
             XCTAssertTrue((app.textViews["room.input"].value as? String)?.contains("👍") == true)
             app.buttons["room.send"].tap(); XCTAssertTrue(app.staticTexts["👍"].waitForExistence(timeout: 5))
             app.buttons["添加群聊附件"].tap(); XCTAssertTrue(app.buttons["选择本地文件"].exists); XCTAssertTrue(app.buttons["选择图片或视频"].exists); app.buttons["从网盘选择"].tap()
-            XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 5)); capture(app, "social-room-drive-picker-" + (dark ? "dark" : "light")); app.buttons["关闭"].tap()
+            XCTAssertTrue(app.navigationBars["我的网盘"].waitForExistence(timeout: 5)); XCTAssertTrue(app.buttons["取消"].exists); capture(app, "social-room-drive-picker-" + (dark ? "dark" : "light")); app.buttons["取消"].tap()
             app.buttons["关于"].tap(); XCTAssertTrue(app.navigationBars["群聊信息"].waitForExistence(timeout: 5)); app.buttons["关闭"].tap(); app.terminate()
         }
     }
@@ -70,8 +70,9 @@ final class SocialAlignmentUITests: XCTestCase {
     func testPostLimitRetainsDraftAndDisablesSend() {
         let app = launch(); app.buttons["home.compose"].tap()
         let editor = app.textViews["compose.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap(); editor.typeText(String(repeating: "a", count: 61))
+        XCTAssertEqual((editor.value as? String)?.count, 61, "连续键盘输入不能丢字或失焦")
         XCTAssertTrue(app.staticTexts["compose.limit"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["compose.send"].isEnabled)
-        XCTAssertEqual((editor.value as? String)?.count, 61); capture(app, "social-post-limit")
+        capture(app, "social-post-limit")
         editor.typeText(XCUIKeyboardKey.delete.rawValue); XCTAssertTrue(app.buttons["compose.send"].isEnabled)
     }
     func testUncertainRoomSendKeepsDraftAndPreventsDuplicate() {

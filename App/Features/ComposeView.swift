@@ -42,7 +42,8 @@ struct ComposeView: View {
     @State private var choosingRecipient = false
     @State private var editingFile: Record?
     @State private var camera = false
-    @FocusState private var editingText: Bool
+    // UITextView owns focus; SwiftUI FocusState without a focused view resets after the first key.
+    @State private var editingText = false
     private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? channelID ?? "new") }
     private var editable: Bool { !busy && draft.outcome == "ready" }
     private var sendProblem: String? { SendFeedback.limitError(draft.text, limit: max(1, session.meta["maxNoteTextLength"].int > 0 ? session.meta["maxNoteTextLength"].int : 1000), label: "正文") ?? (draft.useCW ? SendFeedback.limitError(draft.cw, limit: 100, label: "内容提示") : nil) }

@@ -45,7 +45,10 @@ struct CursorTextEditor: UIViewRepresentable {
         func textViewDidChange(_ view: UITextView) {
             guard !updating else { return }; parent.text = view.text; parent.selection = view.selectedRange; view.invalidateIntrinsicContentSize()
         }
-        func textViewDidChangeSelection(_ view: UITextView) { if !updating { parent.selection = view.selectedRange } }
+        func textViewDidChangeSelection(_ view: UITextView) {
+            // UIKit may notify selection before the text change. Do not redraw with the old binding.
+            if !updating && view.text == parent.text { parent.selection = view.selectedRange }
+        }
         func textViewDidBeginEditing(_ view: UITextView) { parent.focused?.wrappedValue = true }
         func textViewDidEndEditing(_ view: UITextView) { parent.focused?.wrappedValue = false }
     }
