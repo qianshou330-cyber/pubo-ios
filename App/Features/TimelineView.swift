@@ -132,11 +132,17 @@ struct NoteCard: View {
     @State private var confirmBlock = false
     @State private var selectingClip = false
     @State private var viewingReactions = false
-    private var shown: Record { let n = current ?? note; return n.text.isEmpty && !n["renote"].isNull ? Record(n["renote"]) : n }
+    private var shown: Record { NoteContext.displayed(current ?? note) }
     private var ownDeleteID: String? { note.user.id == session.user?.id ? note.id : shown.user.id == session.user?.id ? shown.id : nil }
     var body: some View { if !session.deletedNoteIDs.contains(note.id) && !session.deletedNoteIDs.contains(shown.id) { content } }
     private var content: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if NoteContext.isRepost(note) {
+                Button { navigate(.author(note.user.id)) } label: { Label(note.user.displayName + " 转发了", systemImage: "arrow.2.squarepath").font(.caption).frame(minHeight: 44) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
+            }
+            if !shown["replyId"].isNull || !shown["reply"]["id"].isNull {
+                NoteContextCard(value: shown["reply"], targetID: shown["replyId"].string, label: "回复")
+            }
             HStack(alignment: .top, spacing: 8) {
                 Button { navigate(.author(shown.user.id)) } label: {
                     HStack(alignment: .top, spacing: 8) {
@@ -164,6 +170,9 @@ struct NoteCard: View {
                 else { Button { navigate(.note(shown.id)) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情").accessibilityIdentifier("note.open." + shown.id) }
                 ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file, noteID: shown.id) }
                 if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
+                if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull {
+                    NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用")
+                }
                 if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
             }
             if session.user != nil { HStack(spacing: 12) {

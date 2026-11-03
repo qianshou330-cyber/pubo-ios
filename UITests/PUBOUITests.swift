@@ -99,7 +99,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap(); app.buttons["群聊"].tap()
         app.buttons["创建群聊"].tap(); let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room")
         app.buttons["保存群聊"].tap(); let room = app.staticTexts["Native room"]; XCTAssertTrue(room.waitForExistence(timeout: 5)); room.tap()
-        let text = app.textFields["群聊消息"]; XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap(); text.typeText("Room proof")
+        let text = app.textViews["room.input"]; XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap(); text.typeText("Room proof")
         app.buttons["发送"].tap(); XCTAssertTrue(app.staticTexts["Room proof"].waitForExistence(timeout: 5)); capture(app, "parity-room-message")
     }
     func testNativeClipCreateAndOpenFeed() {
@@ -167,7 +167,7 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reply-required"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
         app.staticTexts["测试朋友"].firstMatch.tap()
-        let input = app.textFields["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("synthetic message")
+        let input = app.textViews["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("synthetic message")
         app.buttons["chat.send"].tap()
         let error = app.staticTexts["chat.pending.error"]
         XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(error.label.contains("对方未回复之前只能发送一条消息"))
@@ -209,7 +209,7 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--lost-chat-response"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
         XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5)); app.staticTexts["测试朋友"].firstMatch.tap()
-        let input = app.textFields["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("receipt-check")
+        let input = app.textViews["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("receipt-check")
         app.buttons["chat.send"].tap()
         let check = app.buttons["核对发送结果"]; XCTAssertTrue(check.waitForExistence(timeout: 5)); check.tap()
         XCTAssertTrue(check.waitForNonExistence(timeout: 5))
@@ -635,7 +635,7 @@ final class PUBOUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text", "--chat-preview"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
         XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5)); app.staticTexts["测试朋友"].firstMatch.tap()
-        let input = app.textFields["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("draft")
+        let input = app.textViews["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("draft")
         let send = app.buttons["chat.send"]
         XCTAssertTrue(send.isHittable); XCTAssertTrue(send.isEnabled)
         XCTAssertEqual(input.value as? String, "draft")

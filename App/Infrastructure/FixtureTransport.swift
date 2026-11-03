@@ -24,6 +24,7 @@ actor FixtureTransport: HTTPTransport {
     private var roomMessages: [JSONValue] = []
     private var collections: [String: [JSONValue]] = [:]
     private var invitations: [JSONValue] = []
+    private var conversationPreference: JSONValue = .object(["pinnedAt": .null, "isMuted": .bool(false)])
     private var mutedUsers: [JSONValue] = []
     private var driveFolders: [JSONValue] = [.object(["id": .string("fixturefolder"), "name": .string("测试文件夹"), "parentId": .null])]
     init() {
@@ -57,6 +58,22 @@ actor FixtureTransport: HTTPTransport {
             sent = [.object(["id": .string("chatquote003"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": .string("引用历史消息"), "attachments": .array([]), "replyToId": .string("chatold000"), "replyTo": .object(["id": .string("chatold000"), "text": .string("旧正文不应保留"), "revision": .number(1)])])]
             var values = profile.object; values["hasUnreadNotification"] = .bool(true); profile = .object(values)
         }
+        if ProcessInfo.processInfo.arguments.contains("--social-align") {
+            let now = "2026-11-03T10:00:00Z"
+            let origin: JSONValue = .object(["id": .string("socialorigin"), "user": Self.peer, "text": .string("周末一起听歌吧，记得带上耳机。"), "files": .array([]), "createdAt": .string(now), "visibility": .string("public")])
+            posts = [
+                .object(["id": .string("socialquote"), "user": Self.me, "text": .string("好呀，我也准备好了歌单。"), "renoteId": origin["id"], "renote": origin, "createdAt": .string(now), "visibility": .string("public")]),
+                .object(["id": .string("socialreply"), "user": Self.peer, "text": .string("下午三点见。"), "replyId": origin["id"], "reply": origin, "createdAt": .string(now), "visibility": .string("public")]),
+                .object(["id": .string("socialmissing"), "user": Self.me, "text": .string("这条引用的原帖已不可用。"), "renoteId": .string("removed"), "renote": .null, "createdAt": .string(now)]), origin]
+            rooms = [.object(["id": .string("socialroom"), "name": .string("PUBO 音乐交流"), "ownerId": Self.peer["id"], "description": .string("一起分享音乐和日常。"), "isMuted": .bool(false)])]
+            roomMessages = [
+                .object(["id": .string("room0001"), "toRoomId": .string("socialroom"), "fromUserId": Self.peer["id"], "fromUser": Self.peer, "text": .string("欢迎来到音乐交流群。"), "createdAt": .string(now), "reactions": .array([.object(["user": Self.me, "reaction": .string("❤")])])]),
+                .object(["id": .string("room0002"), "toRoomId": .string("socialroom"), "fromUserId": Self.me["id"], "fromUser": Self.me, "text": .string("大家好，很高兴认识你们。"), "createdAt": .string(now), "reactions": .array([])])]
+            sent = [
+                .object(["id": .string("private0001"), "fromUserId": Self.peer["id"], "toUserId": Self.me["id"], "text": .string("你好，欢迎来到 PUBO。"), "createdAt": .string(now), "attachments": .array([]), "reactions": .array([.object(["user": Self.me, "reaction": .string("❤")])])]),
+                .object(["id": .string("private0002"), "fromUserId": Self.me["id"], "toUserId": Self.peer["id"], "text": .string("收到，我们在这里聊天。"), "createdAt": .string(now), "attachments": .array([]), "readState": .string("read")])]
+            var policy = profile["policies"].object; policy["chatAvailability"] = .string("available"); var updated = profile.object; updated["policies"] = .object(policy); profile = .object(updated)
+        }
     }
     private var posts: [JSONValue] = [
         .object(["id": .string("fixturepost002"), "user": FixtureTransport.me, "text": .string("欢迎来到 PUBO。原生界面测试 :test:"), "cw": .null, "files": .array([]), "reactions": .object(["❤️": .number(1)])]),
@@ -79,7 +96,7 @@ actor FixtureTransport: HTTPTransport {
             return (try JSONEncoder().encode(JSONValue.object(["error": .object(["code": .string("PERMISSION_DENIED")])])), HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!)
         }
         switch path {
-        case "meta": response = .object(["name": .string("PUBO"), "disableRegistration": .bool(false), "emailRequiredForSignup": .bool(false)])
+        case "meta": response = .object(["maxNoteTextLength": .number(args.contains("--social-align") ? 60 : 3000), "name": .string("PUBO"), "disableRegistration": .bool(false), "emailRequiredForSignup": .bool(false)])
         case "emojis": response = .object(["emojis": .array([])])
         case "i": response = body["i"].string == "synthetic-second" ? .object(["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]) : profile
         case "verification/show": response = .null
@@ -175,12 +192,25 @@ actor FixtureTransport: HTTPTransport {
             var fields = note.object; fields["localOnly"] = body["localOnly"]; fields["visibleUserIds"] = body["visibleUserIds"]; fields["channelId"] = body["channelId"]
             let complete = JSONValue.object(fields); posts.insert(complete, at: 0); response = .object(["createdNote": complete])
             if args.contains("--lost-post-response") { throw URLError(.networkConnectionLost) }
-        case "i/notifications": response = .array([.object(["id": .string("notice1"), "type": .string("follow"), "user": Self.peer, "isRead": .bool(false)])])
+        case "i/notifications":
+            if args.contains("--social-align") {
+                response = .array([
+                    .object(["id": .string("socialnotice1"), "type": .string("chatRoomInvitationReceived"), "user": Self.peer, "invitation": .object(["room": rooms[0]]), "createdAt": .string("2026-11-03T10:00:00Z")]),
+                    .object(["id": .string("socialnotice2"), "type": .string("achievementEarned"), "achievement": .string("notes1"), "createdAt": .string("2026-11-03T10:00:00Z")]),
+                    .object(["id": .string("socialnotice3"), "type": .string("exportCompleted"), "fileId": .string("fixturefile"), "createdAt": .string("2026-11-03T10:00:00Z")])])
+            } else { response = .array([.object(["id": .string("notice1"), "type": .string("follow"), "user": Self.peer, "isRead": .bool(false)])]) }
+        case "notes/mentions": response = .array([.object(["id": .string("socialdirect"), "user": Self.peer, "text": .string("这是一条指定可见的帖子，不是聊天消息。"), "visibility": .string("specified")])])
+        case "chat/conversation-settings/show": response = conversationPreference
+        case "chat/conversation-settings/update":
+            var values = conversationPreference.object
+            if !body["isMuted"].isNull { values["isMuted"] = body["isMuted"] }
+            if !body["pinned"].isNull { values["pinnedAt"] = body["pinned"].bool ? .string("2026-11-03T10:00:00Z") : .null }
+            conversationPreference = .object(values); response = conversationPreference
         case "chat/conversations": response = .array([.object(["user": Self.peer, "lastMessage": .object(["id": .string("seedmessage"), "text": .string("点击开始聊天")]), "unreadCount": .number(0), "isMuted": .bool(false), "pinnedAt": .null])])
         case "chat/messages/user-timeline": response = .array(sent)
         case "chat/unread-summary": response = .object(["unreadCount": .number(12), "notificationUnreadCount": .number(args.contains("--parity-preview") ? 2 : 0), "hasNotificationLegacyUnread": .bool(false), "hasUnreadRoom": .bool(false)])
         case "chat/messages/context": response = .object(["messages": .array([oldMessage] + sent), "hasOlder": .bool(false), "hasNewer": .bool(true)])
-        case "chat/messages/show": response = sent.first { $0["id"] == body["messageId"] } ?? .null
+        case "chat/messages/show": response = (sent + roomMessages).first { $0["id"] == body["messageId"] } ?? .null
         case "chat/messages/state":
             let ids = body["messageIds"].array.compactMap(\.string)
             let known = sent + (oldMessage.isNull ? [] : [oldMessage])
@@ -205,10 +235,16 @@ actor FixtureTransport: HTTPTransport {
                 if path.hasSuffix("/react") { reactions.append(.object(["user": Self.me, "reaction": .string(reaction)])) }
                 else { reactions.removeAll { $0["user"]["id"] == Self.me["id"] && SocialContent.chatReactionKey($0["reaction"].string ?? "") == reaction } }
                 value["reactions"] = .array(reactions); sent[index] = .object(value)
+            }
+            if let index = roomMessages.firstIndex(where: { $0["id"] == body["messageId"] }) {
+                var value = roomMessages[index].object; var reactions = value["reactions"]?.array ?? []; let key = SocialContent.chatReactionKey(body["reaction"].string ?? "")
+                if path.hasSuffix("/unreact") { reactions.removeAll { $0["user"]["id"] == Self.me["id"] && SocialContent.chatReactionKey($0["reaction"].string ?? "") == key } }
+                else { reactions.append(.object(["user": Self.me, "reaction": .string(key)])) }
+                value["reactions"] = .array(reactions); roomMessages[index] = .object(value)
             }; response = .null
         case "chat/messages/create-to-user":
             if let previous = sent.first(where: { $0["clientMessageId"] == body["clientMessageId"] }) { response = previous }
-            else if !sent.isEmpty || args.contains("--reply-required") { status = 400; response = .object(["error": .object(["code": .string("CHAT_REPLY_REQUIRED")])]) }
+            else if (!sent.isEmpty && !args.contains("--social-align")) || args.contains("--reply-required") { status = 400; response = .object(["error": .object(["code": .string("CHAT_REPLY_REQUIRED")])]) }
             else {
                 counter += 1
                 response = .object(["id": .string("chat\(counter)"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": body["text"], "attachments": .array([]), "clientMessageId": body["clientMessageId"], "readState": .string("unread")])
@@ -216,12 +252,12 @@ actor FixtureTransport: HTTPTransport {
                 if args.contains("--lost-chat-response") { throw URLError(.networkConnectionLost) }
             }
         case "chat/attachments/create", "chat/attachments/import-drive": status = 400; response = .object(["error": .object(["code": .string("CHAT_FIRST_MESSAGE_TEXT_ONLY")])])
-        default: response = parityResponse(path, body) ?? .null
+        default: response = try parityResponse(path, body) ?? .null
         }
         let data = try JSONEncoder().encode(response)
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
     }
-    private func parityResponse(_ path: String, _ body: JSONValue) -> JSONValue? {
+    private func parityResponse(_ path: String, _ body: JSONValue) throws -> JSONValue? {
         if path == "drive" { return .object(["usage": .number(128), "driveUsage": .number(128), "chatUsage": .number(0), "reservedUsage": .number(0), "capacity": .number(104857600)]) }
         if path == "drive/folders/create" {
             counter += 1; let folder: JSONValue = .object(["id": .string("folder\(counter)"), "name": body["name"], "parentId": body["parentId"]]); driveFolders.append(folder); return folder
@@ -245,7 +281,7 @@ actor FixtureTransport: HTTPTransport {
         if path == "chat/rooms/invitations/inbox" { return .array([]) }
         if path == "chat/rooms/show" { return rooms.first { $0["id"] == body["roomId"] } ?? .null }
         if path == "chat/rooms/members" { return .array([.object(["id": .string("membership"), "user": profile])]) }
-        if path == "chat/messages/create-to-room" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("roommessage\(counter)"); value["fromUserId"] = Self.me["id"]; value["fromUser"] = profile; roomMessages.append(.object(value)); return .object(value) }
+        if path == "chat/messages/create-to-room" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("roommessage\(counter)"); value["fromUserId"] = Self.me["id"]; value["fromUser"] = profile; roomMessages.append(.object(value)); if ProcessInfo.processInfo.arguments.contains("--lost-room-response") { throw URLError(.networkConnectionLost) }; return .object(value) }
         if path == "chat/messages/room-timeline" { return .array(roomMessages.filter { $0["toRoomId"] == body["roomId"] }.reversed()) }
         if path == "chat/messages/search" { return .array((sent + roomMessages).filter { ($0["text"].string ?? "").contains(body["query"].string ?? "") }) }
         if path == "notes/featured" { return .array(posts) }

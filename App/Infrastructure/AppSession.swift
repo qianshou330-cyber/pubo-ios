@@ -15,6 +15,7 @@ final class AppSession {
     var error: String?
     var restoring = true
     var selectedTab = 0
+    var activeVoiceAttachmentID: String?
     var streamRevision = 0
     var connectionRevision = 0
     var changedChatIDs = Set<String>()

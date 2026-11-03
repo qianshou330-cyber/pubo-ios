@@ -27,6 +27,7 @@ struct ComposeView: View {
     var channelID: String? = nil
     var onSent: () -> Void
     @State private var draft = ComposeDraft()
+    @State private var textSelection = NSRange(location: 0, length: 0)
     @State private var selected: [PhotosPickerItem] = []
     @State private var showingPhotoPicker = false
     @State private var busy = false
@@ -44,7 +45,8 @@ struct ComposeView: View {
     @FocusState private var editingText: Bool
     private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? channelID ?? "new") }
     private var editable: Bool { !busy && draft.outcome == "ready" }
-    private var canSend: Bool { editable && (draft.visibility != "specified" || !(draft.visibleUsers ?? []).isEmpty) && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
+    private var sendProblem: String? { SendFeedback.limitError(draft.text, limit: max(1, session.meta["maxNoteTextLength"].int > 0 ? session.meta["maxNoteTextLength"].int : 1000), label: "正文") ?? (draft.useCW ? SendFeedback.limitError(draft.cw, limit: 100, label: "内容提示") : nil) }
+    private var canSend: Bool { editable && sendProblem == nil && (draft.visibility != "specified" || !(draft.visibleUsers ?? []).isEmpty) && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
     private var submitTitle: String { draft.scheduledAt != nil ? "定时发布" : replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
     private var submitIcon: String { replyTo != nil ? "arrowshape.turn.up.left" : renote != nil ? "quote.opening" : "paperplane" }
     private var visibilityTitle: String { draft.visibility == "specified" ? "指定用户" : draft.visibility == "home" ? "首页" : draft.visibility == "followers" ? "关注者" : "公开" }
@@ -64,11 +66,12 @@ struct ComposeView: View {
                                 .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 1) }
                                 .disabled(!editable).accessibilityIdentifier("compose.cw")
                         }
-                        TextEditor(text: $draft.text).font(.subheadline).scrollContentBackground(.hidden)
+                        CursorTextEditor(text: $draft.text, selection: $textSelection, focused: Binding(get: { editingText }, set: { editingText = $0 }), enabled: editable, identifier: "compose.text", placeholder: "有什么新鲜事？", minimumHeight: typeSize.isAccessibilitySize ? 210 : 160, maximumHeight: typeSize.isAccessibilitySize ? 350 : 260)
                             .frame(minHeight: typeSize.isAccessibilitySize ? 210 : 160)
                             .overlay(alignment: .topLeading) {
                                 if draft.text.isEmpty { Text(replyTo != nil ? "写下你的回复…" : "有什么新鲜事？").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true) }
-                            }.focused($editingText).disabled(!editable).accessibilityIdentifier("compose.text")
+                            }.disabled(!editable)
+                        if let sendProblem { Text(sendProblem).font(.caption).foregroundStyle(.red).accessibilityIdentifier("compose.limit") }
                         if editable { ComposeSuggestions(text: $draft.text) }
                         if draft.visibility == "specified" {
                             ForEach(draft.visibleUsers ?? []) { user in HStack { Text(user.displayName); Spacer(); Button("移除") { draft.visibleUsers?.removeAll { $0.id == user.id }; save() } } }
@@ -116,7 +119,7 @@ struct ComposeView: View {
                 .onChange(of: draft.useCW) { _, _ in save() }
                 .onChange(of: selected) { _, values in uploadTask = Task { await upload(values) } }
                 .onDisappear { uploadTask?.cancel() }
-                .sheet(isPresented: $choosingEmoji) { ReactionPicker { draft.text += $0 }.environment(\.dynamicTypeSize, typeSize) }
+                .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &draft.text, selection: &textSelection) }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(isPresented: $choosingDrive) { DrivePicker { file in if draft.files.count < 16 && !draft.files.contains(where: { $0.id == file.id }) { draft.files.append(file); save() } }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(isPresented: $choosingRecipient) { UserPicker { user in if !(draft.visibleUsers ?? []).contains(where: { $0.id == user.id }) { draft.visibleUsers = (draft.visibleUsers ?? []) + [user]; save() } } }
                 .sheet(item: $editingFile) { file in AttachmentMetadataEditor(file: file) { current in draft.files = draft.files.map { $0.id == current.id ? current : $0 }; save() } }
@@ -164,8 +167,8 @@ struct ComposeView: View {
             }.disabled(!editable || draft.files.count >= 16).accessibilityLabel("添加图片或视频")
             Button { draft.useCW.toggle() } label: { Image(systemName: "eye.slash").frame(width: 44, height: 44).contentShape(Rectangle()).foregroundStyle(draft.useCW ? PUBOTheme.accent : PUBOTheme.secondary) }
                 .disabled(!editable).accessibilityLabel("内容警告").accessibilityValue(draft.useCW ? "已开启" : "已关闭").accessibilityIdentifier("compose.toggleCW")
-            Button { draft.text += " #"; editingText = true } label: { Image(systemName: "number").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入话题")
-            Button { draft.text += " @"; editingText = true } label: { Image(systemName: "at").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入提及")
+            Button { TextInsertion.insert(" #", into: &draft.text, selection: &textSelection); editingText = true } label: { Image(systemName: "number").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入话题")
+            Button { TextInsertion.insert(" @", into: &draft.text, selection: &textSelection); editingText = true } label: { Image(systemName: "at").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入提及")
             Spacer(minLength: 0)
             if editingText { Button { editingText = false } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("收起键盘") }
             Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(!editable).accessibilityLabel("插入表情")
@@ -208,6 +211,7 @@ struct ComposeView: View {
     }
     private func send() async {
         guard !busy, draft.outcome == "ready" else { return }
+        if let sendProblem { error = sendProblem; return }
         let poll: JSONValue?
         do {
             poll = try draft.poll?.request()

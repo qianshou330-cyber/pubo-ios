@@ -23,10 +23,13 @@ struct ChatListView: View {
                             Avatar(user: user, size: 48)
                             VStack(alignment: .leading) {
                                 HStack { Text(user.displayName).font(.headline); if !row["pinnedAt"].isNull { Image(systemName: "pin.fill").font(.caption) }; if row["isMuted"].bool { Image(systemName: "bell.slash").font(.caption) } }
-                                Text(row["lastMessage"]["text"].string ?? "[附件]").font(.callout).lineLimit(1).foregroundStyle(.secondary)
+                                Text(SendFeedback.messageSummary(row["lastMessage"])).font(.callout).lineLimit(1).foregroundStyle(.secondary)
                             }
                             Spacer()
+                            VStack(alignment: .trailing, spacing: 6) {
+                            if let date = puboDate(row["lastMessage"]["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary) }
                             if row["unreadCount"].int > 0 { Text("\(row["unreadCount"].int)").font(.caption).padding(6).background(row["isMuted"].bool ? Color.gray : PUBOTheme.accent, in: Capsule()).foregroundStyle(.white) }
+                            }
                         }
                     }.padding(14).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius)).puboListRow().swipeActions(edge: .leading) { Button(row["isMuted"].bool ? "恢复提醒" : "免打扰") { Task { await settings(user.id, "isMuted", !row["isMuted"].bool) } }.tint(.gray) }
                     .swipeActions { Button(row["pinnedAt"].isNull ? "置顶" : "取消置顶") { Task { await settings(user.id, "pinned", row["pinnedAt"].isNull) } }.tint(PUBOTheme.accent) }

@@ -55,7 +55,7 @@ import XCTest
         XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["群聊"].tap(); app.buttons["创建群聊"].tap()
         let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room proof"); app.buttons["保存群聊"].tap()
         let room = app.staticTexts["Native room proof"]; XCTAssertTrue(room.waitForExistence(timeout: 10)); room.tap()
-        let text = app.textFields["群聊消息"]; XCTAssertTrue(text.waitForExistence(timeout: 10)); text.tap(); text.typeText("Native room message proof"); app.buttons["发送"].tap()
+        let text = app.textViews["room.input"]; XCTAssertTrue(text.waitForExistence(timeout: 10)); text.tap(); text.typeText("Native room message proof"); app.buttons["发送"].tap()
         XCTAssertTrue(app.staticTexts["Native room message proof"].waitForExistence(timeout: 10)); let saved = try await proof("roomMessageCreated"); XCTAssertTrue(saved); capture(app,"joint-native-room")
     }
     func testRealClipCreation() async throws {
