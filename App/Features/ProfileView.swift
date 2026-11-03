@@ -221,7 +221,7 @@ struct MyAccountView: View {
                     Button(authorizing ? "正在授权…" : "重新授权（保留草稿）") { Task { authorizing = true; defer { authorizing = false }; do { let token = try await authorization.login(api: session.api); try await session.install(token: token); error = "授权已更新，请手动重试原操作。" } catch { self.error = error.localizedDescription } } }.disabled(authorizing)
                     Link("找回密码", destination: Endpoint.origin.appendingPathComponent("reset-password"))
                     Link("更多安全设置", destination: Endpoint.origin.appendingPathComponent("settings/security"))
-                    NavigationLink("删除账号") { DeleteAccountView() }
+                    NavigationLink("删除账号") { AdminGate(management: false) { DeleteAccountView() } }
                     Button("退出登录", role: .destructive) { confirmLogout = true }
                 }
                 .listRowBackground(PUBOTheme.panel)
@@ -243,22 +243,46 @@ struct MyAccountView: View {
 
 struct DeleteAccountView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
     @State private var password = ""
     @State private var otp = ""
     @State private var confirmed = false
     @State private var error: String?
     @State private var busy = false
+    @State private var uncertain = false
     var body: some View {
         Form {
             Text("删除账号会由服务器执行账号清理，无法通过本 App 撤销。请确认后继续。")
             SecureField("输入账号密码", text: $password).textContentType(.password)
             TextField("两步验证代码（如已启用）", text: $otp).textContentType(.oneTimeCode).keyboardType(.numberPad)
             Link("使用网页删除账号", destination: Endpoint.origin.appendingPathComponent("settings/other"))
-            Button("申请永久删除账号", role: .destructive) { confirmed = true }.disabled(password.isEmpty || busy)
+            Button("申请永久删除账号", role: .destructive) { confirmed = true }.disabled(password.isEmpty || busy || uncertain)
+            if uncertain { Text("删除请求结果尚未确认，请先核对账号状态；暂不重复发送。"); Button("核对账号状态") { Task { await reconcile() } }.disabled(busy) }
             if let error { Text(error).foregroundStyle(.red) }
         }.puboForm().navigationTitle("删除账号").confirmationDialog("确认删除你的 PUBO 账号？", isPresented: $confirmed) {
-            Button("确认永久删除", role: .destructive) { Task { busy = true; defer { busy = false; password = ""; otp = "" }; do { var body: [String: JSONValue] = ["password": .string(password)]; if !otp.isEmpty { body["token"] = .string(otp) }; _ = try await session.call("i/delete-account", body, mutation: true); try await session.logout() } catch { self.error = error.localizedDescription } } }
-        }.onDisappear { password = ""; otp = "" }
+            Button("确认永久删除", role: .destructive) { Task { await remove() } }
+        }.privacySensitive().task { uncertain = session.hasPendingAction("delete-account") }
+            .onDisappear { password = ""; otp = "" }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { password = ""; otp = "" } }
+    }
+    private func remove() async {
+        guard !busy, !uncertain else { return }; busy = true
+        defer { busy = false; password = ""; otp = "" }
+        do {
+            var body: [String: JSONValue] = ["password": .string(password)]; if !otp.isEmpty { body["token"] = .string(otp) }
+            try session.markPendingAction("delete-account", pending: true); uncertain = true
+            do { _ = try await session.security.call(session: session, path: "i/delete-account", fields: body, mutation: true) }
+            catch { if let api = error as? APIError, api.code != "OUTCOME_UNKNOWN" { try session.markPendingAction("delete-account", pending: false); uncertain = false }; throw error }
+            try await session.logout()
+        } catch { self.error = error.localizedDescription }
+    }
+    private func reconcile() async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do {
+            let account = try await session.security.call(session: session, path: "i")
+            if account["isDeleted"].bool { try await session.logout() }
+            else { error = "账号当前尚未显示删除状态。请稍后再次核对，或通过支持入口确认；删除锁定继续保留。" }
+        } catch { self.error = error.localizedDescription }
     }
 }
 
