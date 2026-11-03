@@ -1,6 +1,15 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    func testServiceConnectionUsesAccountReauthenticationAndNativeControls() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
+        let entry = app.buttons["服务连接"]; for _ in 0..<5 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
+        let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
+        let create = app.buttons["创建 Webhook"]; XCTAssertTrue(create.waitForExistence(timeout: 5)); create.tap()
+        XCTAssertTrue(app.textFields["接收地址"].waitForExistence(timeout: 5)); XCTAssertTrue(app.secureTextFields["密钥（留空表示不设置）"].exists)
+        capture(app, "account-service-connection-empty-form")
+    }
+
     func testNativeNotificationPreferencesSave() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app); app.buttons["通知偏好"].tap()
         let picker = app.buttons["notification.preference.follow"]; XCTAssertTrue(picker.waitForExistence(timeout: 5))

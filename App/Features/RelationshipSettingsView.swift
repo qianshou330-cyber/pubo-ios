@@ -86,7 +86,7 @@ struct InvitationsView: View {
             if let error { ErrorBanner(message: error) }
         }.puboForm().navigationTitle("邀请").privacySensitive().task { uncertain = session.hasPendingAction("invite-create"); await load() }
             .confirmationDialog("创建一个新的邀请码？", isPresented: $confirming) { Button("确认创建") { Task { await create() } } }
-            .confirmationDialog("删除后此邀请码不能再使用。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) { Button("确认删除", role: .destructive) { if let item = removing { Task { do { _ = try await session.call("invite/delete", ["inviteId": .string(item.id)], mutation: true); rows.removeAll { $0.id == item.id } } catch { self.error = error.localizedDescription } } } } }
+            .alert("删除后此邀请码不能再使用。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), presenting: removing) { item in Button("确认删除", role: .destructive) { Task { do { _ = try await session.call("invite/delete", ["inviteId": .string(item.id)], mutation: true); rows.removeAll { $0.id == item.id } } catch { self.error = error.localizedDescription } } }; Button("取消", role: .cancel) { removing = nil } }
     }
     private func load() async {
         guard !busy else { return }; busy = true; defer { busy = false }

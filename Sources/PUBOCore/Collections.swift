@@ -17,4 +17,12 @@ public enum CollectionFields {
     public static func keywordText(_ value: JSONValue) -> String { value.array.map { $0.array.compactMap(\.string).joined(separator: " ") }.joined(separator: "\n") }
     /// Updates preserve unknown server fields, and never re-send unchanged values.
     public static func changes(_ fields: [String: JSONValue], from baseline: [String: JSONValue]) -> [String: JSONValue] { fields.filter { baseline[$0.key] != $0.value } }
+    /// Legacy endpoints reset these fields when omitted. Preserve the freshly read value.
+    public static func update(_ changes: [String: JSONValue], kind: CollectionKind, latest: JSONValue) -> [String: JSONValue] {
+        var result = changes
+        if kind == .clip, result["description"] == nil { result["description"] = latest["description"] }
+        if kind == .clip, result["description"]?.string == "" { result["description"] = .null }
+        if kind == .gallery, result["isSensitive"] == nil { result["isSensitive"] = .bool(latest["isSensitive"].bool) }
+        return result
+    }
 }

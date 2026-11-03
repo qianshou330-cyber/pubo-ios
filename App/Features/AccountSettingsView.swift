@@ -25,8 +25,9 @@ struct AccountManagerView: View {
             if let error { ErrorBanner(message: error) }
         }.puboForm().navigationTitle("多账号管理").task { session.reloadAccounts() }
             .sheet(isPresented: $adding) { AuthView(addingAccount: true) }
-            .confirmationDialog("清除这个账号的本机凭据、草稿、缓存和待发记录？其他账号保留。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
-                Button("退出这个账号", role: .destructive) { if let account = removing { Task { do { try await session.removeSavedAccount(account.userID) } catch { self.error = error.localizedDescription } } } }
+            .alert("清除这个账号的本机凭据、草稿、缓存和待发记录？其他账号保留。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), presenting: removing) { account in
+                Button("退出这个账号", role: .destructive) { Task { do { try await session.removeSavedAccount(account.userID) } catch { self.error = error.localizedDescription } } }
+                Button("取消", role: .cancel) { removing = nil }
             }
     }
     private func select(_ account: LoginSecret) async {
@@ -44,6 +45,7 @@ struct AccountSettingsView: View {
             NavigationLink("静音与屏蔽") { RelationshipSettingsView() }
             NavigationLink("邮箱、密码与动态验证码") { AdminGate(management: false) { AccountSecurityView() } }
             NavigationLink("授权会话与登录记录") { AdminGate(management: false) { AuthorizedSessionsView() } }
+            NavigationLink("服务连接") { ServiceConnectionsView() }
             NavigationLink("邀请") { InvitationsView() }
             NavigationLink("成就") { AchievementsView() }
             NavigationLink("数据导入导出与迁移") { AdminGate(management: false) { AccountDataView() } }

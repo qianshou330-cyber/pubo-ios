@@ -54,7 +54,7 @@ struct AccountSecurityView: View {
             }
             if let error { ErrorBanner(message: error) }
         }.disabled(busy).puboForm().navigationTitle("邮箱与账号安全").privacySensitive().task { await load() }
-            .confirmationDialog(confirmText, isPresented: Binding(get: { action != nil }, set: { if !$0 { action = nil } })) { Button("确认操作", role: action == "unregister" || action == "regenerate" ? .destructive : nil) { if let selected = action { Task { await perform(selected) } } } }
+            .alert(confirmText, isPresented: Binding(get: { action != nil }, set: { if !$0 { action = nil } }), presenting: action) { selected in Button("确认操作", role: selected == "unregister" || selected == "regenerate" ? .destructive : nil) { Task { await perform(selected) } }; Button("取消", role: .cancel) { action = nil } }
             .onDisappear { clear() }.onChange(of: scenePhase) { _, phase in if phase != .active { clear() } }
     }
     private var confirmText: String { switch action { case "email": return "保存邮箱并向新邮箱发送验证邮件？"; case "password": return "修改此账号的登录密码？"; case "unregister": return "关闭动态验证码会降低账号安全性。"; case "regenerate": return "使旧主令牌会话失效？本机可能需要重新授权。"; default: return "确认更新动态验证码设置？" } }
@@ -95,7 +95,7 @@ struct AuthorizedSessionsView: View {
             Section("登录记录") { ForEach(history) { row in VStack(alignment: .leading) { Text(row["success"].bool ? "登录成功" : "登录失败"); if let date = puboDate(row["createdAt"].string) { Text(date.formatted()).font(.caption) }; Text(row["ip"].string ?? "").font(.caption) } }; if more { Button("加载更多记录") { Task { await loadHistory() } } } }
             if let error { ErrorBanner(message: error) }
         }.disabled(busy).puboForm().navigationTitle("授权会话与登录记录").privacySensitive().task { await loadApps(); await loadHistory() }.refreshable { history = []; await loadApps(); await loadHistory() }
-            .confirmationDialog("撤销后此应用无法继续访问账号；当前 App 也可能受影响。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) { Button("确认撤销", role: .destructive) { if let target = removing { Task { await revoke(target) } } } }
+            .alert("撤销后此应用无法继续访问账号；当前 App 也可能受影响。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), presenting: removing) { target in Button("确认撤销", role: .destructive) { Task { await revoke(target) } }; Button("取消", role: .cancel) { removing = nil } }
             .onDisappear { apps = []; history = [] }
     }
     private func loadApps() async { do { apps = Record.list(try await session.security.call(session: session, path: "i/apps", fields: ["sort": .string("+lastUsedAt")])) } catch { self.error = error.localizedDescription } }

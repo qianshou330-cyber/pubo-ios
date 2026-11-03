@@ -2,6 +2,14 @@ import XCTest
 @testable import PUBOCore
 
 final class CollectionsTests: XCTestCase {
+    func testLegacyUpdatesPreserveUneditedDescriptionAndSensitivity() {
+        let latest: JSONValue = .object(["description": .string("Changed on another device"), "isSensitive": .bool(true)])
+        XCTAssertEqual(CollectionFields.update(["name": .string("New title")], kind: .clip, latest: latest)["description"], latest["description"])
+        XCTAssertEqual(CollectionFields.update(["title": .string("New title")], kind: .gallery, latest: latest)["isSensitive"], .bool(true))
+        XCTAssertEqual(CollectionFields.update(["description": .string("")], kind: .clip, latest: latest)["description"], .null)
+        XCTAssertEqual(CollectionFields.update(["isSensitive": .bool(false)], kind: .gallery, latest: latest)["isSensitive"], .bool(false))
+        XCTAssertNil(CollectionFields.update(["name": .string("New")], kind: .list, latest: latest)["description"])
+    }
     func testAntennaKeywordLinesPreserveAndOrGroups() {
         let result = CollectionFields.keywords("  hello world\n\nPUBO  新闻\r\n  ")
         XCTAssertEqual(result, .array([.strings(["hello", "world"]), .strings(["PUBO", "新闻"])]))

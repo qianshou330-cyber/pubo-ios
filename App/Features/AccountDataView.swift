@@ -50,8 +50,9 @@ struct AccountDataView: View {
             if let error { ErrorBanner(message: error) }
         }.disabled(busy).puboForm().navigationTitle("数据与账号迁移").task { locked = session.hasPendingAction("account-data-job"); do { originalAliases = try await session.call("i")["alsoKnownAs"]; aliases = originalAliases.array.compactMap(\.string).joined(separator: "\n") } catch { self.error = error.localizedDescription } }
             .sheet(isPresented: $picker) { DrivePicker { file = $0 } }
-            .confirmationDialog(operation == "move" ? "确认迁移到 \(destination)？此操作影响关注者与当前账号使用。" : operation == "import" ? "确认批量导入所选文件？" : operation == "aliases" ? "确认更新公开账号别名？" : "确认创建导出任务？", isPresented: Binding(get: { operation != nil }, set: { if !$0 { operation = nil } })) {
-                Button("确认", role: operation == "move" || operation == "import" ? .destructive : nil) { if let selected = operation { Task { await perform(selected) } } }
+            .alert(operation == "move" ? "确认迁移到 \(destination)？此操作影响关注者与当前账号使用。" : operation == "import" ? "确认批量导入所选文件？" : operation == "aliases" ? "确认更新公开账号别名？" : "确认创建导出任务？", isPresented: Binding(get: { operation != nil }, set: { if !$0 { operation = nil } }), presenting: operation) { selected in
+                Button("确认", role: selected == "move" || selected == "import" ? .destructive : nil) { Task { await perform(selected) } }
+                Button("取消", role: .cancel) { operation = nil }
             }
     }
     private func perform(_ selected: String) async {

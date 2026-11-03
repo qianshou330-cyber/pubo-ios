@@ -83,7 +83,7 @@ actor FixtureTransport: HTTPTransport {
         case "mute/list": response = .array(mutedUsers)
         case "mute/create": mutedUsers = [.object(["id": .string("muting1"), "mutee": Self.peer])]; response = .null
         case "mute/delete": mutedUsers = []; response = .null
-        case "renote-mute/list", "blocking/list", "chat/blocking/list", "i/apps", "i/signin-history", "users/achievements": response = .array([])
+        case "renote-mute/list", "blocking/list", "chat/blocking/list", "i/apps", "i/signin-history", "users/achievements", "i/webhooks/list": response = .array([])
         case "i/update": var values = profile.object; for (key, value) in body.object where key != "i" { values[key] = value }; profile = .object(values); response = profile
         case "signin-flow": response = .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])
