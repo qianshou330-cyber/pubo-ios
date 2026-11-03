@@ -76,7 +76,7 @@ struct RoomChatView: View {
                     Menu {
                         NavigationLink("群聊成员") { RoomMembersView(roomID: roomID, canInvite: own) }
                         NavigationLink("搜索本群") { ChatSearchView(roomID: roomID) }
-                        Button(room?["isMuted"].bool == true ? "恢复提醒" : "免打扰") { Task { await mute() } }
+                        if !own { Button(room?["isMuted"].bool == true ? "恢复提醒" : "免打扰") { Task { await mute() } } }
                         if own { Button("修改群聊") { editing = true }; Button("删除群聊", role: .destructive) { operation = "delete" } }
                         else { Button("退出群聊", role: .destructive) { operation = "leave" } }
                     } label: { Image(systemName: "ellipsis") }.disabled(busy)

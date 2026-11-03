@@ -18,6 +18,22 @@ public struct AdminEndpoint: Codable, Identifiable, Sendable {
 }
 
 public enum AdminSchema {
+    public static func identity(_ key: String, record: JSONValue, source: String, context: [String: JSONValue]) -> JSONValue? {
+        if let direct = record.object[key] { return direct }
+        if key == "userId", let user = record["user"]["id"].string { return .string(user) }
+        if let inherited = context[key] { return inherited }
+        let recordID = record.object["id"]
+        switch key {
+        case "userId": return record["username"].string != nil || source == "admin/show-user" || source == "admin/show-users" ? recordID : nil
+        case "roleId": return source.hasPrefix("admin/roles/") && !source.hasSuffix("/users") ? recordID : nil
+        case "applicationId": return source.contains("verification/") ? recordID : nil
+        case "reportId": return source.contains("abuse-user-report") ? recordID : nil
+        case "fileId": return source.contains("drive/") ? recordID : nil
+        case "emojiId": return source.contains("emoji/") ? recordID : nil
+        case "jobId": return source.contains("queue/") ? recordID : nil
+        default: return nil
+        }
+    }
     /// Use the first identity alternative for forms (for example emoji ID); keep full validation below.
     public static func form(_ schema: JSONValue) -> JSONValue {
         var properties = schema["properties"].object

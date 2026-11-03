@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
+import { writeFile } from 'node:fs/promises';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { verifyAdminContracts } from './admin-contract.mjs';
 import { prepareVerificationFixture, verifyExtendedContracts } from './extended-contract.mjs';
@@ -32,7 +33,8 @@ const announcement=await api('admin/announcements/create',{title:'隔离原生�
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
 await verifyAdminContracts(api,owner,alice,join(process.env.GITHUB_WORKSPACE,'build/integration-admin-contract.json'));
-await verifyExtendedContracts(api,owner,join(process.env.GITHUB_WORKSPACE,'build/integration-extended-contract.json'));
+try { await verifyExtendedContracts(api,owner,join(process.env.GITHUB_WORKSPACE,'build/integration-extended-contract.json')); }
+catch(error) { await writeFile(join(process.env.GITHUB_WORKSPACE,'build/integration-extended-failure.json'),JSON.stringify({status:'FAIL',productionAPIRequests:0,error:String(error.message)},null,2)); throw new Error('Isolated extended contract failed; see sanitized evidence'); }
 await api('i/update',{name:'原生验收用户',chatScope:'mutual'},alice.token);
 await api('i/update',{name:'隔离测试朋友',chatScope:'mutual'},bob.token);
 const note=await api('notes/create',{text:'PUBO joint proof #PUBO',visibility:'public'},alice.token);

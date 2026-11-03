@@ -29,6 +29,7 @@ struct AdminOperationView: View {
     @Environment(\.scenePhase) private var scenePhase
     let endpoint: AdminEndpoint
     var seed: JSONValue = .null
+    var source: String = ""
     var context: [String: JSONValue] = [:]
     @State private var values: [String: JSONValue] = [:]
     @State private var baseline: JSONValue = .null
@@ -44,7 +45,7 @@ struct AdminOperationView: View {
     @State private var revealPassword = false
     @State private var requestGeneration = UUID()
     private var schema: JSONValue { AdminSchema.form(endpoint.schema) }
-    private var keys: [String] { schema["properties"].object.keys.sorted().filter { fieldSearch.isEmpty || AdminLabels.title($0).localizedCaseInsensitiveContains(fieldSearch) || $0.localizedCaseInsensitiveContains(fieldSearch) } }
+    private var keys: [String] { schema["properties"].object.keys.sorted().filter { $0 != "captchaResult" && (fieldSearch.isEmpty || AdminLabels.title($0).localizedCaseInsensitiveContains(fieldSearch) || $0.localizedCaseInsensitiveContains(fieldSearch)) } }
     private var pendingKey: String { AdminOperations.pendingKey(endpoint.id) }
     private var currentPayload: [String: JSONValue] { AdminOperations.payload(endpoint, values: values, original: baseline) }
     var body: some View {
@@ -53,13 +54,14 @@ struct AdminOperationView: View {
                 if let error { Section { ErrorBanner(message: error) } }
                 if let status { Section { Text(status).accessibilityIdentifier("admin.status") } }
                 if locked { uncertainty }
+                if endpoint.id == "admin/captcha/save" { Section { Text("验证码服务的连通性挑战须在官方网页完成。请在网页验证并保存；不会要求手工复制挑战令牌。"); Link("完成官方验证 · 网页版", destination: Endpoint.origin.appendingPathComponent("admin/security")) } }
                 if endpoint.mutation { Section { Text(AdminOperations.effect(endpoint.id)).font(.footnote); if AdminOperations.snapshot(endpoint.id, fields: values) != nil { Button("读取最新记录后编辑") { Task { await reloadBaseline() } }.disabled(busy || locked) } } }
                 if keys.count > 18 { Section { TextField("查找设置项", text: $fieldSearch) } }
                 Section(endpoint.mutation ? "编辑内容" : "筛选条件") {
                     ForEach(keys, id: \.self) { key in field(key) }
                 }.disabled(busy || locked)
                 Section {
-                    Button(endpoint.mutation ? "核对并提交" : "读取数据") { if endpoint.mutation { validateAndConfirm() } else { Task { await fetch(more: false) } } }.disabled(busy || locked).accessibilityIdentifier("admin.submit")
+                    Button(endpoint.mutation ? "核对并提交" : "读取数据") { if endpoint.mutation { validateAndConfirm() } else { Task { await fetch(more: false) } } }.disabled(busy || locked || endpoint.id == "admin/captcha/save").accessibilityIdentifier("admin.submit")
                     if busy { ProgressView() }
                 }
                 if !result.isNull { Section("服务器返回") { AdminResultView(value: result, source: endpoint.id, context: values) } }
@@ -97,7 +99,7 @@ struct AdminOperationView: View {
     private func initialize() async {
         guard !initialized else { return }; initialized = true
         locked = session.hasPendingAction(pendingKey)
-        values = AdminOperations.seed(seed, for: endpoint, context: context)
+        values = AdminOperations.seed(seed, for: endpoint, source: source, context: context)
         if !endpoint.mutation, (try? AdminSchema.validate(.object(values), schema: endpoint.schema)) != nil { await fetch(more: false) }
         else if endpoint.mutation, AdminOperations.snapshot(endpoint.id, fields: values) != nil, !locked { await reloadBaseline() }
     }
@@ -108,7 +110,7 @@ struct AdminOperationView: View {
             let latest = try await AdminOperations.read(request, session: session)
             guard generation == requestGeneration else { return }
             baseline = latest
-            values = AdminOperations.seed(AdminOperations.comparable(latest, endpoint: endpoint.id), for: endpoint, context: values.filter { AdminOperations.identities.contains($0.key) })
+            values = AdminOperations.seed(AdminOperations.comparable(latest, endpoint: endpoint.id), for: endpoint, source: endpoint.id, context: values.filter { AdminOperations.identities.contains($0.key) })
             error = nil; status = "已读取最新内容。仅保存实际修改字段。"
         } catch { if generation == requestGeneration { self.error = error.localizedDescription } }
     }
@@ -208,7 +210,7 @@ struct AdminRecordView: View {
         AdminGate { List {
             Section { AdminResultView(value: value) }
             if source.contains("verification/"), let id = value["id"].string { NavigationLink("查看申请与受保护材料") { AdminVerificationDetail(applicationID: id) } }
-            if !value["id"].isNull || !value["host"].isNull || !value["inbox"].isNull { Section("操作此记录") { ForEach(actions) { endpoint in NavigationLink(AdminCatalog.title(endpoint.id)) { AdminOperationView(endpoint: endpoint, seed: value, context: context) } } } }
+            if !value["id"].isNull || !value["host"].isNull || !value["inbox"].isNull { Section("操作此记录") { ForEach(actions) { endpoint in NavigationLink(AdminCatalog.title(endpoint.id)) { AdminOperationView(endpoint: endpoint, seed: value, source: source, context: context) } } } }
         }.puboForm().navigationTitle("记录详情") }
     }
 }

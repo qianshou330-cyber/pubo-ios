@@ -19,6 +19,7 @@ struct AdminValueField: View {
     @State private var userPicker = false
     @State private var filePicker = false
     private var title: String { AdminLabels.title(key) }
+    private var imageURL: Bool { ["imageUrl", "iconUrl", "bannerUrl", "backgroundImageUrl", "logoImageUrl", "app192IconUrl", "app512IconUrl", "faviconUrl"].contains(key) }
     var body: some View {
         Group {
             if key == "condFormula" {
@@ -32,13 +33,14 @@ struct AdminValueField: View {
                 if schema["nullable"].bool { Button("将“\(title)”设为空") { value = .null }.font(.caption) }
             }
         }.sheet(isPresented: $userPicker) { UserPicker { value = .string($0.id) } }
-            .sheet(isPresented: $filePicker) { DrivePicker { value = .string($0.id) } }
+            .sheet(isPresented: $filePicker) { DrivePicker(imagesOnly: imageURL) { file in value = imageURL ? file["url"] : .string(file.id) } }
     }
     @ViewBuilder private var field: some View {
         switch schema["type"].string {
         case "boolean": Toggle(title, isOn: Binding(get: { value.bool }, set: { value = .bool($0) }))
         case "number", "integer":
-            TextField(title, text: $numberText).keyboardType(.numbersAndPunctuation).onAppear { if case .number(let number) = value { numberText = number.rounded() == number ? String(format: "%.0f", locale: Locale(identifier: "en_US_POSIX"), number) : String(number) } }.onChange(of: numberText) { _, text in value = Double(text).map(JSONValue.number) ?? .string(text) }
+            if ["startsAt", "expiresAt"].contains(key) { DatePicker(title, selection: Binding(get: { if let date = puboDate(value.string) { return date }; return Date(timeIntervalSince1970: Double(value.int) / 1000) }, set: { value = .number($0.timeIntervalSince1970 * 1000) }), displayedComponents: [.date, .hourAndMinute]) }
+            else { TextField(title, text: $numberText).keyboardType(.numbersAndPunctuation).onAppear { if case .number(let number) = value { numberText = number.rounded() == number ? String(format: "%.0f", locale: Locale(identifier: "en_US_POSIX"), number) : String(number) } }.onChange(of: numberText) { _, text in value = Double(text).map(JSONValue.number) ?? .string(text) } }
         case "array": NavigationLink { AdminArrayEditor(title: title, schema: schema, value: $value) } label: { LabeledContent(title, value: "\(value.array.count) 项") }
         case "object": NavigationLink { AdminObjectEditor(title: title, schema: schema, value: $value) } label: { LabeledContent(title, value: "\(value.object.count) 项") }
         default:
@@ -47,6 +49,7 @@ struct AdminValueField: View {
                 TextField(title, text: Binding(get: { value.string ?? "" }, set: { value = .string($0) }), axis: .vertical).textInputAutocapitalization(.never).autocorrectionDisabled()
                 if ["userId", "assigneeId"].contains(key) { Button("选择用户") { userPicker = true } }
                 if key == "fileId" { Button("从网盘选择文件") { filePicker = true } }
+                if imageURL { Button("从网盘选择图片") { filePicker = true } }
             }
         }
     }

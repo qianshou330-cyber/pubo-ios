@@ -2,6 +2,13 @@ import XCTest
 @testable import PUBOCore
 
 final class AdminSchemaTests: XCTestCase {
+    func testRoleMembershipIDNeverBecomesUserOrRoleTarget() {
+        let member: JSONValue = .object(["id": .string("assignment"), "user": .object(["id": .string("person"), "username": .string("name")])])
+        XCTAssertEqual(AdminSchema.identity("userId", record: member, source: "admin/roles/users", context: ["roleId": .string("role")]), .string("person"))
+        XCTAssertEqual(AdminSchema.identity("roleId", record: member, source: "admin/roles/users", context: ["roleId": .string("role")]), .string("role"))
+        XCTAssertNil(AdminSchema.identity("roleId", record: member, source: "admin/roles/users", context: [:]))
+        XCTAssertNil(AdminSchema.identity("userId", record: .object(["id": .string("role")]), source: "admin/roles/list", context: [:]))
+    }
     func testBulkPartialSuccessAndDeletionAreDistinguished() {
         let fields: [String: JSONValue] = ["ids": .strings(["a", "b", "missing"]), "category": .string("new")]
         let rows: [JSONValue] = [.object(["id": .string("a"), "category": .string("new")]), .object(["id": .string("b"), "category": .string("old")])]

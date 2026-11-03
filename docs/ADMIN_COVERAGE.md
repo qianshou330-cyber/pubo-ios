@@ -26,7 +26,7 @@
 |admin/avatar-decorations/list|原生表单＋结果列表|canManageAvatarDecorations|只读；新候选待验|
 |admin/avatar-decorations/update|原生表单＋结果列表|canManageAvatarDecorations|隔离写入待逐项验收|
 |admin/captcha/current|原生表单＋结果列表|管理员|只读；新候选待验|
-|admin/captcha/save|原生表单＋结果列表|管理员|隔离写入待逐项验收|
+|admin/captcha/save|官方验证码挑战与保存 · 网页版例外|管理员|隔离写入待逐项验收|
 |admin/delete-account|原生表单＋结果列表|管理员|隔离写入待逐项验收|
 |admin/delete-all-files-of-a-user|原生表单＋结果列表|管理员|隔离写入待逐项验收|
 |admin/drive/clean-remote-files|原生表单＋结果列表|版主/管理员|隔离写入待逐项验收|

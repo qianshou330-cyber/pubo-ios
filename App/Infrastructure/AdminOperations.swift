@@ -20,14 +20,14 @@ enum AdminOperations {
         if endpoint.id == "admin/emoji/set-license-bulk" { values["license"] = .null }
         return values
     }
-    static func seed(_ record: JSONValue, for endpoint: AdminEndpoint, context: [String: JSONValue] = [:]) -> [String: JSONValue] {
+    static func seed(_ record: JSONValue, for endpoint: AdminEndpoint, source: String = "", context: [String: JSONValue] = [:]) -> [String: JSONValue] {
         let properties = AdminSchema.form(endpoint.schema)["properties"].object
         var result = defaults(endpoint)
         if !record.object.isEmpty { for key in result.keys where AdminSchema.isSecret(key) { result.removeValue(forKey: key) } }
         for key in properties.keys {
             if let supplied = context[key] { result[key] = supplied }
             if let value = record.object[key], !AdminSchema.isSecret(key) { result[key] = value }
-            if ["userId", "roleId", "applicationId", "reportId", "fileId", "emojiId", "webhookId", "jobId"].contains(key), record.object["id"] != nil { result[key] = record["id"] }
+            if identities.contains(key), let identity = AdminSchema.identity(key, record: record, source: source, context: context) { result[key] = identity }
         }
         if endpoint.id == "admin/update-user-note" { result["text"] = record["moderationNote"] }
         return result

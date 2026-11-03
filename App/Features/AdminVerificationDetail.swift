@@ -24,7 +24,7 @@ struct AdminVerificationDetail: View {
                     }
                     Section("审核操作") {
                         ForEach(actions, id: \.self) { action in
-                            if let endpoint = AdminCatalog.shared?.endpoint("admin/verification/" + action) { NavigationLink(AdminCatalog.title(endpoint.id)) { AdminOperationView(endpoint: endpoint, seed: application) } }
+                            if let endpoint = AdminCatalog.shared?.endpoint("admin/verification/" + action) { NavigationLink(AdminCatalog.title(endpoint.id)) { AdminOperationView(endpoint: endpoint, seed: application, source: "admin/verification/show") } }
                         }
                     }
                 }
