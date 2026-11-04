@@ -20,7 +20,8 @@ import PUBOCore
         let viewer = session.user?.id ?? ""
         var fields: [String: JSONValue] = ["limit": .number(30), "pinned": .bool(false)]
         if older, let cursor { fields["untilId"] = .string(cursor) }
-        async let ordinary = fetch(session, "chat/conversations", fields)
+        let requestFields = fields
+        async let ordinary = fetch(session, "chat/conversations", requestFields)
         async let pins = fetch(session, "chat/conversations", ["limit": .number(10), "pinned": .bool(true)])
         async let groups = fetch(session, "chat/history", ["room": .bool(true), "limit": .number(10)])
         let responses = await (ordinary, pins, groups)

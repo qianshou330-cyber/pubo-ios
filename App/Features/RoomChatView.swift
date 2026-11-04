@@ -119,7 +119,7 @@ struct RoomChatView: View {
             } else {
                 VStack(spacing: 0) {
                     ChatTabs(selection: $section, items: [ChatTab(id: "messages", title: "消息", icon: "bubble.left.and.bubble.right"), ChatTab(id: "members", title: "成员", icon: "person.2"), ChatTab(id: "search", title: "搜索", icon: "magnifyingglass"), ChatTab(id: "about", title: "关于", icon: "info.circle")], prefix: "room.tab.")
-                    if section == "messages" { timeline }
+                    if section == "messages" { timeline.clipped() }
                     else if section == "members" { RoomMembersView(roomID: roomID, canInvite: own, embedded: true, owner: room.map { Record($0["owner"]) }) }
                     else if section == "search" { List { ChatSearchView(roomID: roomID, embedded: true, selectMessage: { message in section = "messages"; Task { await openContext(message) } }) }.puboList() }
                     else { List {
@@ -127,7 +127,8 @@ struct RoomChatView: View {
                         Section("描述") { Text(room?["description"].string ?? "暂无群聊简介") }
                         if !own { Toggle("消息免打扰", isOn: Binding(get: { room?["isMuted"].bool ?? false }, set: { _ in Task { await mute() } })).disabled(busy) }
                     }.puboList().accessibilityIdentifier("room.about") }
-                }.safeAreaInset(edge: .bottom, spacing: 0) { if section == "messages" { composer } }
+                    if section == "messages" { composer }
+                }
             }
         }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.hidden, for: .tabBar)
             .toolbar {

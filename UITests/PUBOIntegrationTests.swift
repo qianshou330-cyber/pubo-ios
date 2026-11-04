@@ -156,7 +156,9 @@ import XCTest
         let peer = app.staticTexts["历史引用验收朋友"].firstMatch
         XCTAssertTrue(peer.waitForExistence(timeout: 10)); peer.tap()
         let quote = app.buttons["chat.reference." + data["quoteId"]!]
-        XCTAssertTrue(quote.waitForExistence(timeout: 10)); quote.tap()
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        XCTAssertLessThanOrEqual(quote.frame.maxY, app.textViews["chat.input"].frame.minY, "Reference must not overlap the composer")
+        quote.tap()
         XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForExistence(timeout: 10))
         let unread = try await proof("contextUnread"); XCTAssertTrue(unread)
         capture(app,"joint-real-history-context")

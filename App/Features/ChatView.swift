@@ -90,8 +90,9 @@ struct ChatView: View {
             ZStack {
                 messageScroll.opacity(searching ? 0 : 1).allowsHitTesting(!searching).accessibilityHidden(searching)
                 if searching { ChatSearchView(peer: peer, select: { id in searching = false; Task { await openContext(id) } }).chatNavigationTitle(peer.displayName, embedded: false) }
-            }
-        }.safeAreaInset(edge: .bottom, spacing: 0) { if !searching { inputBar } }
+            }.clipped()
+            if !searching { inputBar }
+        }
             .puboScreen().navigationTitle(peer.displayName)
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
