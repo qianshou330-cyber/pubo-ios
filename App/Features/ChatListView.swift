@@ -24,6 +24,7 @@ struct ChatListView: View {
                 .sheet(isPresented: $creating, onDismiss: { section = "owned" }) { RoomEditor() }
                 .onAppear { active = true }.onDisappear { active = false; state.invalidate() }
                 .task(id: "\(visible)-\(session.generation)") {
+                    guard !Task.isCancelled else { return }
                     // A cancelled visibility task can still be unwinding its reads.
                     // Give the new visible task its own epoch before checking busy.
                     state.invalidate()
