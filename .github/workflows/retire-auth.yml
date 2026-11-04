@@ -1,0 +1,24 @@
+name: Retire superseded authentication validation
+on:
+  push:
+    branches: [ci-auth-retire-20261104]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const expected = {
+              41800994433: '182c1694ba751ae9c19f088618ec9bf9efb1e19b',
+              41802772175: '3aac9ae3727af08cbbf3c9e3ddd8e91cd7bf64b8'
+            };
+            for (const [id, sha] of Object.entries(expected)) {
+              const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(id)});
+              if (run.head_sha !== sha || !run.head_branch.startsWith('ui-auth-static-')) throw new Error('Run ownership mismatch');
+              if (run.status !== 'completed') await github.rest.actions.cancelWorkflowRun({...context.repo, run_id: Number(id)});
+              core.info('Retired superseded run ' + id + '; artifacts retained.');
+            }
