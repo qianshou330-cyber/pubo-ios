@@ -35,6 +35,7 @@ struct RoomChatView: View {
     @State private var section = "messages"
     @State private var reporting: Record?
     @State private var visibleMessageID: String?
+    @State private var scrollAnchor: UnitPoint = .bottom
     @State private var highlightedID: String?
     @State private var contextMode = false
     @State private var scrollTarget: String?
@@ -58,8 +59,7 @@ struct RoomChatView: View {
     private var canSend: Bool { !draft.pending && !busy && sendProblem == nil && room != nil && !invited && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.file != nil) }
 
     private var timeline: some View {
-        ScrollViewReader { proxy in
-            GeometryReader { viewport in
+        GeometryReader { viewport in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         if hasMore { Button("更早的群聊消息") { Task { await load(older: true) } }.disabled(loading) }
@@ -73,17 +73,16 @@ struct RoomChatView: View {
                         }
                         Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("roomScroll")).maxY) })
                     }.scrollTargetLayout().padding(16)
-                }.scrollPosition(id: $visibleMessageID, anchor: .top).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
+                }.scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
-                    .onChange(of: messages.last?.id) { old, _ in if !contextMode && (old == nil || nearBottom) { proxy.scrollTo("bottom", anchor: .bottom) } else { unreadBelow = true } }
-                    .onChange(of: scrollTarget) { _, id in
-                        // Historical positioning shares the same stable scroll binding as
-                        // normal reading. Avoid competing center/top scroll anchors.
-                        if let id { var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { visibleMessageID = id } }
-                    }
-                    .onChange(of: scrollRequest) { _, _ in proxy.scrollTo("bottom", anchor: .bottom); unreadBelow = false }
-            }
+                    .onChange(of: messages.last?.id) { old, _ in if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") } else if !contextMode { unreadBelow = true } }
+                    .onChange(of: scrollTarget) { _, id in if let id { positionTimeline(id) } }
+                    .onChange(of: scrollRequest) { _, _ in positionTimeline("bottom"); unreadBelow = false }
         }
+    }
+    private func positionTimeline(_ id: String) {
+        var transaction = Transaction(); transaction.disablesAnimations = true
+        withTransaction(transaction) { scrollAnchor = id == "bottom" ? .bottom : .top; visibleMessageID = id }
     }
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {

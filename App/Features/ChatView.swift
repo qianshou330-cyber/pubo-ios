@@ -51,6 +51,7 @@ struct ChatView: View {
     @State private var active = false
     @State private var animatedIDs = Set<String>()
     @State private var visibleMessageID: String?
+    @State private var scrollAnchor: UnitPoint = .bottom
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
     init(peer: Record, initialMessageID: String? = nil) { self.peer = peer; self.initialMessageID = initialMessageID; _contextMode = State(initialValue: initialMessageID != nil) }
@@ -58,7 +59,6 @@ struct ChatView: View {
     private var messageList: some View {
         LazyVStack(spacing: 18) {
             if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
-            if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
             ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                 VStack(spacing: 12) {
                     if let label = ChatDays.separator(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(text: label) }
@@ -71,18 +71,22 @@ struct ChatView: View {
         }.scrollTargetLayout().padding(16)
     }
     private var messageScroll: some View {
-        ScrollViewReader { proxy in
-            GeometryReader { viewport in
-                ScrollView { messageList }.scrollPosition(id: $visibleMessageID, anchor: .top).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
+        GeometryReader { viewport in
+                ScrollView { messageList }.scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in
-                        if !contextMode && (old == nil || nearBottom) { proxy.scrollTo("bottom", anchor: .bottom) }
+                        if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") }
                         else if !contextMode { unreadBelow = true }
                     }
-                    .onChange(of: pending.count) { old, count in if count > old { proxy.scrollTo("bottom", anchor: .bottom); unreadBelow = false } }
-                    .onChange(of: scrollTarget) { _, id in if let id { proxy.scrollTo(id, anchor: id == "bottom" ? .bottom : .center) } }
-            }
+                    .onChange(of: pending.count) { old, count in if count > old { positionTimeline("bottom"); unreadBelow = false } }
+                    .onChange(of: scrollTarget) { _, id in if let id { positionTimeline(id) } }
         }
+    }
+    private func positionTimeline(_ id: String) {
+        // One binding owns programmatic and user scrolling, including estimated lazy rows.
+        // Mixing ScrollViewReader with a top-anchored binding can stop before the last row.
+        var transaction = Transaction(); transaction.disablesAnimations = true
+        withTransaction(transaction) { scrollAnchor = id == "bottom" ? .bottom : .top; visibleMessageID = id }
     }
     private var chatLayout: some View {
         VStack(spacing: 0) {
@@ -134,6 +138,7 @@ struct ChatView: View {
     }
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
             if contextMode || hasNewer || unreadBelow { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { await returnToLatest() } }.frame(minHeight: 44).disabled(contextBusy).accessibilityIdentifier("chat.latest") }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.error") }
             if stickerBusy { ProgressView("正在收藏表情包…").font(.caption) }

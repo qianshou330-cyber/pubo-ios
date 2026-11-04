@@ -51,7 +51,13 @@ import XCTest
     }
     func testRealPrivacyUpdate() async throws {
         let app = launch(try await context()); openAccountSettings(app); app.buttons["隐私与内容偏好"].tap()
-        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 10)); XCTAssertTrue(toggle.waitForExistence(timeout: 10)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); XCTAssertEqual(toggle.value as? String, "0"); toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap(); let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true AND hittable == true"), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); XCTAssertEqual(toggle.value as? String, "0")
+        // Address the native switch exposed inside the SwiftUI row, not a stale row coordinate.
+        let control = toggle.switches.firstMatch; XCTAssertTrue(control.waitForExistence(timeout: 5)); control.tap()
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
         let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap()
         XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 10)); let saved = try await proof("privacyChanged"); XCTAssertTrue(saved)
     }
@@ -157,6 +163,8 @@ import XCTest
         XCTAssertTrue(peer.waitForExistence(timeout: 10)); peer.tap()
         let quote = app.buttons["chat.reference." + data["quoteId"]!]
         XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        XCTAssertTrue(quote.isHittable, "Opening a long conversation must expose its latest quoted message")
+        capture(app,"joint-latest-quote-visible")
         XCTAssertLessThanOrEqual(quote.frame.maxY, app.textViews["chat.input"].frame.minY, "Reference must not overlap the composer")
         quote.tap()
         XCTAssertTrue(app.staticTexts["正在查看历史消息，预取不会标记已读"].waitForExistence(timeout: 10))
@@ -232,7 +240,7 @@ import XCTest
     func testRealGroupMemberReactionAndReportReceipt() async throws {
         let data = try await context(), app = launch(data); openParityRoom(app, data)
         let menu = app.buttons["room.menu." + data["roomMessageId"]!]
-        XCTAssertTrue(menu.waitForExistence(timeout: 8)); menu.tap(); app.buttons["添加反应"].tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 8)); XCTAssertTrue(menu.isHittable, "Opening a long group must expose the latest message menu"); capture(app,"joint-group-latest-visible"); menu.tap(); app.buttons["添加反应"].tap()
         XCTAssertTrue(app.buttons["❤️"].waitForExistence(timeout: 5)); app.buttons["❤️"].tap()
         let remove = app.buttons["取消反应 ❤"]; XCTAssertTrue(remove.waitForExistence(timeout: 12))
         let reacted = try await chatProof("reacted"); XCTAssertTrue(reacted); capture(app, "joint-group-member-reacted")
