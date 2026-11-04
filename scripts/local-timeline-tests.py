@@ -20,6 +20,8 @@ else:
 record={'device':device['name'],'udid':identifier,'tests':'PENDING','productionRequests':0};(root/'timeline-environment.json').write_text(json.dumps(record))
 regressions=['testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testMultipleAccountsSwitchAndPreserveOtherAccount','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNativeLoginAndFourTabs']
 groups=[('timeline-preview',['-only-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('timeline',['-only-testing:PUBOUITests/LocalTimelineUITests','-skip-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('home',['-only-testing:PUBOUITests/HomeMotionUITests']),('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
+groups += [('auth-preview',['-only-testing:PUBOUITests/AuthStaticUITests/testStaticWelcomeAndCenteredLoginBothThemes','-only-testing:PUBOUITests/AuthStaticUITests/testTotpBackupAndAccountChange','-only-testing:PUBOUITests/AuthStaticUITests/testRegistrationRulesFormAndResetBothThemes']),('auth-functional',['-only-testing:PUBOUITests/AuthStaticUITests','-skip-testing:PUBOUITests/AuthStaticUITests/testStaticWelcomeAndCenteredLoginBothThemes','-skip-testing:PUBOUITests/AuthStaticUITests/testTotpBackupAndAccountChange','-skip-testing:PUBOUITests/AuthStaticUITests/testRegistrationRulesFormAndResetBothThemes'])]
+groups += [('baseline',['-only-testing:PUBOUITests/AuthBaselineUITests'])]
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
@@ -79,3 +81,4 @@ except Exception as error:
 finally:
     (root/('timeline-environment-'+os.environ.get('PUBO_UI_SCOPE','all')+'.json')).write_text(json.dumps(record,indent=2))
     subprocess.run(['xcrun','simctl','shutdown',identifier],timeout=60)
+

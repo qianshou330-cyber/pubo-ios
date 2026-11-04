@@ -1,0 +1,35 @@
+name: Unmodified build 105 authentication comparison
+on:
+  push:
+    branches: ['ui-auth-baseline-*']
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile unchanged build 105 application
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Capture same device, original login and registration
+        env:
+          PUBO_SIM_SIZE: large
+          PUBO_UI_GROUPS: baseline
+          PUBO_UI_SCOPE: baseline
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: auth-baseline-105
+          path: |
+            build/*.json
+            build/baseline.xcresult/
+            build/screenshots/baseline/
+          retention-days: 14
+
