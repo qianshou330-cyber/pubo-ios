@@ -310,26 +310,33 @@ final class PUBOUITests: XCTestCase {
 
     func testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
-        let newest = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label BEGINSWITH %@", "note.open.refresh", "刷新样例 ")).firstMatch
+        // Selectable RichNoteText (UITextView) exposes its rendered body as
+        // accessibility value. Keep checking the content as well as the note ID.
+        let newest = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value BEGINSWITH %@", "note.open.refresh", "刷新样例 ")).firstMatch
         XCTAssertTrue(newest.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["刷新首页"].exists)
         XCTAssertFalse(app.buttons["我的资料"].exists)
-        let before = Int(newest.label.split(separator: " ").last ?? "0") ?? 0
+        guard let text = newest.value as? String,
+              let sequence = text.split(separator: " ").last,
+              let before = Int(sequence), before > 0 else {
+            XCTFail("Refresh fixture must expose a positive sequence in its accessibility value")
+            return
+        }
         // The short default swipe only partially reveals UIRefreshControl on SE.
         // Pull from below the header to above the tab bar, through the row gutter.
         let list = app.scrollViews["timeline.scroll"]
         list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.20))
             .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.86)))
         // Old rows remain in the list by design. Query the new row instead of
-        // holding the original accessibility element and expecting its label to mutate.
-        let refreshed = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "note.open.refresh", "刷新样例 \(before + 1)")).firstMatch
+        // holding the original accessibility element and expecting its value to mutate.
+        let refreshed = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 1)")).firstMatch
         XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
         capture(app, "home-pull-to-refresh")
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "note.open.refresh", "刷新样例 \(before + 2)")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 2)")).firstMatch.waitForExistence(timeout: 10))
         app.tabBars.buttons["我的"].tap()
         XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
         capture(app, "profile-avatar-tab")

@@ -48,6 +48,32 @@ for index, template in enumerate(selected):
         print('Booting fresh simulator: ' + device['name'], flush=True)
         boot(identifier, root / f'boot-{index}.json')
         record['boot'] = 'READY'
+        # Check the two home regressions before the complete suite. Keep their
+        # result bundle separate so a later failure cannot hide this evidence.
+        home_bundle = root / f'home-regressions-{index}.xcresult'
+        home_tests = [
+            'testHomePanelsAndChartNavigation',
+            'testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons',
+        ]
+        try:
+            home = subprocess.run([
+                'xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
+                '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
+                '-derivedDataPath', 'build/debug', '-resultBundlePath', str(home_bundle),
+                '-parallel-testing-enabled', 'NO',
+                *['-only-testing:PUBOUITests/PUBOUITests/' + name for name in home_tests],
+                'CODE_SIGNING_ALLOWED=NO', 'test'], timeout=900)
+            record['homeRegressions'] = 'PASS' if home.returncode == 0 else 'FAIL'
+        finally:
+            if home_bundle.exists():
+                result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary',
+                                         '--path', str(home_bundle)], capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    (root / f'home-regressions-{index}-summary.json').write_text(result.stdout)
+                diagnostic(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(home_bundle),
+                            '--output-path', str(screenshots / 'home-regressions')], 90)
+        if home.returncode:
+            raise RuntimeError('Home regression tests failed; see their result bundle')
         if os.environ.get('PUBO_SOCIAL_ALIGNMENT') == '1':
             social_bundle = root / f'social-{index}.xcresult'
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264', str(screenshots / 'social-interactions.mp4')])
