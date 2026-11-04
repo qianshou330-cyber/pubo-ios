@@ -1,19 +1,19 @@
-name: PUBO build128 favorites focused verification
+name: PUBO build128 small chat Intel verification
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat128-large-favorites-verification
+  group: chat128-small-chat-intel
   cancel-in-progress: true
 jobs:
   appearance:
     strategy:
       fail-fast: false
       matrix:
-        size: [large]
-    runs-on: macos-26
+        size: [small]
+    runs-on: macos-15-intel
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,7 @@ jobs:
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard macOS26 ARM retry; exact baseline runtime'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel verification; exact baseline runtime'}))
           PY
       - name: Fixed tools
         run: |
@@ -43,7 +43,7 @@ jobs:
           def runtimes():
               return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
           if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
-              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','arm64'],check=True,timeout=1400)
+              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','universal'],check=True,timeout=1400)
           found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
           assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
           devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
@@ -63,8 +63,8 @@ jobs:
           from simulator_boot import boot
           root=pathlib.Path('build')
           runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
-          name='PUBO Local iPhone 17 Pro Max'
-          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max',runtime],text=True,timeout=60).strip()
+          name='PUBO Local iPhone SE (3rd generation)'
+          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation',runtime],text=True,timeout=60).strip()
           (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
           record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
           try:
@@ -77,17 +77,17 @@ jobs:
               (root/'prewarm-install.json').write_text(json.dumps(record))
               subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
           PY
-      - name: Recheck unchanged GIF persistence and account isolation
+      - name: Chat alignment evidence
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: favorites
+          PUBO_UI_GROUPS: chat
         run: python3 scripts/local-timeline-tests.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: favorites-verification-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
+          name: chat-intel-prewarmed-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
           path: |
             build/*.json
-            build/favorites.xcresult
-            build/screenshots/favorites/
+            build/chat.xcresult
+            build/screenshots/chat/
           retention-days: 14
