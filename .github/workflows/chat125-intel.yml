@@ -1,11 +1,11 @@
-name: PUBO build125 package and small retry
+name: PUBO build126 release package
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat125-intel-remaining
+  group: chat126-release-intel
   cancel-in-progress: true
 jobs:
   package:
@@ -14,13 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 7facb6ca76134a30f7286835c4262d15c89d99d2
+          ref: 23e348968ca1c4e0d5fde44d719eff10f13438c6
       - name: Verify exact product checkout
         run: |
           python3 - <<'PY'
           import json,pathlib,platform,subprocess
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='7facb6ca76134a30f7286835c4262d15c89d99d2'
+          assert head=='23e348968ca1c4e0d5fde44d719eff10f13438c6'
           pathlib.Path('build').mkdir(exist_ok=True)
           pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'GitHub ARM runner capacity failure; same product and Xcode'}))
           PY
@@ -41,67 +41,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chat-package-7facb6ca76134a30f7286835c4262d15c89d99d2
+          name: chat-package-23e348968ca1c4e0d5fde44d719eff10f13438c6
           path: |
             build/unsigned/
             build/device-package.json
             build/integration-product-source.json
           retention-days: 14
-
-  appearance:
-    strategy:
-      fail-fast: false
-      matrix:
-        size: [small]
-    runs-on: macos-15-intel
-    timeout-minutes: 65
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 7facb6ca76134a30f7286835c4262d15c89d99d2
-      - name: Verify exact product checkout
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,platform,subprocess
-          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='7facb6ca76134a30f7286835c4262d15c89d99d2'
-          pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'GitHub ARM runner capacity failure; same product and Xcode'}))
-          PY
-      - name: Fixed tools
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile app
-        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Chat alignment evidence
-        env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: chat
-        run: python3 scripts/local-timeline-tests.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: chat-detail-${{ matrix.size }}-7facb6ca76134a30f7286835c4262d15c89d99d2
-          path: |
-            build/chat*.json
-            build/chat.xcresult
-            build/screenshots/chat/
-          retention-days: 14
-      - name: Preserved interactions
-        if: ${{ !cancelled() }}
-        env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: social,gif,favorites,regression
-        run: python3 scripts/local-timeline-tests.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: chat-ui-${{ matrix.size }}-7facb6ca76134a30f7286835c4262d15c89d99d2
-          path: |
-            build/*.json
-            build/*.xcresult
-            build/screenshots/
-          retention-days: 14
+
