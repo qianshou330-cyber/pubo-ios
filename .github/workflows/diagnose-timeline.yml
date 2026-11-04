@@ -1,0 +1,58 @@
+name: Diagnose fixed timeline candidate
+on:
+  push:
+    branches: ['ci-timeline-diagnose-20261104']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 73f6e0bc100c6c9ee18553b4348b8734f5d7872b
+      - name: Build exact candidate for runtime inspection
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
+      - name: Sample synthetic timeline rendering
+        run: |
+          python3 - <<'PY'
+          import sys,json,pathlib,subprocess,time
+          sys.path.insert(0,'scripts')
+          from simulator_boot import boot
+          from simulator_resources import SimulatorResources
+          root=pathlib.Path('build/diagnosis');root.mkdir()
+          inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+          template=next(dict(d,runtime=r) for r,items in inventory.items() if '.iOS-26-' in r for d in items if d['name']=='iPhone 17 Pro Max')
+          device=subprocess.check_output(['xcrun','simctl','create','PUBO timeline diagnosis',template['deviceTypeIdentifier'],template['runtime']],text=True,timeout=60).strip()
+          result={'commit':'73f6e0bc100c6c9ee18553b4348b8734f5d7872b','productionRequests':0}
+          try:
+              boot(device,root/'boot.json')
+              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=90)
+              for scenario,flags in [('timeline',['--timeline-align','--gif-preview']),('home',['--home-motion'])]:
+                  with SimulatorResources(root/(scenario+'-resources.json')):
+                      output=subprocess.check_output(['xcrun','simctl','launch',device,'com.bolubo.native','--ui-testing']+flags,text=True,timeout=60)
+                      pid=int(output.strip().rsplit(':',1)[1])
+                      time.sleep(10)
+                      subprocess.run(['sample',str(pid),'3','-file',str(root/(scenario+'-sample.txt'))],check=False,timeout=25)
+                      try:
+                          subprocess.run(['xcrun','simctl','io',device,'screenshot',str(root/(scenario+'.png'))],check=True,timeout=45)
+                          result[scenario]='SCREENSHOT_CAPTURED'
+                      except Exception as error:result[scenario]=type(error).__name__
+                      try:subprocess.run(['xcrun','simctl','terminate',device,'com.bolubo.native'],check=False,timeout=30)
+                      except Exception as error:result[scenario+'Cleanup']=type(error).__name__
+          finally:
+              (root/'result.json').write_text(json.dumps(result,indent=2))
+              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build103-render-diagnosis
+          path: build/diagnosis/
+          retention-days: 14
