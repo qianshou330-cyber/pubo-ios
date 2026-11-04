@@ -67,3 +67,10 @@ TestFlight/App Store 前须完成真机安装、相机/相册与麦克风授权�
 本次目标构建号修正使用 `home-package.yml`，固定核验App/核心/测试/scripts与已通过70项测试的 `33e93dbe0a608dde3dfb75ed625e2f2b031d4938` 一致，project.yml仅改目标号13→14，再重新编译两类Release。该恢复流程仅适用于这份已验收源码；后续功能改动仍须运行完整ios.yml。
 
 当前build22同时执行native-integration.yml：Debug专用固定回环地址连接真实隔离后端，先验证普通账号搜索权限和样本，再从App执行搜索收藏、投票及完整私信操作，核对实际服务器记录。Release没有该测试地址或ATS例外。
+
+
+## build128 聊天对齐验证
+
+固定Xcode26.0.1和iOS26.0.1/23A8464。标准macos-26 ARM承担主机型与隔离测试；macos-15-intel承担设备Release及小屏补验。两类机器均显式检出产品提交3bb946e5226500526181a320123921d070a1fb2f，CI控制分支不进入产品主分支。
+
+先生成工程并构建Debug模拟器，再用PUBO_SIM_SIZE=large或small、PUBO_UI_GROUPS=chat,gif,favorites,social,regression执行scripts/local-timeline-tests.py。脚本只操作本任务创建的模拟器；指定运行时缺失必须先通过Xcode官方安装并核对版本，不静默换系统。真机Release按既有打包检查，不能将模拟器程序改包。详见CHAT_ALIGNMENT.md及交付原始检查记录。
