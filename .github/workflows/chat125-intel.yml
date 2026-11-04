@@ -1,4 +1,4 @@
-name: PUBO build127 complete verification
+name: PUBO build128 complete verification
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
@@ -14,15 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          ref: 3bb946e5226500526181a320123921d070a1fb2f
       - name: Verify exact product checkout
         run: |
           python3 - <<'PY'
           import json,pathlib,platform,subprocess
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='ff74ff3348088f2f212f61cb9c3f54a234214dc0'
+          assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build127; pinned baseline iOS26.0; standard Intel runner'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel runner'}))
           PY
       - name: Fixed tools and core checks
         run: |
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chat-package-ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          name: chat-package-3bb946e5226500526181a320123921d070a1fb2f
           path: |
             build/unsigned/
             build/device-package.json
@@ -58,15 +58,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          ref: 3bb946e5226500526181a320123921d070a1fb2f
       - name: Verify exact product checkout
         run: |
           python3 - <<'PY'
           import json,pathlib,platform,subprocess
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='ff74ff3348088f2f212f61cb9c3f54a234214dc0'
+          assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build127; pinned baseline iOS26.0; standard Intel runner'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel runner'}))
           PY
       - name: Fixed tools
         run: |
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chat-detail-${{ matrix.size }}-ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          name: chat-detail-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
           path: |
             build/chat*.json
             build/chat.xcresult
@@ -99,7 +99,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chat-ui-${{ matrix.size }}-ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          name: chat-ui-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
           path: |
             build/*.json
             build/*.xcresult
@@ -119,15 +119,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          ref: 3bb946e5226500526181a320123921d070a1fb2f
       - name: Verify exact product checkout
         run: |
           python3 - <<'PY'
           import json,pathlib,platform,subprocess
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='ff74ff3348088f2f212f61cb9c3f54a234214dc0'
+          assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build127; pinned baseline iOS26.0; standard Intel runner'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel runner'}))
           PY
       - uses: actions/setup-node@v4
         with:
@@ -191,7 +191,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: native-backend-integration-ff74ff3348088f2f212f61cb9c3f54a234214dc0
+          name: native-backend-integration-3bb946e5226500526181a320123921d070a1fb2f
           path: |
             build/integration-*.json
             build/integration-ui.xcresult
