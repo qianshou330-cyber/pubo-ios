@@ -1,58 +1,18 @@
-name: PUBO build128 remaining checks macOS26
+name: PUBO build128 baseline runtime verification
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat128-remaining-macos26
+  group: chat128-runtime-install
   cancel-in-progress: true
 jobs:
-  package:
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 3bb946e5226500526181a320123921d070a1fb2f
-      - name: Verify exact product checkout
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,platform,subprocess
-          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='3bb946e5226500526181a320123921d070a1fb2f'
-          pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard macOS26 ARM retry; exact baseline runtime'}))
-          PY
-      - name: Fixed tools and core checks
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift test
-          python3 -m unittest discover -s scripts -p 'test_*.py' -v
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Release simulator
-        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
-      - name: Release device
-        run: |
-          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
-          python3 scripts/package-device.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: chat-package-3bb946e5226500526181a320123921d070a1fb2f
-          path: |
-            build/unsigned/
-            build/device-package.json
-            build/integration-product-source.json
-          retention-days: 14
-
   appearance:
     strategy:
       fail-fast: false
       matrix:
-        size: [small]
+        size: [large, small]
     runs-on: macos-26
     timeout-minutes: 90
     steps:
@@ -83,15 +43,16 @@ jobs:
           def runtimes():
               return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
           if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
-              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-buildVersion','26.0.1'],check=True,timeout=1400)
+              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','arm64'],check=True,timeout=1400)
           found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
-          assert found['version']=='26.0.1', found
+          assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
           devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
           for name,kind in [('iPhone 17 Pro Max','iPhone-17-Pro-Max'),('iPhone SE (3rd generation)','iPhone-SE-3rd-generation')]:
               if not any(d['name']==name for d in devices.get(runtime,[])):
                   subprocess.run(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.'+kind,runtime],check=True,timeout=60)
           PY
       - name: Compile app
+        id: compile_app
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
       - name: Chat alignment evidence
         env:
@@ -108,7 +69,7 @@ jobs:
             build/screenshots/chat/
           retention-days: 14
       - name: Preserved interactions
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.compile_app.outcome == 'success' }}
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_UI_GROUPS: social,gif,favorites,regression
@@ -169,9 +130,9 @@ jobs:
           def runtimes():
               return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
           if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
-              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-buildVersion','26.0.1'],check=True,timeout=1400)
+              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','arm64'],check=True,timeout=1400)
           found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
-          assert found['version']=='26.0.1', found
+          assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
           devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
           for name,kind in [('iPhone 17 Pro Max','iPhone-17-Pro-Max'),('iPhone SE (3rd generation)','iPhone-SE-3rd-generation')]:
               if not any(d['name']==name for d in devices.get(runtime,[])):
