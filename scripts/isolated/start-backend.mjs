@@ -2,12 +2,15 @@ import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { verifyAdminContracts } from './admin-contract.mjs';
 import { prepareVerificationFixture, verifyExtendedContracts } from './extended-contract.mjs';
 import { setupAuthChannels, verifyAuthContracts } from './auth-contract.mjs';
 
 if (process.env.GITHUB_ACTIONS !== 'true' || process.env.NODE_ENV !== 'test') throw new Error('Disposable test runner required');
+let startupPhase='initialization';
+process.on('uncaughtExceptionMonitor',error=>{writeFileSync(join(process.env.GITHUB_WORKSPACE,'build/integration-startup-failure.json'),JSON.stringify({status:'FAIL',phase:startupPhase,errorType:error.name,productionAPIRequests:0}));});
 const root = join(process.env.RUNNER_TEMP, 'pubo-isolated-backend/packages/backend');
 process.chdir(root);
 process.env.MISSKEY_VERIFICATION_ENCRYPTION_KEY=randomBytes(32).toString('hex');
@@ -16,7 +19,9 @@ const { loadConfig } = await import(pathToFileURL(join(root, 'built/config.js'))
 const config = loadConfig();
 if (config.url !== 'http://127.0.0.1:61812' || config.db.db !== 'pubo_native_integration' || config.db.host !== '127.0.0.1' || config.redis.host !== '127.0.0.1' || config.nativePush?.enabled) throw new Error('Unsafe integration configuration');
 const harness = await import(pathToFileURL(join(root, 'built-test/entry.js')));
+startupPhase='test-outbound-channels';
 const authChannels = await setupAuthChannels(root);
+startupPhase='backend-setup';
 await harness.setup();
 async function api(path, fields={}, token) {
  const response=await fetch('http://127.0.0.1:61812/api/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...fields,...(token?{i:token}:{})})});
@@ -27,7 +32,9 @@ async function api(path, fields={}, token) {
 // The first account owns the isolated instance. The App uses the second, ordinary account.
 const ownerPassword=randomBytes(24).toString('hex');
 const owner=await api('signup',{username:'isolated_owner',password:ownerPassword});
+startupPhase='authentication-contract';
 await verifyAuthContracts(api,owner,authChannels,root,join(process.env.GITHUB_WORKSPACE,'build/integration-auth-contract.json'));
+startupPhase='existing-contracts';
 // A fresh instance defaults to disallowing note search. Exercise the real supported API
 // with a permitted ordinary account, without changing any production role policy.
 const before=await api('meta');

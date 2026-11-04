@@ -10,7 +10,7 @@ export async function setupAuthChannels(root){
  requireIsolated();const messages=[],codes=new Map();let deliveries=0;
  const {EmailService}=await import(pathToFileURL(join(root,'built/core/EmailService.js')));
  // Replace only the outbound delivery boundary. Real endpoint/validation/storage code stays intact.
- EmailService.prototype.sendEmail=async function(address,subject,html,text){messages.push({address,subject,text});};
+ Object.defineProperty(EmailService.prototype,'sendEmail',{configurable:true,writable:true,value:async function(address,subject,html,text){messages.push({address,subject,text});}});
  const server=createServer(async(req,res)=>{
   if(req.method!=='POST'){res.writeHead(405);res.end();return;}
   let body='';for await(const chunk of req)body+=chunk;
