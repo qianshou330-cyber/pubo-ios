@@ -44,7 +44,7 @@ struct ChatDateSeparator: View {
 struct ChatRelativeTime: View {
     let date: Date
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { tick in
+        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { tick in
             Text(label(at: tick.date))
         }
     }

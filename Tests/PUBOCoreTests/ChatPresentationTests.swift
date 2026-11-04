@@ -34,6 +34,8 @@ final class ChatPresentationTests: XCTestCase {
         let rows = ChatReaction.rows(values)
         XCTAssertEqual(rows.count, 2); XCTAssertTrue(rows[0].isActionable(viewer: "me", all: rows))
         XCTAssertFalse(rows[1].isActionable(viewer: "me", all: rows))
+        XCTAssertFalse(rows[0].desiredPresence(viewer: "me"))
+        XCTAssertTrue(rows[1].desiredPresence(viewer: "me"), "A stale add click stays an add after fresh server state; never becomes a toggle")
         XCTAssertTrue(rows[1].isActionable(viewer: "me", all: [rows[1]]))
     }
     func testLocalDateBoundaryIncludingYearDoesNotDependOnUTCDay() {

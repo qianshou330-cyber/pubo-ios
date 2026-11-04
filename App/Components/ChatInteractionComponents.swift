@@ -12,7 +12,7 @@ struct ChatReactionStrip: View {
     let reactions: [JSONValue]
     let ownUserID: String
     var enabled = true
-    let toggle: (String) -> Void
+    let toggle: (String, Bool) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduced
     private var rows: [ChatReaction] { ChatReaction.rows(reactions) }
     var body: some View {
@@ -20,7 +20,7 @@ struct ChatReactionStrip: View {
             ForEach(rows) { row in
                 let mine = row.user.id == ownUserID
                 Button {
-                    if row.isActionable(viewer: ownUserID, all: rows) { toggle(row.emoji) }
+                    if row.isActionable(viewer: ownUserID, all: rows) { toggle(row.emoji, row.desiredPresence(viewer: ownUserID)) }
                 } label: {
                     HStack(spacing: 8) {
                         Avatar(user: row.user, size: 24)
