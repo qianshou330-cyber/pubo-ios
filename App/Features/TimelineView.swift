@@ -95,7 +95,7 @@ struct TimelineView: View {
                         }
                     }
                     .refreshable { homeRefresh += 1; await load() }
-                    .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded(perform: switchTimeline))
+                    .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded(switchTimeline))
             }
     }
     private var timelineContent: some View {
