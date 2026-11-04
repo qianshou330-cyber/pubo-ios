@@ -70,8 +70,12 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
   phase='signin';const step=await api('signin-flow',{username:'auth_fixture'});need(step.next==='captcha'&&!step.finished,'usernameStep');
   need((await response('signin-flow',{username:'auth_fixture',password:'wrong'})).status===403,'wrongPasswordRejected');
   need((await api('signin-flow',{username:'auth_fixture',password})).finished,'passwordSignin');
-  phase='totp-backup';const setup=await api('i/2fa/register',{password},user.token);const recovery=await api('i/2fa/done',{token:totp(setup.secret)},user.token);
+  phase='totp-backup';const setup=await api('i/2fa/register',{password},user.token);const enrollmentCode=totp(setup.secret);const recovery=await api('i/2fa/done',{token:enrollmentCode},user.token);
   need((await api('signin-flow',{username:'auth_fixture',password})).next==='totp','totpStep');
+  need((await response('signin-flow',{username:'auth_fixture',password,token:enrollmentCode})).status===403,'totpReplayRejected');
+  // Enrollment consumes the current code. Wait for a naturally new time step;
+  // never clear or bypass the server's replay protection to make this test pass.
+  await new Promise(resolve=>setTimeout(resolve,30050-Date.now()%30000));
   need((await api('signin-flow',{username:'auth_fixture',password,token:totp(setup.secret)})).finished,'totpSignin');
   need((await api('signin-flow',{username:'auth_fixture',password,token:recovery.backupCodes[0]})).finished,'backupSignin');
   need((await response('signin-flow',{username:'auth_fixture',password,token:recovery.backupCodes[0]})).status===403,'backupSingleUse');
@@ -97,3 +101,4 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
  }catch(error){const reason=/^(Authentication contract:|Synthetic setup failed:)/.test(error.message)?error.message.slice(0,200):error.name;await writeFile(destination,JSON.stringify({status:'FAIL',phase,reason,checks,productionAPIRequests:0},null,2));throw new Error('Isolated authentication failed at '+phase);}
  finally{process.env.NODE_ENV='test';await api('admin/update-meta',{disableRegistration:before.disableRegistration,emailRequiredForSignup:before.emailRequiredForSignup,enableActiveEmailValidation:before.enableActiveEmailValidation??false},owner.token);}
 }
+
