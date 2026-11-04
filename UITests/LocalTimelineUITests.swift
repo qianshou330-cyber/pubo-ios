@@ -32,6 +32,28 @@ final class LocalTimelineUITests: XCTestCase {
         XCTAssertTrue(find(app,"media.open.timelinesensitive").waitForExistence(timeout: 8)); capture(app,"local-sensitive-revealed")
         app.terminate()
     }
+    func testMultiImageGridUsesH5ArrangementAndSeparateTargets() {
+        for count in [2, 3, 4] {
+            let app = launch(["--timeline-grid=\(count)"])
+            let first = reveal(app,"media.open.timelineimage1")
+            let second = find(app,"media.open.timelineimage2")
+            XCTAssertTrue(first.isHittable); XCTAssertTrue(second.isHittable)
+            XCTAssertLessThan(first.frame.minX, second.frame.minX)
+            if count == 3 {
+                let third = find(app,"media.open.timelineimage3")
+                XCTAssertGreaterThan(first.frame.height, second.frame.height * 1.8)
+                XCTAssertEqual(second.frame.minX, third.frame.minX, accuracy: 2)
+                XCTAssertGreaterThan(third.frame.minY, second.frame.minY)
+            } else if count == 4 {
+                let fourth = find(app,"media.open.timelineimage4")
+                XCTAssertEqual(second.frame.minX, fourth.frame.minX, accuracy: 2)
+                XCTAssertGreaterThan(fourth.frame.minY, second.frame.minY)
+            }
+            capture(app,"local-media-grid-\(count)")
+            second.tap(); XCTAssertTrue(app.buttons["attachment.saveFile"].waitForExistence(timeout: 10))
+            app.buttons["关闭"].tap(); app.terminate()
+        }
+    }
     func testPublicGIFAutomaticallyMovesWithoutControls() {
         let app = launch(); let image = reveal(app,"media.open.timelinegif"); XCTAssertTrue(image.exists)
         let player = find(app,"media.animation.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))

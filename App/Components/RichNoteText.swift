@@ -25,7 +25,8 @@ struct RichNoteText: UIViewRepresentable {
     }
     func updateUIView(_ view: AnimatedTextView, context: Context) {
         context.coordinator.openURL = openURL; context.coordinator.onTap = onTap; context.coordinator.view = view
-        let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: UIFont.systemFont(ofSize: 14))
+        // H5's 14px base is 0.9em in a phone-width note container.
+        let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: UIFont.systemFont(ofSize: 12.6))
         let imageKey = urls.keys.sorted().map { key in key + "=" + (images[key].map { String(describing: ObjectIdentifier($0)) } ?? "pending") }.joined(separator: "|")
         let renderKey = parts.joined(separator: "\u{001f}") + imageKey + String(describing: font.pointSize)
         if context.coordinator.renderKey != renderKey {

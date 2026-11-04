@@ -230,9 +230,9 @@ struct NoteCard: View {
     @Environment(\.openNoteCard) private var navigate
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .subheadline) private var nameSize = 14.0
-    @ScaledMetric(relativeTo: .caption) private var accountSize = 12.0
-    @ScaledMetric(relativeTo: .caption2) private var timeSize = 10.0
+    @ScaledMetric(relativeTo: .subheadline) private var nameSize = 12.6
+    @ScaledMetric(relativeTo: .caption) private var accountSize = 12.6
+    @ScaledMetric(relativeTo: .caption2) private var timeSize = 11.34
     let note: Record
     var detail = false
     var timelineStyle = false

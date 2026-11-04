@@ -94,11 +94,31 @@ struct PublicMediaGrid: View {
     let files: [Record]
     let noteID: String
     var body: some View {
-        if !files.isEmpty {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: files.count == 1 ? 1 : 2), spacing: 4) {
-                ForEach(files) { file in TimelineMediaItem(file: file, noteID: noteID, compact: files.count > 1) }
-            }.clipShape(RoundedRectangle(cornerRadius: 8))
+        if files.count == 1 {
+            TimelineMediaItem(file: files[0], noteID: noteID)
+        } else if files.count > 1 {
+            GeometryReader { geometry in
+                ForEach(Array(files.enumerated()), id: \.element.id) { index, file in
+                    let frame = cell(index, in: geometry.size)
+                    TimelineMediaItem(file: file, noteID: noteID, compact: true, cellSize: frame.size)
+                        .frame(width: frame.width, height: frame.height).clipped()
+                        .position(x: frame.midX, y: frame.midY)
+                }
+            }.aspectRatio(files.count <= 4 ? 16.0 / 9 : 32.0 / (9 * ceil(Double(files.count) / 2)), contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
+    }
+    private func cell(_ index: Int, in size: CGSize) -> CGRect {
+        let gap: CGFloat = 4
+        if files.count == 3 {
+            let left = (size.width - gap) * 2 / 3
+            if index == 0 { return CGRect(x: 0, y: 0, width: left, height: size.height) }
+            let height = (size.height - gap) / 2
+            return CGRect(x: left + gap, y: CGFloat(index - 1) * (height + gap), width: size.width - left - gap, height: height)
+        }
+        let rows = ceil(CGFloat(files.count) / 2)
+        let width = (size.width - gap) / 2, height = (size.height - gap * (rows - 1)) / rows
+        return CGRect(x: CGFloat(index % 2) * (width + gap), y: CGFloat(index / 2) * (height + gap), width: width, height: height)
     }
 }
 
@@ -107,6 +127,7 @@ struct TimelineMediaItem: View {
     let file: Record
     let noteID: String
     var compact = false
+    var cellSize: CGSize? = nil
     @State private var revealed = false
     @State private var preview = false
     private var hidden: Bool { file["isSensitive"].bool && !revealed }
@@ -121,10 +142,10 @@ struct TimelineMediaItem: View {
         Group {
             if hidden {
                 Button { revealed = true } label: {
-                    VStack(spacing: 6) { Image(systemName: "eye.slash"); Text("敏感媒体").bold(); Text("点击展开").font(.caption) }.frame(maxWidth: .infinity, minHeight: compact ? 120 : 150).background(PUBOTheme.button)
+                    VStack(spacing: 6) { Image(systemName: "eye.slash"); Text("敏感媒体").bold(); Text("点击展开").font(.caption) }.frame(maxWidth: .infinity, minHeight: cellSize == nil ? (compact ? 120 : 150) : 0, maxHeight: .infinity).background(PUBOTheme.button)
                 }.buttonStyle(.plain).accessibilityIdentifier("media.reveal." + file.id)
             } else if mime.hasPrefix("image/"), let url = mediaURL {
-                PublicAnimatedAsset(url: url, open: { preview = true }, animationIdentifier: "media.animation." + file.id).aspectRatio(ratio, contentMode: .fit).frame(maxHeight: 420).clipped()
+                PublicAnimatedAsset(url: url, open: { preview = true }, animationIdentifier: "media.animation." + file.id).aspectRatio(cellSize == nil ? ratio : nil, contentMode: .fit).frame(width: cellSize?.width, height: cellSize?.height).frame(maxHeight: cellSize == nil ? 420 : nil).clipped()
                     .overlay(alignment: .bottomLeading) { if mime == "image/gif" { Text("GIF").font(.system(size: 10)).foregroundStyle(.white).padding(4).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 3)).padding(5) } }
                     .contentShape(Rectangle()).onTapGesture { preview = true }.accessibilityLabel(file["comment"].string ?? "查看图片").accessibilityAddTraits(.isButton).accessibilityIdentifier("media.open." + file.id)
             } else if mime.hasPrefix("video/") || mime.hasPrefix("audio/") {
@@ -136,7 +157,7 @@ struct TimelineMediaItem: View {
                     }
                 }.buttonStyle(.plain).accessibilityLabel(mime.hasPrefix("audio/") ? "播放音频" : "播放视频").accessibilityIdentifier("media.open." + file.id)
             } else if let url = safeMediaURL(file["url"].string) { Link(file["name"].string ?? "打开附件", destination: url).font(.caption) }
-        }.clipShape(RoundedRectangle(cornerRadius: 8))
+        }.frame(width: cellSize?.width, height: cellSize?.height).clipped().clipShape(RoundedRectangle(cornerRadius: 8))
             .sheet(isPresented: $preview) { PublicAttachmentPreview(file: file, allowSensitive: revealed) }
             .onChange(of: file) { _, _ in revealed = false; preview = false }
             .onChange(of: session.generation) { _, _ in revealed = false; preview = false }

@@ -15,7 +15,14 @@ enum TimelineTestFixtures {
     }
     static var posts: [JSONValue] {
         let format = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--timeline-format=") }?.components(separatedBy: "=").last
+        let grid = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--timeline-grid=") }?.components(separatedBy: "=").last.flatMap(Int.init)
         return snapshot["posts"].array.map { original in
+            if original["id"].string == "at4tltest0022", let grid, (2...5).contains(grid) {
+                var note = original.object
+                let files: [JSONValue] = (1...grid).map { index in var file = original["files"].array[0].object; file["id"] = .string("timelineimage\(index)"); return .object(file) }
+                note["files"] = .array(files); note["fileIds"] = .array(files.map { $0["id"] })
+                return .object(note)
+            }
             guard original["id"].string == "at4tltest0024", let format, ["finite", "apng", "webp"].contains(format) else { return original }
             var note = original.object; var file = original["files"].array[0].object
             let ext = format == "finite" ? "gif" : format

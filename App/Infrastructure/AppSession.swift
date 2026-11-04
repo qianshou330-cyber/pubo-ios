@@ -1,5 +1,5 @@
 import SwiftUI
-import Combine
+import class Combine.PassthroughSubject
 import PUBOCore
 
 @Observable @MainActor
