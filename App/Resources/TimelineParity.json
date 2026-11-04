@@ -38,7 +38,7 @@
         "isBot": false,
         "emojis": {}
       },
-      "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+      "text": "欢迎加入 PUBO，分享音乐和日常。 :a2o_lite_aijing1: https://bolubo.com/download/android",
       "cw": null,
       "visibility": "public",
       "localOnly": true,
@@ -49,11 +49,11 @@
       "renoteCount": 3,
       "repliesCount": 1,
       "reactions": {
-        ":party:": 2,
+        ":a2o_lite_aijing1:": 2,
         "❤️": 1
       },
       "reactionEmojis": {
-        "party": "https://timeline-fixture.invalid/loop.gif"
+        "a2o_lite_aijing1": "https://timeline-fixture.invalid/loop.gif"
       },
       "myReaction": null
     },
@@ -291,7 +291,7 @@
           "isBot": false,
           "emojis": {}
         },
-        "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+        "text": "欢迎加入 PUBO，分享音乐和日常。 :a2o_lite_aijing1: https://bolubo.com/download/android",
         "cw": null,
         "visibility": "public",
         "localOnly": true,
@@ -302,11 +302,11 @@
         "renoteCount": 3,
         "repliesCount": 1,
         "reactions": {
-          ":party:": 2,
+          ":a2o_lite_aijing1:": 2,
           "❤️": 1
         },
         "reactionEmojis": {
-          "party": "https://timeline-fixture.invalid/loop.gif"
+          "a2o_lite_aijing1": "https://timeline-fixture.invalid/loop.gif"
         },
         "myReaction": null
       }
@@ -366,7 +366,7 @@
           "isBot": false,
           "emojis": {}
         },
-        "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+        "text": "欢迎加入 PUBO，分享音乐和日常。 :a2o_lite_aijing1: https://bolubo.com/download/android",
         "cw": null,
         "visibility": "public",
         "localOnly": true,
@@ -377,11 +377,11 @@
         "renoteCount": 3,
         "repliesCount": 1,
         "reactions": {
-          ":party:": 2,
+          ":a2o_lite_aijing1:": 2,
           "❤️": 1
         },
         "reactionEmojis": {
-          "party": "https://timeline-fixture.invalid/loop.gif"
+          "a2o_lite_aijing1": "https://timeline-fixture.invalid/loop.gif"
         },
         "myReaction": null
       }
@@ -441,7 +441,7 @@
           "isBot": false,
           "emojis": {}
         },
-        "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+        "text": "欢迎加入 PUBO，分享音乐和日常。 :a2o_lite_aijing1: https://bolubo.com/download/android",
         "cw": null,
         "visibility": "public",
         "localOnly": true,
@@ -452,11 +452,11 @@
         "renoteCount": 3,
         "repliesCount": 1,
         "reactions": {
-          ":party:": 2,
+          ":a2o_lite_aijing1:": 2,
           "❤️": 1
         },
         "reactionEmojis": {
-          "party": "https://timeline-fixture.invalid/loop.gif"
+          "a2o_lite_aijing1": "https://timeline-fixture.invalid/loop.gif"
         },
         "myReaction": null
       }
@@ -1094,8 +1094,8 @@
   ],
   "emojis": [
     {
-      "id": "party",
-      "name": "party",
+      "id": "a2o_lite_aijing1",
+      "name": "a2o_lite_aijing1",
       "aliases": [],
       "category": "常用",
       "url": "https://timeline-fixture.invalid/loop.gif",

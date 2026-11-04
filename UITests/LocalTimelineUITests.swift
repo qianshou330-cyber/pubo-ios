@@ -44,7 +44,7 @@ final class LocalTimelineUITests: XCTestCase {
         let app = launch(); let reaction = app.buttons["note.reaction.at4tltest0025.❤️"]
         XCTAssertTrue(reaction.waitForExistence(timeout: 10)); reaction.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForExistence(timeout: 8)); capture(app,"local-reaction-selected")
-        reaction.tap(); let cancel = app.buttons["取消反应"].lastMatch; XCTAssertTrue(cancel.waitForExistence(timeout: 5)); cancel.tap()
+        reaction.tap(); let cancel = app.buttons.matching(identifier: "取消反应").allElementsBoundByIndex.last!; XCTAssertTrue(cancel.waitForExistence(timeout: 5)); cancel.tap()
         capture(app,"local-reaction-cancelled"); app.terminate()
     }
     func testNewPostsQueueAndReturnToTop() {

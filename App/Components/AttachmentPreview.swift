@@ -110,18 +110,18 @@ struct PublicAttachmentPreview: View {
     }
     private func load() async {
         guard (!file["isSensitive"].bool || allowSensitive), let source = safeMediaURL(file["url"].string) else { error = "无法在 App 打开此附件"; return }
-        if session.testMode && !session.isolatedBackend { error = "隔离测试不下载外站媒体"; return }
         let epoch = session.generation
         do {
             guard file["size"].int <= 50 * 1024 * 1024 else { throw APIError(code: "FILE_TOO_LARGE", message: "附件超过 50 MiB，请在网页查看。") }
-            let configuration = URLSessionConfiguration.ephemeral; configuration.timeoutIntervalForResource = 90
-            let client = URLSession(configuration: configuration); defer { client.invalidateAndCancel() }
-            let (temporary, response) = try await client.download(from: source)
-            defer { try? FileManager.default.removeItem(at: temporary) }
+            let content: Data
+            #if DEBUG
+            if session.testMode && !session.isolatedBackend {
+                guard let fixture = TimelineTestFixtures.media(source) else { throw APIError(code: "TEST_MEDIA", message: "隔离测试不下载外站媒体") }; content = fixture
+            } else { content = try await PublicImageDecoder.data(source) }
+            #else
+            content = try await PublicImageDecoder.data(source)
+            #endif
             guard epoch == session.generation, !Task.isCancelled else { return }
-            guard (response as? HTTPURLResponse)?.statusCode == 200, safeMediaURL(response.url?.absoluteString) != nil,
-                  let size = try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 50 * 1024 * 1024 else { throw APIError.invalidResponse }
-            let content = try Data(contentsOf: temporary)
             let ext = UTType(mimeType: file["type"].string ?? "")?.preferredFilenameExtension ?? "bin"
             let destination = FileManager.default.temporaryDirectory.appendingPathComponent("pubo-private-\(UUID().uuidString).\(ext)")
             try content.write(to: destination, options: [.atomic, .completeFileProtection])

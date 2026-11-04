@@ -2,6 +2,32 @@ import XCTest
 
 /// Exercises the native UI against the pinned real backend on this runner's loopback network.
 @MainActor final class PUBOIntegrationTests: XCTestCase {
+    func testRealLocalTimelineReactionAndCancellation() async throws {
+        let data = try await context(); let app = launch(data)
+        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20)); XCTAssertTrue(app.buttons["timeline.local"].isSelected)
+        let reaction = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "note.reaction." + data["noteId"]! + ".")).firstMatch
+        for _ in 0..<8 where !reaction.isHittable { app.swipeUp() }
+        XCTAssertTrue(reaction.isHittable); reaction.tap()
+        XCTAssertTrue(app.buttons["取消反应"].waitForExistence(timeout: 15))
+        let created = try await proof("timelineReacted"); XCTAssertTrue(created); capture(app,"joint-timeline-reacted")
+        reaction.tap(); let confirm = app.buttons.matching(identifier: "取消反应").allElementsBoundByIndex.last!
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
+        XCTAssertTrue(app.buttons["取消反应"].waitForNonExistence(timeout: 15))
+        let removed = try await proof("timelineUnreacted"); XCTAssertTrue(removed); app.terminate()
+    }
+    func testRealLocalTimelineReceivesAndDeletesSpecificNote() async throws {
+        let app = launch(try await context())
+        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["poll.choice.0"].waitForExistence(timeout: 20))
+        var create = URLRequest(url: URL(string: "http://127.0.0.1:61913/timeline-create")!); create.httpMethod = "POST"; create.timeoutInterval = 15
+        let (bytes, response) = try await URLSession.shared.data(for: create); XCTAssertEqual((response as? HTTPURLResponse)?.statusCode,200)
+        let value = try JSONDecoder().decode([String:String].self,from:bytes)
+        let note = app.descendants(matching:.any).matching(identifier:"note.open." + value["id"]!).firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout:15)); capture(app,"joint-timeline-live-insert")
+        var remove = URLRequest(url: URL(string:"http://127.0.0.1:61913/timeline-delete")!); remove.httpMethod = "POST"; remove.timeoutInterval = 15
+        let (_, deleted) = try await URLSession.shared.data(for:remove); XCTAssertEqual((deleted as? HTTPURLResponse)?.statusCode,204)
+        XCTAssertTrue(note.waitForNonExistence(timeout:15)); capture(app,"joint-timeline-live-delete"); app.terminate()
+    }
     func testRealNativeAdminCreatesAnnouncement() async throws {
         let data = try await context(); let app = XCUIApplication(); app.launchArguments = ["--isolated-backend"]
         app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]; app.launch()

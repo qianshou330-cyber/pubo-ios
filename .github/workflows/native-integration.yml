@@ -1,7 +1,7 @@
 name: Native app and isolated PUBO backend
 on:
   push:
-    branches: [main, 'parity-phase*', 'ui-social-parity-*']
+    branches: [main, 'parity-phase*', 'ui-social-parity-*', 'ui-local-timeline-*']
   workflow_dispatch:
 permissions:
   contents: read

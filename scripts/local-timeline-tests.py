@@ -27,7 +27,8 @@ try:
                 summary=subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path',str(bundle)],text=True,timeout=60)
                 (root/(name+'-summary.json')).write_text(summary)
         record[name]='PASS' if result.returncode==0 else 'FAIL'
-        if result.returncode:raise RuntimeError(name+' tests failed')
+        # Continue independent regression groups so failures do not hide unrelated evidence.
+    if any(record.get(name) != 'PASS' for name,_ in groups):raise RuntimeError('One or more UI groups failed; see individual summaries')
     record['tests']='PASS'
 finally:
     (root/'timeline-environment.json').write_text(json.dumps(record,indent=2))

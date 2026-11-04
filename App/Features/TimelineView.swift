@@ -325,7 +325,7 @@ struct NoteCard: View {
                     Button("引用转发") { quoting = true }
                 } label: { HStack(spacing: 3) { Image(systemName: "arrow.2.squarepath"); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(.caption2) } }.frame(minWidth: 44, minHeight: 44) }
                 Button { reactionPicker = true } label: { Image(systemName: "plus").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("添加表情反应")
-                if !shown["myReaction"].isNull { Button("取消反应") { Task { await react(nil) } }.font(.caption) }
+                if !shown["myReaction"].isNull { Button("取消反应") { proposedReaction = nil; confirmReaction = true }.font(.caption) }
                 Spacer(minLength: 0)
                 Menu {
                     Button("收藏帖子") { Task { await favorite(true) } }

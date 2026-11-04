@@ -42,7 +42,7 @@ struct PublicAnimationSurface: UIViewRepresentable {
     let playing: Bool
     var open: (() -> Void)? = nil
     func makeUIView(context: Context) -> ProtectedGIFImageView { ProtectedGIFImageView(frame: .zero) }
-    func updateUIView(_ view: ProtectedGIFImageView, context: Context) { view.configure(image, playing: playing, identifier: "timeline.animatedImage", open: open) }
+    func updateUIView(_ view: ProtectedGIFImageView, context: Context) { view.configure(image, playing: playing, identifier: "timeline.animatedImage", open: open); view.isUserInteractionEnabled = open != nil }
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: ProtectedGIFImageView, context: Context) -> CGSize? { CGSize(width: proposal.width ?? 24, height: proposal.height ?? 24) }
     static func dismantleUIView(_ view: ProtectedGIFImageView, coordinator: ()) { view.clear() }
 }
@@ -53,6 +53,7 @@ struct PublicAnimatedAsset: View {
     let url: URL
     var fit = true
     var emoji = false
+    var open: (() -> Void)? = nil
     @State private var image: UIImage?
     @State private var error = false
     @State private var visible = false
@@ -60,7 +61,7 @@ struct PublicAnimatedAsset: View {
     var body: some View {
         Group {
             if let animated = image as? SDAnimatedImage, animated.animatedImageFrameCount > 1 {
-                PublicAnimationSurface(image: animated, playing: visible && phase == .active)
+                PublicAnimationSurface(image: animated, playing: visible && phase == .active, open: open)
             } else if let image { Image(uiImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill) }
             else if error { Button { retry += 1 } label: { Image(systemName: "arrow.clockwise").font(.caption) }.accessibilityLabel("重试图片") }
             else { ProgressView().controlSize(.small) }
@@ -106,7 +107,7 @@ struct TimelineMediaItem: View {
     @State private var preview = false
     private var hidden: Bool { file["isSensitive"].bool && !revealed }
     private var mime: String { file["type"].string ?? "" }
-    private var mediaURL: URL? { safeMediaURL(mime == "image/gif" ? file["url"].string : file["thumbnailUrl"].string ?? file["url"].string) }
+    private var mediaURL: URL? { safeMediaURL(["image/gif", "image/png", "image/apng", "image/webp"].contains(mime) ? file["url"].string : file["thumbnailUrl"].string ?? file["url"].string) }
     private var ratio: CGFloat {
         if compact { return 1 }
         let width = file["properties"]["width"].int, height = file["properties"]["height"].int
@@ -119,7 +120,7 @@ struct TimelineMediaItem: View {
                     VStack(spacing: 6) { Image(systemName: "eye.slash"); Text("敏感媒体").bold(); Text("点击展开").font(.caption) }.frame(maxWidth: .infinity, minHeight: compact ? 120 : 150).background(PUBOTheme.button)
                 }.buttonStyle(.plain).accessibilityIdentifier("media.reveal." + file.id)
             } else if mime.hasPrefix("image/"), let url = mediaURL {
-                PublicAnimatedAsset(url: url).aspectRatio(ratio, contentMode: .fit).frame(maxHeight: 420).clipped()
+                PublicAnimatedAsset(url: url, open: { preview = true }).aspectRatio(ratio, contentMode: .fit).frame(maxHeight: 420).clipped()
                     .overlay(alignment: .bottomLeading) { if mime == "image/gif" { Text("GIF").font(.system(size: 10)).foregroundStyle(.white).padding(4).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 3)).padding(5) } }
                     .contentShape(Rectangle()).onTapGesture { preview = true }.accessibilityLabel(file["comment"].string ?? "查看图片").accessibilityAddTraits(.isButton).accessibilityIdentifier("media.open." + file.id)
             } else if mime.hasPrefix("video/") || mime.hasPrefix("audio/") {

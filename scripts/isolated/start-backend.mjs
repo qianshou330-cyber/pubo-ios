@@ -38,6 +38,8 @@ catch(error) { await writeFile(join(process.env.GITHUB_WORKSPACE,'build/integrat
 await api('i/update',{name:'原生验收用户',chatScope:'mutual'},alice.token);
 await api('i/update',{name:'隔离测试朋友',chatScope:'mutual'},bob.token);
 const note=await api('notes/create',{text:'PUBO joint proof #PUBO',visibility:'public'},alice.token);
+await api('notes/reactions/create',{noteId:note.createdNote.id,reaction:'❤️'},bob.token);
+let timelineEvent;
 const searchProof=await api('notes/search',{query:'PUBO joint proof',limit:30},alice.token);
 if(!searchProof.some(x=>x.id===note.createdNote.id))throw new Error('Isolated search setup is not ready');
 const poll=await api('notes/create',{text:'真实接口投票',visibility:'public',poll:{choices:['Morning','Evening'],multiple:false}},bob.token);
@@ -67,8 +69,17 @@ const control=createServer(async(req,res)=>{
    res.writeHead(204);res.end();return;
   }
   if(req.method==='GET'&&req.url==='/context'){res.setHeader('content-type','application/json');res.end(JSON.stringify(context));return;}
+  if(req.method==='POST'&&req.url==='/timeline-create'){
+   timelineEvent=await api('notes/create',{text:'Isolated live timeline event',visibility:'public',localOnly:true},bob.token);
+   res.setHeader('content-type','application/json');res.end(JSON.stringify({id:timelineEvent.createdNote.id}));return;
+  }
+  if(req.method==='POST'&&req.url==='/timeline-delete'&&timelineEvent){
+   await api('notes/delete',{noteId:timelineEvent.createdNote.id},bob.token);
+   res.writeHead(204);res.end();return;
+  }
   if(req.method==='GET'&&req.url==='/proof'){
    const favorites=await api('i/favorites',{limit:100},alice.token);
+   const timelineNote=await api('notes/show',{noteId:note.createdNote.id},alice.token);
    const vote=await api('notes/show',{noteId:poll.createdNote.id},alice.token);
    const message=await api('chat/messages/show',{messageId:sent.id},alice.token);
    const reactionMessage=await api('chat/messages/show',{messageId:received.id},alice.token);
@@ -86,7 +97,7 @@ const control=createServer(async(req,res)=>{
    const adminAnnouncements=await api('admin/announcements/list',{status:'all',limit:100},owner.token);
    const daily={adminAnnouncementCreated:adminAnnouncements.some(x=>x.title==='Native administrator announcement'&&x.text==='Native administrator body'),privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
    const reacted=reactionMessage.reactions.some(x=>x.user.id===alice.id&&x.reaction.replace(/\ufe0f/g,'')==='❤');
-   res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
+   res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,timelineReacted:timelineNote.myReaction?.replace(/\ufe0f/g,'')==='❤',timelineUnreacted:timelineNote.myReaction==null,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
   }
   res.writeHead(404);res.end();
  }catch{res.writeHead(500);res.end('Synthetic control failed');}

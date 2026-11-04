@@ -4,7 +4,7 @@ from simulator_boot import boot
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
 inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
 devices=[dict(d,runtime=r) for r,values in inventory.items() if '.iOS-26-' in r for d in values if d['name'].startswith('iPhone')]
-template=next((d for d in devices if 'SE' in d['name']),devices[0])
+template=next(d for d in devices if d['name']=='iPhone 17 Pro Max')
 device=subprocess.check_output(['xcrun','simctl','create','PUBO real backend',template['deviceTypeIdentifier'],template['runtime']],text=True).strip()
 result={'status':'RUNNING','device':template['name'],'runtime':template['runtime'],'productionAPIRequests':0,'transport':'loopback-only real backend'}
 try:
@@ -13,7 +13,7 @@ try:
  subprocess.run(command,check=True,timeout=1200,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1'})
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
- assert summary.get('passedTests',0)==14 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All fourteen real-backend UI tests must actually run'
+ assert summary.get('passedTests',0)==16 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All sixteen real-backend UI tests must actually run'
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)

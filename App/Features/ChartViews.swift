@@ -13,6 +13,8 @@ struct ChartSongRow: View {
     @State private var transitioning = false
     @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 14
     @ScaledMetric(relativeTo: .caption2) private var artistSize: CGFloat = 11
+    @ScaledMetric(relativeTo: .subheadline) private var compactTitleSize: CGFloat = 12
+    @ScaledMetric(relativeTo: .caption2) private var compactArtistSize: CGFloat = 10
     private var movement: ChartMovement { ChartMovement(row) }
     var body: some View {
         HStack(spacing: 8) {
@@ -26,8 +28,8 @@ struct ChartSongRow: View {
             let artists = row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")
             if compact {
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 6) { Text(row["title"].string ?? "").font(.system(size: 12)); Text(artists).font(.system(size: 10)).foregroundStyle(PUBOTheme.secondary) }.lineLimit(1)
-                    Text((row["title"].string ?? "") + "  " + artists).font(.system(size: 12)).lineLimit(1)
+                    HStack(spacing: 6) { Text(row["title"].string ?? "").font(.system(size: compactTitleSize)); Text(artists).font(.system(size: compactArtistSize)).foregroundStyle(PUBOTheme.secondary) }.lineLimit(1)
+                    Text((row["title"].string ?? "") + "  " + artists).font(.system(size: compactTitleSize)).lineLimit(2)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 2) {
