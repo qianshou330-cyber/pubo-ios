@@ -8,6 +8,18 @@ final class LocalTimelineUITests: XCTestCase {
     }
     private func capture(_ app: XCUIApplication, _ name: String) { let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot) }
     private func find(_ app: XCUIApplication, _ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+    private func animationPlayer(_ app: XCUIApplication) -> XCUIElement {
+        // SwiftUI may expose both a media container and its UIKit animation child.
+        // Query the actual decoder's value, never the container's empty value.
+        let player = app.descendants(matching: .any).matching(NSPredicate(format:
+            "(identifier == %@ OR identifier == %@) AND value BEGINSWITH %@",
+            "media.animation.timelinegif", "media.open.timelinegif", "frame=")).firstMatch
+        if !player.waitForExistence(timeout: 12) {
+            let tree = XCTAttachment(string: app.debugDescription); tree.name = "animation-accessibility-tree"; tree.lifetime = .keepAlways; add(tree)
+            XCTFail("The real animated image must expose its decoder frame state")
+        }
+        return player
+    }
     private func reveal(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         let item = find(app, id)
         let scroll = app.scrollViews["timeline.scroll"]
@@ -66,7 +78,7 @@ final class LocalTimelineUITests: XCTestCase {
     }
     func testPublicGIFAutomaticallyMovesWithoutControls() {
         let app = launch(); let image = reveal(app,"media.open.timelinegif"); XCTAssertTrue(image.exists)
-        let player = find(app,"media.open.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
+        let player = animationPlayer(app)
         var frames = Set<String>(); let deadline = Date().addingTimeInterval(3)
         while Date() < deadline { frames.insert(player.value as? String ?? ""); Thread.sleep(forTimeInterval: 0.11) }
         XCTAssertGreaterThan(frames.count,1); XCTAssertFalse(app.buttons["暂停"].exists); capture(app,"local-gif-autoplay")
@@ -76,7 +88,7 @@ final class LocalTimelineUITests: XCTestCase {
         for format in ["apng", "webp", "finite"] {
             let app = launch(["--timeline-format=" + format])
             _ = reveal(app,"media.open.timelinegif")
-            let player = find(app,"media.open.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
+            let player = animationPlayer(app)
             let deadline = Date().addingTimeInterval(format == "finite" ? 12 : 3)
             var frames = Set<String>(); var completed = false
             while Date() < deadline {
@@ -97,7 +109,7 @@ final class LocalTimelineUITests: XCTestCase {
         XCTAssertTrue(reaction.waitForExistence(timeout: 10)); reaction.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForExistence(timeout: 8)); capture(app,"local-reaction-selected")
         let custom = app.buttons.matching(identifier: "note.reaction.at4tltest0025.:a2o_lite_aijing1:").firstMatch
-        custom.tap(); let confirmation = app.buttons["note.confirmReaction.at4tltest0025"]
+        custom.tap(); let confirmation = app.buttons.matching(identifier: "note.confirmReaction.at4tltest0025").firstMatch
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5)); confirmation.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "已选择"), object: custom)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed)

@@ -10,7 +10,7 @@ import XCTest
         XCTAssertTrue(reaction.isHittable); reaction.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForExistence(timeout: 15))
         let created = try await proof("timelineReacted"); XCTAssertTrue(created); capture(app,"joint-timeline-reacted")
-        reaction.tap(); let confirm = app.buttons["note.confirmReaction." + data["noteId"]!]
+        reaction.tap(); let confirm = app.buttons.matching(identifier: "note.confirmReaction." + data["noteId"]!).firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForNonExistence(timeout: 15))
         let removed = try await proof("timelineUnreacted"); XCTAssertTrue(removed); app.terminate()

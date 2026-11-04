@@ -27,7 +27,12 @@ try:
     # Settle first-launch simulator services before XCTest requests its background
     # assertion. This is a separate, recorded fixture-only launch, not a test retry.
     subprocess.run(['xcrun','simctl','install',identifier,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=90)
-    subprocess.run(['xcrun','simctl','launch',identifier,'com.bolubo.native','--ui-testing','--timeline-align','--gif-preview'],check=True,timeout=60)
+    try:
+        subprocess.run(['xcrun','simctl','launch',identifier,'com.bolubo.native','--ui-testing','--timeline-align','--gif-preview'],check=True,timeout=60)
+        record['warmupLaunch']='LAUNCHED'
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+        record['warmupLaunch']='FAILED: '+type(error).__name__
+        print('Warmup launch unavailable; actual XCTest launch and assertions are still required.',flush=True)
     time.sleep(12)
     try:
         subprocess.run(['xcrun','simctl','io',identifier,'screenshot',str(root/('warmup-'+os.environ.get('PUBO_UI_SCOPE','all')+'.png'))],check=True,timeout=60)
