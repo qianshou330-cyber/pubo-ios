@@ -249,6 +249,7 @@ import XCTest
         let target = app.descendants(matching: .any).matching(identifier: "room.bubble." + data["roomOldId"]!).firstMatch
         XCTAssertTrue(target.waitForExistence(timeout: 12)); XCTAssertTrue(target.isHittable); capture(app, "joint-group-exact-history")
         app.buttons["回到最新消息"].tap(); XCTAssertTrue(app.staticTexts["Native ordinary member reaction"].waitForExistence(timeout: 10))
+        XCTAssertTrue(target.waitForNonExistence(timeout: 5), "Returning to latest must restart paging rather than join two windows with an unloaded gap")
     }
     func testRealGroupSpecificArrivalAndDeletion() async throws {
         let data = try await context(), app = launch(data); openParityRoom(app, data)
