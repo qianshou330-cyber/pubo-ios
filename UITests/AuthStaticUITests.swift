@@ -123,7 +123,7 @@ final class AuthStaticUITests: XCTestCase {
     }
     func testLargeTextKeyboardAndCaptchaBoundary() {
         let app = launch(["--large-text", "--dark", "--auth-captcha"]); signup(app, expectsFields: false)
-        XCTAssertTrue(app.links["打开本站注册"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["auth.requestCode"].exists)
+        XCTAssertTrue(app.buttons["打开本站注册"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["auth.requestCode"].exists)
         capture(app, "signup-web-verification")
         app.buttons["auth.close"].tap(); app.buttons["auth.openLogin"].tap()
         let input = app.textFields["auth.username"]; reveal(input, app); input.tap(); input.typeText("fixture")
