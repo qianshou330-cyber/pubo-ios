@@ -24,7 +24,7 @@ jobs:
               const {data:run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id});
               if (run.head_branch !== branch || run.head_sha !== sha || run.head_branch === 'main') throw new Error('Candidate identity mismatch');
               if (['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(run.status)) {
-                await github.rest.actions.cancelWorkflowRun({...context.repo, run_id});
+                await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel', {...context.repo, run_id});
                 core.info('Cancelled superseded candidate run ' + run_id);
               } else core.info('Already finished ' + run_id);
             }
