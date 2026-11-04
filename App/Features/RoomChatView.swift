@@ -139,7 +139,7 @@ struct RoomChatView: View {
                         if !own { Button(room?["isMuted"].bool == true ? "恢复提醒" : "免打扰") { Task { await mute() } } }
                         if own { Button("修改群聊") { editing = true }; Button("删除群聊", role: .destructive) { operation = "delete" } }
                         else { Button("退出群聊", role: .destructive) { operation = "leave" } }
-                    } label: { Image(systemName: "ellipsis") }.disabled(busy)
+                    } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.disabled(busy)
                 }
             }
     }

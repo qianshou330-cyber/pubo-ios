@@ -39,7 +39,7 @@ final class ChatAlignmentUITests: XCTestCase {
     func testPrivateSearchDateAndReactionsBothThemes() {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light", app = launch(dark ? ["--dark"] : []); peer(app)
-            XCTAssertTrue(app.staticTexts["11/2 · 11/3"].waitForExistence(timeout: 6))
+            XCTAssertTrue(app.staticTexts["日期 11/2 · 11/3"].waitForExistence(timeout: 6))
             XCTAssertTrue(app.buttons["取消反应 ❤"].exists); capture(app, "chat-private-" + theme)
             app.buttons["添加反应 ❤"].tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].exists, "Clicking another participant must not remove my reaction")
             app.buttons["取消反应 ❤"].tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].waitForNonExistence(timeout: 6))
@@ -52,7 +52,7 @@ final class ChatAlignmentUITests: XCTestCase {
     func testGroupSearchExactMessageReportAndMenuBothThemes() {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light", app = launch(dark ? ["--dark"] : []); room(app)
-            XCTAssertTrue(app.staticTexts["11/3 · 11/4"].waitForExistence(timeout: 6)); capture(app, "chat-room-" + theme)
+            XCTAssertTrue(app.staticTexts["日期 11/3 · 11/4"].waitForExistence(timeout: 6)); capture(app, "chat-room-" + theme)
             app.buttons["room.tab.search"].tap(); let input = app.textFields["chat.search.query"]; XCTAssertTrue(input.waitForExistence(timeout: 6)); input.tap(); input.typeText("欢迎")
             let found = app.staticTexts["欢迎来到音乐交流群。"]; XCTAssertTrue(found.waitForExistence(timeout: 6)); capture(app, "chat-room-search-" + theme); found.tap()
             XCTAssertTrue(app.buttons["回到最新消息"].waitForExistence(timeout: 6))
