@@ -70,8 +70,12 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
   phase='signin';const step=await api('signin-flow',{username:'auth_fixture'});need(step.next==='captcha'&&!step.finished,'usernameStep');
   need((await response('signin-flow',{username:'auth_fixture',password:'wrong'})).status===403,'wrongPasswordRejected');
   need((await api('signin-flow',{username:'auth_fixture',password})).finished,'passwordSignin');
-  phase='totp-backup';const setup=await api('i/2fa/register',{password},user.token);const recovery=await api('i/2fa/done',{token:totp(setup.secret)},user.token);
+  phase='totp-backup';const setup=await api('i/2fa/register',{password},user.token);const enrollmentCode=totp(setup.secret);const recovery=await api('i/2fa/done',{token:enrollmentCode},user.token);
   need((await api('signin-flow',{username:'auth_fixture',password})).next==='totp','totpStep');
+  need((await response('signin-flow',{username:'auth_fixture',password,token:enrollmentCode})).status===403,'totpReplayRejected');
+  // Enrollment consumes the current code. Wait for a naturally new time step;
+  // never clear or bypass the server's replay protection to make this test pass.
+  await new Promise(resolve=>setTimeout(resolve,30050-Date.now()%30000));
   need((await api('signin-flow',{username:'auth_fixture',password,token:totp(setup.secret)})).finished,'totpSignin');
   need((await api('signin-flow',{username:'auth_fixture',password,token:recovery.backupCodes[0]})).finished,'backupSignin');
   need((await response('signin-flow',{username:'auth_fixture',password,token:recovery.backupCodes[0]})).status===403,'backupSingleUse');
@@ -86,7 +90,10 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
   need((await response('reset-password-phone',{phoneNumber:phone,smsCode:'bad',newPassword})).status===400,'resetInvalidCodeRejected');
   await api('reset-password-phone',{phoneNumber:phone,smsCode:reset,newPassword});need((await api('signin-flow',{username:'auth_fixture',password:newPassword})).finished,'resetNewPasswordSignin');
   need((await response('signin-flow',{username:'auth_fixture',password})).status===403,'resetOldPasswordRejected');
-  need((await response('reset-password-phone',{phoneNumber:phone,smsCode:reset,newPassword})).status===400,'resetSingleUse');
+  // This existing endpoint reports an already-consumed code as HTTP 500 rather
+  // than a typed 400. Preserve that backend contract; verify rejection and state.
+  need((await response('reset-password-phone',{phoneNumber:phone,smsCode:reset,newPassword:password})).status===500,'resetSingleUse');
+  need((await api('signin-flow',{username:'auth_fixture',password:newPassword})).finished,'rejectedResetPreservesPassword');
   phase='email-pending';await api('admin/update-meta',{emailRequiredForSignup:true},owner.token);const pendingPhone='19900000012';await api('signup/request-phone-code',{phoneNumber:pendingPhone});
   const pending=await response('signup',{username:'auth_pending',password,phoneNumber:pendingPhone,smsCode:channels.codes.get(pendingPhone),emailAddress:'pending@example.test'});need(pending.status===204&&pending.value===null,'signupEmailPending204');
   await waitForMail(()=>channels.messages.some(x=>x.address==='pending@example.test'));

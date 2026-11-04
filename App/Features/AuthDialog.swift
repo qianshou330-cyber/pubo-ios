@@ -26,13 +26,16 @@ struct AuthDialog: View {
                             .buttonStyle(.plain).accessibilityLabel("关闭").accessibilityIdentifier("auth.close")
                     }.padding(.leading, 20).padding(.trailing, 4).frame(minHeight: 50)
                     Divider().overlay(PUBOTheme.divider)
+                    if let message = flow.message {
+                        Text(message).font(.footnote).foregroundStyle(flow.isError ? Color.red : PUBOTheme.text)
+                            .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 20).padding(.vertical, 10)
+                            .background(PUBOTheme.background)
+                            .accessibilityIdentifier("auth.error")
+                    }
                     ScrollView {
                         VStack(spacing: 20) {
                             step.id(flow.page).transition(reduceMotion ? .opacity : .asymmetric(insertion: .opacity.combined(with: .offset(x: 35)), removal: .opacity.combined(with: .offset(x: -35))))
-                            if let message = flow.message {
-                                Text(message).font(.footnote).foregroundStyle(flow.isError ? Color.red : PUBOTheme.text)
-                                    .frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("auth.error")
-                            }
                         }.padding(registration || flow.page == .forgot ? 28 : 32).frame(maxWidth: .infinity)
                     }.scrollDismissesKeyboard(.interactively).accessibilityIdentifier("auth.content")
                 }.frame(width: min(registration ? 500 : 400, max(0, area.size.width - 32)), height: min(registration || flow.page == .forgot ? 600 : 450, max(0, area.size.height - 24)))

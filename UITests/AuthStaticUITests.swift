@@ -9,6 +9,13 @@ final class AuthStaticUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.5) // Capture the settled state; the raw recording retains the actual transition.
         let item = XCTAttachment(screenshot: app.screenshot()); item.name = name; item.lifetime = .keepAlways; add(item)
     }
+    private func assertVisibleMessage(_ app: XCUIApplication) {
+        let message = app.staticTexts["auth.error"]
+        XCTAssertTrue(message.waitForExistence(timeout: 5)); XCTAssertTrue(message.isHittable)
+        let card = app.descendants(matching: .any).matching(identifier: "auth.dialog").firstMatch
+        XCTAssertGreaterThanOrEqual(message.frame.minY, card.frame.minY)
+        XCTAssertLessThanOrEqual(message.frame.maxY, card.frame.maxY)
+    }
     private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {
         for _ in 0..<9 where !element.isHittable {
             let content = app.scrollViews["auth.content"].firstMatch
@@ -84,6 +91,7 @@ final class AuthStaticUITests: XCTestCase {
         sleep(5); XCTAssertFalse(app.secureTextFields["auth.password"].exists); XCTAssertTrue(app.textFields["auth.username"].exists)
         type("auth.username", "limited", app); app.buttons["auth.loginContinue"].tap()
         XCTAssertTrue(app.staticTexts["操作过于频繁，请稍后再试。"].waitForExistence(timeout: 9)); capture(app, "login-rate-limit")
+        assertVisibleMessage(app)
     }
     func testPrecheckRaceFailureAndSMSFailure() {
         let app = launch(["--auth-sms-failed"]); signup(app)
@@ -96,6 +104,7 @@ final class AuthStaticUITests: XCTestCase {
         XCTAssertTrue(app.buttons["auth.usernameStatus.retry"].waitForExistence(timeout: 5)); capture(app, "signup-precheck-failure")
         type("auth.phone", "+86 199-0000-0001", app); reveal(app.buttons["auth.requestCode"], app); app.buttons["auth.requestCode"].tap()
         XCTAssertTrue(app.staticTexts["短信暂时无法发送，请稍后再试。"].waitForExistence(timeout: 5))
+        assertVisibleMessage(app)
         XCTAssertEqual(app.buttons["auth.requestCode"].label, "获取验证码"); XCTAssertTrue(app.buttons["auth.requestCode"].isEnabled)
         capture(app, "signup-sms-failure")
     }
@@ -115,6 +124,7 @@ final class AuthStaticUITests: XCTestCase {
         type("auth.username", "fixture", app); type("auth.email", "fixture@example.test", app)
         reveal(app.buttons["auth.emailReset"], app); app.buttons["auth.emailReset"].tap()
         XCTAssertTrue(app.staticTexts["申请已提交。若账号与邮箱匹配，请查看邮件，并在网站完成重置。"].waitForExistence(timeout: 5))
+        assertVisibleMessage(app)
         type("auth.phone", "19900000001", app); type("auth.sms", "123456", app)
         type("auth.password", "newPassword123", app, secure: true); type("auth.confirmation", "newPassword123", app, secure: true)
         reveal(app.buttons["auth.phoneReset"], app); app.buttons["auth.phoneReset"].tap()
