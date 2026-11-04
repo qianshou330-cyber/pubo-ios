@@ -1,15 +1,15 @@
-name: PUBO build128 complete verification
+name: PUBO build128 retry unallocated checks
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat127-verification
+  group: chat128-unallocated-arm-retry
   cancel-in-progress: true
 jobs:
   package:
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel runner'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard ARM runner retry after Intel allocation failure'}))
           PY
       - name: Fixed tools and core checks
         run: |
@@ -52,8 +52,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        size: [large, small]
-    runs-on: macos-15-intel
+        size: [small]
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel runner'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard ARM runner retry after Intel allocation failure'}))
           PY
       - name: Fixed tools
         run: |
@@ -107,7 +107,7 @@ jobs:
           retention-days: 14
 
   joint:
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 60
     env:
       CI: '1'
@@ -127,7 +127,7 @@ jobs:
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard Intel runner'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard ARM runner retry after Intel allocation failure'}))
           PY
       - uses: actions/setup-node@v4
         with:
