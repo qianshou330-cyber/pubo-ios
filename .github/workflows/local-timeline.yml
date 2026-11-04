@@ -45,15 +45,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Prepare and compile UI test app
+        id: compile
         run: |
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           brew install xcodegen
           swift scripts/brand-assets.swift
           xcodegen generate
           xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Timeline and existing feature regressions
+      - name: Timeline interactions
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: timeline
+          PUBO_UI_SCOPE: timeline
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-first-evidence-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/timeline*.json
+            build/timeline.xcresult/
+            build/screenshots/timeline/
+          retention-days: 14
+      - name: Existing feature regressions
+        if: always() && steps.compile.outcome == 'success'
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: home,gif,favorites,social,regression
+          PUBO_UI_SCOPE: regression
         run: python3 scripts/local-timeline-tests.py
       - uses: actions/upload-artifact@v4
         if: always()

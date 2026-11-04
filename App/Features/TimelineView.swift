@@ -41,9 +41,7 @@ struct TimelineView: View {
             ScrollViewReader { reader in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        Color.clear.frame(height: 1).id("timeline-top").background(GeometryReader { g in
-                            Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
-                        })
+                        Color.clear.frame(height: 1).id("timeline-top")
                         VStack(spacing: 6) {
                             HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
                             HomeChartPanel(refreshID: homeRefresh) { destination in
@@ -69,12 +67,14 @@ struct TimelineView: View {
                         if feed.notes.isEmpty && firstLoadFinished && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary).padding(30) }
                         if !hasMore && !feed.notes.isEmpty { Text("已显示全部帖子").font(.caption).foregroundStyle(.secondary).padding(16) }
                         Color.clear.frame(height: 68)
-                    }.scrollTargetLayout()
+                    }.scrollTargetLayout().background(GeometryReader { g in
+                        Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
+                    })
                 }.coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
                     .onPreferenceChange(TimelineOffset.self) { atTop = $0 > -80 }
                     .overlay(alignment: .top) {
                         if !feed.pending.isEmpty {
-                            Button { feed.revealPending(); withAnimation(motion ? .easeOut(duration: 0.25) : nil) { reader.scrollTo("timeline-top", anchor: .top) } } label: {
+                            Button { withAnimation(motion ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.revealPending(); reader.scrollTo("timeline-top", anchor: .top) } } label: {
                                 Label("新帖子 \(feed.pending.count)", systemImage: "arrow.up.circle").font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10).background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.panel)
                             }.padding(8).accessibilityIdentifier("timeline.newPosts")
                         }

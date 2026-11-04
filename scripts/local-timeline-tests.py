@@ -10,6 +10,8 @@ identifier=subprocess.check_output(['xcrun','simctl','create','PUBO Local '+devi
 record={'device':device['name'],'udid':identifier,'tests':'PENDING','productionRequests':0};(root/'timeline-environment.json').write_text(json.dumps(record))
 regressions=['testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testMultipleAccountsSwitchAndPreserveOtherAccount','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNativeLoginAndFourTabs']
 groups=[('timeline',['-only-testing:PUBOUITests/LocalTimelineUITests']),('home',['-only-testing:PUBOUITests/HomeMotionUITests']),('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
+selected=os.environ.get('PUBO_UI_GROUPS')
+if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
     boot(identifier,root/'gif-boot.json')
     for name,selection in groups:
@@ -31,5 +33,5 @@ try:
     if any(record.get(name) != 'PASS' for name,_ in groups):raise RuntimeError('One or more UI groups failed; see individual summaries')
     record['tests']='PASS'
 finally:
-    (root/'timeline-environment.json').write_text(json.dumps(record,indent=2))
+    (root/('timeline-environment-'+os.environ.get('PUBO_UI_SCOPE','all')+'.json')).write_text(json.dumps(record,indent=2))
     subprocess.run(['xcrun','simctl','shutdown',identifier],timeout=60)

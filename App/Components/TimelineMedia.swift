@@ -54,6 +54,7 @@ struct PublicAnimatedAsset: View {
     var fit = true
     var emoji = false
     var open: (() -> Void)? = nil
+    var emojiHeight: CGFloat? = nil
     @State private var image: UIImage?
     @State private var error = false
     @State private var visible = false
@@ -65,7 +66,7 @@ struct PublicAnimatedAsset: View {
             } else if let image { Image(uiImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill) }
             else if error { Button { retry += 1 } label: { Image(systemName: "arrow.clockwise").font(.caption) }.accessibilityLabel("重试图片") }
             else { ProgressView().controlSize(.small) }
-        }.background(GeometryReader { g in
+        }.frame(width: emojiHeight.map { $0 * min(4, max(0.25, (image?.size.width ?? 1) / max(1, image?.size.height ?? 1))) }, height: emojiHeight).background(GeometryReader { g in
             Color.clear.onAppear { visible = g.frame(in: .global).intersects(UIScreen.main.bounds) }
                 .onChange(of: g.frame(in: .global)) { _, rect in visible = rect.intersects(UIScreen.main.bounds) }
         }).task(id: "\(url)-\(session.generation)-\(retry)") {
@@ -154,7 +155,7 @@ struct ReactionImage: View {
     private var name: String { reaction.trimmingCharacters(in: CharacterSet(charactersIn: ":")).replacingOccurrences(of: "@.", with: "") }
     private var url: URL? { safeMediaURL(emojis[name].string ?? session.emojis.first(where: { $0["name"].string == name })?["url"].string) }
     var body: some View {
-        if reaction.hasPrefix(":"), let url { PublicAnimatedAsset(url: url, emoji: true).frame(width: 24, height: 24) }
+        if reaction.hasPrefix(":"), let url { PublicAnimatedAsset(url: url, emoji: true, emojiHeight: 24) }
         else { Text(reaction).font(.system(size: 18)).lineLimit(1) }
     }
 }
@@ -201,7 +202,7 @@ struct NoteLinkPreviews: View {
                 do {
                     let value: JSONValue
                     #if DEBUG
-                    if session.testMode && !session.isolatedBackend { value = .object(["url": .string(link.absoluteString), "title": .string("PUBO 链接预览"), "description": .string("同一数据的链接预览测试")]) }
+                    if session.testMode && !session.isolatedBackend { value = .object(["url": .string(link.absoluteString), "title": .string("下载 PUBO Android 版"), "description": .string("PUBO 官方下载页面")]) }
                     else { value = try await fetch(link) }
                     #else
                     value = try await fetch(link)
