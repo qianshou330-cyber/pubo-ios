@@ -461,6 +461,7 @@ struct ChatView: View {
             guard generation == session.generation, active else { return }; messages = ChatRecords.merge(messages, [updated]); error = nil
         } catch {
             let issue = error
+            guard generation == session.generation, active else { return }
             if let value = try? await session.call("chat/messages/show", ["messageId": .string(message.id)]), mine(Record(value)) == desired, !value["id"].isNull, generation == session.generation, active {
                 messages = ChatRecords.merge(messages, [Record(value)]); self.error = nil
             } else if generation == session.generation, active { self.error = issue.localizedDescription; await load(reconcileAll: true) }

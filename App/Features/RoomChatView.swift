@@ -350,6 +350,7 @@ struct RoomChatView: View {
             messages = Records.merge(messages, [check], newestFirst: false, limit: 2000); error = nil
         } catch {
             let issue = error
+            guard active, epoch == session.generation else { return }
             if let desired, let page = try? await around(message), let check = page.first(where: { $0.id == message.id }), hasMine(check) == desired, active, epoch == session.generation {
                 messages = Records.merge(messages, [check], newestFirst: false, limit: 2000); self.error = nil
             } else if active, epoch == session.generation { self.error = issue.localizedDescription }
