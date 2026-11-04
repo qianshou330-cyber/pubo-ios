@@ -24,7 +24,7 @@ struct ChatReactionStrip: View {
                 } label: {
                     HStack(spacing: 8) {
                         Avatar(user: row.user, size: 24)
-                        NoteText(text: row.emoji, expands: false).frame(width: 24, height: 24).allowsHitTesting(false)
+                        ReactionImage(reaction: row.emoji).frame(minWidth: 24, minHeight: 24).allowsHitTesting(false)
                     }.padding(8).frame(minHeight: 44)
                         .background(PUBOTheme.panel, in: Capsule())
                         .overlay(Capsule().stroke(mine ? PUBOTheme.accent : PUBOTheme.divider, lineWidth: 1))

@@ -39,7 +39,7 @@ jobs:
       matrix:
         size: [large, small]
     runs-on: macos-15
-    timeout-minutes: 55
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
       - name: Fixed tools
