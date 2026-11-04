@@ -49,7 +49,7 @@ final class AuthStaticUITests: XCTestCase {
             let card = app.descendants(matching: .any).matching(identifier: "auth.dialog").firstMatch
             XCTAssertTrue(card.waitForExistence(timeout: 5))
             XCTAssertLessThanOrEqual(card.frame.width, 401); XCTAssertLessThanOrEqual(card.frame.height, 451)
-            XCTAssertGreaterThanOrEqual(app.buttons["auth.close"].frame.height, 44)
+            XCTAssertGreaterThanOrEqual(app.buttons["auth.close"].frame.height, 44 - 0.0001) // CGRect floating-point precision; the UI remains exactly 44pt.
             capture(app, "centered-username-" + theme)
             type("auth.username", "fixture", app); app.buttons["auth.loginContinue"].tap()
             XCTAssertTrue(app.secureTextFields["auth.password"].waitForExistence(timeout: 8)); capture(app, "centered-password-" + theme)
@@ -137,7 +137,7 @@ final class AuthStaticUITests: XCTestCase {
         capture(app, "signup-web-verification")
         app.buttons["auth.close"].tap(); app.buttons["auth.openLogin"].tap()
         let input = app.textFields["auth.username"]; reveal(input, app); input.tap(); input.typeText("fixture")
-        XCTAssertTrue(app.buttons["auth.close"].isHittable); XCTAssertGreaterThanOrEqual(app.buttons["auth.close"].frame.height, 44)
+        XCTAssertTrue(app.buttons["auth.close"].isHittable); XCTAssertGreaterThanOrEqual(app.buttons["auth.close"].frame.height, 44 - 0.0001)
         capture(app, "login-large-text-keyboard")
         app.buttons["auth.close"].tap(); XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5))
     }
