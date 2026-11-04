@@ -1,6 +1,37 @@
 import SwiftUI
 import PUBOCore
 
+struct TimelinePendingButton: View {
+    let count: Int
+    let action: () -> Void
+    var body: some View {
+        Group {
+            if count > 0 {
+                Button(action: action) {
+                    Label("新帖子 \(count)", systemImage: "arrow.up.circle")
+                        .font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.panel)
+                }.padding(8).accessibilityIdentifier("timeline.newPosts")
+            }
+        }
+    }
+}
+
+struct TimelineLoadingStatus: View {
+    let loading: Bool
+    let empty: Bool
+    let loaded: Bool
+    let failed: Bool
+    let hasMore: Bool
+    var body: some View {
+        Group {
+            if loading && !empty { ProgressView().padding() }
+            if empty && loaded && !loading && !failed { Text("暂时没有帖子").foregroundStyle(.secondary).padding(30) }
+            if !hasMore && !empty { Text("已显示全部帖子").font(.caption).foregroundStyle(.secondary).padding(16) }
+        }
+    }
+}
+
 struct TimelinePostRow: View {
     let note: Record
     let first: Bool

@@ -83,7 +83,34 @@ struct TimelineView: View {
     private var timelineScroll: some View {
             ScrollViewReader { reader in
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    timelineContent
+                }.accessibilityIdentifier("timeline.scroll").coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
+                    .onPreferenceChange(TimelineOffset.self, perform: updateOffset)
+                    .onChange(of: anchor) { _, id in updateAnchor(id) }
+                    .overlay(alignment: .top) {
+                        TimelinePendingButton(count: feed.pending.count) {
+                            withAnimation(motion ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) {
+                                feed.revealPending(); reader.scrollTo("timeline-top", anchor: .top)
+                            }
+                        }
+                    }
+                    .refreshable { homeRefresh += 1; await load() }
+                    .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded(perform: switchTimeline))
+            }
+    }
+    private var timelineContent: some View {
+        LazyVStack(spacing: 0) {
+            timelineHeading
+            timelineRows
+            TimelineLoadingStatus(loading: loading, empty: feed.notes.isEmpty,
+                loaded: firstLoadFinished, failed: error != nil, hasMore: hasMore)
+            Color.clear.frame(height: 68)
+        }.scrollTargetLayout().background(GeometryReader { g in
+            Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
+        })
+    }
+    private var timelineHeading: some View {
+        Group {
                         Color.clear.frame(height: 1).id("timeline-top")
                         VStack(spacing: 6) {
                             HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
@@ -97,6 +124,9 @@ struct TimelineView: View {
                         if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                         if let error { ErrorBanner(message: error) { Task { await load(older: firstLoadFinished) } }.padding(12) }
                         if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
+        }
+    }
+    private var timelineRows: some View {
                         ForEach(Array(feed.notes.enumerated()), id: \.element.id) { index, note in
                             TimelinePostRow(note: note, first: index == 0,
                                 last: index == feed.notes.count - 1,
@@ -107,33 +137,18 @@ struct TimelineView: View {
                                 .onAppear { appeared(note, index: index) }
                                 .onDisappear { visibleIDs.remove(note.id); captureVisible() }
                         }
-                        if loading && !feed.notes.isEmpty { ProgressView().padding() }
-                        if feed.notes.isEmpty && firstLoadFinished && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary).padding(30) }
-                        if !hasMore && !feed.notes.isEmpty { Text("已显示全部帖子").font(.caption).foregroundStyle(.secondary).padding(16) }
-                        Color.clear.frame(height: 68)
-                    }.scrollTargetLayout().background(GeometryReader { g in
-                        Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
-                    })
-                }.accessibilityIdentifier("timeline.scroll").coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
-                    .onPreferenceChange(TimelineOffset.self) { offset in
-                        if anchor == nil || anchor == "timeline-top" || anchor == "timeline-panels" { atTop = offset > -80 }
-                    }
-                    .onChange(of: anchor) { _, id in atTop = id == nil || id == "timeline-top" || id == "timeline-panels" }
-                    .overlay(alignment: .top) {
-                        if !feed.pending.isEmpty {
-                            Button { withAnimation(motion ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.revealPending(); reader.scrollTo("timeline-top", anchor: .top) } } label: {
-                                Label("新帖子 \(feed.pending.count)", systemImage: "arrow.up.circle").font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10).background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.panel)
-                            }.padding(8).accessibilityIdentifier("timeline.newPosts")
-                        }
-                    }
-                    .refreshable { homeRefresh += 1; await load() }
-                    .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded { value in
-                        guard abs(value.translation.width) > abs(value.translation.height) * 2,
-                              let index = choices.firstIndex(of: preferences.selected) else { return }
-                        let next = index + (value.translation.width < 0 ? 1 : -1)
-                        if choices.indices.contains(next) { selection.wrappedValue = choices[next] }
-                    })
-            }
+    }
+    private func updateOffset(_ offset: CGFloat) {
+        if anchor == nil || anchor == "timeline-top" || anchor == "timeline-panels" { atTop = offset > -80 }
+    }
+    private func updateAnchor(_ id: String?) {
+        atTop = id == nil || id == "timeline-top" || id == "timeline-panels"
+    }
+    private func switchTimeline(_ value: DragGesture.Value) {
+        guard abs(value.translation.width) > abs(value.translation.height) * 2,
+              let index = choices.firstIndex(of: preferences.selected) else { return }
+        let next = index + (value.translation.width < 0 ? 1 : -1)
+        if choices.indices.contains(next) { selection.wrappedValue = choices[next] }
     }
     private func prepareTimeline() async {
                     guard !firstLoadFinished || requestContext != context else { return }
