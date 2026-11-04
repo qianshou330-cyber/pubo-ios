@@ -1,11 +1,11 @@
-name: PUBO build125 UI and package retry
+name: PUBO build125 package and small retry
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat125-intel-ui
+  group: chat125-intel-remaining
   cancel-in-progress: true
 jobs:
   package:
@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        size: [large, small]
+        size: [small]
     runs-on: macos-15-intel
     timeout-minutes: 65
     steps:
@@ -105,4 +105,3 @@ jobs:
             build/*.xcresult
             build/screenshots/
           retention-days: 14
-
