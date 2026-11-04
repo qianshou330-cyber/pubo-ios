@@ -26,6 +26,7 @@ try:
     for name,selection in groups:
         shots=root/'screenshots'/name;shots.mkdir(parents=True,exist_ok=True)
         bundle=root/(name+'.xcresult')
+        recording={'startedAt':time.time(),'file':str(shots/'interactions.mp4')}
         video=subprocess.Popen(['xcrun','simctl','io',identifier,'recordVideo','--codec=h264',str(shots/'interactions.mp4')])
         try:
             with SimulatorResources(root/(name+'-resources.json')):
@@ -34,6 +35,8 @@ try:
             video.send_signal(signal.SIGINT)
             try:video.wait(timeout=30)
             except subprocess.TimeoutExpired:video.kill();video.wait(timeout=10)
+            recording['finishedAt']=time.time()
+            (root/(name+'-recording.json')).write_text(json.dumps(recording,indent=2))
             if bundle.exists():
                 subprocess.run(['xcrun','xcresulttool','export','attachments','--path',str(bundle),'--output-path',str(shots)],timeout=90,check=True)
                 summary=subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path',str(bundle)],text=True,timeout=60)

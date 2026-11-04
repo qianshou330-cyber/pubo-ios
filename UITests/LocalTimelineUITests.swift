@@ -10,7 +10,16 @@ final class LocalTimelineUITests: XCTestCase {
     private func find(_ app: XCUIApplication, _ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
     private func reveal(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         let item = find(app, id)
-        for _ in 0..<30 { if item.exists && item.isHittable { return item }; app.swipeUp() }
+        let scroll = app.scrollViews["timeline.scroll"]
+        for _ in 0..<32 {
+            let upper = max(110, app.buttons["home.more"].frame.maxY + 12)
+            let lower = app.tabBars.firstMatch.frame.minY - 16
+            if item.exists && item.isHittable && item.frame.midY > upper && item.frame.midY < lower { return item }
+            let reverse = item.exists && item.frame.midY <= upper
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: reverse ? 0.40 : 0.72))
+            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: reverse ? 0.72 : 0.40))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
         return item
     }
     func testFirstLocalAndFourTabsInBothThemes() {
@@ -20,6 +29,7 @@ final class LocalTimelineUITests: XCTestCase {
             XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10))
             for title in ["动态", "通知", "私信", "我的"] { XCTAssertTrue(app.tabBars.buttons[title].exists) }
             capture(app, dark ? "local-home-dark" : "local-home-light")
+            Thread.sleep(forTimeInterval: 7) // Record uninterrupted real marquee and media animation.
             app.buttons["home.more"].tap(); XCTAssertTrue(app.buttons["仅限媒体"].exists); capture(app, dark ? "local-filters-dark" : "local-filters-light")
             app.terminate()
         }
@@ -56,7 +66,7 @@ final class LocalTimelineUITests: XCTestCase {
     }
     func testPublicGIFAutomaticallyMovesWithoutControls() {
         let app = launch(); let image = reveal(app,"media.open.timelinegif"); XCTAssertTrue(image.exists)
-        let player = find(app,"media.animation.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
+        let player = find(app,"media.open.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
         var frames = Set<String>(); let deadline = Date().addingTimeInterval(3)
         while Date() < deadline { frames.insert(player.value as? String ?? ""); Thread.sleep(forTimeInterval: 0.11) }
         XCTAssertGreaterThan(frames.count,1); XCTAssertFalse(app.buttons["暂停"].exists); capture(app,"local-gif-autoplay")
@@ -66,7 +76,7 @@ final class LocalTimelineUITests: XCTestCase {
         for format in ["apng", "webp", "finite"] {
             let app = launch(["--timeline-format=" + format])
             _ = reveal(app,"media.open.timelinegif")
-            let player = find(app,"media.animation.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
+            let player = find(app,"media.open.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
             let deadline = Date().addingTimeInterval(format == "finite" ? 12 : 3)
             var frames = Set<String>(); var completed = false
             while Date() < deadline {
@@ -91,7 +101,7 @@ final class LocalTimelineUITests: XCTestCase {
     }
     func testNewPostsQueueAndReturnToTop() {
         let app = launch(["--timeline-events"])
-        app.swipeUp(); app.swipeUp()
+        XCTAssertTrue(reveal(app,"note.open.at4tltest0021").isHittable)
         app.buttons["home.more"].tap(); app.buttons["测试新帖"].tap()
         XCTAssertTrue(app.buttons["timeline.newPosts"].waitForExistence(timeout: 5)); capture(app,"local-new-posts-queued")
         app.buttons["timeline.newPosts"].tap()
@@ -99,7 +109,7 @@ final class LocalTimelineUITests: XCTestCase {
     }
     func testDeletionClearsReferencedBody() {
         let app = launch(["--timeline-events"])
-        _ = reveal(app,"note.open.at4tltest0021")
+        XCTAssertTrue(reveal(app,"note.open.at4tltest0021").isHittable)
         app.buttons["home.more"].tap(); app.buttons["测试删除原帖"].tap()
         XCTAssertTrue(find(app,"note.context.unavailable").waitForExistence(timeout: 8)); capture(app,"local-deleted-reference"); app.terminate()
     }

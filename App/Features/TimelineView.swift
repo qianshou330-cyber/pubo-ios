@@ -74,7 +74,10 @@ struct TimelineView: View {
                         Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
                     })
                 }.accessibilityIdentifier("timeline.scroll").coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
-                    .onPreferenceChange(TimelineOffset.self) { atTop = $0 > -80 }
+                    .onPreferenceChange(TimelineOffset.self) { offset in
+                        if anchor == nil || anchor == "timeline-top" || anchor == "timeline-panels" { atTop = offset > -80 }
+                    }
+                    .onChange(of: anchor) { _, id in atTop = id == nil || id == "timeline-top" || id == "timeline-panels" }
                     .overlay(alignment: .top) {
                         if !feed.pending.isEmpty {
                             Button { withAnimation(motion ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.revealPending(); reader.scrollTo("timeline-top", anchor: .top) } } label: {
