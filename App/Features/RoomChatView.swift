@@ -189,7 +189,7 @@ struct RoomChatView: View {
                     Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id)
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary) }
                 }
-                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value in Task { await react(message, value) } } }
+                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value, desired in Task { await react(message, value, requested: desired) } } }
             }
             if !mine { Spacer(minLength: 28) }
         }
@@ -316,7 +316,7 @@ struct RoomChatView: View {
         guard !busy else { return }; busy = true; defer { busy = false; deletingMessage = nil }
         do { _ = try await session.call("chat/messages/delete", ["messageId": .string(message.id)], mutation: true); messages.removeAll { $0.id == message.id }; await load() } catch { self.error = error.localizedDescription }
     }
-    private func react(_ message: Record, _ reaction: String) async {
+    private func react(_ message: Record, _ reaction: String, requested: Bool = true) async {
         guard active, section == "messages", !busy, let viewer = session.user?.id else { return }; busy = true; defer { busy = false }
         let epoch = session.generation
         let key = SocialContent.chatReactionKey(reaction)
@@ -324,7 +324,8 @@ struct RoomChatView: View {
         var desired: Bool?
         do {
             guard let fresh = try await around(message).first(where: { $0.id == message.id }), fresh["recalledAt"].isNull, fresh["fromUserId"].string != viewer else { throw APIError.invalidResponse }
-            desired = !hasMine(fresh)
+            desired = requested
+            if hasMine(fresh) == requested { messages = Records.merge(messages, [fresh], newestFirst: false, limit: 2000); error = nil; return }
             _ = try await session.call(desired == true ? "chat/messages/react" : "chat/messages/unreact", ["messageId": .string(message.id), "reaction": .string(reaction)], mutation: true)
             guard let check = try await around(message).first(where: { $0.id == message.id }), hasMine(check) == (desired ?? false) else { throw APIError.uncertain }
             guard active, epoch == session.generation else { return }

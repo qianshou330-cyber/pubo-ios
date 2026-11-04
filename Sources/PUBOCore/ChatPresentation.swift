@@ -65,6 +65,7 @@ public struct ChatReaction: Identifiable, Equatable, Sendable {
     public func isActionable(viewer: String, all: [Self]) -> Bool {
         user.id == viewer || !all.contains { $0.user.id == viewer && SocialContent.chatReactionKey($0.emoji) == SocialContent.chatReactionKey(emoji) }
     }
+    public func desiredPresence(viewer: String) -> Bool { user.id != viewer }
 }
 
 public struct ChatStreamEvent: Sendable {

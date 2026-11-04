@@ -74,7 +74,8 @@ final class ChatAlignmentUITests: XCTestCase {
     func testReportUnknownOutcomeDisablesResubmission() {
         let app = launch(["--report-uncertain"]); room(app)
         app.buttons["room.menu.room0003"].tap(); app.buttons["举报"].tap()
-        XCTAssertTrue(app.textViews["report.reason"].waitForExistence(timeout: 5)); app.buttons["提交"].tap()
+        let reason = app.textViews["report.reason"]; XCTAssertTrue(reason.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["提交"].isEnabled); reason.tap(); reason.typeText("隔离举报原因"); app.buttons["提交"].tap()
         XCTAssertTrue(app.staticTexts["提交结果尚未确认，请稍后核对；此页不会重复提交。"].waitForExistence(timeout: 8)); XCTAssertFalse(app.buttons["提交"].isEnabled); capture(app, "chat-report-uncertain")
     }
     func testGroupDraftSurvivesTabsAndKeyboard() {
@@ -82,5 +83,18 @@ final class ChatAlignmentUITests: XCTestCase {
         let input = app.textViews["room.input"]; input.tap(); input.typeText("保留输入内容")
         capture(app, "chat-room-keyboard"); app.buttons["room.tab.search"].tap(); app.buttons["room.tab.messages"].tap()
         XCTAssertEqual(app.textViews["room.input"].value as? String, "保留输入内容"); capture(app, "chat-room-draft-restored")
+    }
+    func testStaleOtherParticipantReactionCannotCancelExistingMine() {
+        let app = launch(["--stale-room-reaction"]); room(app)
+        let add = app.buttons["添加反应 ❤"]; for _ in 0..<4 where !add.isHittable { app.swipeDown() }
+        XCTAssertTrue(add.waitForExistence(timeout: 6)); XCTAssertFalse(app.buttons["取消反应 ❤"].exists)
+        add.tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].waitForExistence(timeout: 6)); capture(app, "chat-room-stale-add-safe")
+    }
+    func testLargeTextGroupComposerAndTabsStayReachable() {
+        let app = launch(["--large-text", "--dark"]); room(app)
+        let input = app.textViews["room.input"]; XCTAssertTrue(input.isHittable); input.tap(); input.typeText("大字体草稿")
+        XCTAssertTrue(app.buttons["room.send"].isHittable); capture(app, "chat-room-large-keyboard")
+        let search = app.buttons["room.tab.search"]; if !search.isHittable { app.scrollViews.firstMatch.swipeLeft() }; search.tap()
+        XCTAssertTrue(app.textFields["chat.search.query"].waitForExistence(timeout: 6)); capture(app, "chat-room-large-search")
     }
 }

@@ -181,12 +181,16 @@ struct ReportView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var uncertain = false
+    private var validReport: Bool {
+        let value = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !value.isEmpty && value != context.trimmingCharacters(in: .whitespacesAndNewlines) && comment.count <= 2048
+    }
     var body: some View {
         NavigationStack {
             Form { Text("请描述需要管理员核查的问题，并保留相关消息或帖子链接。"); if uncertain { Text("提交结果尚未确认，请稍后核对；此页不会重复提交。") }; TextEditor(text: $comment).accessibilityIdentifier("report.reason").scrollContentBackground(.hidden).frame(minHeight: 160); if let error { Text(error).foregroundStyle(.red) } }
                 .puboForm().navigationTitle("举报用户").task { if comment.isEmpty { comment = context } }.toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("提交") { Task { busy = true; defer { busy = false }; do { _ = try await session.call("users/report-abuse", ["userId": .string(userID), "comment": .string(comment)], mutation: true); dismiss() } catch { self.error = error.localizedDescription; uncertain = (error as? APIError)?.code == "OUTCOME_UNKNOWN" } } }.disabled(busy || uncertain || comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                    ToolbarItem(placement: .confirmationAction) { Button("提交") { Task { busy = true; defer { busy = false }; do { _ = try await session.call("users/report-abuse", ["userId": .string(userID), "comment": .string(comment)], mutation: true); dismiss() } catch { self.error = error.localizedDescription; uncertain = (error as? APIError)?.code == "OUTCOME_UNKNOWN" } } }.disabled(busy || uncertain || !validReport) }
                 }
         }
     }

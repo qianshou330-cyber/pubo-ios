@@ -192,7 +192,7 @@ struct ChatView: View {
                     if !message["editedAt"].isNull { Text("已编辑") }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
-                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction in Task { await toggleReaction(message, reaction) } }.accessibilityLabel("消息反应")
+                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }.accessibilityLabel("消息反应")
                 }
             }.task(id: "\(contextMode)-\(scenePhase == .active)-\(searching)") { if !own && !contextMode && !searching && scenePhase == .active { await markRead(message) } }
             if !own { Spacer(minLength: 28) }
@@ -441,16 +441,25 @@ struct ChatView: View {
             error = confirmed == value ? nil : "设置结果待确认，请刷新后核对。"
         } catch { self.error = error.localizedDescription }
     }
-    private func toggleReaction(_ message: Record, _ reaction: String) async {
+    private func toggleReaction(_ message: Record, _ reaction: String, desired: Bool) async {
         guard !busy else { return }; busy = true; defer { busy = false }
+        let generation = session.generation, viewer = session.user?.id
+        let key = SocialContent.chatReactionKey(reaction)
+        func mine(_ row: Record) -> Bool { row["reactions"].array.contains { $0["user"]["id"].string == viewer && SocialContent.chatReactionKey($0["reaction"].string ?? "") == key } }
         do {
             let current = Record(try await session.call("chat/messages/show", ["messageId": .string(message.id)]))
             guard current["recalledAt"].isNull, current["fromUserId"].string != session.user?.id else { return }
-            let key = SocialContent.chatReactionKey(reaction)
-            let mine = current["reactions"].array.contains { $0["user"]["id"].string == session.user?.id && SocialContent.chatReactionKey($0["reaction"].string ?? "") == key }
-            _ = try await session.call(mine ? "chat/messages/unreact" : "chat/messages/react", ["messageId": .string(message.id), "reaction": .string(reaction)], mutation: true)
-            let updated = Record(try await session.call("chat/messages/show", ["messageId": .string(message.id)])); messages = ChatRecords.merge(messages, [updated]); error = nil
-        } catch { self.error = error.localizedDescription; await load(reconcileAll: true) }
+            if mine(current) == desired { messages = ChatRecords.merge(messages, [current]); error = nil; return }
+            _ = try await session.call(desired ? "chat/messages/react" : "chat/messages/unreact", ["messageId": .string(message.id), "reaction": .string(reaction)], mutation: true)
+            let updated = Record(try await session.call("chat/messages/show", ["messageId": .string(message.id)]))
+            guard mine(updated) == desired else { throw APIError.uncertain }
+            guard generation == session.generation, active else { return }; messages = ChatRecords.merge(messages, [updated]); error = nil
+        } catch {
+            let issue = error
+            if let value = try? await session.call("chat/messages/show", ["messageId": .string(message.id)]), mine(Record(value)) == desired, !value["id"].isNull, generation == session.generation, active {
+                messages = ChatRecords.merge(messages, [Record(value)]); self.error = nil
+            } else if generation == session.generation, active { self.error = issue.localizedDescription; await load(reconcileAll: true) }
+        }
     }
     private func voice() async {
         guard !busy, attachments.count < 10 else { return }
