@@ -1,0 +1,135 @@
+name: PUBO static authentication alignment
+on:
+  push:
+    branches: ['ui-auth-static-*']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare tools and core tests
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift test
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Build Release simulator
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Build Release device
+        run: |
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          python3 scripts/verify-image-dependency.py
+          python3 scripts/package-device.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: auth-device-${{ github.sha }}
+          path: |
+            build/unsigned/
+            build/device-package.json
+            build/image-dependency.json
+          retention-days: 14
+
+  appearance:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [large, small]
+    runs-on: macos-15
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and compile UI test app
+        id: compile
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Authentication appearance in both themes
+        id: preview
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: auth-preview
+          PUBO_UI_SCOPE: preview
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-layout-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/warmup-preview.png
+            build/timeline-boot-preview.json
+            build/auth-preview*.json
+            build/timeline-environment-preview.json
+            build/auth-preview.xcresult/
+            build/screenshots/auth-preview/
+          retention-days: 14
+      - name: Authentication boundary tests
+        if: always() && !cancelled() && steps.compile.outcome == 'success' && steps.preview.outputs.simulator_ready == 'true'
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: auth-functional
+          PUBO_UI_SCOPE: timeline
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-first-evidence-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/warmup-timeline.png
+            build/auth-functional*.json
+            build/timeline*.json
+            build/auth-functional.xcresult/
+            build/screenshots/auth-functional/
+          retention-days: 14
+      - name: Existing feature regressions
+        if: always() && !cancelled() && steps.compile.outcome == 'success' && steps.preview.outputs.simulator_ready == 'true'
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: home,regression
+          PUBO_UI_SCOPE: regression
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-summaries-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/warmup-regression.png
+            build/*.json
+            build/screenshots/**/manifest.json
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-home-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/home.xcresult/
+            build/screenshots/home/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-media-regression-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/gif.xcresult/
+            build/favorites.xcresult/
+            build/screenshots/gif/
+            build/screenshots/favorites/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-social-regression-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/social.xcresult/
+            build/regression.xcresult/
+            build/screenshots/social/
+            build/screenshots/regression/
+          retention-days: 14

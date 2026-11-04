@@ -148,6 +148,11 @@ actor FixtureTransport: HTTPTransport {
         if args.contains("--slow"), path == "emojis" { try await Task.sleep(for: .seconds(20)) }
         if args.contains("--slow-home-panels"), path == "announcements" || path == "music-charts/kpop-summary" { try await Task.sleep(for: .seconds(20)) }
         if args.contains("--failed-home-panels"), path == "announcements" || path == "music-charts/kpop-summary" { throw URLError(.timedOut) }
+        #if DEBUG
+        if let (value, status) = try await AuthTestFixtures.response(path: path, body: body, args: args) {
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
+        #endif
         var response: JSONValue = .object([:])
         var status = 200
         if args.contains("--permission-denied"), ["i/favorites", "notes/favorites/create", "notes/polls/vote"].contains(path) {
@@ -181,7 +186,8 @@ actor FixtureTransport: HTTPTransport {
         case "mute/delete": mutedUsers = []; response = .null
         case "renote-mute/list", "blocking/list", "chat/blocking/list", "i/apps", "i/signin-history", "users/achievements", "i/webhooks/list": response = .array([])
         case "i/update": var values = profile.object; for (key, value) in body.object where key != "i" { values[key] = value }; profile = .object(values); response = profile
-        case "signin-flow": response = .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
+        case "signin-flow": response = body["password"].isNull ? .object(["next": .string("password")]) : .object(["finished": .bool(true), "i": .string("synthetic-session"), "id": .string("syntheticself")])
+        case "username/available", "email-address/available": response = .object(["available": .bool(true)])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup/request-phone-code": response = .null
         case "users/show": response = body["userIds"].isNull ? (body["userId"].string == "syntheticself" ? profile : Self.peer) : .array(body["userIds"].array.map { $0.string == "syntheticself" ? profile : Self.peer })

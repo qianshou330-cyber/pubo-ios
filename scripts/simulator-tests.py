@@ -73,7 +73,7 @@ for index, template in enumerate(selected):
                 motion = subprocess.run(['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
                     '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
                     '-derivedDataPath', 'build/debug', '-resultBundlePath', str(motion_bundle), '-parallel-testing-enabled', 'NO',
-                    '-only-testing:PUBOUITests/AuthVideoUITests', 'CODE_SIGNING_ALLOWED=NO', 'test'], timeout=720)
+                    '-only-testing:PUBOUITests/AuthStaticUITests', 'CODE_SIGNING_ALLOWED=NO', 'test'], timeout=720)
                 record['videoTests'] = 'PASS' if motion.returncode == 0 else 'FAIL'
             finally:
                 video.send_signal(signal.SIGINT)

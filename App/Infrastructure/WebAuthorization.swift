@@ -6,6 +6,10 @@ import PUBOCore
     private var session: ASWebAuthenticationSession?
     private var continuation: CheckedContinuation<URL, Error>?
     private var activeID: String?
+    func cancel() {
+        session?.cancel()
+        if let identifier = activeID { finish(identifier, result: nil, error: CancellationError()) }
+    }
     func login(api: APIClient) async throws -> String {
         guard session == nil else { throw APIError(code: "AUTH_BUSY", message: "请先完成当前授权。") }
         let identifier = UUID().uuidString

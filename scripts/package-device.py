@@ -76,11 +76,8 @@ def main():
             if data[:4] == b'\xcf\xfa\xed\xfe':
                 binaries[str(path.relative_to(app))] = inspect_macho(data)
     require('PUBO' in binaries, 'Missing verified native binary')
-    video = app / 'login-background.mp4'
-    poster = app / 'login-background-poster.jpg'
-    require(video.is_file() and 0 < video.stat().st_size < 1_000_000, 'Login background must be bundled and below 1 MB')
-    require(poster.is_file(), 'Missing static login background fallback')
-    require(hashlib.sha256(video.read_bytes()).digest() == hashlib.sha256(Path('App/Resources/login-background.mp4').read_bytes()).digest(), 'Bundled video differs from verified source')
+    forbidden = {'login-background.mp4', 'login-background-poster.jpg'}
+    require(not any(path.name in forbidden for path in app.rglob('*')), 'Removed login background media leaked into bundle')
     codesign = subprocess.run(['codesign', '-dv', str(app)], capture_output=True, text=True)
     require(codesign.returncode != 0 and 'not signed at all' in codesign.stderr,
             'codesign did not confirm unsigned app')
@@ -105,7 +102,7 @@ def main():
     result = {'status': 'PASS', 'commit': os.environ.get('GITHUB_SHA'), 'metadata': expected,
               'binaries': binaries, 'codesign': 'UNSIGNED', 'ipa': ipa.name,
               'bytes': ipa.stat().st_size, 'sha256': hashlib.sha256(ipa.read_bytes()).hexdigest(),
-              'requiresSigningBeforeInstallation': True, 'physicalDeviceTested': False}
+              'requiresSigningBeforeInstallation': True, 'physicalDeviceTested': False, 'loginBackground': 'STATIC_NO_VIDEO_OR_POSTER'}
     Path('build/device-package.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result, indent=2))
 

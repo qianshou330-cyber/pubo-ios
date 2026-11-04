@@ -96,7 +96,9 @@ public actor APIClient {
                 if mutation && response.statusCode >= 500 { throw APIError.uncertain }
                 let known = ["SMS_RATE_LIMITED", "INVALID_SMS_CODE", "PHONE_VERIFICATION_REQUIRED", "PHONE_ALREADY_BOUND", "INVALID_PHONE_NUMBER", "SMS_NOT_CONFIGURED", "SMS_SEND_FAILED"]
                 let rawMessage = parsed?["error"]["message"].string ?? parsed?["message"].string ?? parsed?["error"].string
-                let code = parsed?["error"]["code"].string ?? known.first(where: { rawMessage == $0 || rawMessage == "Error: " + $0 }) ?? "HTTP_\(response.statusCode)"
+                let signinErrors = ["6cc579cc-885d-43d8-95c2-b8c7fc963280": "SIGNIN_NO_USER", "e03a5f46-d309-4865-9b69-56282d94e1eb": "SIGNIN_SUSPENDED", "932c904e-9460-45b7-9ce6-7ed33be7eb2c": "SIGNIN_PASSWORD", "cdf1235b-ac71-46d4-a3a6-84ccce48df6f": "SIGNIN_OTP"]
+                let signinCode = url.path == "/api/signin-flow" ? signinErrors[parsed?["error"]["id"].string ?? ""] : nil
+                let code = parsed?["error"]["code"].string ?? signinCode ?? known.first(where: { rawMessage == $0 || rawMessage == "Error: " + $0 }) ?? "HTTP_\(response.statusCode)"
                 throw APIError(code: code, message: APIError.message(for: code, status: response.statusCode))
             }
             if data.isEmpty { return .null }
@@ -116,6 +118,10 @@ public extension APIError {
     static let uncertain = APIError(code: "OUTCOME_UNKNOWN", message: "服务器处理结果尚未确认。请先核对记录，勿重复发送。")
     static func message(for code: String, status: Int) -> String {
         switch code {
+        case "SIGNIN_NO_USER": return "找不到这个账号，请检查用户名。"
+        case "SIGNIN_SUSPENDED": return "此账号已被停用，请联系管理员。"
+        case "SIGNIN_PASSWORD": return "密码不正确，请重新输入。"
+        case "SIGNIN_OTP": return "动态验证码或备用码不正确，请重新检查。"
         case "CHAT_REPLY_REQUIRED": return "对方未回复之前只能发送一条消息，等对方回复以后才可以继续留言"
         case "CHAT_FIRST_MESSAGE_TEXT_ONLY": return "对方回复前仅支持发送一条文字消息"
         case "CHAT_CLIENT_UPGRADE_REQUIRED": return "请更新客户端后再发送私信附件。"

@@ -135,6 +135,7 @@ final class AppSession {
         changingAccount = true; defer { changingAccount = false }
         let epoch = generation
         let account = Record(try await api.call("i", token: token))
+        try Task.checkCancellation()
         guard !account.id.isEmpty, epoch == generation else { throw CancellationError() }
         guard expectedID == nil || expectedID == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "登录信息不属于所选账号。") }
         guard allowSwitch || user == nil || user?.id == account.id else { throw APIError(code: "AUTH_ACCOUNT_MISMATCH", message: "请授权当前账号；添加其他账号请从多账号管理进入。原有草稿已保留。") }
