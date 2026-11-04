@@ -25,6 +25,7 @@ struct ComposeView: View {
     var replyTo: Record? = nil
     var renote: Record? = nil
     var channelID: String? = nil
+    var embedded = false
     var onSent: () -> Void
     @State private var draft = ComposeDraft()
     @State private var textSelection = NSRange(location: 0, length: 0)
@@ -54,7 +55,9 @@ struct ComposeView: View {
     private var visibilityIcon: String { draft.visibility == "home" ? "house" : draft.visibility == "followers" ? "lock" : "globe" }
 
     var body: some View {
-        NavigationStack {
+        Group { if embedded { editor.frame(height: 340) } else { NavigationStack { editor } } }.interactiveDismissDisabled(busy)
+    }
+    private var editor: some View {
             VStack(spacing: 0) {
                 header
                 ScrollView {
@@ -127,15 +130,14 @@ struct ComposeView: View {
                 .fullScreenCover(isPresented: $camera) { CameraCapture { result in camera = false; uploadTask = Task { await uploadCapture(result) } }.ignoresSafeArea() }
                 .photosPicker(isPresented: $showingPhotoPicker, selection: $selected, maxSelectionCount: max(1, 16 - draft.files.count), matching: .any(of: [.images, .videos]))
                 .confirmationDialog("只有确认原帖未发布时才重新提交，否则可能产生重复帖子。", isPresented: $confirmRetry) { Button("确认恢复手动提交") { draft.outcome = "ready"; save() } }
-        }.interactiveDismissDisabled(busy)
     }
 
     private var header: some View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout(spacing: 4))
         return layout {
             HStack(spacing: 6) {
-                Button { if save() { dismiss() } } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                    .accessibilityLabel("保存并关闭").accessibilityIdentifier("compose.close").disabled(busy)
+                Button { if save() && !embedded { dismiss() } } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .accessibilityLabel("保存并关闭").accessibilityIdentifier("compose.close").disabled(busy).opacity(embedded ? 0 : 1).allowsHitTesting(!embedded)
                 if let user = session.user { Avatar(user: user, size: 28).accessibilityHidden(false).accessibilityLabel(user.displayName) }
                 Spacer(minLength: 0)
             }
@@ -151,7 +153,7 @@ struct ComposeView: View {
                     Button("添加投票") { draft.poll = PollDraft(); save() }.disabled(!editable || draft.poll != nil)
                     Button("拍摄照片或视频") { Task { await openCamera() } }.disabled(!editable || draft.files.count >= 16)
                     Button("定时发布") { draft.scheduledAt = Date().addingTimeInterval(3600); save() }.disabled(!editable || (session.user?["policies"]["scheduledNoteLimit"].int ?? 0) <= 0)
-                    Button("保存并关闭") { if save() { dismiss() } }
+                    if !embedded { Button("保存并关闭") { if save() { dismiss() } } }
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                     .disabled(busy).accessibilityLabel("更多").accessibilityIdentifier("compose.more")
                 Button { editingText = false; Task { await send() } } label: {
@@ -241,7 +243,7 @@ struct ComposeView: View {
                 guard response["createdDraft"]["scheduledAt"] == body["scheduledAt"], response["createdDraft"]["isActuallyScheduled"].bool,
                       NoteReceipt.matches(.object(["createdNote": response["createdDraft"]]), authorID: ownerID ?? "", request: body) else { throw APIError.uncertain }
             } else { guard NoteReceipt.matches(response, authorID: ownerID ?? "", request: body) else { throw APIError.uncertain } }
-            draft = ComposeDraft(); save(); onSent(); dismiss()
+            draft = ComposeDraft(); save(); onSent(); if !embedded { dismiss() }
         } catch {
             draft.outcome = (error as? APIError)?.code == "OUTCOME_UNKNOWN" ? "uncertain" : "ready"
             self.error = error.localizedDescription; draft.lastFailure = error.localizedDescription; save()

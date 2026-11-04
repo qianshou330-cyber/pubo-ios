@@ -92,6 +92,8 @@ struct PublicAttachmentPreview: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     let file: Record
+    var allowSensitive = false
+    @State private var animatedImage: SDAnimatedImage?
     @State private var data: Data?
     @State private var localURL: URL?
     @State private var error: String?
@@ -99,7 +101,7 @@ struct PublicAttachmentPreview: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: file["type"].string ?? "application/octet-stream", name: file["name"].string ?? "PUBO附件") }
+                if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: file["type"].string ?? "application/octet-stream", name: file["name"].string ?? "PUBO附件", gifImage: animatedImage) }
                 else if let error { ErrorBanner(message: error) { retry += 1 } }
                 else { ProgressView("加载原始文件…") }
             }.puboScreen().navigationTitle("查看附件").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { dismiss() } }
@@ -107,7 +109,7 @@ struct PublicAttachmentPreview: View {
         }
     }
     private func load() async {
-        guard !file["isSensitive"].bool, let source = safeMediaURL(file["url"].string) else { error = "无法在 App 打开此附件"; return }
+        guard (!file["isSensitive"].bool || allowSensitive), let source = safeMediaURL(file["url"].string) else { error = "无法在 App 打开此附件"; return }
         if session.testMode && !session.isolatedBackend { error = "隔离测试不下载外站媒体"; return }
         let epoch = session.generation
         do {
@@ -124,7 +126,11 @@ struct PublicAttachmentPreview: View {
             let destination = FileManager.default.temporaryDirectory.appendingPathComponent("pubo-private-\(UUID().uuidString).\(ext)")
             try content.write(to: destination, options: [.atomic, .completeFileProtection])
             clear(); localURL = destination; data = content; error = nil
+            if file["type"].string?.hasPrefix("image/") == true {
+                let image = try? await PublicImageDecoder.decode(content, maxPixel: 1280)
+                if epoch == session.generation && !Task.isCancelled { animatedImage = image as? SDAnimatedImage }
+            }
         } catch { if epoch == session.generation && !Task.isCancelled { self.error = error.localizedDescription } }
     }
-    private func clear() { data = nil; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
+    private func clear() { data = nil; animatedImage = nil; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
 }

@@ -23,6 +23,10 @@ final class AppSession {
     private(set) var isolatedBackend = false
     var authorizationRequired = false
     var deletedNoteIDs = Set<String>()
+    var timelinePreferences = TimelinePreferences()
+    var timelineNotice: String?
+    var newestTimelineNote: Record?
+    var latestNoteEvent: NoteStreamEvent?
     var badges = NotificationBadges()
     var chartPreferences = KpopPreferences()
     private var unreadAttempt: UUID?
@@ -65,6 +69,8 @@ final class AppSession {
         if !testing { try? PrivateFiles.clear() }
         stream.onChange = { [weak self] in self?.streamRevision += 1 }
         stream.onConnect = { [weak self] in self?.connectionRevision += 1 }
+        stream.onTimelineNote = { [weak self] note in self?.newestTimelineNote = note }
+        stream.onNoteEvent = { [weak self] event in self?.latestNoteEvent = event }
         stream.onChatEvent = { [weak self] id in
             guard let self else { return }
             self.changedChatIDs.insert(id)
@@ -92,6 +98,7 @@ final class AppSession {
         Task { await refreshMeta() }
         Task { await refreshEmojis() }
         restoreChartPreferences()
+        restoreTimelinePreferences()
     }
     func refreshMeta() async {
         do { meta = try await api.call("meta", body: ["detail": .bool(true)]); await nativePush.resume() }
@@ -127,6 +134,7 @@ final class AppSession {
         if testMode { savedAccounts.removeAll { $0.userID == account.id }; savedAccounts.append(secret) } else { reloadAccounts() }
         recentEmojis = ((try? store?.read([String].self, account: account.id, key: "recent-emojis")) ?? []).prefix(32).map { $0 }
         restoreChartPreferences()
+        restoreTimelinePreferences()
         resumeStream()
         Task { await nativePush.resume() }
     }
@@ -167,6 +175,8 @@ final class AppSession {
     private func clearAccountMemory() {
         token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
         badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences(); recentEmojis = []
+        timelinePreferences = TimelinePreferences(); timelineNotice = nil; newestTimelineNote = nil; latestNoteEvent = nil
+        stream.captureNotes([]); stream.showTimeline(nil)
         InlineEmojiStore.shared.clear(); try? PrivateFiles.clear(); URLCache.shared.removeAllCachedResponses()
     }
     func reloadAccounts() { if !testMode { do { savedAccounts = try KeychainStore.vault().accounts } catch { self.error = error.localizedDescription } } }
@@ -191,6 +201,19 @@ final class AppSession {
         guard let owner = user?.id else { return }
         recentEmojis = Array(([value] + recentEmojis.filter { $0 != value }).prefix(32))
         try? store?.save(recentEmojis, account: owner, key: "recent-emojis")
+    }
+    func restoreTimelinePreferences() {
+        let owner = user?.id ?? "guest"
+        var value = (try? store?.read(TimelinePreferences.self, account: owner, key: "timeline-preferences-v1")) ?? TimelinePreferences()
+        if let legacy = try? store?.read(String.self, account: owner, key: "selected-timeline"),
+           (try? store?.read(TimelinePreferences.self, account: owner, key: "timeline-preferences-v1")) == nil { value.selected = legacy }
+        let choices = user == nil ? ["local"] : HomeContent.timelines(user: user?.raw ?? .null)
+        let unavailable = value.selected == "local" && !choices.contains("local")
+        value.normalize(available: choices); timelinePreferences = value
+        timelineNotice = unavailable ? "本地时间线暂不可用，已切换到关注。" : nil
+    }
+    func saveTimelinePreferences() {
+        try? store?.save(timelinePreferences, account: user?.id ?? "guest", key: "timeline-preferences-v1")
     }
     func markPendingAction(_ key: String, pending: Bool) throws {
         if testMode { return }

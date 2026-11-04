@@ -67,10 +67,9 @@ func safeMediaURL(_ text: String?) -> URL? {
             inFlight.insert(name)
             defer { inFlight.remove(name) }
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                let data = try await PublicImageDecoder.data(url, limit: 2_000_000)
+                let rendered = try await PublicImageDecoder.decode(data, maxPixel: 100)
                 guard epoch == generation, !Task.isCancelled else { return }
-                guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 2_000_000, let image = UIImage(data: data) else { continue }
-                let rendered = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { _ in image.draw(in: CGRect(x: 0, y: 0, width: 20, height: 20)) }
                 if images.count > 256 { images.removeAll() }
                 images[name] = rendered
             } catch { }
@@ -82,6 +81,10 @@ struct NoteText: View {
     @Environment(AppSession.self) private var session
     let text: String
     var remoteEmojis: JSONValue = .null
+    var onTap: (() -> Void)? = nil
+    var identifier = ""
+    @Environment(\.scenePhase) private var phase
+    @State private var visible = false
     var expands = true
     @State private var emojiStore = InlineEmojiStore.shared
     @State private var destination: NativeLinkTarget?
@@ -105,21 +108,14 @@ struct NoteText: View {
         }
         return map
     }
-    private var rendered: Text {
-        parts.reduce(Text("")) { output, part in
-            if let key = urls.keys.first(where: { $0.hasPrefix(part + "https://") }), let image = emojiStore.images[key] { return output + Text(Image(uiImage: image)).baselineOffset(-3) }
-            let source = NativeLink.linkedText(part)
-            let rich = (try? AttributedString(markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(part)
-            return output + Text(rich)
-        }
-    }
     var body: some View {
-        rendered.textSelection(.enabled).frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
+        RichNoteText(parts: parts, urls: urls, images: emojiStore.images, playing: visible && phase == .active, identifier: identifier, openURL: { url in
+            if let link = NativeLink(url) { destination = NativeLinkTarget(link: link) }
+            else if NativeLink.publicURL(url.absoluteString) != nil { UIApplication.shared.open(url) }
+        }, onTap: onTap).frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
+            .background(GeometryReader { g in Color.clear.onAppear { visible = g.frame(in: .global).intersects(UIScreen.main.bounds) }.onChange(of: g.frame(in: .global)) { _, rect in visible = rect.intersects(UIScreen.main.bounds) } })
             .task(id: urls.keys.sorted().joined()) { await emojiStore.load(urls) }
-            .environment(\.openURL, OpenURLAction { url in
-                if let link = NativeLink(url) { destination = NativeLinkTarget(link: link); return .handled }
-                return NativeLink.publicURL(url.absoluteString) == nil ? .discarded : .systemAction
-            })
+            .onDisappear { visible = false }
             .sheet(item: $destination) { NativeLinkDestination(target: $0.link) }
     }
 }
@@ -128,21 +124,7 @@ struct PublicMedia: View {
     let file: Record
     let noteID: String
     var sourceURL: URL? = nil
-    @State private var playing = false
-    var body: some View {
-        Group {
-            if file["isSensitive"].bool {
-                VStack(spacing: 8) { Label("敏感媒体不在 App 内显示", systemImage: "eye.slash"); Link("在网页查看原帖", destination: sourceURL ?? Endpoint.origin.appendingPathComponent("notes/" + noteID)) }.font(.callout).frame(maxWidth: .infinity, minHeight: 100).background(PUBOTheme.button)
-            } else if let url = safeMediaURL(file["url"].string) {
-                if file["type"].string?.hasPrefix("image/") == true {
-                    Button { playing = true } label: { AsyncImage(url: safeMediaURL(file["thumbnailUrl"].string) ?? url) { image in image.resizable().scaledToFit() } placeholder: { ProgressView().frame(height: 100) } }.buttonStyle(.plain)
-                        .frame(maxHeight: 340).accessibilityLabel(file["comment"].string ?? "帖子图片")
-                } else if file["type"].string?.hasPrefix("video/") == true || file["type"].string?.hasPrefix("audio/") == true {
-                    Button { playing = true } label: { Label("播放媒体", systemImage: "play.circle.fill").frame(maxWidth: .infinity, minHeight: 100) }
-                } else { Link(file["name"].string ?? "打开附件", destination: url) }
-            }
-        }.clipShape(RoundedRectangle(cornerRadius: 12)).sheet(isPresented: $playing) { PublicAttachmentPreview(file: file) }
-    }
+    var body: some View { TimelineMediaItem(file: file, noteID: noteID) }
 }
 
 struct MediaPlayer: View {

@@ -1,0 +1,218 @@
+import SwiftUI
+import ImageIO
+import SDWebImage
+import PUBOCore
+
+enum PublicImageDecoder {
+    private static let registered: Void = { SDImageCodersManager.shared.addCoder(SDImageAWebPCoder.shared) }()
+    static func decode(_ data: Data, maxPixel: Int = 720) async throws -> UIImage {
+        _ = registered
+        return try await Task.detached(priority: .userInitiated) {
+            try Task.checkCancellation()
+            guard data.count <= 50 * 1024 * 1024, let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  CGImageSourceGetCount(source) > 0, CGImageSourceGetCount(source) <= 2_000,
+                  let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                  let w = props[kCGImagePropertyPixelWidth] as? NSNumber, let h = props[kCGImagePropertyPixelHeight] as? NSNumber,
+                  w.doubleValue > 0, h.doubleValue > 0, w.doubleValue * h.doubleValue <= 40_000_000 else { throw APIError.invalidResponse }
+            if CGImageSourceGetCount(source) > 1,
+               let image = SDAnimatedImage(data: data, scale: 1, options: [.decodeThumbnailPixelSize: NSValue(cgSize: CGSize(width: maxPixel, height: maxPixel)), .decodePreserveAspectRatio: true]) { return image }
+            guard let frame = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel] as CFDictionary) else { throw APIError.invalidResponse }
+            return UIImage(cgImage: frame)
+        }.value
+    }
+    static func data(_ url: URL, limit: Int = 50 * 1024 * 1024) async throws -> Data {
+        guard safeMediaURL(url.absoluteString) != nil else { throw APIError.invalidResponse }
+        let configuration = URLSessionConfiguration.ephemeral; configuration.timeoutIntervalForRequest = 20; configuration.timeoutIntervalForResource = 60
+        let client = URLSession(configuration: configuration); defer { client.invalidateAndCancel() }
+        let (bytes, response) = try await client.bytes(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200, safeMediaURL(response.url?.absoluteString) != nil,
+              response.expectedContentLength <= limit else { throw APIError.invalidResponse }
+        var result = Data(); result.reserveCapacity(min(limit, max(0, Int(response.expectedContentLength))))
+        for try await byte in bytes {
+            if result.count % 16384 == 0 { try Task.checkCancellation() }
+            guard result.count < limit else { throw APIError(code: "FILE_TOO_LARGE", message: "媒体超过预览限制。") }
+            result.append(byte)
+        }
+        return result
+    }
+}
+
+struct PublicAnimationSurface: UIViewRepresentable {
+    let image: SDAnimatedImage
+    let playing: Bool
+    var open: (() -> Void)? = nil
+    func makeUIView(context: Context) -> ProtectedGIFImageView { ProtectedGIFImageView(frame: .zero) }
+    func updateUIView(_ view: ProtectedGIFImageView, context: Context) { view.configure(image, playing: playing, identifier: "timeline.animatedImage", open: open) }
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: ProtectedGIFImageView, context: Context) -> CGSize? { CGSize(width: proposal.width ?? 24, height: proposal.height ?? 24) }
+    static func dismantleUIView(_ view: ProtectedGIFImageView, coordinator: ()) { view.clear() }
+}
+
+struct PublicAnimatedAsset: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.scenePhase) private var phase
+    let url: URL
+    var fit = true
+    var emoji = false
+    @State private var image: UIImage?
+    @State private var error = false
+    @State private var visible = false
+    @State private var retry = 0
+    var body: some View {
+        Group {
+            if let animated = image as? SDAnimatedImage, animated.animatedImageFrameCount > 1 {
+                PublicAnimationSurface(image: animated, playing: visible && phase == .active)
+            } else if let image { Image(uiImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill) }
+            else if error { Button { retry += 1 } label: { Image(systemName: "arrow.clockwise").font(.caption) }.accessibilityLabel("重试图片") }
+            else { ProgressView().controlSize(.small) }
+        }.background(GeometryReader { g in
+            Color.clear.onAppear { visible = g.frame(in: .global).intersects(UIScreen.main.bounds) }
+                .onChange(of: g.frame(in: .global)) { _, rect in visible = rect.intersects(UIScreen.main.bounds) }
+        }).task(id: "\(url)-\(session.generation)-\(retry)") {
+            image = nil; error = false; let epoch = session.generation
+            do {
+                let data: Data
+                #if DEBUG
+                if session.testMode && !session.isolatedBackend {
+                    guard let fixture = TimelineTestFixtures.media(url) else { throw APIError.invalidResponse }; data = fixture
+                } else { data = try await PublicImageDecoder.data(url, limit: emoji ? 2_000_000 : 50 * 1024 * 1024) }
+                #else
+                data = try await PublicImageDecoder.data(url, limit: emoji ? 2_000_000 : 50 * 1024 * 1024)
+                #endif
+                let decoded = try await PublicImageDecoder.decode(data, maxPixel: emoji ? 100 : 720)
+                guard epoch == session.generation, !Task.isCancelled else { return }; image = decoded
+            } catch { if !Task.isCancelled { self.error = true } }
+        }.onDisappear { visible = false }
+    }
+}
+
+struct PublicMediaGrid: View {
+    let files: [Record]
+    let noteID: String
+    var body: some View {
+        if !files.isEmpty {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: files.count == 1 ? 1 : 2), spacing: 4) {
+                ForEach(files) { file in TimelineMediaItem(file: file, noteID: noteID, compact: files.count > 1) }
+            }.clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+}
+
+struct TimelineMediaItem: View {
+    @Environment(AppSession.self) private var session
+    let file: Record
+    let noteID: String
+    var compact = false
+    @State private var revealed = false
+    @State private var preview = false
+    private var hidden: Bool { file["isSensitive"].bool && !revealed }
+    private var mime: String { file["type"].string ?? "" }
+    private var mediaURL: URL? { safeMediaURL(mime == "image/gif" ? file["url"].string : file["thumbnailUrl"].string ?? file["url"].string) }
+    private var ratio: CGFloat {
+        if compact { return 1 }
+        let width = file["properties"]["width"].int, height = file["properties"]["height"].int
+        return width > 0 && height > 0 ? max(0.7, min(2.5, CGFloat(width) / CGFloat(height))) : 1.5
+    }
+    var body: some View {
+        Group {
+            if hidden {
+                Button { revealed = true } label: {
+                    VStack(spacing: 6) { Image(systemName: "eye.slash"); Text("敏感媒体").bold(); Text("点击展开").font(.caption) }.frame(maxWidth: .infinity, minHeight: compact ? 120 : 150).background(PUBOTheme.button)
+                }.buttonStyle(.plain).accessibilityIdentifier("media.reveal." + file.id)
+            } else if mime.hasPrefix("image/"), let url = mediaURL {
+                PublicAnimatedAsset(url: url).aspectRatio(ratio, contentMode: .fit).frame(maxHeight: 420).clipped()
+                    .overlay(alignment: .bottomLeading) { if mime == "image/gif" { Text("GIF").font(.system(size: 10)).foregroundStyle(.white).padding(4).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 3)).padding(5) } }
+                    .contentShape(Rectangle()).onTapGesture { preview = true }.accessibilityLabel(file["comment"].string ?? "查看图片").accessibilityAddTraits(.isButton).accessibilityIdentifier("media.open." + file.id)
+            } else if mime.hasPrefix("video/") || mime.hasPrefix("audio/") {
+                Button { preview = true } label: {
+                    ZStack {
+                        if let url = safeMediaURL(file["thumbnailUrl"].string) { PublicAnimatedAsset(url: url).aspectRatio(ratio, contentMode: .fit) }
+                        else { PUBOTheme.button.frame(height: mime.hasPrefix("audio/") ? 72 : 160) }
+                        Image(systemName: "play.fill").font(.title2).foregroundStyle(.white).padding(18).background(PUBOTheme.accent, in: Circle())
+                    }
+                }.buttonStyle(.plain).accessibilityLabel(mime.hasPrefix("audio/") ? "播放音频" : "播放视频").accessibilityIdentifier("media.open." + file.id)
+            } else if let url = safeMediaURL(file["url"].string) { Link(file["name"].string ?? "打开附件", destination: url).font(.caption) }
+        }.clipShape(RoundedRectangle(cornerRadius: 8))
+            .sheet(isPresented: $preview) { PublicAttachmentPreview(file: file, allowSensitive: revealed) }
+            .onChange(of: file) { _, _ in revealed = false; preview = false }
+            .onChange(of: session.generation) { _, _ in revealed = false; preview = false }
+            .onDisappear { revealed = false }
+    }
+}
+
+struct UserInlineBadges: View {
+    let user: Record
+    var body: some View { HStack(spacing: 2) { ForEach(Record.list(user["badgeRoles"]).prefix(3)) { role in
+        if let url = safeMediaURL(role["iconUrl"].string) { PublicAnimatedAsset(url: url, emoji: true).frame(width: 12, height: 12).accessibilityLabel(role["name"].string ?? "认证") }
+    } } }
+}
+
+struct ReactionImage: View {
+    @Environment(AppSession.self) private var session
+    let reaction: String
+    var emojis: JSONValue = .null
+    private var name: String { reaction.trimmingCharacters(in: CharacterSet(charactersIn: ":")).replacingOccurrences(of: "@.", with: "") }
+    private var url: URL? { safeMediaURL(emojis[name].string ?? session.emojis.first(where: { $0["name"].string == name })?["url"].string) }
+    var body: some View {
+        if reaction.hasPrefix(":"), let url { PublicAnimatedAsset(url: url, emoji: true).frame(width: 24, height: 24) }
+        else { Text(reaction).font(.system(size: 18)).lineLimit(1) }
+    }
+}
+
+struct FlowReactionLayout: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize { positions(width: proposal.width ?? 320, subviews: subviews).1 }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = positions(width: bounds.width, subviews: subviews)
+        for (index, point) in result.0.enumerated() { subviews[index].place(at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y), proposal: .unspecified) }
+    }
+    private func positions(width: CGFloat, subviews: Subviews) -> ([CGPoint], CGSize) {
+        var points: [CGPoint] = []; var x: CGFloat = 0, y: CGFloat = 0, height: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width { x = 0; y += height + 4; height = 0 }
+            points.append(CGPoint(x: x, y: y)); x += size.width + 4; height = max(height, size.height)
+        }
+        return (points, CGSize(width: width, height: y + height))
+    }
+}
+
+struct NoteLinkPreviews: View {
+    @Environment(AppSession.self) private var session
+    let text: String
+    var active: Bool
+    @State private var previews: [JSONValue] = []
+    private var links: [URL] {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
+        return Array(Set(detector.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match -> URL? in
+            guard let url = match.url, ["https", "http"].contains(url.scheme), url.user == nil, url.password == nil else { return nil }; return url
+        })).sorted { $0.absoluteString < $1.absoluteString }.prefix(3).map { $0 }
+    }
+    var body: some View {
+        VStack(spacing: 6) { ForEach(Array(previews.enumerated()), id: \.offset) { _, preview in
+            if let url = NativeLink.publicURL(preview["url"].string ?? "") {
+                Link(destination: url) { HStack(spacing: 8) {
+                    if !preview["sensitive"].bool, let thumb = safeMediaURL(preview["thumbnail"].string) { PublicAnimatedAsset(url: thumb).frame(width: 62, height: 62).clipped() }
+                    VStack(alignment: .leading, spacing: 4) { Text(preview["title"].string ?? url.host ?? "网页").font(.caption.bold()).lineLimit(2); Text(preview["description"].string ?? "").font(.caption2).lineLimit(2); Text(url.host ?? "").font(.system(size: 9)) }.frame(maxWidth: .infinity, alignment: .leading)
+                }.padding(8).foregroundStyle(PUBOTheme.text).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider)) }
+            }
+        } }.task(id: text + String(active)) {
+            previews = []; guard active else { return }; let epoch = session.generation
+            for link in links {
+                do {
+                    let value: JSONValue
+                    #if DEBUG
+                    if session.testMode && !session.isolatedBackend { value = .object(["url": .string(link.absoluteString), "title": .string("PUBO 链接预览"), "description": .string("同一数据的链接预览测试")]) }
+                    else { value = try await fetch(link) }
+                    #else
+                    value = try await fetch(link)
+                    #endif
+                    guard epoch == session.generation, !Task.isCancelled else { return }; previews.append(value)
+                } catch { }
+            }
+        }
+    }
+    private func fetch(_ url: URL) async throws -> JSONValue {
+        var endpoint = URLComponents(url: Endpoint.origin.appendingPathComponent("url"), resolvingAgainstBaseURL: false)!
+        endpoint.queryItems = [.init(name: "url", value: url.absoluteString), .init(name: "lang", value: "zh-CN")]
+        return try JSONDecoder().decode(JSONValue.self, from: await PublicImageDecoder.data(endpoint.url!, limit: 512_000))
+    }
+}

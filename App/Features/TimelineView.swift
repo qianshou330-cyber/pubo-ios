@@ -1,116 +1,181 @@
 import SwiftUI
 import PUBOCore
 
-struct TimelineCache: Codable {
-    let savedAt: Date
-    let notes: [Record]
+struct TimelineCache: Codable { let savedAt: Date; let notes: [Record] }
+private struct TimelineOffset: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 struct TimelineView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
-    @State private var timeline = "home"
-    @State private var notes: [Record] = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var feed = TimelineState()
     @State private var error: String?
     @State private var loading = false
     @State private var hasMore = true
     @State private var composer = false
     @State private var requestID = UUID()
-    @State private var requestTimeline = ""
+    @State private var requestContext = ""
     @State private var cached = false
     @State private var homeRefresh = 0
-    @State private var restoredSelection = false
     @State private var firstLoadFinished = false
     @State private var homePath: [HomeDestination] = []
     @State private var songSelection: ChartSongSelection?
+    @State private var atTop = true
+    @State private var anchor: String?
+    @State private var visibleIDs = Set<String>()
+    @State private var detailCollection: CollectionKind?
+    private var preferences: TimelinePreferences { session.timelinePreferences }
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
     private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
+    private var context: String { session.generation.uuidString + preferences.requestKey }
+    private var motion: Bool { !reduceMotion && !ProcessInfo.processInfo.arguments.contains("--reduce-motion") }
+    private var selection: Binding<String> { Binding(get: { preferences.selected }, set: { session.timelinePreferences.selected = $0; session.saveTimelinePreferences() }) }
 
     var body: some View {
         NavigationStack(path: $homePath) {
-            List {
-                HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
-                HomeChartPanel(refreshID: homeRefresh) { destination in
-                    if case .history(let key, let song, let chart) = destination { songSelection = ChartSongSelection(key: key, song: song, chart: chart) }
-                    else { homePath.append(destination) }
-                }
-                if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
-                if let error { ErrorBanner(message: error) { Task { await load() } } }
-                if notes.isEmpty && !firstLoadFinished && error == nil {
-                    ForEach(0..<3) { _ in PostLoadingSkeleton().puboListRow() }
-                }
-                ForEach(notes) { note in NoteCard(note: note) }
-                if loading && !notes.isEmpty { ProgressView().frame(maxWidth: .infinity) }
-                if notes.isEmpty && firstLoadFinished && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary) }
-                if hasMore && !notes.isEmpty { Button("加载更早的帖子") { Task { await load(older: true) } }.disabled(loading) }
-                Color.clear.frame(height: 56).listRowSeparator(.hidden).listRowBackground(Color.clear)
-            }.puboList().toolbar(.hidden, for: .navigationBar)
+            ScrollViewReader { reader in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        Color.clear.frame(height: 1).id("timeline-top").background(GeometryReader { g in
+                            Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
+                        })
+                        VStack(spacing: 6) {
+                            HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
+                            HomeChartPanel(refreshID: homeRefresh) { destination in
+                                if case .history(let key, let song, let chart) = destination { songSelection = ChartSongSelection(key: key, song: song, chart: chart) }
+                                else { homePath.append(destination) }
+                            }
+                        }.padding(.horizontal, 12).padding(.vertical, 8).id("timeline-panels")
+                        if preferences.fixedComposer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
+                        if let notice = session.timelineNotice { Text(notice).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10) }
+                        if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
+                        if let error { ErrorBanner(message: error) { Task { await load(older: firstLoadFinished) } }.padding(12) }
+                        if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
+                        ForEach(Array(feed.notes.enumerated()), id: \.element.id) { index, note in
+                            VStack(spacing: 0) {
+                                if index > 0 && day(note) != day(feed.notes[index - 1]) { Text(day(note)).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10).frame(maxWidth: .infinity) }
+                                NoteCard(note: note, timelineStyle: true, hideSensitive: !preferences.withSensitive)
+                            }.id(note.id)
+                                .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity.combined(with: .scale(scale: 0.01, anchor: .top))))
+                                .onAppear { visibleIDs.insert(note.id); captureVisible(); if index >= feed.notes.count - 5 && hasMore && error == nil { Task { await load(older: true) } } }
+                                .onDisappear { visibleIDs.remove(note.id); captureVisible() }
+                        }
+                        if loading && !feed.notes.isEmpty { ProgressView().padding() }
+                        if feed.notes.isEmpty && firstLoadFinished && !loading && error == nil { Text("暂时没有帖子").foregroundStyle(.secondary).padding(30) }
+                        if !hasMore && !feed.notes.isEmpty { Text("已显示全部帖子").font(.caption).foregroundStyle(.secondary).padding(16) }
+                        Color.clear.frame(height: 68)
+                    }.scrollTargetLayout()
+                }.coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
+                    .onPreferenceChange(TimelineOffset.self) { atTop = $0 > -80 }
+                    .overlay(alignment: .top) {
+                        if !feed.pending.isEmpty {
+                            Button { feed.revealPending(); withAnimation(motion ? .easeOut(duration: 0.25) : nil) { reader.scrollTo("timeline-top", anchor: .top) } } label: {
+                                Label("新帖子 \(feed.pending.count)", systemImage: "arrow.up.circle").font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10).background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.panel)
+                            }.padding(8).accessibilityIdentifier("timeline.newPosts")
+                        }
+                    }
+                    .refreshable { homeRefresh += 1; await load() }
+                    .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) * 2,
+                              let index = choices.firstIndex(of: preferences.selected) else { return }
+                        let next = index + (value.translation.width < 0 ? 1 : -1)
+                        if choices.indices.contains(next) { selection.wrappedValue = choices[next] }
+                    })
+            }.puboScreen().toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeDestination.self) { $0.view }
                 .safeAreaInset(edge: .top, spacing: 0) { header }
                 .overlay(alignment: .bottomTrailing) {
-                    Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.black).frame(width: 52, height: 52).background(.white, in: Circle()).overlay(Circle().strokeBorder(PUBOTheme.divider, lineWidth: 1)).shadow(color: .black.opacity(0.15), radius: 4, y: 2) }
+                    Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48).background(PUBOTheme.accent, in: Circle()).shadow(color: .black.opacity(0.12), radius: 4, y: 2) }
                         .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
                 }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
-                .refreshable { homeRefresh += 1; await load() }
-                .task(id: timeline) {
-                    if !restoredSelection {
-                        restoredSelection = true
-                        if let owner = session.user?.id, let saved = try? session.store?.read(String.self, account: owner, key: "selected-timeline"), choices.contains(saved), saved != timeline { timeline = saved; return }
+                .task(id: context) {
+                    requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; loading = false
+                    session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
+                    if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + preferences.requestKey), Date().timeIntervalSince(saved.savedAt) < 86_400 {
+                        feed.page(saved.notes, older: false, preferences: preferences, accountID: owner); cached = !saved.notes.isEmpty
                     }
-                    guard choices.contains(timeline) else { timeline = "home"; return }
-                    if let owner = session.user?.id { try? session.store?.save(timeline, account: owner, key: "selected-timeline") }
-                    session.stream.showTimeline(timeline)
-                    notes = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil
-                    if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + timeline), !saved.notes.isEmpty, Date().timeIntervalSince(saved.savedAt) < 86_400 { notes = saved.notes; cached = true }
                     await load()
                 }
-                .onAppear { session.stream.showTimeline(timeline) }
-                .onDisappear { session.stream.showTimeline(nil) }
-                .onChange(of: choices) { _, available in if !available.contains(timeline) { timeline = "home" } }
-                .task(id: session.streamRevision) {
-                    guard active else { return }
-                    try? await Task.sleep(for: .milliseconds(700))
-                    if !Task.isCancelled { await load() }
+                .onDisappear { requestID = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
+                .onAppear { session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
+                .onChange(of: session.newestTimelineNote) { _, note in
+                    guard active, let note else { return }
+                    withAnimation(motion && atTop ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.receive(note, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
                 }
-                .task(id: active) {
-                    guard active, restoredSelection else { return }
-                    await load()
+                .onChange(of: session.latestNoteEvent) { _, event in
+                    guard let event else { return }
+                    withAnimation(motion && event.kind == "deleted" ? .timingCurve(0, 0.5, 0.5, 1, duration: 0.2) : nil) { feed.apply(event, accountID: session.user?.id) }
                 }
+                .onChange(of: choices) { _, available in session.timelinePreferences.normalize(available: available) }
+                .onChange(of: session.connectionRevision) { _, _ in if active { Task { await reconnect() } } }
+                .onChange(of: active) { _, value in if value { Task { await reconnect() } } else { session.stream.captureNotes([]) } }
+                .onChange(of: preferences) { _, _ in session.saveTimelinePreferences() }
         }
     }
     private var header: some View {
         HStack(spacing: 0) {
-            PUBOTimelineSelector(selection: $timeline, available: choices, compact: true)
+            if let user = session.user { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 28).frame(width: 40, height: 44) }.accessibilityLabel("我的主页") }
+            ScrollView(.horizontal) { HStack(spacing: 0) {
+                PUBOTimelineSelector(selection: selection, available: choices, compact: true).frame(minWidth: 210)
+                NavigationLink { CollectionsView(kind: .list) } label: { Image(systemName: "list.bullet").frame(width: 44, height: 44) }.accessibilityLabel("列表")
+                NavigationLink { CollectionsView(kind: .antenna) } label: { Image(systemName: "antenna.radiowaves.left.and.right").frame(width: 44, height: 44) }.accessibilityLabel("天线")
+                NavigationLink { CollectionsView(kind: .channel) } label: { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("频道")
+            } }.scrollIndicators(.hidden)
             Menu {
-                NavigationLink("搜索") { SearchView() }
-                NavigationLink("站内公告") { AnnouncementsView() }
-                NavigationLink("我的收藏") { FavoritesView() }
-                NavigationLink("更多功能") { MoreSocialView() }
+                Toggle("显示转帖", isOn: Binding(get: { preferences.withRenotes }, set: { session.timelinePreferences.withRenotes = $0 }))
+                if ["local", "hybrid"].contains(preferences.selected) { Toggle("在时间线中显示对他人的回复", isOn: Binding(get: { preferences.withReplies }, set: { session.timelinePreferences.setReplies($0) })) }
+                Toggle("显示包含敏感媒体的帖子", isOn: Binding(get: { preferences.withSensitive }, set: { session.timelinePreferences.withSensitive = $0 }))
+                Toggle("仅限媒体", isOn: Binding(get: { preferences.onlyFiles }, set: { session.timelinePreferences.setOnlyFiles($0) }))
+                Toggle("在时间线顶部显示发帖框", isOn: Binding(get: { preferences.fixedComposer }, set: { session.timelinePreferences.fixedComposer = $0 }))
+                Divider()
+                NavigationLink("搜索") { SearchView() }; NavigationLink("站内公告") { AnnouncementsView() }
+                NavigationLink("我的收藏") { FavoritesView() }; NavigationLink("更多功能") { MoreSocialView() }
                 Link("在网页查看时间线", destination: Endpoint.origin)
-                Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
-                Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
-            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
+            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                 .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
-        }.background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+        }.font(.caption).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary).background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+    }
+    private func day(_ note: Record) -> String { guard let date = puboDate(note["createdAt"].string) else { return "" }; return date.formatted(.dateTime.month().day()) }
+    private func captureVisible() { session.stream.captureNotes(active ? TimelinePresentation.capturedIDs(feed.notes.filter { visibleIDs.contains($0.id) }) : []) }
+    private func reconnect() async {
+        captureVisible(); await load()
+        let epoch = session.generation
+        for id in TimelinePresentation.capturedIDs(feed.notes.filter { visibleIDs.contains($0.id) }).sorted().prefix(30) {
+            guard active, !Task.isCancelled, epoch == session.generation else { return }
+            do {
+                let value = Record(try await session.call("notes/show", ["noteId": .string(id)]))
+                // Full records refresh their containing quote/reply without discarding reference data.
+                session.latestNoteEvent = .init(id: id, kind: "replaced", body: value.raw)
+            } catch { if (error as? APIError)?.code == "NO_SUCH_NOTE" { session.latestNoteEvent = .init(id: id, kind: "deleted", body: .null) } }
+        }
     }
     private func load(older: Bool = false) async {
-        guard !loading || requestTimeline != timeline else { return }
-        let attempt = UUID(); requestID = attempt; requestTimeline = timeline
-        loading = true; defer { if requestID == attempt { loading = false } }
-        let selected = timeline
-        var fields: [String: JSONValue] = ["limit": .number(20)]
-        if older, let id = notes.last?.id { fields["untilId"] = .string(id) }
+        guard !loading || requestContext != context else { return }
+        guard !older || hasMore else { return }
+        let attempt = UUID(), currentContext = context, selected = preferences
+        requestID = attempt; requestContext = currentContext; loading = true
+        defer { if requestID == attempt { loading = false } }
+        var fields = selected.parameters; fields["limit"] = .number(20)
+        if older, let id = feed.olderCursor { fields["untilId"] = .string(id) }
         do {
-            let result = Record.list(try await session.call("notes/\(selected)-timeline", fields))
-            try Task.checkCancellation()
-            guard selected == timeline, requestID == attempt else { return }
-            notes = Records.merge(notes, result, limit: 2_000); error = nil; cached = false; firstLoadFinished = true
-            if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected) }
-            if older || notes.count <= 20 { hasMore = result.count == 20 && notes.count < 2_000 }
-        } catch is CancellationError { } catch { if !Task.isCancelled && requestID == attempt { firstLoadFinished = true; self.error = error.localizedDescription } }
+            let result = Record.list(try await session.call("notes/\(selected.selected)-timeline", fields))
+            try Task.checkCancellation(); guard requestID == attempt, context == currentContext else { return }
+            if older || atTop || feed.notes.isEmpty { feed.page(result, older: older, preferences: selected, accountID: session.user?.id) }
+            else { for note in result { feed.receive(note, atTop: false, preferences: selected, accountID: session.user?.id) } }
+            if older || !firstLoadFinished { hasMore = result.count == 20 }
+            error = nil; cached = false; firstLoadFinished = true
+            if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(feed.notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected.requestKey) }
+        } catch is CancellationError {} catch {
+            guard requestID == attempt, context == currentContext else { return }
+            if (error as? APIError)?.code == "LTL_DISABLED" { session.timelinePreferences.selected = "home"; session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
+            else { self.error = error.localizedDescription; firstLoadFinished = true }
+        }
     }
 }
 
@@ -120,7 +185,14 @@ struct NoteCard: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let note: Record
     var detail = false
+    var timelineStyle = false
+    var hideSensitive = false
     @State private var revealCW = false
+    @State private var revealSensitivePost = false
+    @State private var confirmReaction = false
+    @State private var proposedReaction: String?
+    @State private var reactionPulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var reactionPicker = false
     @State private var replying = false
     @State private var quoting = false
@@ -138,50 +210,86 @@ struct NoteCard: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 6) {
             if NoteContext.isRepost(note) {
-                Button { navigate(.author(note.user.id)) } label: { Label(note.user.displayName + " 转发了", systemImage: "arrow.2.squarepath").font(.caption).frame(minHeight: 44) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
+                Button { navigate(.author(note.user.id)) } label: { Label(note.user.displayName + " 转发了", systemImage: "arrow.2.squarepath").font(.caption).frame(minHeight: 28) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
             }
             if !shown["replyId"].isNull || !shown["reply"]["id"].isNull {
                 NoteContextCard(value: shown["reply"], targetID: shown["replyId"].string, label: "回复")
             }
-            HStack(alignment: .top, spacing: 8) {
-                Button { navigate(.author(shown.user.id)) } label: {
-                    HStack(alignment: .top, spacing: 8) {
-                        Avatar(user: shown.user, size: 38)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 4) { Text(shown.user.displayName).font(.subheadline.bold()); if shown.user["isBot"].bool { Text("bot").font(.caption2).padding(.horizontal, 3).overlay(RoundedRectangle(cornerRadius: 3).stroke(PUBOTheme.divider)) } }
-                            Text("@" + (shown.user["username"].string ?? "") + (shown.user["host"].string.map { "@" + $0 } ?? "")).font(.caption2).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
+            HStack(alignment: .top, spacing: 10) {
+                Button { navigate(.author(shown.user.id)) } label: { Avatar(user: shown.user, size: 44) }.buttonStyle(.plain).accessibilityLabel(shown.user.displayName + "的头像")
+                VStack(alignment: .leading, spacing: 4) {
+                    authorHeader
+                    if hideSensitive && TimelinePresentation.sensitive(shown) && !revealSensitivePost {
+                        Button("已折叠含敏感媒体的帖子 · 展开") { revealSensitivePost = true }.font(.caption).frame(minHeight: 44)
+                    } else {
+                        if let cw = shown["cw"].string {
+                            Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }.buttonStyle(.plain).accessibilityValue(revealCW ? "已展开" : "已隐藏")
                         }
-                    }.frame(minHeight: 44)
-                }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
-                Spacer(minLength: 0)
-                Button { navigate(.note(shown.id)) } label: {
-                    HStack(spacing: 4) {
-                        if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).lineLimit(1) }
-                        Image(systemName: shown["visibility"].string == "followers" ? "lock" : shown["visibility"].string == "specified" ? "envelope" : "globe")
-                    }.font(.caption2).foregroundStyle(PUBOTheme.secondary).frame(minWidth: 44, minHeight: 44)
-                }.buttonStyle(.plain).accessibilityLabel("查看帖子时间和详情").accessibilityIdentifier("note.timestamp." + shown.id)
+                        if shown["cw"].isNull || revealCW {
+                            NoteText(text: shown.text, remoteEmojis: shown["emojis"], onTap: detail ? nil : { navigate(.note(shown.id)) }, identifier: "note.open." + shown.id)
+                            PublicMediaGrid(files: Record.list(shown["files"]), noteID: shown.id)
+                            if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
+                            if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull { NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用") }
+                            NoteLinkPreviews(text: shown.text, active: true)
+                            if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
+                        }
+                        reactions
+                    }
+                    actions
+                    if let error { Text(error).font(.caption).foregroundStyle(.red) }
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            if let cw = shown["cw"].string {
-                Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }
-                    .buttonStyle(.borderless).accessibilityValue(revealCW ? "已展开" : "已隐藏")
+        }.font(.system(size: 14)).padding(.horizontal, 16).padding(.vertical, 12)
+            .background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+            .listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(Color.clear)
+            .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
+            .onChange(of: note) { _, _ in current = nil }
+            .onChange(of: hideSensitive) { _, _ in revealSensitivePost = false }
+            .onChange(of: session.latestNoteEvent) { _, event in
+                guard !timelineStyle, let event else { return }
+                current = event.applying(to: current ?? note, accountID: session.user?.id)
+                if event.kind == "deleted" { session.deletedNoteIDs.insert(event.id) }
             }
-            if shown["cw"].isNull || revealCW {
-                if detail { NoteText(text: shown.text, remoteEmojis: shown["emojis"]) }
-                else { Button { navigate(.note(shown.id)) } label: { NoteText(text: shown.text, remoteEmojis: shown["emojis"]).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("打开帖子详情").accessibilityIdentifier("note.open." + shown.id) }
-                ForEach(Record.list(shown["files"])) { file in PublicMedia(file: file, noteID: shown.id) }
-                if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
-                if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull {
-                    NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用")
+            .confirmationDialog(proposedReaction == nil ? "取消这个表情反应？" : "更换表情反应？", isPresented: $confirmReaction) { Button(proposedReaction == nil ? "取消反应" : "更换反应") { Task { await react(proposedReaction) } } }
+            .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
+            .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
+            .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
+            .sheet(isPresented: $reporting) { ReportView(userID: shown.user.id, context: Endpoint.origin.appendingPathComponent("notes/" + shown.id).absoluteString) }
+            .sheet(isPresented: $selectingClip) { ClipPicker(noteID: shown.id) }
+            .sheet(isPresented: $viewingReactions) { NavigationStack { ReactionDetailsView(noteID: shown.id).toolbar { Button("关闭") { viewingReactions = false } } } }
+            .confirmationDialog("删除后无法恢复这条帖子。", isPresented: $confirmDelete) { Button("删除帖子", role: .destructive) { Task { await deleteNote() } } }
+            .confirmationDialog("屏蔽此用户？", isPresented: $confirmBlock) { Button("屏蔽", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(shown.user.id)], mutation: true); error = "已屏蔽" } catch { self.error = error.localizedDescription } } } }
+
+    }
+    private var authorHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Button { navigate(.author(shown.user.id)) } label: {
+                HStack(spacing: 3) {
+                    Text(shown.user.displayName).font(.system(size: 14, weight: .bold)).lineLimit(1)
+                    if shown.user["isBot"].bool { Text("bot").font(.system(size: 9)).padding(.horizontal, 2).overlay(RoundedRectangle(cornerRadius: 2).stroke(PUBOTheme.divider)) }
+                    Text("@" + (shown.user["username"].string ?? "")).font(.system(size: 12)).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
+                    UserInlineBadges(user: shown.user)
                 }
-                if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
-            }
+            }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
+            Spacer(minLength: 0)
+            Button { navigate(.note(shown.id)) } label: {
+                HStack(spacing: 3) {
+                    if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).lineLimit(1) }
+                    if shown["visibility"].string != "public" { Image(systemName: TimelinePresentation.visibilityIcon(shown["visibility"].string)) }
+                    if shown["localOnly"].bool { Image(systemName: "network.slash").accessibilityLabel("仅本站") }
+                }.font(.system(size: 10)).foregroundStyle(PUBOTheme.secondary)
+            }.buttonStyle(.plain).accessibilityLabel("查看帖子时间和详情，" + TimelinePresentation.visibilityLabel(shown["visibility"].string)).accessibilityIdentifier("note.timestamp." + shown.id)
+        }.frame(minHeight: 22)
+    }
+    private var actions: some View {
+        Group {
             if session.user != nil { HStack(spacing: 12) {
                 Button { replying = true } label: { HStack(spacing: 4) { Image(systemName: "arrowshape.turn.up.left"); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(.caption) } }.frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
                 Menu {
                     Button("转发") { Task { await renote() } }
                     Button("引用转发") { quoting = true }
-                } label: { Image(systemName: "arrow.2.squarepath").frame(minWidth: 44, minHeight: 44) }
-                Button { reactionPicker = true } label: { Image(systemName: "face.smiling").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("添加表情反应")
+                } label: { HStack(spacing: 3) { Image(systemName: "arrow.2.squarepath"); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(.caption2) } }.frame(minWidth: 44, minHeight: 44) }
+                Button { reactionPicker = true } label: { Image(systemName: "plus").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("添加表情反应")
                 if !shown["myReaction"].isNull { Button("取消反应") { Task { await react(nil) } }.font(.caption) }
                 Spacer(minLength: 0)
                 Menu {
@@ -196,20 +304,27 @@ struct NoteCard: View {
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作")
             }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.secondary).disabled(busy)
             } else { Text("登录后可回复、转发或添加反应").font(.caption).foregroundStyle(.secondary) }
-            if !shown["reactions"].object.isEmpty {
-                ScrollView(.horizontal) { HStack(spacing: 8) { ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in Text("\(reaction) \(shown["reactions"][reaction].int)").font(.caption).padding(.horizontal, 10).padding(.vertical, 6).background(PUBOTheme.button, in: Capsule()) } } }
+
+        }.font(.system(size: 15))
+    }
+    private var reactions: some View {
+        FlowReactionLayout {
+            ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in
+                Button {
+                    let previous = shown["myReaction"].string
+                    if previous != nil { proposedReaction = previous == reaction ? nil : reaction; confirmReaction = true }
+                    else { Task { await react(reaction) } }
+                } label: {
+                    HStack(spacing: 4) {
+                        ReactionImage(reaction: reaction, emojis: shown["reactionEmojis"])
+                        Text("\(shown["reactions"][reaction].int)").font(.system(size: 12, weight: .medium))
+                    }.padding(.horizontal, 7).padding(.vertical, 5)
+                        .background(shown["myReaction"].string == reaction ? PUBOTheme.accent.opacity(0.22) : PUBOTheme.button, in: RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(shown["myReaction"].string == reaction ? PUBOTheme.accent : .clear))
+                        .scaleEffect(reactionPulse && shown["myReaction"].string == reaction ? 1.16 : 1)
+                }.buttonStyle(.plain).disabled(busy || session.user == nil).accessibilityLabel(reaction + " \(shown["reactions"][reaction].int)").accessibilityIdentifier("note.reaction." + shown.id + "." + reaction)
             }
-            if let error { Text(error).font(.caption).foregroundStyle(.red) }
-        }.buttonStyle(.borderless).font(.subheadline).puboCard(padding: 12).puboListRow()
-            .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
-            .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
-            .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
-            .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
-            .sheet(isPresented: $reporting) { ReportView(userID: shown.user.id, context: Endpoint.origin.appendingPathComponent("notes/" + shown.id).absoluteString) }
-            .sheet(isPresented: $selectingClip) { ClipPicker(noteID: shown.id) }
-            .sheet(isPresented: $viewingReactions) { NavigationStack { ReactionDetailsView(noteID: shown.id).toolbar { Button("关闭") { viewingReactions = false } } } }
-            .confirmationDialog("删除后无法恢复这条帖子。", isPresented: $confirmDelete) { Button("删除帖子", role: .destructive) { Task { await deleteNote() } } }
-            .confirmationDialog("屏蔽此用户？", isPresented: $confirmBlock) { Button("屏蔽", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(shown.user.id)], mutation: true); error = "已屏蔽" } catch { self.error = error.localizedDescription } } } }
+        }
     }
     private func favorite(_ wanted: Bool) async {
         guard !busy else { return }; busy = true; defer { busy = false }
@@ -241,13 +356,27 @@ struct NoteCard: View {
         }
     }
     private func react(_ value: String?) async {
-        busy = true; defer { busy = false }
+        guard !busy else { return }; busy = true; defer { busy = false }
+        let id = shown.id
         do {
-            var fields: [String: JSONValue] = ["noteId": .string(shown.id)]
-            if let value { fields["reaction"] = .string(value) }
-            _ = try await session.call(value == nil ? "notes/reactions/delete" : "notes/reactions/create", fields, mutation: true)
-            current = Record(try await session.call("notes/show", ["noteId": .string(shown.id)])); error = nil
-        } catch { self.error = error.localizedDescription }
+            let before = try await session.call("notes/show", ["noteId": .string(id)])
+            let previous = before["myReaction"].string
+            if previous != value {
+                if previous != nil { _ = try await session.call("notes/reactions/delete", ["noteId": .string(id)], mutation: true) }
+                if let value { _ = try await session.call("notes/reactions/create", ["noteId": .string(id), "reaction": .string(value)], mutation: true) }
+            }
+            current = Record(try await session.call("notes/show", ["noteId": .string(id)])); error = nil
+            if value != nil && !reduceMotion {
+                withAnimation(.spring(response: 0.18, dampingFraction: 0.6)) { reactionPulse = true }
+                try? await Task.sleep(for: .milliseconds(180)); withAnimation(.easeOut(duration: 0.2)) { reactionPulse = false }
+            }
+        } catch {
+            let failure = error
+            if let verified = try? await session.call("notes/show", ["noteId": .string(id)]) {
+                current = Record(verified)
+                self.error = verified["myReaction"].string == value ? nil : "反应未完成，已核对当前状态，请重试。"
+            } else { self.error = failure.localizedDescription }
+        }
     }
     private func renote() async {
         busy = true; defer { busy = false }

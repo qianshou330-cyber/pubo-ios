@@ -12,18 +12,44 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     var onChange: (() -> Void)?
     var onConnect: (() -> Void)?
     var onChatEvent: ((String) -> Void)?
+    var onTimelineNote: ((Record) -> Void)?
+    var onNoteEvent: ((NoteStreamEvent) -> Void)?
     private var task: Task<Void, Never>?
     private var socket: URLSessionWebSocketTask?
     private var session: URLSession?
     private var currentToken: String?
     private var notificationTask: Task<Void, Never>?
-    private var timeline: String? = "home"
+    private var timeline: String?
+    private var timelineParameters: [String: JSONValue] = [:]
+    private var timelineChannelID = "timeline-" + UUID().uuidString
+    private var captured = Set<String>()
     private var peerID: String?
     private var roomID: String?
 
-    func showTimeline(_ name: String?) {
-        guard timeline != name else { return }
-        timeline = name; reconnectForContext()
+    func showTimeline(_ name: String?, parameters: [String: JSONValue] = [:]) {
+        guard timeline != name || timelineParameters != parameters else { return }
+        let old = timelineChannelID
+        timeline = name; timelineParameters = parameters; timelineChannelID = "timeline-" + UUID().uuidString
+        guard let socket else { return }
+        let id = timelineChannelID
+        Task {
+            try? await send(.object(["type": .string("disconnect"), "body": .object(["id": .string(old)])]), socket: socket)
+            if let name, peerID == nil, roomID == nil {
+                try? await send(.object(["type": .string("connect"), "body": .object(["channel": .string(name + "Timeline"), "id": .string(id), "params": .object(parameters)])]), socket: socket)
+            }
+        }
+    }
+    func captureNotes(_ ids: Set<String>) {
+        let next = Set(ids.sorted().suffix(90)); let removed = captured.subtracting(next); let added = next.subtracting(captured)
+        captured = next
+        guard let socket else { return }
+        Task {
+            for id in removed { try? await send(.object(["type": .string("un"), "body": .object(["id": .string(id)])]), socket: socket) }
+            for id in added { try? await send(.object(["type": .string("sr"), "body": .object(["id": .string(id)])]), socket: socket) }
+        }
+    }
+    private func send(_ packet: JSONValue, socket: URLSessionWebSocketTask) async throws {
+        try await socket.send(.data(try JSONEncoder().encode(packet)))
     }
     func showChat(_ id: String?) {
         guard peerID != id else { return }
@@ -59,18 +85,27 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                     var channels: [(String, [String: JSONValue])] = [("main", [:])]
                     if let peer = self.peerID { channels.append(("chatUser", ["otherId": .string(peer)])) }
                     else if let room = self.roomID { channels.append(("chatRoom", ["roomId": .string(room)])) }
-                    else if let timeline = self.timeline, ["home", "local", "hybrid", "global"].contains(timeline) { channels.append((timeline + "Timeline", [:])) }
+                    else if let timeline = self.timeline, ["home", "local", "hybrid", "global"].contains(timeline) { channels.append((timeline + "Timeline", self.timelineParameters)) }
                     for (channel, parameters) in channels {
-                        let packet: JSONValue = .object(["type": .string("connect"), "body": .object(["channel": .string(channel), "id": .string(channel), "params": .object(parameters)])])
+                        let packet: JSONValue = .object(["type": .string("connect"), "body": .object(["channel": .string(channel), "id": .string(channel.hasSuffix("Timeline") ? self.timelineChannelID : channel), "params": .object(parameters)])])
                         try await socket.send(.data(try JSONEncoder().encode(packet)))
                     }
+                    for id in self.captured { try await self.send(.object(["type": .string("sr"), "body": .object(["id": .string(id)])]), socket: socket) }
                     self.onConnect?(); self.notify()
                     while !Task.isCancelled {
                         let message = try await socket.receive()
                         let data: Data
                         switch message { case .data(let value): data = value; case .string(let value): data = Data(value.utf8); @unknown default: continue }
-                        if let packet = try? JSONDecoder().decode(JSONValue.self, from: data), packet["type"].string == "channel" {
+                        guard let packet = try? JSONDecoder().decode(JSONValue.self, from: data) else { continue }
+                        if packet["type"].string == "noteUpdated", let id = packet["body"]["id"].string, let kind = packet["body"]["type"].string {
+                            self.onNoteEvent?(.init(id: id, kind: kind, body: packet["body"]["body"]))
+                        } else if packet["type"].string == "channel" {
                             backoff = 1
+                            if packet["body"]["id"].string == self.timelineChannelID {
+                                if packet["body"]["type"].string == "note" { self.onTimelineNote?(Record(packet["body"]["body"])) }
+                                continue
+                            }
+                            if packet["body"]["id"].string?.hasPrefix("timeline-") == true { continue }
                             if packet["body"]["id"].string == "chatUser" {
                                 let event = packet["body"]["body"]
                                 if let id = event["messageId"].string ?? event["id"].string { self.onChatEvent?(id) }
