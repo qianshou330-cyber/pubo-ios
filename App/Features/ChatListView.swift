@@ -3,69 +3,103 @@ import PUBOCore
 
 struct ChatListView: View {
     @Environment(AppSession.self) private var session
-    @State private var conversations: [JSONValue] = []
-    @State private var error: String?
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var state = ChatHomeState()
+    @State private var section = "home"
+    @State private var active = false
     @State private var search = false
-    @State private var busy = false
-    @State private var hasMore = true
-    @State private var unpinnedCursor: String?
+    @State private var creating = false
+    @State private var settingBusy = false
+    @State private var error: String?
+    private var visible: Bool { active && session.selectedTab == 2 && scenePhase == .active && section == "home" }
+    private let tabs = [ChatTab(id: "home", title: "首页", icon: "house"), ChatTab(id: "invited", title: "邀请", icon: "envelope"), ChatTab(id: "joining", title: "已加入的群聊", icon: "person.2"), ChatTab(id: "owned", title: "已创建的群聊", icon: "person.2.badge.gearshape")]
     var body: some View {
         NavigationStack {
-            List {
-                NavigationLink("聊天搜索") { ChatSearchView() }
-                NavigationLink("联系人") { ContactsView() }
-                NavigationLink("群聊") { RoomsView() }
-                if let error { ErrorBanner(message: error) { Task { await load() } } }
-                ForEach(conversations, id: \.conversationID) { row in
-                    let user = Record(row["user"])
-                    NavigationLink { ChatView(peer: user) } label: {
-                        HStack {
-                            Avatar(user: user, size: 48)
-                            VStack(alignment: .leading) {
-                                HStack { Text(user.displayName).font(.headline); if !row["pinnedAt"].isNull { Image(systemName: "pin.fill").font(.caption) }; if row["isMuted"].bool { Image(systemName: "bell.slash").font(.caption) } }
-                                Text(SendFeedback.messageSummary(row["lastMessage"])).font(.callout).lineLimit(1).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 6) {
-                            if let date = puboDate(row["lastMessage"]["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary) }
-                            if row["unreadCount"].int > 0 { Text("\(row["unreadCount"].int)").font(.caption).padding(6).background(row["isMuted"].bool ? Color.gray : PUBOTheme.accent, in: Capsule()).foregroundStyle(.white) }
-                            }
-                        }
-                    }.padding(14).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius)).puboListRow().swipeActions(edge: .leading) { Button(row["isMuted"].bool ? "恢复提醒" : "免打扰") { Task { await settings(user.id, "isMuted", !row["isMuted"].bool) } }.tint(.gray) }
-                    .swipeActions { Button(row["pinnedAt"].isNull ? "置顶" : "取消置顶") { Task { await settings(user.id, "pinned", row["pinnedAt"].isNull) } }.tint(PUBOTheme.accent) }
-                }
-                if conversations.isEmpty && !busy { Text("暂无私信，点击右上角开始聊天。") }
-                if busy { ProgressView() }
-                if hasMore && !conversations.isEmpty { Button("加载更多会话") { Task { await load(older: true) } } }
-            }.puboList().navigationTitle("私信").toolbar { Button { search = true } label: { Image(systemName: "square.and.pencil") }.accessibilityLabel("新私信") }
+            VStack(spacing: 0) {
+                ChatTabs(selection: $section, items: tabs, prefix: "chat.home.")
+                if section == "home" { home }
+                else { RoomsView(fixedSection: section, embedded: true).id(section) }
+            }.puboScreen().navigationTitle("私信")
                 .sheet(isPresented: $search) { UserSearchView() }
-                .task { await load() }.refreshable { await load() }
-                .task(id: session.streamRevision) { if session.selectedTab == 2 { try? await Task.sleep(for: .milliseconds(700)); if !Task.isCancelled { await load() } } }
+                .sheet(isPresented: $creating, onDismiss: { section = "owned" }) { RoomEditor() }
+                .onAppear { active = true }.onDisappear { active = false; state.invalidate() }
+                .task(id: "\(visible)-\(session.generation)") {
+                    guard visible else { return }
+                    repeat {
+                        await state.load(session)
+                        do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                    } while visible && !Task.isCancelled
+                }
+                .task(id: session.streamRevision) {
+                    guard visible else { return }
+                    do { try await Task.sleep(for: .milliseconds(500)); await state.load(session) } catch { }
+                }
+                .onChange(of: session.generation) { _, _ in state.invalidate(); section = "home"; search = false; creating = false }
         }
     }
-    private func load(older: Bool = false) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
-        do {
-            var fields: [String: JSONValue] = ["limit": .number(30), "pinned": .bool(false)]
-            if older, let id = unpinnedCursor { fields["untilId"] = .string(id) }
-            let response = try await session.call("chat/conversations", fields)
-            let result = response.array
-            if older { conversations += result.filter { row in !conversations.contains { $0.conversationID == row.conversationID } } }
-            else {
-                let pinned = try await session.call("chat/conversations", ["limit": .number(10), "pinned": .bool(true)])
-                conversations = pinned.array + result.filter { row in !pinned.array.contains { $0.conversationID == row.conversationID } }
-            }
-            unpinnedCursor = result.last?["lastMessage"]["id"].string
-            hasMore = result.count == 30; error = nil
-        } catch { self.error = error.localizedDescription }
+    private var home: some View {
+        List {
+            VStack(alignment: .leading, spacing: 16) {
+                Menu {
+                    Button("一对一聊天") { search = true }
+                    Button("创建群聊") { creating = true }
+                } label: { Label("开始聊天", systemImage: "plus").frame(minHeight: 44).padding(.horizontal, 22).background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.background) }
+                    .frame(maxWidth: .infinity).accessibilityIdentifier("chat.start")
+                NavigationLink { ContactsView() } label: { Label("联系人", systemImage: "person.2").frame(minHeight: 44) }
+            }.puboListRow()
+            ChatSearchView(embedded: true)
+            Section {
+                if let issue = error ?? state.error { ErrorBanner(message: issue) { Task { await state.load(session) } }.puboListRow() }
+                ForEach(state.rows) { row in
+                    HStack(spacing: 0) {
+                        NavigationLink { destination(row) } label: { conversation(row) }.buttonStyle(.plain)
+                            .accessibilityIdentifier("conversation." + row.id)
+                        if row.kind == .user {
+                            Menu {
+                                Button(row.pinnedAt == nil ? "置顶" : "取消置顶") { Task { await settings(row, "pinned", row.pinnedAt == nil) } }
+                                Button(row.muted ? "恢复提醒" : "免打扰") { Task { await settings(row, "isMuted", !row.muted) } }
+                            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.disabled(settingBusy).accessibilityLabel(row.target.displayName + "会话设置")
+                        }
+                    }.padding(12).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).puboListRow()
+                        .swipeActions(edge: .leading) { if row.kind == .user { Button(row.muted ? "恢复提醒" : "免打扰") { Task { await settings(row, "isMuted", !row.muted) } }.tint(.gray) } }
+                        .swipeActions { if row.kind == .user { Button(row.pinnedAt == nil ? "置顶" : "取消置顶") { Task { await settings(row, "pinned", row.pinnedAt == nil) } }.tint(PUBOTheme.accent) } }
+                }
+                if state.rows.isEmpty && !state.busy { Text("暂无最近会话").foregroundStyle(.secondary).puboListRow() }
+                if state.busy { ProgressView().puboListRow() }
+                if state.hasMore && !state.rows.isEmpty { Button("加载更多会话") { Task { await state.load(session, older: true) } }.disabled(state.busy).frame(minHeight: 44).puboListRow() }
+            } header: { Text("最近会话").font(.subheadline) }
+        }.puboList().refreshable { await state.load(session) }
     }
-    private func settings(_ peer: String, _ key: String, _ value: Bool) async {
-        do { _ = try await session.call("chat/conversation-settings/update", ["userId": .string(peer), key: .bool(value)], mutation: true); await load(); await session.refreshUnread() }
+    @ViewBuilder private func destination(_ row: ChatConversation) -> some View {
+        if row.kind == .room { RoomChatView(roomID: row.target.id) } else { ChatView(peer: row.target) }
+    }
+    private func conversation(_ row: ChatConversation) -> some View {
+        HStack(spacing: 12) {
+            Avatar(user: row.kind == .user ? row.target : Record(row.message["fromUser"]), size: 44)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 4) {
+                    if row.kind == .room { Image(systemName: "person.2").font(.caption) }
+                    Text(row.kind == .room ? (row.target["name"].string ?? "群聊") : row.target.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    if row.pinnedAt != nil { Image(systemName: "pin.fill").font(.caption2) }
+                    if row.muted { Image(systemName: "bell.slash").font(.caption2) }
+                    Spacer(minLength: 0)
+                    if let date = puboDate(row.message["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                HStack {
+                    Text((row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw)).font(.subheadline).lineLimit(1).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    if let badge = row.badge { Text(badge).font(.caption2).padding(.horizontal, 6).padding(.vertical, 3).background(row.muted ? Color.gray : PUBOTheme.accent, in: Capsule()).foregroundStyle(.white) }
+                    else if row.legacyUnread { Circle().fill(row.muted ? .gray : PUBOTheme.accent).frame(width: 8, height: 8).accessibilityLabel("有未读消息") }
+                }
+            }
+        }.frame(minHeight: 48).contentShape(Rectangle())
+    }
+    private func settings(_ row: ChatConversation, _ key: String, _ value: Bool) async {
+        guard !settingBusy, row.kind == .user else { return }; settingBusy = true; defer { settingBusy = false }
+        do { _ = try await session.call("chat/conversation-settings/update", ["userId": .string(row.target.id), key: .bool(value)], mutation: true); await state.load(session); await session.refreshUnread(); error = nil }
         catch { self.error = error.localizedDescription }
     }
 }
-
-extension JSONValue { var conversationID: String { self["user"]["id"].string ?? "" } }
 
 struct UserSearchView: View {
     @Environment(AppSession.self) private var session

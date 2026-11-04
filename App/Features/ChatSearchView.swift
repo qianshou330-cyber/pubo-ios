@@ -6,24 +6,32 @@ struct ChatSearchView: View {
     var peer: Record?
     var roomID: String?
     var select: ((String) -> Void)?
+    var embedded = false
+    var selectMessage: ((Record) -> Void)?
     @State private var query = ""
     @State private var rows: [Record] = []
     @State private var error: String?
     @State private var busy = false
-    var body: some View {
-        List {
-            TextField("搜索聊天文字", text: $query).submitLabel(.search).accessibilityIdentifier("chat.search.query")
+    private var content: some View {
+        Group {
+            TextField("搜索聊天文字", text: $query).submitLabel(.search).puboInput().accessibilityIdentifier("chat.search.query").puboListRow()
             Text("搜索结果不会标记消息已读。").font(.caption).foregroundStyle(.secondary)
             ForEach(rows) { row in
-                if let select { Button { select(row.id) } label: { result(row) } }
+                if let selectMessage { Button { selectMessage(row) } label: { result(row) } }
+                else if let select { Button { select(row.id) } label: { result(row) } }
                 else if row["toRoomId"].isNull { NavigationLink { ChatSearchDestination(message: row) } label: { result(row) } }
-                else if let room = row["toRoomId"].string { NavigationLink { RoomChatView(roomID: room) } label: { result(row) } }
+                else if let room = row["toRoomId"].string { NavigationLink { RoomChatView(roomID: room, initialMessage: row) } label: { result(row) } }
             }
             if busy { ProgressView() }
             if rows.count == 100 { Text("已显示最近 100 条匹配记录，请缩小搜索范围。").font(.caption) }
             if let error { ErrorBanner(message: error) }
-        }.puboList().navigationTitle(peer == nil ? "聊天搜索" : "搜索本会话")
-            .task(id: query) {
+        }
+    }
+    var body: some View {
+        Group {
+            if embedded { content }
+            else { List { content }.puboList().navigationTitle(roomID != nil ? "搜索本群" : (peer == nil ? "聊天搜索" : "搜索本会话")) }
+        }.task(id: query) {
                 rows = []; error = nil; busy = false
                 guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 do {
@@ -41,7 +49,7 @@ struct ChatSearchView: View {
             if let date = puboDate(row["createdAt"].string) { Text(date.formatted()).font(.caption).foregroundStyle(.secondary) }
             Text(row["recalledAt"].isNull ? row.text : "消息已撤回").lineLimit(4)
             if !row["attachments"].array.isEmpty { Text("包含附件").font(.caption) }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 5)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(PUBOTheme.divider, lineWidth: 1)).puboListRow()
     }
 }
 

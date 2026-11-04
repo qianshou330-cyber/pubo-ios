@@ -7,6 +7,7 @@ import SDWebImage
 struct ChatView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let peer: Record
     var initialMessageID: String? = nil
     @State private var messages: [Record] = []
@@ -46,6 +47,9 @@ struct ChatView: View {
     @State private var highlightedID: String?
     @State private var scrollTarget: String?
     @State private var searching = false
+    @State private var active = false
+    @State private var animatedIDs = Set<String>()
+    @State private var visibleMessageID: String?
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
     init(peer: Record, initialMessageID: String? = nil) { self.peer = peer; self.initialMessageID = initialMessageID; _contextMode = State(initialValue: initialMessageID != nil) }
@@ -54,18 +58,21 @@ struct ChatView: View {
         LazyVStack(spacing: 18) {
             if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
             if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
-            ForEach(messages) { message in
-                bubble(message).id(message.id)
+            ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                VStack(spacing: 12) {
+                    if let label = ChatDays.separator(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(text: label) }
+                    bubble(message)
+                }.id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 12)).onDisappear { animatedIDs.remove(message.id) }
                     .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
             }
             ForEach(pending) { item in pendingBubble(item) }
             Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("privateScroll")).maxY) })
-        }.padding(16)
+        }.scrollTargetLayout().padding(16)
     }
     private var messageScroll: some View {
         ScrollViewReader { proxy in
             GeometryReader { viewport in
-                ScrollView { messageList }.coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
+                ScrollView { messageList }.scrollPosition(id: $visibleMessageID, anchor: .top).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in
                         if !contextMode && (old == nil || nearBottom) { proxy.scrollTo("bottom", anchor: .bottom) }
@@ -77,7 +84,13 @@ struct ChatView: View {
         }
     }
     private var chatLayout: some View {
-        messageScroll.safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
+        VStack(spacing: 0) {
+            ChatTabs(selection: Binding(get: { searching ? "search" : "messages" }, set: { searching = $0 == "search" }), items: [ChatTab(id: "messages", title: "消息", icon: "bubble.left.and.bubble.right"), ChatTab(id: "search", title: "搜索", icon: "magnifyingglass")])
+            ZStack {
+                messageScroll.opacity(searching ? 0 : 1).allowsHitTesting(!searching).accessibilityHidden(searching)
+                if searching { ChatSearchView(peer: peer, select: { id in searching = false; Task { await openContext(id) } }).chatNavigationTitle(peer.displayName, embedded: false) }
+            }
+        }.safeAreaInset(edge: .bottom, spacing: 0) { if !searching { inputBar } }
             .puboScreen().navigationTitle(peer.displayName)
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
@@ -93,21 +106,22 @@ struct ChatView: View {
     private var chatLifecycle: some View {
         chatLayout
             .task {
-                session.stream.showChat(peer.id)
+                active = true; session.stream.showChat(peer.id)
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
                 if let initialMessageID { await openContext(initialMessageID) } else { await load() }; await loadConversation()
             }
-            .task(id: session.streamRevision) { try? await Task.sleep(for: .milliseconds(500)); if !Task.isCancelled { await load(); await loadConversation() } }
-            .task(id: session.connectionRevision) { await load(reconcileAll: true) }
+            .task(id: session.streamRevision) { guard active else { return }; try? await Task.sleep(for: .milliseconds(500)); if !Task.isCancelled { await load(); await loadConversation() } }
+            .task(id: session.connectionRevision) { if active { await load(reconcileAll: true) } }
+            .onReceive(session.chatEvents) { receive($0) }
             .onChange(of: text) { _, _ in saveDraft() }
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stickerTask?.cancel(); recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
             .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil }
-            .onDisappear { stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+            .onDisappear { active = false; stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
     }
     var body: some View {
         chatLifecycle
-            .sheet(isPresented: $searching) { NavigationStack { ChatSearchView(peer: peer) { id in searching = false; Task { await openContext(id) } }.toolbar { Button("关闭") { searching = false } } } }
+
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
             .sheet(isPresented: $choosingEmoji) { ChatEmojiPicker(chooseEmoji: { TextInsertion.insert($0, into: &text, selection: &textSelection) }, chooseGIF: { data in let epoch = session.generation; Task { guard epoch == session.generation else { return }; await attachSticker(data) } }) }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
@@ -162,13 +176,27 @@ struct ChatView: View {
                                 Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
                             }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
                         }
-                        if !message.text.isEmpty { NoteText(text: message.text, expands: false) }
-                        ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
+                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.subheadline) }
+                        ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                     }
                 }.padding(.horizontal, 14).padding(.vertical, 10)
                     .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
-                    .contextMenu {
+                    .contextMenu { messageMenu(message, own: own) }
+                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
+                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction in Task { await toggleReaction(message, reaction) } }.accessibilityLabel("消息反应")
+                }
+                HStack(spacing: 6) {
+                    Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id)
+                    if let date = puboDate(message["createdAt"].string) { Text(date, style: .relative) }
+                    if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
+                    if !message["editedAt"].isNull { Text("已编辑") }
+                }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
+            }.task(id: "\(contextMode)-\(scenePhase == .active)-\(searching)") { if !own && !contextMode && !searching && scenePhase == .active { await markRead(message) } }
+            if !own { Spacer(minLength: 28) }
+        }
+    }
+    @ViewBuilder private func messageMenu(_ message: Record, own: Bool) -> some View {
                         if message["recalledAt"].isNull { Button("引用回复") { reply = message; saveDraft() }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
                         if message["recalledAt"].isNull {
                             let gifs = Record.list(message["attachments"]).filter { $0["mime"].string == "image/gif" }
@@ -177,17 +205,21 @@ struct ChatView: View {
                             }
                         }
                         Button(own ? "编辑／撤回消息" : "消息反应／举报") { actionMessage = message }
-                    }
-                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
-                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction in Task { await toggleReaction(message, reaction) } }.accessibilityLabel("消息反应")
-                }
-                HStack(spacing: 6) {
-                    if let date = puboDate(message["createdAt"].string) { Text(date, style: .time) }
-                    if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
-                    if !message["editedAt"].isNull { Text("已编辑") }
-                }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
-            }.task(id: "\(contextMode)-\(scenePhase == .active)") { if !own && !contextMode && scenePhase == .active { await markRead(message) } }
-            if !own { Spacer(minLength: 28) }
+                    
+    }
+    private func receive(_ event: ChatStreamEvent) {
+        guard active, !event.room, event.targetID == peer.id, scenePhase == .active else { return }
+        if event.kind == "message" {
+            let row = Record(event.body)
+            guard !row.id.isEmpty, Set([row["fromUserId"].string ?? "", row["toUserId"].string ?? ""]) == Set([peer.id, session.user?.id ?? ""]) else { return }
+            if contextMode { hasNewer = true; return }
+            if !messages.contains(where: { $0.id == row.id }) && !searching { animatedIDs.insert(row.id) }
+            messages = Array(ChatRecords.merge(messages, [row]).suffix(2_000))
+            if let author = session.user?.id { pending.removeAll { $0.matches(row, authorID: author) }; persist() }
+        } else {
+            // Private edits/reactions lack full payloads. Reuse the permission-checked state endpoint.
+            if let id = event.messageID { session.changedChatIDs.insert(id) }
+            Task { await load() }
         }
     }
     private func pendingBubble(_ item: PendingChat) -> some View {
@@ -226,7 +258,7 @@ struct ChatView: View {
     }
     private func load(older: Bool = false, reconcileAll: Bool = false) async {
         if reconcileAll { needsFullState = true }
-        guard !loading else { return }; loading = true; defer { loading = false }
+        guard active, !loading else { return }; loading = true; defer { loading = false }
         let epoch = syncEpoch
         do {
             var fields: [String: JSONValue] = ["userId": .string(peer.id), "limit": .number(50)]
@@ -434,6 +466,7 @@ struct PrivateAttachmentView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let attachment: Record
     @State private var data: Data?
     @State private var localURL: URL?

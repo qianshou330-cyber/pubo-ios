@@ -12,6 +12,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     var onChange: (() -> Void)?
     var onConnect: (() -> Void)?
     var onChatEvent: ((String) -> Void)?
+    var onChatMessageEvent: ((ChatStreamEvent) -> Void)?
     var onTimelineNote: ((Record) -> Void)?
     var onNoteEvent: ((NoteStreamEvent) -> Void)?
     private var task: Task<Void, Never>?
@@ -110,6 +111,11 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                                 continue
                             }
                             if packet["body"]["id"].string?.hasPrefix("timeline-") == true { continue }
+                            if let channel = packet["body"]["id"].string, ["chatUser", "chatRoom"].contains(channel),
+                               let target = channel == "chatRoom" ? self.roomID : self.peerID,
+                               let kind = packet["body"]["type"].string {
+                                self.onChatMessageEvent?(.init(room: channel == "chatRoom", targetID: target, kind: kind, body: packet["body"]["body"]))
+                            }
                             if packet["body"]["id"].string == "chatUser" {
                                 let event = packet["body"]["body"]
                                 if let id = event["messageId"].string ?? event["id"].string { self.onChatEvent?(id) }

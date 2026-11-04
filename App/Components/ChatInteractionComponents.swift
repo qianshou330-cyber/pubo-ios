@@ -13,22 +13,27 @@ struct ChatReactionStrip: View {
     let ownUserID: String
     var enabled = true
     let toggle: (String) -> Void
-    private var keys: [String] { Array(Set(reactions.compactMap { $0["reaction"].string })).sorted() }
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    private var rows: [ChatReaction] { ChatReaction.rows(reactions) }
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 6) {
-                ForEach(keys, id: \.self) { key in
-                    let matches = reactions.filter { $0["reaction"].string == key }
-                    let mine = matches.contains { $0["user"]["id"].string == ownUserID || $0["userId"].string == ownUserID }
-                    Button { toggle(key) } label: {
-                        HStack(spacing: 4) { NoteText(text: key, expands: false); Text("\(matches.count)").font(.caption) }
-                            .padding(.horizontal, 10).frame(minHeight: 44)
-                            .background(mine ? PUBOTheme.accent.opacity(0.16) : PUBOTheme.button, in: Capsule())
-                            .overlay(Capsule().stroke(mine ? PUBOTheme.accent : .clear, lineWidth: 1))
-                    }.buttonStyle(.plain).disabled(!enabled).accessibilityLabel((mine ? "取消反应 " : "添加反应 ") + key)
-                }
+        ChatReactionFlow {
+            ForEach(rows) { row in
+                let mine = row.user.id == ownUserID
+                Button {
+                    if row.isActionable(viewer: ownUserID, all: rows) { toggle(row.emoji) }
+                } label: {
+                    HStack(spacing: 8) {
+                        Avatar(user: row.user, size: 24)
+                        NoteText(text: row.emoji, expands: false).frame(width: 24, height: 24).allowsHitTesting(false)
+                    }.padding(8).frame(minHeight: 44)
+                        .background(PUBOTheme.panel, in: Capsule())
+                        .overlay(Capsule().stroke(mine ? PUBOTheme.accent : PUBOTheme.divider, lineWidth: 1))
+                }.buttonStyle(.plain).disabled(!enabled)
+                    .accessibilityLabel((mine ? "取消反应 " : "添加反应 ") + row.emoji)
+                    .accessibilityValue(row.user.displayName)
+                    .transition(reduced ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
             }
-        }.scrollIndicators(.hidden)
+        }.animation(reduced ? nil : .timingCurve(0, 0.5, 0.5, 1, duration: 0.2), value: rows.map(\.id))
     }
 }
 

@@ -30,6 +30,7 @@ final class AppSession {
     // Subjects preserve every event; observing only the latest value loses bursts.
     let timelineNotes = PassthroughSubject<Record, Never>()
     let noteEvents = PassthroughSubject<NoteStreamEvent, Never>()
+    let chatEvents = PassthroughSubject<ChatStreamEvent, Never>()
     var newestTimelineNote: Record? { didSet { if let newestTimelineNote { timelineNotes.send(newestTimelineNote) } } }
     var latestNoteEvent: NoteStreamEvent? { didSet { if let latestNoteEvent { noteEvents.send(latestNoteEvent) } } }
     var badges = NotificationBadges()
@@ -86,6 +87,7 @@ final class AppSession {
         stream.onConnect = { [weak self] in self?.connectionRevision += 1 }
         stream.onTimelineNote = { [weak self] note in self?.newestTimelineNote = note }
         stream.onNoteEvent = { [weak self] event in self?.latestNoteEvent = event }
+        stream.onChatMessageEvent = { [weak self] event in self?.chatEvents.send(event) }
         stream.onChatEvent = { [weak self] id in
             guard let self else { return }
             self.changedChatIDs.insert(id)

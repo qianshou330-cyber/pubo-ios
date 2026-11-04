@@ -13,7 +13,9 @@ struct RoomChatView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let roomID: String
+    var initialMessage: Record? = nil
     @State private var room: Record?
     @State private var messages: [Record] = []
     @State private var draft = RoomDraft()
@@ -29,7 +31,14 @@ struct RoomChatView: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var choosingPhoto = false
     @State private var choosingEmoji = false
-    @State private var showingInfo = false
+    @State private var section = "messages"
+    @State private var reporting: Record?
+    @State private var visibleMessageID: String?
+    @State private var highlightedID: String?
+    @State private var contextMode = false
+    @State private var scrollTarget: String?
+    @State private var animatedIDs = Set<String>()
+    @State private var loadEpoch = UUID()
     @State private var textSelection = NSRange(location: 0, length: 0)
     @State private var nearBottom = true
     @State private var unreadBelow = false
@@ -52,19 +61,27 @@ struct RoomChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         if hasMore { Button("更早的群聊消息") { Task { await load(older: true) } }.disabled(loading) }
-                        ForEach(messages) { message in messageRow(message).id(message.id) }
+                        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                            VStack(spacing: 12) {
+                                if let label = ChatDays.separator(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(text: label) }
+                                messageRow(message)
+                            }.id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 80))
+                                .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12))
+                                .onDisappear { animatedIDs.remove(message.id) }
+                        }
                         Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("roomScroll")).maxY) })
-                    }.padding(16)
-                }.coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
+                    }.scrollTargetLayout().padding(16)
+                }.scrollPosition(id: $visibleMessageID, anchor: .top).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
-                    .onChange(of: messages.last?.id) { old, _ in if old == nil || nearBottom { proxy.scrollTo("bottom", anchor: .bottom) } else { unreadBelow = true } }
+                    .onChange(of: messages.last?.id) { old, _ in if !contextMode && (old == nil || nearBottom) { proxy.scrollTo("bottom", anchor: .bottom) } else { unreadBelow = true } }
+                    .onChange(of: scrollTarget) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
                     .onChange(of: scrollRequest) { _, _ in proxy.scrollTo("bottom", anchor: .bottom); unreadBelow = false }
             }
         }
     }
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if unreadBelow { Button("有新消息 · 回到最新") { scrollRequest += 1 }.frame(minHeight: 44) }
+            if unreadBelow || contextMode { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { contextMode = false; highlightedID = nil; await load(); scrollRequest += 1 } }.frame(minHeight: 44) }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.error") }
             if let sendProblem { Text(sendProblem).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.limit") }
             if draft.pending {
@@ -78,8 +95,8 @@ struct RoomChatView: View {
                 }
             }
             if let file = draft.file { HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button("移除附件") { draft.file = nil; persist() }.disabled(busy || draft.pending) } }
-            CursorTextEditor(text: $draft.text, selection: $textSelection, enabled: !busy && !draft.pending, identifier: "room.input", placeholder: "群聊消息")
-                .overlay(alignment: .topLeading) { if draft.text.isEmpty { Text("群聊消息").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).allowsHitTesting(false) } }
+            CursorTextEditor(text: $draft.text, selection: $textSelection, enabled: !busy && !draft.pending, identifier: "room.input", placeholder: "在此输入信息")
+                .overlay(alignment: .topLeading) { if draft.text.isEmpty { Text("在此输入信息").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).allowsHitTesting(false) } }
             HStack(spacing: 4) {
                 Menu {
                     Button("从网盘选择") { choosingFile = true }
@@ -99,20 +116,19 @@ struct RoomChatView: View {
                 VStack(spacing: 20) { Text("你受邀加入此群聊"); Text(room?["name"].string ?? "").font(.headline); Button("接受邀请并加入") { Task { await perform("join") } }; Button("忽略邀请") { operation = "invitations/ignore" } }.padding()
             } else {
                 VStack(spacing: 0) {
-                    HStack {
-                        NavigationLink { RoomMembersView(roomID: roomID, canInvite: own) } label: { Label("成员", systemImage: "person.2").frame(maxWidth: .infinity, minHeight: 44) }
-                        NavigationLink { ChatSearchView(roomID: roomID) } label: { Label("搜索", systemImage: "magnifyingglass").frame(maxWidth: .infinity, minHeight: 44) }
-                        Button { showingInfo = true } label: { Label("关于", systemImage: "info.circle").frame(maxWidth: .infinity, minHeight: 44) }
-                    }.font(.subheadline).background(PUBOTheme.panel)
-                    timeline
-                }.safeAreaInset(edge: .bottom, spacing: 0) { composer }
+                    ChatTabs(selection: $section, items: [ChatTab(id: "messages", title: "消息", icon: "bubble.left.and.bubble.right"), ChatTab(id: "members", title: "成员", icon: "person.2"), ChatTab(id: "search", title: "搜索", icon: "magnifyingglass"), ChatTab(id: "about", title: "关于", icon: "info.circle")], prefix: "room.tab.")
+                    if section == "messages" { timeline }
+                    else if section == "members" { RoomMembersView(roomID: roomID, canInvite: own, embedded: true) }
+                    else if section == "search" { List { ChatSearchView(roomID: roomID, embedded: true, selectMessage: { message in section = "messages"; Task { await openContext(message) } }) }.puboList() }
+                    else { List { Text(room?["name"].string ?? "群聊").font(.headline); Text(room?["description"].string ?? "暂无群聊简介") }.puboList().accessibilityIdentifier("room.about") }
+                }.safeAreaInset(edge: .bottom, spacing: 0) { if section == "messages" { composer } }
             }
         }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.hidden, for: .tabBar)
             .toolbar {
                 if room != nil && !invited {
                     Menu {
-                        NavigationLink("群聊成员") { RoomMembersView(roomID: roomID, canInvite: own) }
-                        NavigationLink("搜索本群") { ChatSearchView(roomID: roomID) }
+                        Button("群聊成员") { section = "members" }
+                        Button("搜索本群") { section = "search" }
                         if !own { Button(room?["isMuted"].bool == true ? "恢复提醒" : "免打扰") { Task { await mute() } } }
                         if own { Button("修改群聊") { editing = true }; Button("删除群聊", role: .destructive) { operation = "delete" } }
                         else { Button("退出群聊", role: .destructive) { operation = "leave" } }
@@ -125,16 +141,18 @@ struct RoomChatView: View {
             .task {
                 active = true
                 if !restored { restored = true; ownerID = session.user?.id; if let ownerID { draft = ((try? session.store?.read(RoomDraft.self, account: ownerID, key: key)) ?? nil) ?? RoomDraft() } }
-                session.stream.showRoom(roomID); await load()
+                session.stream.showRoom(roomID); await load(); if let initialMessage { await openContext(initialMessage) }
             }
             .task(id: session.streamRevision) { if active && scenePhase == .active { await load() } }
-            .task(id: session.connectionRevision) { if active && scenePhase == .active { await load() } }
+            .task(id: session.connectionRevision) { if active && scenePhase == .active { await load(reconcile: true) } }
+            .onReceive(session.chatEvents) { receive($0) }
+            .onChange(of: section) { _, value in if value == "messages" { Task { await load(reconcile: true) } } }
             .onChange(of: draft.text) { _, _ in persist() }
-            .onChange(of: scenePhase) { _, value in if value == .active && active { Task { await load() } } }
-            .onDisappear { active = false; uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
+            .onChange(of: scenePhase) { _, value in if value == .active && active { Task { await load(reconcile: true) } } }
+            .onDisappear { active = false; loadEpoch = UUID(); uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
              .sheet(isPresented: $choosingFile) { DrivePicker { file in draft.file = file; persist() } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &draft.text, selection: &textSelection) } }
-            .sheet(isPresented: $showingInfo) { NavigationStack { List { Text(room?["name"].string ?? "群聊").font(.headline); Text(room?["description"].string ?? "暂无群聊简介") }.puboList().navigationTitle("群聊信息").toolbar { Button("关闭") { showingInfo = false } } } }
+            .sheet(item: $reporting) { message in ReportView(userID: message["fromUserId"].string ?? "", context: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id).absoluteString + "\n-----\n") }
             .photosPicker(isPresented: $choosingPhoto, selection: $selectedPhoto, matching: .any(of: [.images, .videos]))
             .onChange(of: selectedPhoto) { _, item in uploadTask = Task { await uploadPhoto(item) } }
             .fileImporter(isPresented: $importingFile, allowedContentTypes: [.item]) { result in uploadTask = Task { await uploadFile(result) } }
@@ -150,27 +168,72 @@ struct RoomChatView: View {
         return HStack(alignment: .top, spacing: 8) {
             if mine { Spacer(minLength: 40) } else { Avatar(user: user, size: 42) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
-                if !mine { Text(user.displayName).font(.caption).foregroundStyle(.secondary) }
+
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回") }
                     else {
-                        if !message.text.isEmpty { NoteText(text: message.text, expands: false) }
+                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.subheadline) }
                         if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
                     }
                 }.padding(.horizontal, 14).padding(.vertical, 10).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
                     .accessibilityIdentifier("room.bubble." + message.id)
-                    .contextMenu {
-                        if message["recalledAt"].isNull {
-                            Button("复制文字") { UIPasteboard.general.string = message.text }
-                            if mine { Button("删除消息", role: .destructive) { deletingMessage = message } }
-                            else { Button("添加反应") { reactionTarget = message } }
-                        }
-                    }
+                    .contextMenu { messageMenu(message, mine: mine) }
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value in Task { await react(message, value) } } }
-                if let date = puboDate(message["createdAt"].string) { Text(date, style: .time).font(.caption2).foregroundStyle(.secondary) }
+                HStack(spacing: 6) {
+                    Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id)
+                    if let date = puboDate(message["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary) }
+                }
             }
             if !mine { Spacer(minLength: 28) }
         }
+    }
+    @ViewBuilder private func messageMenu(_ message: Record, mine: Bool) -> some View {
+        if message["recalledAt"].isNull {
+            if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } }
+            if mine { Button("删除消息", role: .destructive) { deletingMessage = message } }
+            else {
+                Button("添加反应") { reactionTarget = message }
+                Button("举报") { reporting = message }.disabled(message["fromUserId"].string == nil)
+            }
+        }
+    }
+    private func receive(_ event: ChatStreamEvent) {
+        guard active, event.room, event.targetID == roomID, scenePhase == .active else { return }
+        if event.kind == "message" {
+            let row = Record(event.body)
+            guard !row.id.isEmpty, row["toRoomId"].string == roomID else { return }
+            if contextMode { unreadBelow = true; return }
+            if !messages.contains(where: { $0.id == row.id }) && section == "messages" { animatedIDs.insert(row.id) }
+            messages = Records.merge(messages, [row], newestFirst: false, limit: 2000)
+        } else if event.kind == "deleted", let id = event.messageID {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { messages.removeAll { $0.id == id } }
+            if preview != nil { preview = nil }
+        } else if ["react", "unreact"].contains(event.kind), let id = event.messageID, let index = messages.firstIndex(where: { $0.id == id }), let uid = event.body["user"]["id"].string, let emoji = event.body["reaction"].string {
+            var value = messages[index].raw.object
+            var reactions = value["reactions"]?.array ?? []
+            reactions.removeAll { $0["user"]["id"].string == uid && SocialContent.chatReactionKey($0["reaction"].string ?? "") == SocialContent.chatReactionKey(emoji) }
+            if event.kind == "react" { reactions.append(.object(["user": event.body["user"], "reaction": .string(emoji)])) }
+            value["reactions"] = .array(reactions); messages[index] = Record(.object(value))
+        }
+    }
+    private func around(_ target: Record) async throws -> [Record] {
+        guard active, section == "messages", scenePhase == .active, let date = ChatDays.date(target["createdAt"].string) else { throw APIError.invalidResponse }
+        let value = try await session.call("chat/messages/room-timeline", ["roomId": .string(roomID), "limit": .number(100), "sinceDate": .number(floor(date.timeIntervalSince1970 * 1000) - 1)])
+        try Task.checkCancellation(); guard case .array = value else { throw APIError.invalidResponse }
+        return Record.list(value).filter { $0["toRoomId"].string == roomID }
+    }
+    private func openContext(_ target: Record) async {
+        guard target["toRoomId"].string == roomID else { return }
+        loadEpoch = UUID(); let epoch = loadEpoch
+        do {
+            let after = try await around(target)
+            guard after.contains(where: { $0.id == target.id }) else { throw APIError(code: "NO_SUCH_MESSAGE", message: "此消息已不可用，未跳转到其他消息。") }
+            let before = Record.list(try await session.call("chat/messages/room-timeline", ["roomId": .string(roomID), "limit": .number(30), "untilId": .string(target.id)]))
+            guard active, epoch == loadEpoch, !Task.isCancelled else { return }
+            contextMode = true; messages = Records.merge(before, after, newestFirst: false, limit: 2000); hasMore = before.count == 30
+            highlightedID = target.id; error = nil; scrollTarget = nil
+            await Task.yield(); guard active, epoch == loadEpoch else { return }; scrollTarget = target.id
+        } catch { if active && epoch == loadEpoch { self.error = error.localizedDescription } }
     }
     @discardableResult private func persist() -> Bool {
         guard let ownerID, ownerID == session.user?.id else { return false }
@@ -178,28 +241,42 @@ struct RoomChatView: View {
         guard let store = session.store else { error = "无法保存待发状态，请稍后重试。"; return false }
         do { try store.save(draft, account: ownerID, key: key); return true } catch { self.error = "群聊草稿保存失败。"; return false }
     }
-    private func load(older: Bool = false) async {
+    private func load(older: Bool = false, reconcile: Bool = false) async {
         guard active, scenePhase == .active, !loading else { return }; loading = true; defer { loading = false }
+        let epoch = loadEpoch
         do {
-            let fresh = Record(try await session.call("chat/rooms/show", ["roomId": .string(roomID)])); try Task.checkCancellation(); guard active else { return }; guard !fresh.id.isEmpty else { throw APIError.invalidResponse }; room = fresh
+            let fresh = Record(try await session.call("chat/rooms/show", ["roomId": .string(roomID)])); try Task.checkCancellation()
+            guard active, epoch == loadEpoch else { return }; guard !fresh.id.isEmpty else { throw APIError.invalidResponse }; room = fresh
             if fresh["invitationExists"].bool { messages = []; return }
-            var fields: [String: JSONValue] = ["roomId": .string(roomID), "limit": .number(30)]
+            // This endpoint marks read; search/members/about never call it.
+            guard section == "messages", !contextMode || older || reconcile else { return }
+            var fields: [String: JSONValue] = ["roomId": .string(roomID), "limit": .number(reconcile ? 100 : 30)]
             if older, let id = messages.first?.id { fields["untilId"] = .string(id) }
-            // This existing endpoint marks a room read, so it is used only while this room is visible.
-            let value = try await session.call("chat/messages/room-timeline", fields); try Task.checkCancellation(); guard active, case .array = value else { return }
-            let page = Record.list(value).sorted { $0.id < $1.id }
-            if older { messages = Records.merge(messages, page, newestFirst: false, limit: 2000) }
+            let oldFloor = messages.first?.id
+            var page: [Record] = []
+            var lastCount = 0
+            repeat {
+                let value = try await session.call("chat/messages/room-timeline", fields); try Task.checkCancellation()
+                guard active, epoch == loadEpoch, section == "messages", case .array = value else { return }
+                let batch = Record.list(value).filter { $0["toRoomId"].string == roomID }; lastCount = batch.count
+                page = Records.merge(page, batch, newestFirst: false, limit: 2000)
+                if !reconcile || lastCount < 100 || page.count >= 2000 || oldFloor == nil || (page.first?.id ?? "") <= oldFloor! { break }
+                guard let cursor = page.first?.id, fields["untilId"]?.string != cursor else { break }; fields["untilId"] = .string(cursor)
+            } while !Task.isCancelled
+            if older { messages = Records.merge(messages, page, newestFirst: false, limit: 2000); hasMore = lastCount == 30 }
+            else if reconcile { messages = page; hasMore = lastCount == 100 }
             else {
-                let floor = page.first?.id
-                let retained = floor.map { boundary in messages.filter { $0.id < boundary } } ?? []
-                messages = Records.merge(retained, page, newestFirst: false, limit: 2000)
-                for id in session.changedChatIDs where messages.contains(where: { $0.id == id }) {
-                    do { let value = Record(try await session.call("chat/messages/show", ["messageId": .string(id)])); if !value.id.isEmpty { messages = Records.merge(messages, [value], newestFirst: false, limit: 2000) } }
-                    catch { if ["NO_SUCH_MESSAGE", "ACCESS_DENIED"].contains((error as? APIError)?.code ?? "") { messages.removeAll { $0.id == id } } }
-                }
+                let retained = page.first.map { boundary in messages.filter { $0.id < boundary.id } } ?? []
+                let wasEmpty = messages.isEmpty; messages = Records.merge(retained, page, newestFirst: false, limit: 2000)
+                if wasEmpty { hasMore = lastCount == 30 }
             }
-            hasMore = page.count == 30; error = nil; await session.refreshUnread()
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription; if (error as? APIError)?.code == "NO_SUCH_ROOM" { messages = []; room = nil; preview = nil } } }
+            error = nil; await session.refreshUnread()
+        } catch {
+            if active && epoch == loadEpoch && !Task.isCancelled {
+                self.error = error.localizedDescription
+                if ["NO_SUCH_ROOM", "ACCESS_DENIED", "PERMISSION_DENIED"].contains((error as? APIError)?.code ?? "") { messages = []; room = nil; preview = nil }
+            }
+        }
     }
     private func send() async {
         if let sendProblem { error = sendProblem; return }; guard canSend else { return }
@@ -228,14 +305,24 @@ struct RoomChatView: View {
         do { _ = try await session.call("chat/messages/delete", ["messageId": .string(message.id)], mutation: true); messages.removeAll { $0.id == message.id }; await load() } catch { self.error = error.localizedDescription }
     }
     private func react(_ message: Record, _ reaction: String) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
+        guard active, section == "messages", !busy, let viewer = session.user?.id else { return }; busy = true; defer { busy = false }
+        let epoch = session.generation
+        let key = SocialContent.chatReactionKey(reaction)
+        func hasMine(_ row: Record) -> Bool { row["reactions"].array.contains { ($0["user"]["id"].string ?? $0["userId"].string) == viewer && SocialContent.chatReactionKey($0["reaction"].string ?? "") == key } }
+        var desired: Bool?
         do {
-            let fresh = Record(try await session.call("chat/messages/show", ["messageId": .string(message.id)]))
-            guard !fresh.id.isEmpty, fresh["recalledAt"].isNull, fresh["fromUserId"].string != session.user?.id else { return }
-            let key = SocialContent.chatReactionKey(reaction)
-            let mine = fresh["reactions"].array.contains { $0["user"]["id"].string == session.user?.id && SocialContent.chatReactionKey($0["reaction"].string ?? "") == key }
-            _ = try await session.call(mine ? "chat/messages/unreact" : "chat/messages/react", ["messageId": .string(message.id), "reaction": .string(reaction)], mutation: true); await load()
-        } catch { let issue = error.localizedDescription; await load(); self.error = issue }
+            guard let fresh = try await around(message).first(where: { $0.id == message.id }), fresh["recalledAt"].isNull, fresh["fromUserId"].string != viewer else { throw APIError.invalidResponse }
+            desired = !hasMine(fresh)
+            _ = try await session.call(desired == true ? "chat/messages/react" : "chat/messages/unreact", ["messageId": .string(message.id), "reaction": .string(reaction)], mutation: true)
+            guard let check = try await around(message).first(where: { $0.id == message.id }), hasMine(check) == (desired ?? false) else { throw APIError.uncertain }
+            guard active, epoch == session.generation else { return }
+            messages = Records.merge(messages, [check], newestFirst: false, limit: 2000); error = nil
+        } catch {
+            let issue = error
+            if let desired, let page = try? await around(message), let check = page.first(where: { $0.id == message.id }), hasMine(check) == desired, active, epoch == session.generation {
+                messages = Records.merge(messages, [check], newestFirst: false, limit: 2000); self.error = nil
+            } else if active, epoch == session.generation { self.error = issue.localizedDescription }
+        }
     }
     private func uploadPhoto(_ item: PhotosPickerItem?) async {
         guard !busy, !draft.pending, let item else { return }; busy = true; defer { busy = false; selectedPhoto = nil }

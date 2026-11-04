@@ -3,7 +3,10 @@ import PUBOCore
 
 struct RoomsView: View {
     @Environment(AppSession.self) private var session
-    @State private var section = "joining"
+    var fixedSection: String? = nil
+    var embedded = false
+    @State private var selectedSection = "joining"
+    private var section: String { fixedSection ?? selectedSection }
     @State private var rows: [Record] = []
     @State private var hasMore = false
     @State private var busy = false
@@ -12,7 +15,7 @@ struct RoomsView: View {
     private var endpoint: String { section == "invited" ? "chat/rooms/invitations/inbox" : "chat/rooms/" + section }
     var body: some View {
         List {
-            Picker("群聊分类", selection: $section) { Text("已加入").tag("joining"); Text("我创建的").tag("owned"); Text("邀请").tag("invited") }.pickerStyle(.segmented)
+            if fixedSection == nil { Picker("群聊分类", selection: $selectedSection) { Text("已加入").tag("joining"); Text("我创建的").tag("owned"); Text("邀请").tag("invited") }.pickerStyle(.segmented) }
             ForEach(rows) { row in
                 let room = section == "owned" ? row : Record(row["room"])
                 NavigationLink { RoomChatView(roomID: room.id) } label: { VStack(alignment: .leading) { Text(room["name"].string ?? "群聊"); Text(room["description"].string ?? "").lineLimit(2).font(.caption).foregroundStyle(.secondary) } }
@@ -21,9 +24,9 @@ struct RoomsView: View {
             if rows.isEmpty && !busy { Text("暂无群聊") }
             if hasMore { Button("加载更多") { Task { await load(older: true) } }.disabled(busy) }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
-        }.puboList().navigationTitle("群聊").toolbar { Button("创建群聊") { creating = true } }
+        }.puboList().chatNavigationTitle("群聊", embedded: embedded).toolbar { if !embedded { Button("创建群聊") { creating = true } } }
             .task(id: section) { rows = []; hasMore = false; await load() }.refreshable { await load() }
-            .sheet(isPresented: $creating, onDismiss: { if section != "owned" { section = "owned" } else { Task { await load() } } }) { RoomEditor() }
+            .sheet(isPresented: $creating, onDismiss: { if section != "owned" { selectedSection = "owned" } else { Task { await load() } } }) { RoomEditor() }
     }
     private func load(older: Bool = false) async {
         let requestedSection = section; busy = true; defer { if requestedSection == section { busy = false } }
@@ -89,6 +92,7 @@ struct RoomMembersView: View {
     @Environment(AppSession.self) private var session
     let roomID: String
     var canInvite = false
+    var embedded = false
     @State private var rows: [Record] = []
     @State private var hasMore = false
     @State private var busy = false
@@ -100,7 +104,7 @@ struct RoomMembersView: View {
             if hasMore { Button("加载更多成员") { Task { await load(older: true) } }.disabled(busy) }
             if busy { ProgressView() }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
-        }.puboList().navigationTitle("群聊成员").toolbar { if canInvite { Button("邀请成员") { inviting = true } } }
+        }.puboList().chatNavigationTitle("群聊成员", embedded: embedded).toolbar { if canInvite { Button("邀请成员") { inviting = true } } }
             .sheet(isPresented: $inviting) { UserPicker { user in Task { await invite(user.id) } } }
             .task { await load() }.refreshable { await load() }
     }
