@@ -32,3 +32,35 @@ jobs:
             build/unsigned/
             build/device-package.json
           retention-days: 14
+
+  appearance:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [large, small]
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fixed tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Compile app
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Chat and preserved interactions
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: chat,social,gif,favorites,regression
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chat-ui-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/*.json
+            build/*.xcresult
+            build/screenshots/
+          retention-days: 14

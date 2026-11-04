@@ -1,0 +1,316 @@
+{
+  "me": {
+    "id": "syntheticself",
+    "username": "fixture",
+    "name": "测试用户",
+    "host": null,
+    "avatarUrl": "https://timeline-fixture.invalid/still.png",
+    "avatarDecorations": [],
+    "badgeRoles": [],
+    "emojis": {}
+  },
+  "peer": {
+    "id": "syntheticpeer",
+    "username": "friend",
+    "name": "测试朋友",
+    "host": null,
+    "avatarUrl": "https://timeline-fixture.invalid/still.png",
+    "avatarDecorations": [],
+    "badgeRoles": [],
+    "emojis": {}
+  },
+  "other": {
+    "id": "syntheticother",
+    "username": "music",
+    "name": "音乐朋友",
+    "host": null,
+    "avatarUrl": "https://timeline-fixture.invalid/still.png",
+    "avatarDecorations": [],
+    "badgeRoles": [],
+    "emojis": {}
+  },
+  "rooms": [
+    {
+      "id": "socialroom",
+      "name": "PUBO 音乐交流",
+      "ownerId": "syntheticpeer",
+      "owner": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "description": "一起分享音乐和日常。",
+      "isMuted": false,
+      "createdAt": "2026-11-03T10:00:00Z"
+    },
+    {
+      "id": "ownedroom",
+      "name": "我的音乐小组",
+      "ownerId": "syntheticself",
+      "owner": {
+        "id": "syntheticself",
+        "username": "fixture",
+        "name": "测试用户",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "description": "一起分享音乐和日常。",
+      "isMuted": false,
+      "createdAt": "2026-11-03T10:00:00Z"
+    },
+    {
+      "id": "invitedroom",
+      "name": "新朋友邀请",
+      "ownerId": "syntheticpeer",
+      "owner": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "description": "一起分享音乐和日常。",
+      "isMuted": false,
+      "createdAt": "2026-11-03T10:00:00Z",
+      "invitationExists": true
+    }
+  ],
+  "private": [
+    {
+      "id": "private0001",
+      "text": "你好，欢迎来到 PUBO。",
+      "createdAt": "2026-11-02T10:00:00Z",
+      "fromUserId": "syntheticpeer",
+      "fromUser": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "toUserId": "syntheticself",
+      "toRoomId": null,
+      "toRoom": null,
+      "attachments": [],
+      "reactions": [
+        {
+          "user": {
+            "id": "syntheticself",
+            "username": "fixture",
+            "name": "测试用户",
+            "host": null,
+            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarDecorations": [],
+            "badgeRoles": [],
+            "emojis": {}
+          },
+          "reaction": "❤"
+        },
+        {
+          "user": {
+            "id": "syntheticother",
+            "username": "music",
+            "name": "音乐朋友",
+            "host": null,
+            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarDecorations": [],
+            "badgeRoles": [],
+            "emojis": {}
+          },
+          "reaction": "❤"
+        }
+      ],
+      "recalledAt": null,
+      "revision": 0
+    },
+    {
+      "id": "private0002",
+      "text": "收到，我们在这里聊天。",
+      "createdAt": "2026-11-03T10:00:00Z",
+      "fromUserId": "syntheticself",
+      "fromUser": {
+        "id": "syntheticself",
+        "username": "fixture",
+        "name": "测试用户",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "toUserId": "syntheticpeer",
+      "toRoomId": null,
+      "toRoom": null,
+      "attachments": [],
+      "reactions": [],
+      "recalledAt": null,
+      "revision": 0,
+      "readState": "read",
+      "readAt": "2026-11-03T10:00:01Z"
+    }
+  ],
+  "roomMessages": [
+    {
+      "id": "room0001",
+      "text": "欢迎来到音乐交流群。",
+      "createdAt": "2026-11-02T10:00:00Z",
+      "fromUserId": "syntheticpeer",
+      "fromUser": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "toUserId": null,
+      "toRoomId": "socialroom",
+      "toRoom": {
+        "id": "socialroom",
+        "name": "PUBO 音乐交流",
+        "ownerId": "syntheticpeer",
+        "owner": {
+          "id": "syntheticpeer",
+          "username": "friend",
+          "name": "测试朋友",
+          "host": null,
+          "avatarUrl": "https://timeline-fixture.invalid/still.png",
+          "avatarDecorations": [],
+          "badgeRoles": [],
+          "emojis": {}
+        },
+        "description": "一起分享音乐和日常。",
+        "isMuted": false,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "attachments": [],
+      "reactions": [
+        {
+          "user": {
+            "id": "syntheticself",
+            "username": "fixture",
+            "name": "测试用户",
+            "host": null,
+            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarDecorations": [],
+            "badgeRoles": [],
+            "emojis": {}
+          },
+          "reaction": "❤"
+        },
+        {
+          "user": {
+            "id": "syntheticother",
+            "username": "music",
+            "name": "音乐朋友",
+            "host": null,
+            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarDecorations": [],
+            "badgeRoles": [],
+            "emojis": {}
+          },
+          "reaction": "❤"
+        }
+      ],
+      "recalledAt": null,
+      "revision": 0
+    },
+    {
+      "id": "room0002",
+      "text": "大家好，很高兴认识你们。",
+      "createdAt": "2026-11-03T10:00:00Z",
+      "fromUserId": "syntheticself",
+      "fromUser": {
+        "id": "syntheticself",
+        "username": "fixture",
+        "name": "测试用户",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "toUserId": null,
+      "toRoomId": "socialroom",
+      "toRoom": {
+        "id": "socialroom",
+        "name": "PUBO 音乐交流",
+        "ownerId": "syntheticpeer",
+        "owner": {
+          "id": "syntheticpeer",
+          "username": "friend",
+          "name": "测试朋友",
+          "host": null,
+          "avatarUrl": "https://timeline-fixture.invalid/still.png",
+          "avatarDecorations": [],
+          "badgeRoles": [],
+          "emojis": {}
+        },
+        "description": "一起分享音乐和日常。",
+        "isMuted": false,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "attachments": [],
+      "reactions": [],
+      "recalledAt": null,
+      "revision": 0
+    },
+    {
+      "id": "room0003",
+      "text": "今天一起分享喜欢的舞台。",
+      "createdAt": "2026-11-04T10:00:00Z",
+      "fromUserId": "syntheticpeer",
+      "fromUser": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarDecorations": [],
+        "badgeRoles": [],
+        "emojis": {}
+      },
+      "toUserId": null,
+      "toRoomId": "socialroom",
+      "toRoom": {
+        "id": "socialroom",
+        "name": "PUBO 音乐交流",
+        "ownerId": "syntheticpeer",
+        "owner": {
+          "id": "syntheticpeer",
+          "username": "friend",
+          "name": "测试朋友",
+          "host": null,
+          "avatarUrl": "https://timeline-fixture.invalid/still.png",
+          "avatarDecorations": [],
+          "badgeRoles": [],
+          "emojis": {}
+        },
+        "description": "一起分享音乐和日常。",
+        "isMuted": false,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "attachments": [],
+      "reactions": [],
+      "recalledAt": null,
+      "revision": 0,
+      "isRead": false
+    }
+  ]
+}

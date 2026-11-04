@@ -54,7 +54,7 @@ final class SocialAlignmentUITests: XCTestCase {
             app.buttons["room.send"].tap(); XCTAssertTrue(app.staticTexts["👍"].waitForExistence(timeout: 5))
             app.buttons["添加群聊附件"].tap(); XCTAssertTrue(app.buttons["选择本地文件"].exists); XCTAssertTrue(app.buttons["选择图片或视频"].exists); app.buttons["从网盘选择"].tap()
             XCTAssertTrue(app.navigationBars["我的网盘"].waitForExistence(timeout: 5)); XCTAssertTrue(app.buttons["取消"].exists); capture(app, "social-room-drive-picker-" + (dark ? "dark" : "light")); app.buttons["取消"].tap()
-            app.buttons["关于"].tap(); XCTAssertTrue(app.navigationBars["群聊信息"].waitForExistence(timeout: 5)); app.buttons["关闭"].tap(); app.terminate()
+            app.buttons["room.tab.about"].tap(); XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "room.about").firstMatch.waitForExistence(timeout: 5)); app.buttons["room.tab.messages"].tap(); app.terminate()
         }
     }
     func testPrivateSettingsAndReactionInBothThemes() {

@@ -175,7 +175,7 @@ struct RoomChatView: View {
                         if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.subheadline) }
                         if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
                     }
-                }.padding(.horizontal, 14).padding(.vertical, 10).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
+                }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
                     .accessibilityIdentifier("room.bubble." + message.id)
                     .contextMenu { messageMenu(message, mine: mine) }
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value in Task { await react(message, value) } } }

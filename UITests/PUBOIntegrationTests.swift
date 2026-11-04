@@ -78,7 +78,7 @@ import XCTest
     }
     func testRealRoomCreationAndMessage() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["群聊"].tap(); app.buttons["创建群聊"].tap()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["chat.start"].tap(); app.buttons["创建群聊"].tap()
         let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room proof"); app.buttons["保存群聊"].tap()
         let room = app.staticTexts["Native room proof"]; XCTAssertTrue(room.waitForExistence(timeout: 10)); room.tap()
         let text = app.textViews["room.input"]; XCTAssertTrue(text.waitForExistence(timeout: 10)); text.tap(); text.typeText("Native room message proof"); app.buttons["发送"].tap()
@@ -215,4 +215,49 @@ import XCTest
         XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 10), .completed)
         let unreacted = try await proof("unreacted"); XCTAssertTrue(unreacted)
     }
+    private func openParityRoom(_ app: XCUIApplication, _ data: [String: String]) {
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()
+        let row = app.buttons["conversation.room:" + data["roomId"]!]
+        for _ in 0..<5 where !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.waitForExistence(timeout: 12)); row.tap()
+        XCTAssertTrue(app.textViews["room.input"].waitForExistence(timeout: 10))
+    }
+    private func chatProof(_ key: String) async throws -> Bool {
+        let (bytes, response) = try await URLSession.shared.data(from: URL(string: "http://127.0.0.1:61913/chat-proof")!)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        return try JSONDecoder().decode([String: Bool].self, from: bytes)[key] ?? false
+    }
+    func testRealGroupMemberReactionAndReportReceipt() async throws {
+        let data = try await context(), app = launch(data); openParityRoom(app, data)
+        let menu = app.buttons["room.menu." + data["roomMessageId"]!]
+        XCTAssertTrue(menu.waitForExistence(timeout: 8)); menu.tap(); app.buttons["添加反应"].tap()
+        XCTAssertTrue(app.buttons["❤️"].waitForExistence(timeout: 5)); app.buttons["❤️"].tap()
+        let remove = app.buttons["取消反应 ❤"]; XCTAssertTrue(remove.waitForExistence(timeout: 12))
+        let reacted = try await chatProof("reacted"); XCTAssertTrue(reacted); capture(app, "joint-group-member-reacted")
+        remove.tap(); XCTAssertTrue(remove.waitForNonExistence(timeout: 12)); let unreacted = try await chatProof("unreacted"); XCTAssertTrue(unreacted)
+        menu.tap(); app.buttons["举报"].tap(); let reason = app.textViews["report.reason"]; XCTAssertTrue(reason.waitForExistence(timeout: 5))
+        XCTAssertTrue((reason.value as? String)?.contains("/chat/messages/" + data["roomMessageId"]!) == true)
+        reason.tap(); reason.typeText("Synthetic native group report"); capture(app, "joint-group-report-preview"); app.buttons["提交"].tap()
+        XCTAssertTrue(reason.waitForNonExistence(timeout: 12)); let reported = try await chatProof("reported"); XCTAssertTrue(reported)
+    }
+    func testRealGroupSearchLocatesHistoricalMessage() async throws {
+        let data = try await context(), app = launch(data); openParityRoom(app, data)
+        app.buttons["room.tab.search"].tap(); let field = app.textFields["chat.search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 6)); field.tap(); field.typeText("Native historical group target")
+        let result = app.staticTexts["Native historical group target"]; XCTAssertTrue(result.waitForExistence(timeout: 12)); result.tap()
+        let target = app.descendants(matching: .any).matching(identifier: "room.bubble." + data["roomOldId"]!).firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 12)); XCTAssertTrue(target.isHittable); capture(app, "joint-group-exact-history")
+        app.buttons["回到最新消息"].tap(); XCTAssertTrue(app.staticTexts["Native ordinary member reaction"].waitForExistence(timeout: 10))
+    }
+    func testRealGroupSpecificArrivalAndDeletion() async throws {
+        let data = try await context(), app = launch(data); openParityRoom(app, data)
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:61913/chat-event")!); request.httpMethod = "POST"
+        let (bytes, response) = try await URLSession.shared.data(for: request); XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        let event = try JSONDecoder().decode([String: String].self, from: bytes)
+        let target = app.descendants(matching: .any).matching(identifier: "room.bubble." + event["id"]!).firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 12)); capture(app, "joint-group-live-arrival")
+        request.url = URL(string: "http://127.0.0.1:61913/chat-delete")!
+        let (_, deleted) = try await URLSession.shared.data(for: request); XCTAssertEqual((deleted as? HTTPURLResponse)?.statusCode, 204)
+        XCTAssertTrue(target.waitForNonExistence(timeout: 12)); let removed = try await chatProof("liveDeleted"); XCTAssertTrue(removed); capture(app, "joint-group-live-deleted")
+    }
+
 }
