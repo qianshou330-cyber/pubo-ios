@@ -39,10 +39,18 @@ struct RichNoteText: UIViewRepresentable {
                 output.append(string)
             } else {
                 let value = (try? AttributedString(markdown: NativeLink.linkedText(part), options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(part)
-                output.append(NSAttributedString(value))
+                for run in value.runs {
+                    var traits = UIFontDescriptor.SymbolicTraits()
+                    if run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true { traits.insert(.traitBold) }
+                    if run.inlinePresentationIntent?.contains(.emphasized) == true { traits.insert(.traitItalic) }
+                    let runFont = traits.isEmpty ? font : UIFont(descriptor: font.fontDescriptor.withSymbolicTraits(traits) ?? font.fontDescriptor, size: font.pointSize)
+                    var attributes: [NSAttributedString.Key: Any] = [.font: runFont, .foregroundColor: color]
+                    if let link = run.link { attributes[.link] = link }
+                    if run.inlinePresentationIntent?.contains(.strikethrough) == true { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+                    output.append(NSAttributedString(string: String(value[run.range].characters), attributes: attributes))
+                }
             }
         }
-        output.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: output.length))
         if !view.attributedText.isEqual(to: output) { view.attributedText = output; view.rebuildAnimations() }
         view.linkTextAttributes = [.foregroundColor: UIColor(red: 0.42, green: 0.63, blue: 0.65, alpha: 1)]
         view.playing = playing; view.accessibilityIdentifier = identifier

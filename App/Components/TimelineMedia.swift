@@ -81,7 +81,7 @@ struct PublicAnimatedAsset: View {
                 let decoded = try await PublicImageDecoder.decode(data, maxPixel: emoji ? 100 : 720)
                 guard epoch == session.generation, !Task.isCancelled else { return }; image = decoded
             } catch { if !Task.isCancelled { self.error = true } }
-        }.onDisappear { visible = false }
+        }.onDisappear { visible = false; image = nil }
     }
 }
 

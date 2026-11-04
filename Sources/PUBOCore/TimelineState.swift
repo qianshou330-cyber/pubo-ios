@@ -74,13 +74,19 @@ public struct TimelineState: Sendable {
     public private(set) var olderCursor: String?
     public init() {}
     public mutating func reset() { self = Self() }
+    private func cleaned(_ items: [Record], accountID: String?) -> [Record] {
+        items.filter { !deleted.contains($0.id) && !(NoteContext.isRepost($0) && deleted.contains(NoteContext.displayed($0).id)) }.map { record in
+            deleted.reduce(record) { result, id in NoteStreamEvent(id: id, kind: "deleted", body: .null).applying(to: result, accountID: accountID) }
+        }
+    }
     public mutating func page(_ items: [Record], older: Bool, preferences: TimelinePreferences, accountID: String?) {
-        let values = items.filter { !deleted.contains($0.id) && preferences.accepts($0, accountID: accountID) }
+        let values = cleaned(items, accountID: accountID).filter { preferences.accepts($0, accountID: accountID) }
         notes = Records.merge(notes, values, limit: 2_000)
         if older || olderCursor == nil { olderCursor = items.last?.id ?? olderCursor }
         let visibleIDs = Set(notes.map(\.id)); pending.removeAll { visibleIDs.contains($0.id) }
     }
     public mutating func receive(_ note: Record, atTop: Bool, preferences: TimelinePreferences, accountID: String?) {
+        guard let note = cleaned([note], accountID: accountID).first else { return }
         guard !note.id.isEmpty, !deleted.contains(note.id), preferences.accepts(note, accountID: accountID) else { return }
         if notes.contains(where: { $0.id == note.id }) || atTop { notes = Records.merge(notes, [note], limit: 2_000) }
         else { pending = Records.merge(pending, [note], limit: 2_000) }
@@ -88,8 +94,8 @@ public struct TimelineState: Sendable {
     public mutating func revealPending() { notes = Records.merge(notes, pending, limit: 2_000); pending = [] }
     public mutating func apply(_ event: NoteStreamEvent, accountID: String?) {
         if event.kind == "deleted" { deleted.insert(event.id) }
-        notes = notes.filter { !deleted.contains($0.id) && !(NoteContext.isRepost($0) && deleted.contains(NoteContext.displayed($0).id)) }.map { event.applying(to: $0, accountID: accountID) }
-        pending = pending.filter { !deleted.contains($0.id) }.map { event.applying(to: $0, accountID: accountID) }
+        notes = cleaned(notes.map { event.applying(to: $0, accountID: accountID) }, accountID: accountID)
+        pending = cleaned(pending.map { event.applying(to: $0, accountID: accountID) }, accountID: accountID)
     }
 }
 

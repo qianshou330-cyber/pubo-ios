@@ -1,0 +1,1123 @@
+{
+  "user": {
+    "id": "syntheticpeer",
+    "username": "friend",
+    "name": "测试朋友",
+    "host": null,
+    "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+    "avatarDecorations": [],
+    "badgeRoles": [
+      {
+        "id": "verified",
+        "name": "已认证",
+        "iconUrl": "https://timeline-fixture.invalid/badge.png"
+      }
+    ],
+    "isBot": false,
+    "emojis": {}
+  },
+  "posts": [
+    {
+      "id": "at4tltest0025",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 3,
+      "repliesCount": 1,
+      "reactions": {
+        ":party:": 2,
+        "❤️": 1
+      },
+      "reactionEmojis": {
+        "party": "https://timeline-fixture.invalid/loop.gif"
+      },
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0024",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "GIF 自动播放，点击查看原图。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [
+        {
+          "id": "timelinegif",
+          "createdAt": "2026-11-04T00:00:00.000Z",
+          "name": "loop.gif",
+          "type": "image/gif",
+          "size": 6200,
+          "isSensitive": false,
+          "url": "https://timeline-fixture.invalid/loop.gif",
+          "thumbnailUrl": "https://timeline-fixture.invalid/loop.gif",
+          "comment": null,
+          "blurhash": null,
+          "properties": {
+            "width": 320,
+            "height": 180
+          }
+        }
+      ],
+      "fileIds": [
+        "timelinegif"
+      ],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0023",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "敏感媒体默认遮罩，主动展开后查看。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [
+        {
+          "id": "timelinesensitive",
+          "createdAt": "2026-11-04T00:00:00.000Z",
+          "name": "loop.gif",
+          "type": "image/gif",
+          "size": 6200,
+          "isSensitive": true,
+          "url": "https://timeline-fixture.invalid/loop.gif",
+          "thumbnailUrl": "https://timeline-fixture.invalid/loop.gif",
+          "comment": null,
+          "blurhash": null,
+          "properties": {
+            "width": 320,
+            "height": 180
+          }
+        }
+      ],
+      "fileIds": [
+        "timelinesensitive"
+      ],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0022",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "多图网格",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [
+        {
+          "id": "timelineimage1",
+          "createdAt": "2026-11-04T00:00:00.000Z",
+          "name": "image.png",
+          "type": "image/png",
+          "size": 6200,
+          "isSensitive": false,
+          "url": "https://timeline-fixture.invalid/image.png",
+          "thumbnailUrl": "https://timeline-fixture.invalid/image.png",
+          "comment": null,
+          "blurhash": null,
+          "properties": {
+            "width": 320,
+            "height": 180
+          }
+        },
+        {
+          "id": "timelineimage2",
+          "createdAt": "2026-11-04T00:00:00.000Z",
+          "name": "image.png",
+          "type": "image/png",
+          "size": 6200,
+          "isSensitive": false,
+          "url": "https://timeline-fixture.invalid/image.png",
+          "thumbnailUrl": "https://timeline-fixture.invalid/image.png",
+          "comment": null,
+          "blurhash": null,
+          "properties": {
+            "width": 320,
+            "height": 180
+          }
+        }
+      ],
+      "fileIds": [
+        "timelineimage1",
+        "timelineimage2"
+      ],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0021",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "引用帖子保留原文上下文。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": "at4tltest0025",
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null,
+      "renote": {
+        "id": "at4tltest0025",
+        "createdAt": "2026-11-04T00:00:00.000Z",
+        "userId": "syntheticpeer",
+        "user": {
+          "id": "syntheticpeer",
+          "username": "friend",
+          "name": "测试朋友",
+          "host": null,
+          "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+          "avatarDecorations": [],
+          "badgeRoles": [
+            {
+              "id": "verified",
+              "name": "已认证",
+              "iconUrl": "https://timeline-fixture.invalid/badge.png"
+            }
+          ],
+          "isBot": false,
+          "emojis": {}
+        },
+        "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+        "cw": null,
+        "visibility": "public",
+        "localOnly": true,
+        "files": [],
+        "fileIds": [],
+        "renoteId": null,
+        "replyId": null,
+        "renoteCount": 3,
+        "repliesCount": 1,
+        "reactions": {
+          ":party:": 2,
+          "❤️": 1
+        },
+        "reactionEmojis": {
+          "party": "https://timeline-fixture.invalid/loop.gif"
+        },
+        "myReaction": null
+      }
+    },
+    {
+      "id": "at4tltest0020",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": "at4tltest0025",
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null,
+      "renote": {
+        "id": "at4tltest0025",
+        "createdAt": "2026-11-04T00:00:00.000Z",
+        "userId": "syntheticpeer",
+        "user": {
+          "id": "syntheticpeer",
+          "username": "friend",
+          "name": "测试朋友",
+          "host": null,
+          "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+          "avatarDecorations": [],
+          "badgeRoles": [
+            {
+              "id": "verified",
+              "name": "已认证",
+              "iconUrl": "https://timeline-fixture.invalid/badge.png"
+            }
+          ],
+          "isBot": false,
+          "emojis": {}
+        },
+        "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+        "cw": null,
+        "visibility": "public",
+        "localOnly": true,
+        "files": [],
+        "fileIds": [],
+        "renoteId": null,
+        "replyId": null,
+        "renoteCount": 3,
+        "repliesCount": 1,
+        "reactions": {
+          ":party:": 2,
+          "❤️": 1
+        },
+        "reactionEmojis": {
+          "party": "https://timeline-fixture.invalid/loop.gif"
+        },
+        "myReaction": null
+      }
+    },
+    {
+      "id": "at4tltest0019",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "这是一条回复",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": "at4tltest0025",
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null,
+      "reply": {
+        "id": "at4tltest0025",
+        "createdAt": "2026-11-04T00:00:00.000Z",
+        "userId": "syntheticpeer",
+        "user": {
+          "id": "syntheticpeer",
+          "username": "friend",
+          "name": "测试朋友",
+          "host": null,
+          "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+          "avatarDecorations": [],
+          "badgeRoles": [
+            {
+              "id": "verified",
+              "name": "已认证",
+              "iconUrl": "https://timeline-fixture.invalid/badge.png"
+            }
+          ],
+          "isBot": false,
+          "emojis": {}
+        },
+        "text": "欢迎加入 PUBO，分享音乐和日常。 :party: https://bolubo.com/download/android",
+        "cw": null,
+        "visibility": "public",
+        "localOnly": true,
+        "files": [],
+        "fileIds": [],
+        "renoteId": null,
+        "replyId": null,
+        "renoteCount": 3,
+        "repliesCount": 1,
+        "reactions": {
+          ":party:": 2,
+          "❤️": 1
+        },
+        "reactionEmojis": {
+          "party": "https://timeline-fixture.invalid/loop.gif"
+        },
+        "myReaction": null
+      }
+    },
+    {
+      "id": "at4tltest0018",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 18。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0017",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 17。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0016",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 16。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0015",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 15。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0014",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 14。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0013",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 13。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0012",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 12。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0011",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 11。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0010",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 10。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0009",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 9。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0008",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 8。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0007",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 7。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0006",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 6。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0005",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 5。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0004",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 4。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0003",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 3。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0002",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 2。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    },
+    {
+      "id": "at4tltest0001",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "userId": "syntheticpeer",
+      "user": {
+        "id": "syntheticpeer",
+        "username": "friend",
+        "name": "测试朋友",
+        "host": null,
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
+        "avatarDecorations": [],
+        "badgeRoles": [
+          {
+            "id": "verified",
+            "name": "已认证",
+            "iconUrl": "https://timeline-fixture.invalid/badge.png"
+          }
+        ],
+        "isBot": false,
+        "emojis": {}
+      },
+      "text": "本地时间线历史帖子 1。滚动加载和筛选测试。",
+      "cw": null,
+      "visibility": "public",
+      "localOnly": true,
+      "files": [],
+      "fileIds": [],
+      "renoteId": null,
+      "replyId": null,
+      "renoteCount": 0,
+      "repliesCount": 0,
+      "reactions": {},
+      "reactionEmojis": {},
+      "myReaction": null
+    }
+  ],
+  "emojis": [
+    {
+      "id": "party",
+      "name": "party",
+      "aliases": [],
+      "category": "常用",
+      "url": "https://timeline-fixture.invalid/loop.gif",
+      "isSensitive": false,
+      "localOnly": false,
+      "roleIdsThatCanBeUsedThisEmojiAsReaction": []
+    }
+  ],
+  "announcements": [
+    {
+      "id": "fixtureannouncement",
+      "display": "marquee",
+      "isActive": true,
+      "title": "欢迎加入 PUBO",
+      "text": "这是隔离测试公告，不会发布到生产。",
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "updatedAt": "2026-11-04T00:00:00.000Z",
+      "forYou": false,
+      "imageUrl": null,
+      "isRead": false,
+      "needConfirmationToRead": false,
+      "silence": true
+    }
+  ]
+}

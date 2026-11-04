@@ -37,6 +37,10 @@ final class TimelineStateTests: XCTestCase {
         XCTAssertEqual(state.notes.count, 1); XCTAssertTrue(state.notes[0]["renote"]["deleted"].bool)
         XCTAssertNil(state.notes[0]["renote"]["text"].string)
         state.page([target], older: true, preferences: p, accountID: "me"); XCTAssertEqual(state.notes.count, 1)
+        state.page([quote], older: false, preferences: p, accountID: "me")
+        XCTAssertNil(state.notes[0]["renote"]["text"].string, "A delayed page must not revive deleted quoted content")
+        state.apply(.init(id: "001", kind: "replaced", body: target.raw), accountID: "me")
+        XCTAssertTrue(state.notes[0]["renote"]["deleted"].bool)
     }
     func testReactionUpdateAndNestedSubscriptions() {
         let source = note("001", ["reactions": .object(["❤️": .number(1)])])

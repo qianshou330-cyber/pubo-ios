@@ -23,9 +23,17 @@ struct ChartSongRow: View {
                 } else { Text("\(row["rank"].int)") }
             }.font(.system(size: titleSize, weight: .bold)).monospacedDigit().frame(minWidth: 24).accessibilityHidden(true)
             if !compact, let url = safeMediaURL(row["albumCoverUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Image(systemName: "music.note") }.frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true) }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row["title"].string ?? "").font(.system(size: titleSize, weight: .medium)).lineLimit(compact ? 1 : 2)
-                Text(row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")).font(.system(size: artistSize)).foregroundStyle(PUBOTheme.secondary).lineLimit(compact ? 1 : 2)
+            let artists = row["artists"].array.compactMap { $0["name"].string }.joined(separator: " / ")
+            if compact {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { Text(row["title"].string ?? "").font(.system(size: 12)); Text(artists).font(.system(size: 10)).foregroundStyle(PUBOTheme.secondary) }.lineLimit(1)
+                    Text((row["title"].string ?? "") + "  " + artists).font(.system(size: 12)).lineLimit(1)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row["title"].string ?? "").font(.system(size: titleSize, weight: .medium)).lineLimit(2)
+                    Text(artists).font(.system(size: artistSize)).foregroundStyle(PUBOTheme.secondary).lineLimit(2)
+                }
             }
             Spacer(minLength: 4)
             Text(movement.label).font(.caption).foregroundStyle(chartMovementColor(movement))

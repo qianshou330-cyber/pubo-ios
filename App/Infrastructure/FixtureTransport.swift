@@ -78,6 +78,9 @@ actor FixtureTransport: HTTPTransport {
                 .object(["id": .string("private0002"), "fromUserId": Self.me["id"], "toUserId": Self.peer["id"], "text": .string("收到，我们在这里聊天。"), "createdAt": .string(now), "attachments": .array([]), "readState": .string("read")])]
             var policy = profile["policies"].object; policy["chatAvailability"] = .string("available"); var updated = profile.object; updated["policies"] = .object(policy); profile = .object(updated)
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--timeline-align") { posts = TimelineTestFixtures.snapshot["posts"].array; announcements = TimelineTestFixtures.snapshot["announcements"].array }
+        #endif
     }
     private var posts: [JSONValue] = [
         .object(["id": .string("fixturepost002"), "user": FixtureTransport.me, "text": .string("欢迎来到 PUBO。原生界面测试 :test:"), "cw": .null, "files": .array([]), "reactions": .object(["❤️": .number(1)])]),
@@ -147,7 +150,12 @@ actor FixtureTransport: HTTPTransport {
         }
         switch path {
         case "meta": response = .object(["maxNoteTextLength": .number(args.contains("--social-align") ? 60 : 3000), "name": .string("PUBO"), "disableRegistration": .bool(false), "emailRequiredForSignup": .bool(false)])
-        case "emojis": response = .object(["emojis": .array([])])
+        case "emojis":
+            #if DEBUG
+            response = .object(["emojis": args.contains("--timeline-align") ? TimelineTestFixtures.snapshot["emojis"] : .array([])])
+            #else
+            response = .object(["emojis": .array([])])
+            #endif
         case "i": response = body["i"].string == "synthetic-second" ? .object(["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]) : profile
         case "verification/show": response = .null
         case "admin/verification/list": response = .array([])
@@ -190,7 +198,13 @@ actor FixtureTransport: HTTPTransport {
         case "users/following": response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
         case "users/followers": response = .array([.object(["id": .string("relation1"), "follower": Self.peer])])
         case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes":
-            if args.contains("--refreshable-feed"), path != "users/notes" {
+            if args.contains("--timeline-align"), path != "users/notes" {
+                var rows = posts.filter { body["untilId"].isNull || ($0["id"].string ?? "") < (body["untilId"].string ?? "") }
+                if body["withFiles"].bool { rows = rows.filter { !$0["files"].array.isEmpty } }
+                if body["withRenotes"] == .bool(false) { rows = rows.filter { !NoteContext.isRepost(Record($0)) } }
+                if !body["withReplies"].bool { rows = rows.filter { $0["replyId"].isNull } }
+                response = .array(Array(rows.prefix(body["limit"].int > 0 ? body["limit"].int : 20)))
+            } else if args.contains("--refreshable-feed"), path != "users/notes" {
                 timelineReads += 1
                 let sample: JSONValue = .object(["id": .string(String(format: "refresh%08d", timelineReads)), "user": Self.me,
                     "text": .string("刷新样例 \(timelineReads)"), "cw": .null, "files": .array([]), "reactions": .object([:])])
@@ -233,6 +247,13 @@ actor FixtureTransport: HTTPTransport {
                 if body["songId"].string != "fixturesong" { value["points"] = .array([]) }
                 response = .object(value)
             }
+        case "notes/reactions/create", "notes/reactions/delete":
+            if let index = posts.firstIndex(where: { $0["id"] == body["noteId"] }) {
+                var value = posts[index].object; var reactions = posts[index]["reactions"].object
+                if let old = posts[index]["myReaction"].string { let count = max(0,(reactions[old]?.int ?? 0)-1); if count == 0 { reactions.removeValue(forKey: old) } else { reactions[old] = .number(Double(count)) } }
+                if path.hasSuffix("create"), let reaction = body["reaction"].string { reactions[reaction] = .number(Double((reactions[reaction]?.int ?? 0)+1)); value["myReaction"] = .string(reaction) } else { value["myReaction"] = .null }
+                value["reactions"] = .object(reactions); posts[index] = .object(value)
+            }; response = .null
         case "notes/show": response = posts.first { $0["id"] == body["noteId"] } ?? posts[0]
         case "notes/replies": response = .array([])
         case "notes/create":

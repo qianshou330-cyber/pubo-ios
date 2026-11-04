@@ -18,8 +18,23 @@ struct Avatar: View {
     var size: CGFloat = 40
     var body: some View {
         ZStack {
+            #if DEBUG
+            if let url = safeMediaURL(user["avatarUrl"].string), url.host == "timeline-fixture.invalid" {
+                PublicAnimatedAsset(url: url).frame(width: size, height: size).clipShape(Circle())
+            } else {
+                avatarImage
+            }
+            #else
+            avatarImage
+            #endif
+            decorations
+        }.frame(width: size, height: size).accessibilityHidden(true)
+    }
+    private var avatarImage: some View {
             AsyncImage(url: safeMediaURL(user["avatarUrl"].string)) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "person.crop.circle.fill").resizable().foregroundStyle(.secondary) }
                 .frame(width: size, height: size).clipShape(Circle())
+    }
+    private var decorations: some View {
             ForEach(Array(user["avatarDecorations"].array.prefix(16).enumerated()), id: \.offset) { _, decoration in
                 if let url = safeMediaURL(decoration["url"].string) {
                     AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
@@ -29,7 +44,6 @@ struct Avatar: View {
                         .offset(x: size * number(decoration["offsetX"]), y: size * number(decoration["offsetY"]))
                 }
             }
-        }.frame(width: size, height: size).accessibilityHidden(true)
     }
     private func number(_ value: JSONValue) -> Double { if case .number(let number) = value, number.isFinite { return max(-1, min(1, number)) }; return 0 }
 }
@@ -51,7 +65,7 @@ struct RoleBadges: View {
 }
 
 func safeMediaURL(_ text: String?) -> URL? {
-    guard let text, let url = URL(string: text), url.scheme == "https", let host = url.host, !host.isEmpty, url.user == nil, url.password == nil else { return nil }
+    guard let text, let url = (text.hasPrefix("/") && !text.hasPrefix("//") ? URL(string: text, relativeTo: Endpoint.origin)?.absoluteURL : URL(string: text)), url.scheme == "https", let host = url.host, !host.isEmpty, url.user == nil, url.password == nil else { return nil }
     return url
 }
 
@@ -60,17 +74,25 @@ func safeMediaURL(_ text: String?) -> URL? {
     private(set) var images: [String: UIImage] = [:]
     private var inFlight = Set<String>()
     private var generation = UUID()
-    func clear() { generation = UUID(); images.removeAll() }
+    private var encodedBytes = 0
+    func clear() { generation = UUID(); images.removeAll(); encodedBytes = 0; inFlight = [] }
     func load(_ urls: [String: URL]) async {
         let epoch = generation
         for (name, url) in urls where images[name] == nil && !inFlight.contains(name) {
             inFlight.insert(name)
             defer { inFlight.remove(name) }
             do {
-                let data = try await PublicImageDecoder.data(url, limit: 2_000_000)
+                let data: Data
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--ui-testing") { guard let fixture = TimelineTestFixtures.media(url) else { continue }; data = fixture }
+                else { data = try await PublicImageDecoder.data(url, limit: 2_000_000) }
+                #else
+                data = try await PublicImageDecoder.data(url, limit: 2_000_000)
+                #endif
                 let rendered = try await PublicImageDecoder.decode(data, maxPixel: 100)
                 guard epoch == generation, !Task.isCancelled else { return }
-                if images.count > 256 { images.removeAll() }
+                if images.count >= 128 || encodedBytes + data.count > 32 * 1024 * 1024 { images.removeAll(); encodedBytes = 0 }
+                encodedBytes += data.count
                 images[name] = rendered
             } catch { }
         }
@@ -108,11 +130,28 @@ struct NoteText: View {
         }
         return map
     }
+    private var legacyText: Text {
+        parts.reduce(Text("")) { output, part in
+            if let key = urls.keys.first(where: { $0.hasPrefix(part + "https://") }), let image = emojiStore.images[key] {
+                let size = CGSize(width: 20 * min(4, max(0.25, image.size.width / max(1, image.size.height))), height: 20)
+                let still = UIGraphicsImageRenderer(size: size).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+                return output + Text(Image(uiImage: still)).baselineOffset(-3)
+            }
+            return output + Text((try? AttributedString(markdown: NativeLink.linkedText(part), options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(part))
+        }
+    }
     var body: some View {
+        Group {
+        if identifier.hasPrefix("note.") {
         RichNoteText(parts: parts, urls: urls, images: emojiStore.images, playing: visible && phase == .active, identifier: identifier, openURL: { url in
             if let link = NativeLink(url) { destination = NativeLinkTarget(link: link) }
             else if NativeLink.publicURL(url.absoluteString) != nil { UIApplication.shared.open(url) }
-        }, onTap: onTap).frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
+        }, onTap: onTap)
+        } else { legacyText.textSelection(.enabled).environment(\.openURL, OpenURLAction { url in
+            if let link = NativeLink(url) { destination = NativeLinkTarget(link: link); return .handled }
+            return NativeLink.publicURL(url.absoluteString) == nil ? .discarded : .systemAction
+        }) }
+        }.frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
             .background(GeometryReader { g in Color.clear.onAppear { visible = g.frame(in: .global).intersects(UIScreen.main.bounds) }.onChange(of: g.frame(in: .global)) { _, rect in visible = rect.intersects(UIScreen.main.bounds) } })
             .task(id: urls.keys.sorted().joined()) { await emojiStore.load(urls) }
             .onDisappear { visible = false }
@@ -129,9 +168,10 @@ struct PublicMedia: View {
 
 struct MediaPlayer: View {
     let url: URL
+    @Environment(\.scenePhase) private var phase
     @State private var player: AVPlayer?
     var body: some View {
-        VideoPlayer(player: player).onAppear { player = AVPlayer(url: url); player?.play() }.onDisappear { player?.pause(); player = nil }
+        VideoPlayer(player: player).onAppear { player = AVPlayer(url: url); player?.play() }.onDisappear { player?.pause(); player = nil }.onChange(of: phase) { _, value in if value != .active { player?.pause() } }
     }
 }
 

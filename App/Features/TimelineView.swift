@@ -27,6 +27,7 @@ struct TimelineView: View {
     @State private var atTop = true
     @State private var anchor: String?
     @State private var visibleIDs = Set<String>()
+    @State private var reconnectingContext: String?
     @State private var detailCollection: CollectionKind?
     private var preferences: TimelinePreferences { session.timelinePreferences }
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
@@ -50,7 +51,7 @@ struct TimelineView: View {
                                 else { homePath.append(destination) }
                             }
                         }.padding(.horizontal, 12).padding(.vertical, 8).id("timeline-panels")
-                        if preferences.fixedComposer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
+                        if preferences.fixedComposer && !composer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
                         if let notice = session.timelineNotice { Text(notice).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10) }
                         if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
                         if let error { ErrorBanner(message: error) { Task { await load(older: firstLoadFinished) } }.padding(12) }
@@ -137,6 +138,13 @@ struct TimelineView: View {
                 NavigationLink("搜索") { SearchView() }; NavigationLink("站内公告") { AnnouncementsView() }
                 NavigationLink("我的收藏") { FavoritesView() }; NavigationLink("更多功能") { MoreSocialView() }
                 Link("在网页查看时间线", destination: Endpoint.origin)
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--timeline-events") {
+                    Button("测试新帖") { var fields = TimelineTestFixtures.snapshot["posts"].array[0].object; fields["id"] = .string("zznewtimeline0001"); fields["text"] = .string("实时新帖，不打断历史阅读"); session.newestTimelineNote = Record(.object(fields)) }
+                    Button("测试删除原帖") { session.latestNoteEvent = .init(id: "at4tltest0025", kind: "deleted", body: .null) }
+                    Button("测试断线恢复") { session.connectionRevision += 1 }
+                }
+                #endif
             } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                 .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
         }.font(.caption).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary).background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
@@ -144,12 +152,33 @@ struct TimelineView: View {
     private func day(_ note: Record) -> String { guard let date = puboDate(note["createdAt"].string) else { return "" }; return date.formatted(.dateTime.month().day()) }
     private func captureVisible() { session.stream.captureNotes(active ? TimelinePresentation.capturedIDs(feed.notes.filter { visibleIDs.contains($0.id) }) : []) }
     private func reconnect() async {
-        captureVisible(); await load()
-        let epoch = session.generation
+        let reconnectContext = context
+        guard reconnectingContext != reconnectContext else { return }
+        reconnectingContext = reconnectContext
+        defer { if reconnectingContext == reconnectContext { reconnectingContext = nil } }
+        session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
+        captureVisible()
+        let epoch = session.generation, request = context, priorNewest = feed.notes.first?.id
+        if let priorNewest {
+            var cursor: String?; var finished = false; var pages = 0
+            repeat {
+                var fields = preferences.parameters; fields["limit"] = .number(100)
+                if let cursor { fields["untilId"] = .string(cursor) }
+                do {
+                    let rows = Record.list(try await session.call("notes/\(preferences.selected)-timeline", fields))
+                    guard epoch == session.generation, context == request, !Task.isCancelled else { return }
+                    for row in rows where row.id > priorNewest { feed.receive(row, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
+                    finished = rows.count < 100 || (rows.last?.id ?? "") <= priorNewest
+                    cursor = rows.last?.id; pages += 1
+                } catch { error = "重连后补取失败，已保留现有帖子。"; return }
+            } while !finished && pages < 20
+            if !finished { session.timelineNotice = "离线期间帖子较多，已获取最近内容；可向下继续加载历史。" }
+        } else { await load() }
         for id in TimelinePresentation.capturedIDs(feed.notes.filter { visibleIDs.contains($0.id) }).sorted().prefix(30) {
-            guard active, !Task.isCancelled, epoch == session.generation else { return }
+            guard active, !Task.isCancelled, epoch == session.generation, context == request else { return }
             do {
                 let value = Record(try await session.call("notes/show", ["noteId": .string(id)]))
+                guard epoch == session.generation, context == request, active else { return }
                 // Full records refresh their containing quote/reply without discarding reference data.
                 session.latestNoteEvent = .init(id: id, kind: "replaced", body: value.raw)
             } catch { if (error as? APIError)?.code == "NO_SUCH_NOTE" { session.latestNoteEvent = .init(id: id, kind: "deleted", body: .null) } }
@@ -192,6 +221,7 @@ struct NoteCard: View {
     @State private var confirmReaction = false
     @State private var proposedReaction: String?
     @State private var reactionPulse = false
+    @State private var captureOwner = UUID().uuidString
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var reactionPicker = false
     @State private var replying = false
@@ -244,6 +274,8 @@ struct NoteCard: View {
             .listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(Color.clear)
             .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
             .onChange(of: note) { _, _ in current = nil }
+            .onAppear { if !timelineStyle { session.stream.captureNotes(TimelinePresentation.capturedIDs([note]), owner: captureOwner) } }
+            .onDisappear { if !timelineStyle { session.stream.captureNotes([], owner: captureOwner) }; revealSensitivePost = false }
             .onChange(of: hideSensitive) { _, _ in revealSensitivePost = false }
             .onChange(of: session.latestNoteEvent) { _, event in
                 guard !timelineStyle, let event else { return }
@@ -251,7 +283,10 @@ struct NoteCard: View {
                 if event.kind == "deleted" { session.deletedNoteIDs.insert(event.id) }
             }
             .confirmationDialog(proposedReaction == nil ? "取消这个表情反应？" : "更换表情反应？", isPresented: $confirmReaction) { Button(proposedReaction == nil ? "取消反应" : "更换反应") { Task { await react(proposedReaction) } } }
-            .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in Task { await react(reaction) } } }
+            .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in
+                proposedReaction = reaction
+                if shown["myReaction"].string != nil { confirmReaction = true } else { Task { await react(reaction) } }
+            } }
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
             .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
             .sheet(isPresented: $reporting) { ReportView(userID: shown.user.id, context: Endpoint.origin.appendingPathComponent("notes/" + shown.id).absoluteString) }

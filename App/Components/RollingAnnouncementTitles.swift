@@ -18,7 +18,7 @@ struct RollingAnnouncementTitles: View {
     @State private var elapsed: TimeInterval = 0
     @State private var hovered = false
     @FocusState private var focused: Bool
-    @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 14
+    @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 12
     private var staticMode: Bool { reduceMotion || voiceOver || ProcessInfo.processInfo.arguments.contains("--reduce-motion") }
     private var paused: Bool { !active || hovered || focused || staticMode }
 
@@ -26,9 +26,9 @@ struct RollingAnnouncementTitles: View {
         HStack(spacing: 40) {
             ForEach(entries) { entry in
                 if copy {
-                    Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle()).onTapGesture { open(entry) }
+                    Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 32).contentShape(Rectangle()).onTapGesture { open(entry) }
                 } else {
-                    Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 44).contentShape(Rectangle()) }
+                    Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 32).contentShape(Rectangle()) }
                         .buttonStyle(.plain).focused($focused).accessibilityIdentifier("home.announcement." + entry.id)
                 }
             }
@@ -51,7 +51,7 @@ struct RollingAnnouncementTitles: View {
                     }
                 }.clipped()
             }
-        }.frame(height: 44)
+        }.frame(height: 32)
             .onPreferenceChange(AnnouncementWidth.self) { if $0 > 0 { width = $0 } }
             .onHover { hovered = $0 }
             .onChange(of: paused, initial: true) { _, stopped in

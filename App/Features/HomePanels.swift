@@ -42,7 +42,7 @@ struct HomeAnnouncements: View {
         } else if !entries.isEmpty || error != nil {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Label("站内公告", systemImage: "megaphone.fill").font(.caption.bold()).foregroundStyle(PUBOTheme.accent)
+                Label("站内公告", systemImage: "megaphone.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(PUBOTheme.accent)
                 RollingAnnouncementTitles(entries: entries, active: active) { open(.announcement($0.raw)) }
                 if session.user?["isAdmin"].bool == true && !entries.isEmpty {
                     Menu { ForEach(entries) { entry in Button("修改：" + (entry["title"].string ?? "公告")) { open(.announcementEdit(entry.raw)) }.accessibilityIdentifier("announcement.edit." + entry.id) } } label: { Image(systemName: "square.and.pencil").frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).accessibilityLabel("修改公告")
@@ -50,7 +50,7 @@ struct HomeAnnouncements: View {
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试公告") }
             }
             if cached || error != nil { Text(error == nil ? "公告缓存" : "公告刷新失败" ).font(.caption2).foregroundStyle(PUBOTheme.secondary) }
-        }.padding(.horizontal, 10).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12))
+        }.padding(.horizontal, 10).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).frame(minHeight: 44)
         }
         }.puboListRow()
             .onAppear { visible = true }.onDisappear { visible = false }
@@ -149,10 +149,14 @@ struct HomeChartPanel: View {
             if rows.isEmpty { Text(loading ? "加载榜单中" : "当前范围暂无可展示歌曲").font(.caption).foregroundStyle(PUBOTheme.secondary).frame(minHeight: 44) }
             HStack(alignment: .center) {
                 Menu {
-                    ForEach(data["charts"].array, id: \.self) { option in
+                    Button("Melon") { session.selectChart(session.chartPreferences.lastMelonChart) }
+                    ForEach(data["charts"].array.filter { !($0["chartKey"].string ?? "").hasPrefix("melon-") }, id: \.self) { option in
                         if let value = option["chartKey"].string { Button(option["label"].string ?? value) { session.selectChart(value) } }
                     }
-                } label: { Label(chart["provider"].string?.capitalized ?? "Melon", systemImage: "chevron.down").font(.caption).frame(minHeight: 44).padding(.horizontal, 10).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 10)) }
+                    if key.hasPrefix("melon-") { Section("Melon 榜单类别") { ForEach(data["charts"].array.filter { ($0["chartKey"].string ?? "").hasPrefix("melon-") }, id: \.self) { option in
+                        if let value = option["chartKey"].string { Button(option["label"].string ?? value) { session.selectChart(value) } }
+                    } } }
+                } label: { HStack(spacing: 8) { Text(chart["provider"].string?.capitalized ?? "Melon"); Image(systemName: "chevron.down").font(.system(size: 10)) }.font(.system(size: 12)).frame(minHeight: 40).padding(.horizontal, 12).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 10)) }
                 .accessibilityLabel("切换榜单").disabled(data["charts"].array.isEmpty)
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: 2) {

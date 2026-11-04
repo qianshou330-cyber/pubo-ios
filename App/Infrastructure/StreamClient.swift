@@ -23,6 +23,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     private var timelineParameters: [String: JSONValue] = [:]
     private var timelineChannelID = "timeline-" + UUID().uuidString
     private var captured = Set<String>()
+    private var captureOwners: [String: Set<String>] = [:]
     private var peerID: String?
     private var roomID: String?
 
@@ -39,8 +40,9 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
             }
         }
     }
-    func captureNotes(_ ids: Set<String>) {
-        let next = Set(ids.sorted().suffix(90)); let removed = captured.subtracting(next); let added = next.subtracting(captured)
+    func captureNotes(_ ids: Set<String>, owner: String = "timeline") {
+        if ids.isEmpty { captureOwners.removeValue(forKey: owner) } else { captureOwners[owner] = ids }
+        let next = Set(captureOwners.values.reduce(into: Set<String>()) { $0.formUnion($1) }.sorted().suffix(90)); let removed = captured.subtracting(next); let added = next.subtracting(captured)
         captured = next
         guard let socket else { return }
         Task {
@@ -48,6 +50,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
             for id in added { try? await send(.object(["type": .string("sr"), "body": .object(["id": .string(id)])]), socket: socket) }
         }
     }
+    func clearAllCaptures() { captureOwners = [:]; captureNotes([]) }
     private func send(_ packet: JSONValue, socket: URLSessionWebSocketTask) async throws {
         try await socket.send(.data(try JSONEncoder().encode(packet)))
     }

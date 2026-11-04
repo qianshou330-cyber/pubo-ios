@@ -176,7 +176,7 @@ final class AppSession {
         token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
         badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences(); recentEmojis = []
         timelinePreferences = TimelinePreferences(); timelineNotice = nil; newestTimelineNote = nil; latestNoteEvent = nil
-        stream.captureNotes([]); stream.showTimeline(nil)
+        stream.clearAllCaptures(); stream.showTimeline(nil)
         InlineEmojiStore.shared.clear(); try? PrivateFiles.clear(); URLCache.shared.removeAllCachedResponses()
     }
     func reloadAccounts() { if !testMode { do { savedAccounts = try KeychainStore.vault().accounts } catch { self.error = error.localizedDescription } } }
