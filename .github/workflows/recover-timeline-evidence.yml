@@ -1,0 +1,46 @@
+name: Recover local timeline evidence
+on:
+  push:
+    branches: ['ci-evidence-local-20261104']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  recover:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [large, small]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 41774593633
+          name: timeline-evidence-${{ matrix.size }}-7d69a478fdf117e7a9f0e2622b4dbfafa37ab8f9
+          path: recovered
+      - name: Index immutable evidence
+        run: |
+          python3 - <<'PY'
+          import pathlib,json,hashlib
+          base=pathlib.Path('recovered')
+          records=[]
+          for p in base.rglob('*'):
+              if p.is_file() and (p.name.endswith('-summary.json') or p.name.startswith('timeline-environment')):
+                  records.append({'path':str(p.relative_to(base)),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'data':json.loads(p.read_text())})
+          pathlib.Path('evidence-summaries.json').write_text(json.dumps(records,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build94-summaries-${{ matrix.size }}
+          path: evidence-summaries.json
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build94-home-${{ matrix.size }}
+          path: |
+            recovered/home*.json
+            recovered/home.xcresult/
+            recovered/screenshots/home/
+          retention-days: 14
