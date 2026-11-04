@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: 71bae67472f11e3afc3a66522b4f5950f28c85a7
+          fetch-depth: 2
       - name: Record exact unchanged application source
         run: |
           mkdir -p build
@@ -63,6 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: 71bae67472f11e3afc3a66522b4f5950f28c85a7
+          fetch-depth: 2
       - name: Select only unresolved reaction cancellation test
         run: |
           mkdir -p build
