@@ -1,4 +1,4 @@
-name: PUBO build128 package baseline runtime
+name: PUBO build128 dedicated Intel package
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   package:
-    runs-on: macos-26
+    runs-on: macos-15-intel
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard macOS26 ARM exact baseline'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; dedicated standard Intel package; device output arm64'}))
           PY
       - name: Fixed tools and core checks
         run: |
@@ -41,7 +41,7 @@ jobs:
           def runtimes():
               return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
           if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
-              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','arm64'],check=True,timeout=1400)
+              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','universal'],check=True,timeout=1400)
           found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
           assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
           devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
