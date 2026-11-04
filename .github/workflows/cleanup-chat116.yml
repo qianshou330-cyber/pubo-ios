@@ -9,7 +9,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Stop only verified obsolete runs
+      - name: Stop only verified obsolete build125 runs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -17,16 +17,19 @@ jobs:
           import urllib.request,json,os,time
           root='https://api.github.com/repos/qianshou330-cyber/pubo-ios/actions/runs/'
           headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
-          targets={41850486452:'e4dc7d90cc206bad3d8980d6445114975fdb2990',41850486455:'e4dc7d90cc206bad3d8980d6445114975fdb2990'}
+          targets={41855036912:'57c463af6417e6be117224fe9c0449db66530e5c',41858100855:'d458f3dc291efc72b665d17511178da9e830865d',41861154901:'1c3fb41955d2911b32af2dba7155e8f448d82586'}
           for ident,sha in targets.items():
               url=root+str(ident)
               run=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=headers)))
-              assert run['head_sha']==sha and run['head_branch']=='ui-chat-alignment-20261104'
+              assert run['head_sha']==sha and run['head_branch']=='ci-chat125-intel-20261104'
               if run['status']!='completed':
                   urllib.request.urlopen(urllib.request.Request(url+'/cancel',data=b'',headers=headers,method='POST')).read()
-                  time.sleep(20)
-                  after=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=headers)))
-                  if after['status']!='completed':
-                      urllib.request.urlopen(urllib.request.Request(url+'/force-cancel',data=b'',headers=headers,method='POST')).read()
                   print('Stopped obsolete run',ident)
+          time.sleep(20)
+          for ident,sha in targets.items():
+              url=root+str(ident)
+              run=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=headers)))
+              assert run['head_sha']==sha and run['head_branch']=='ci-chat125-intel-20261104'
+              if run['status']!='completed':
+                  urllib.request.urlopen(urllib.request.Request(url+'/force-cancel',data=b'',headers=headers,method='POST')).read()
           PY
