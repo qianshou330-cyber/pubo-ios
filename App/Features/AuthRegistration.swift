@@ -83,7 +83,7 @@ struct AuthAvailabilityLabel: View {
             if status == .checking { ProgressView().controlSize(.small) }
             Text(status.label).font(.footnote).foregroundStyle(status.accepted ? PUBOTheme.accent : PUBOTheme.secondary)
             if status == .failed { Button("重试", action: retry).font(.footnote).frame(minHeight: 44).accessibilityIdentifier(identifier + ".retry") }
-        }.accessibilityIdentifier(identifier)
+        }.accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
     }
 }
 

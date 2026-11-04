@@ -78,7 +78,12 @@ import PUBOCore
             guard let self else { return }
             defer { if self.current(id) { self.busy = false; self.operation = nil } }
             do { try await action(id) }
-            catch { if self.current(id), !(error is CancellationError) { self.message = error.localizedDescription; self.isError = true } }
+            catch {
+                if self.current(id), !(error is CancellationError) {
+                    self.message = error.localizedDescription
+                    self.isError = (error as? APIError)?.code != "AUTH_CANCELLED"
+                }
+            }
         }
     }
     func checkUsername(_ value: String) async {

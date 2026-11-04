@@ -500,8 +500,8 @@ final class PUBOUITests: XCTestCase {
         capture(app, "h5-sync-registration-passwords-accessibility-large")
         app.buttons["auth.close"].tap()
         XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5)); app.buttons["auth.openLogin"].tap()
-        let loginLabel = app.staticTexts["account.label.用户名"]
-        XCTAssertTrue(loginLabel.waitForExistence(timeout: 5)); XCTAssertGreaterThan(loginLabel.frame.height, 25)
+        let loginInput = app.textFields["auth.username"]
+        XCTAssertTrue(loginInput.waitForExistence(timeout: 5)); XCTAssertGreaterThanOrEqual(loginInput.frame.height, 44)
         capture(app, "h5-sync-login-accessibility-large")
     }
 

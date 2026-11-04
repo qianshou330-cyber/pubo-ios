@@ -34,7 +34,7 @@ struct AuthDialog: View {
                             }
                         }.padding(registration || flow.page == .forgot ? 28 : 32).frame(maxWidth: .infinity)
                     }.scrollDismissesKeyboard(.interactively).accessibilityIdentifier("auth.content")
-                }.frame(width: min(registration ? 500 : 400, max(0, area.size.width - 24)), height: min(registration || flow.page == .forgot ? 600 : 450, max(0, area.size.height - 24)))
+                }.frame(width: min(registration ? 500 : 400, max(0, area.size.width - 32)), height: min(registration || flow.page == .forgot ? 600 : 450, max(0, area.size.height - 24)))
                     .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
                     .clipShape(RoundedRectangle(cornerRadius: PUBOTheme.radius))
                     .shadow(color: .black.opacity(0.2), radius: 24, y: 12)

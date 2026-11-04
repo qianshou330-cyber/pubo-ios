@@ -21,6 +21,7 @@ record={'device':device['name'],'udid':identifier,'tests':'PENDING','productionR
 regressions=['testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testMultipleAccountsSwitchAndPreserveOtherAccount','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNativeLoginAndFourTabs']
 groups=[('timeline-preview',['-only-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('timeline',['-only-testing:PUBOUITests/LocalTimelineUITests','-skip-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('home',['-only-testing:PUBOUITests/HomeMotionUITests']),('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
 groups += [('auth-preview',['-only-testing:PUBOUITests/AuthStaticUITests/testStaticWelcomeAndCenteredLoginBothThemes','-only-testing:PUBOUITests/AuthStaticUITests/testTotpBackupAndAccountChange','-only-testing:PUBOUITests/AuthStaticUITests/testRegistrationRulesFormAndResetBothThemes']),('auth-functional',['-only-testing:PUBOUITests/AuthStaticUITests','-skip-testing:PUBOUITests/AuthStaticUITests/testStaticWelcomeAndCenteredLoginBothThemes','-skip-testing:PUBOUITests/AuthStaticUITests/testTotpBackupAndAccountChange','-skip-testing:PUBOUITests/AuthStaticUITests/testRegistrationRulesFormAndResetBothThemes'])]
+groups = [(name, tests + (['-only-testing:PUBOUITests/PUBOUITests/testPasswordVisibilityAndAccountChangePreserveSafety', '-only-testing:PUBOUITests/PUBOUITests/testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable'] if name == 'auth-functional' else [])) for name, tests in groups]
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
@@ -58,7 +59,7 @@ try:
         video=subprocess.Popen(['xcrun','simctl','io',identifier,'recordVideo','--codec=h264',str(shots/'interactions.mp4')])
         try:
             with SimulatorResources(root/(name+'-resources.json')):
-                result=subprocess.run(['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1100)
+                result=subprocess.run(['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1600 if name == 'auth-functional' else 1100)
         finally:
             video.send_signal(signal.SIGINT)
             try:video.wait(timeout=30)

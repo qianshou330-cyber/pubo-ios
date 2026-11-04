@@ -35,7 +35,10 @@ import PUBOCore
     private func finish(_ identifier: String, result: URL?, error: Error?) {
         guard activeID == identifier, let pending = continuation else { return }
         continuation = nil
-        if let error { pending.resume(throwing: error) }
+        if let error = error as? ASWebAuthenticationSessionError, error.code == .canceledLogin {
+            pending.resume(throwing: APIError(code: "AUTH_CANCELLED", message: "已取消网页授权，可以继续登录。"))
+        }
+        else if let error { pending.resume(throwing: error) }
         else if let result { pending.resume(returning: result) }
         else { pending.resume(throwing: APIError.invalidResponse) }
     }

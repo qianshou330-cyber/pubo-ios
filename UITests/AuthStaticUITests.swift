@@ -131,4 +131,18 @@ final class AuthStaticUITests: XCTestCase {
         capture(app, "login-large-text-keyboard")
         app.buttons["auth.close"].tap(); XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 5))
     }
+    func testWebAuthorizationCancelAndForegroundRecovery() {
+        let app = launch(["--reduce-motion"]); app.buttons["auth.openLogin"].tap()
+        app.buttons["auth.web"].tap()
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let cancel = system.buttons.matching(NSPredicate(format: "label == 'Cancel' OR label == '取消'")).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 8)); cancel.tap()
+        XCTAssertTrue(app.staticTexts["已取消网页授权，可以继续登录。"].waitForExistence(timeout: 8))
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertTrue(app.textFields["auth.username"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["auth.close"].isHittable)
+        capture(app, "web-auth-cancel-foreground-reduce-motion")
+        type("auth.username", "fixture", app); app.buttons["auth.loginContinue"].tap()
+        XCTAssertTrue(app.secureTextFields["auth.password"].waitForExistence(timeout: 8))
+    }
 }
