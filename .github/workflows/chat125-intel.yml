@@ -1,11 +1,11 @@
-name: PUBO build125 Intel capacity fallback
+name: PUBO build125 UI and package retry
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat125-intel
+  group: chat125-intel-ui
   cancel-in-progress: true
 jobs:
   package:
@@ -106,94 +106,3 @@ jobs:
             build/screenshots/
           retention-days: 14
 
-  joint:
-    runs-on: macos-15-intel
-    timeout-minutes: 60
-    env:
-      CI: '1'
-      NODE_ENV: test
-      MK_NO_DAEMONS: '1'
-      PUBO_KPOP_CHARTS_ENABLED: 'false'
-      PUBO_MUSIC_CHARTS_ENABLED: 'false'
-      PUBO_SNAKE_ENABLED: 'false'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 7facb6ca76134a30f7286835c4262d15c89d99d2
-      - name: Verify exact product checkout
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,platform,subprocess
-          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='7facb6ca76134a30f7286835c4262d15c89d99d2'
-          pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'GitHub ARM runner capacity failure; same product and Xcode'}))
-          PY
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26.4.0
-      - name: Prepare disposable local tools
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen postgresql@18 redis
-          npm install --global pnpm@11.25.0
-          mkdir -p build "$RUNNER_TEMP/pubo-pg" "$RUNNER_TEMP/pubo-redis"
-          PGBIN="$(brew --prefix postgresql@18)/bin"
-          "$PGBIN/initdb" -D "$RUNNER_TEMP/pubo-pg" --auth=trust --encoding=UTF8
-          "$PGBIN/pg_ctl" -D "$RUNNER_TEMP/pubo-pg" -l "$RUNNER_TEMP/pubo-pg.log" -o '-h 127.0.0.1 -p 54312' -w start
-          "$PGBIN/createdb" -h 127.0.0.1 -p 54312 pubo_native_integration
-          redis-server --bind 127.0.0.1 --port 56312 --save '' --appendonly no --daemonize yes --pidfile "$RUNNER_TEMP/pubo-redis.pid" --logfile "$RUNNER_TEMP/pubo-redis.log" --dir "$RUNNER_TEMP/pubo-redis"
-      - name: Compile native app before backend setup
-        run: |
-          swift scripts/brand-assets.swift
-          xcodegen generate
-          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/integration-derived CODE_SIGNING_ALLOWED=NO build
-      - name: Build exact isolated backend
-        run: python3 scripts/isolated/prepare-backend.py
-      - name: Start loopback-only backend and synthetic accounts
-        run: |
-          node scripts/isolated/start-backend.mjs > "$RUNNER_TEMP/pubo-native-backend.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/pubo-native-backend.pid"
-          python3 - <<'PY'
-          import time, urllib.request
-          for attempt in range(90):
-              try:
-                  with urllib.request.urlopen('http://127.0.0.1:61913/context', timeout=2) as response:
-                      assert response.status == 200
-                  break
-              except Exception:
-                  time.sleep(1)
-          else:
-              raise SystemExit('Isolated backend did not become ready; no production fallback')
-          PY
-      - name: Native UI against real isolated APIs
-        run: |
-          swift scripts/brand-assets.swift
-          xcodegen generate
-          /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' App/Info.plist
-          /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true' App/Info.plist
-          python3 scripts/isolated/native-ui.py
-      - name: Stop task-owned local services
-        if: always()
-        run: |
-          python3 - <<'PY'
-          import os,pathlib,signal
-          root=pathlib.Path(os.environ['RUNNER_TEMP'])
-          for name in ['pubo-native-backend.pid','pubo-redis.pid']:
-              path=root/name
-              if path.exists():
-                  try: os.kill(int(path.read_text()),signal.SIGTERM)
-                  except ProcessLookupError: pass
-          PY
-          PGBIN="$(brew --prefix postgresql@18)"
-          if [ -f "$RUNNER_TEMP/pubo-pg/postmaster.pid" ]; then "$PGBIN/bin/pg_ctl" -D "$RUNNER_TEMP/pubo-pg" -m fast -w stop; fi
-      - name: Collect safe integration evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-backend-integration-7facb6ca76134a30f7286835c4262d15c89d99d2
-          path: |
-            build/integration-*.json
-            build/integration-ui.xcresult
-            build/integration-screenshots/
-          retention-days: 7
