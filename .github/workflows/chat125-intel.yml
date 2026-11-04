@@ -1,11 +1,11 @@
-name: PUBO build128 small-only retry
+name: PUBO build128 small chat prewarm
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat128-small-only
+  group: chat128-small-chat-prewarm
   cancel-in-progress: true
 jobs:
   appearance:
@@ -54,6 +54,29 @@ jobs:
       - name: Compile app
         id: compile_app
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Prepare task-owned simulator before test execution
+        timeout-minutes: 15
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,subprocess,sys
+          sys.path.insert(0,'scripts')
+          from simulator_boot import boot
+          root=pathlib.Path('build')
+          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+          name='PUBO Local iPhone SE (3rd generation)'
+          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation',runtime],text=True,timeout=60).strip()
+          (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
+          record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
+          try:
+              boot(device,root/'prewarm-boot.json')
+              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
+              record['status']='PASS'
+          except Exception as error:
+              record['status']='FAIL';record['error']=type(error).__name__;raise
+          finally:
+              (root/'prewarm-install.json').write_text(json.dumps(record))
+              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
+          PY
       - name: Chat alignment evidence
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -62,25 +85,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chat-detail-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
+          name: chat-prewarmed-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
           path: |
-            build/chat*.json
+            build/*.json
             build/chat.xcresult
             build/screenshots/chat/
           retention-days: 14
-      - name: Preserved interactions
-        if: ${{ !cancelled() && steps.compile_app.outcome == 'success' }}
-        env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: social,gif,favorites,regression
-        run: python3 scripts/local-timeline-tests.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: chat-ui-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
-          path: |
-            build/*.json
-            build/*.xcresult
-            build/screenshots/
-          retention-days: 14
-
