@@ -49,6 +49,7 @@ final class TimelineStateTests: XCTestCase {
         let result = update.applying(to: quote, accountID: "me")
         XCTAssertEqual(result["renote"]["reactions"]["❤️"].int, 2)
         XCTAssertEqual(result["renote"]["myReaction"].string, "❤️")
+        XCTAssertEqual(result["renote"]["reactionCount"].int, 2)
         let duplicate = update.applying(to: result, accountID: "me")
         XCTAssertEqual(duplicate["renote"]["reactions"]["❤️"].int, 2, "An event after the user's API readback must not increment twice")
         XCTAssertEqual(TimelinePresentation.capturedIDs([quote]), ["001", "002"])

@@ -1,5 +1,5 @@
 """Task-owned simulators; synthetic protected GIF responses, never production writes."""
-import json,os,pathlib,signal,subprocess
+import json,os,pathlib,signal,subprocess,time
 from simulator_boot import boot
 from simulator_resources import SimulatorResources
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
@@ -15,6 +15,14 @@ selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
     boot(identifier,root/'gif-boot.json')
+    # Settle first-launch simulator services before XCTest requests its background
+    # assertion. This is a separate, recorded fixture-only launch, not a test retry.
+    subprocess.run(['xcrun','simctl','install',identifier,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=90)
+    subprocess.run(['xcrun','simctl','launch',identifier,'com.bolubo.native','--ui-testing','--timeline-align','--gif-preview'],check=True,timeout=60)
+    time.sleep(12)
+    subprocess.run(['xcrun','simctl','io',identifier,'screenshot',str(root/('warmup-'+os.environ.get('PUBO_UI_SCOPE','all')+'.png'))],check=True,timeout=30)
+    subprocess.run(['xcrun','simctl','terminate',identifier,'com.bolubo.native'],check=True,timeout=30)
+    time.sleep(3)
     for name,selection in groups:
         shots=root/'screenshots'/name;shots.mkdir(parents=True,exist_ok=True)
         bundle=root/(name+'.xcresult')

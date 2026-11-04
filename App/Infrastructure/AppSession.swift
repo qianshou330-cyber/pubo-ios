@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import PUBOCore
 
 @Observable @MainActor
@@ -25,8 +26,12 @@ final class AppSession {
     var deletedNoteIDs = Set<String>()
     var timelinePreferences = TimelinePreferences()
     var timelineNotice: String?
-    var newestTimelineNote: Record?
-    var latestNoteEvent: NoteStreamEvent?
+    // A stream can deliver multiple events within one SwiftUI render pass.
+    // Subjects preserve every event; observing only the latest value loses bursts.
+    let timelineNotes = PassthroughSubject<Record, Never>()
+    let noteEvents = PassthroughSubject<NoteStreamEvent, Never>()
+    var newestTimelineNote: Record? { didSet { if let newestTimelineNote { timelineNotes.send(newestTimelineNote) } } }
+    var latestNoteEvent: NoteStreamEvent? { didSet { if let latestNoteEvent { noteEvents.send(latestNoteEvent) } } }
     var badges = NotificationBadges()
     var chartPreferences = KpopPreferences()
     private var unreadAttempt: UUID?
@@ -54,7 +59,17 @@ final class AppSession {
         #else
         api = APIClient()
         #endif
-        store = testing || isolated ? nil : try? ProtectedStore()
+        #if DEBUG
+        if testing && ProcessInfo.processInfo.arguments.contains("--timeline-persistence") {
+            store = try? ProtectedStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("PUBO-TimelinePreferences-UITests", isDirectory: true))
+            if ProcessInfo.processInfo.arguments.contains("--reset-timeline-preferences") {
+                for id in ["syntheticself", "syntheticsecond", "guest", "public-syntheticself", "public-syntheticsecond"] { try? store?.clear(account: id) }
+            }
+            if ProcessInfo.processInfo.arguments.contains("--legacy-timeline-home") { try? store?.save("home", account: "syntheticself", key: "selected-timeline") }
+        } else { store = testing || isolated ? nil : try? ProtectedStore() }
+        #else
+        store = try? ProtectedStore()
+        #endif
         do {
             let parent = testing || isolated ? FileManager.default.temporaryDirectory : try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             let folder = parent.appendingPathComponent(testing || isolated ? "PUBO-GIF-UI-tests" : "PUBO-GIF", isDirectory: true)
@@ -192,8 +207,8 @@ final class AppSession {
     }
     private func clearLocalAccountData(_ id: String) throws {
         var failure: Error?
-        if !testMode { do { try store?.clear(account: id) } catch { failure = error } }
-        if !testMode { do { try store?.clear(account: "public-" + id) } catch { if failure == nil { failure = error } } }
+        do { try store?.clear(account: id) } catch { failure = error }
+        do { try store?.clear(account: "public-" + id) } catch { if failure == nil { failure = error } }
         do { try gifStickers?.clear(account: id) } catch { if failure == nil { failure = error } }
         if let failure { throw failure }
     }

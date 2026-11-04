@@ -99,8 +99,10 @@ struct TimelineView: View {
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
                 .task(id: context) {
+                    guard !firstLoadFinished || requestContext != context else { return }
                     reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID()
                     requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; loading = false
+                    anchor = "timeline-top"; atTop = true
                     session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + preferences.requestKey), Date().timeIntervalSince(saved.savedAt) < 86_400 {
                         feed.page(saved.notes, older: false, preferences: preferences, accountID: owner); cached = !saved.notes.isEmpty
@@ -109,15 +111,18 @@ struct TimelineView: View {
                 }
                 .onDisappear { pageVisible = false; requestID = UUID(); loading = false; reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
                 .onAppear { pageVisible = true; session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
-                .onChange(of: session.newestTimelineNote) { _, note in
-                    guard active, let note else { return }
+                .onReceive(session.timelineNotes) { note in
+                    guard active else { return }
                     withAnimation(motion && atTop ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.receive(note, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
                 }
-                .onChange(of: session.latestNoteEvent) { _, event in
-                    guard let event else { return }
+                .onReceive(session.noteEvents) { event in
                     withAnimation(motion && event.kind == "deleted" ? .timingCurve(0, 0.5, 0.5, 1, duration: 0.2) : nil) { feed.apply(event, accountID: session.user?.id) }
                 }
-                .onChange(of: choices) { _, available in session.timelinePreferences.normalize(available: available) }
+                .onChange(of: choices) { _, available in
+                    let lostLocal = preferences.selected == "local" && !available.contains("local")
+                    session.timelinePreferences.normalize(available: available)
+                    if lostLocal { session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
+                }
                 .onChange(of: session.connectionRevision) { _, _ in startReconnect() }
                 .onChange(of: active) { _, value in
                     if value { startReconnect() }
@@ -294,8 +299,8 @@ struct NoteCard: View {
             .onAppear { if !timelineStyle { session.stream.captureNotes(TimelinePresentation.capturedIDs([note]), owner: captureOwner) } }
             .onDisappear { if !timelineStyle { session.stream.captureNotes([], owner: captureOwner) }; revealSensitivePost = false }
             .onChange(of: hideSensitive) { _, _ in revealSensitivePost = false }
-            .onChange(of: session.latestNoteEvent) { _, event in
-                guard !timelineStyle, let event else { return }
+            .onReceive(session.noteEvents) { event in
+                guard !timelineStyle else { return }
                 current = event.applying(to: current ?? note, accountID: session.user?.id)
                 if event.kind == "deleted" { session.deletedNoteIDs.insert(event.id) }
             }

@@ -63,6 +63,7 @@ jobs:
         with:
           name: timeline-layout-${{ matrix.size }}-${{ github.sha }}
           path: |
+            build/warmup-preview.png
             build/timeline-preview*.json
             build/timeline-environment-preview.json
             build/timeline-preview.xcresult/
@@ -80,6 +81,7 @@ jobs:
         with:
           name: timeline-first-evidence-${{ matrix.size }}-${{ github.sha }}
           path: |
+            build/warmup-timeline.png
             build/timeline*.json
             build/timeline.xcresult/
             build/screenshots/timeline/
@@ -96,6 +98,7 @@ jobs:
         with:
           name: timeline-evidence-${{ matrix.size }}-${{ github.sha }}
           path: |
+            build/warmup-regression.png
             build/*.json
             build/*.xcresult
             build/screenshots/

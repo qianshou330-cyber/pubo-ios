@@ -156,7 +156,12 @@ actor FixtureTransport: HTTPTransport {
             #else
             response = .object(["emojis": .array([])])
             #endif
-        case "i": response = body["i"].string == "synthetic-second" ? .object(["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]) : profile
+        case "i":
+            if body["i"].string == "synthetic-second" {
+                var second: [String: JSONValue] = ["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]
+                if args.contains("--timeline-align") { second["policies"] = profile["policies"] }
+                response = .object(second)
+            } else { response = profile }
         case "verification/show": response = .null
         case "admin/verification/list": response = .array([])
         case "admin/show-users": response = .array([profile, Self.peer])
@@ -198,7 +203,11 @@ actor FixtureTransport: HTTPTransport {
         case "users/following": response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
         case "users/followers": response = .array([.object(["id": .string("relation1"), "follower": Self.peer])])
         case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes":
-            if args.contains("--timeline-align"), path != "users/notes" {
+            if args.contains("--timeline-local-disabled"), path == "notes/local-timeline" {
+                status = 400; response = .object(["error": .object(["code": .string("LTL_DISABLED"), "message": .string("Local timeline disabled")])])
+            } else if args.contains("--timeline-offline-first"), timelineReads == 0, path != "users/notes" {
+                timelineReads += 1; status = 503; response = .object(["error": .object(["code": .string("SERVICE_UNAVAILABLE"), "message": .string("隔离断网样例")])])
+            } else if args.contains("--timeline-align"), path != "users/notes" {
                 var rows = posts.filter { body["untilId"].isNull || ($0["id"].string ?? "") < (body["untilId"].string ?? "") }
                 if body["withFiles"].bool { rows = rows.filter { !$0["files"].array.isEmpty } }
                 if body["withRenotes"] == .bool(false) { rows = rows.filter { !NoteContext.isRepost(Record($0)) } }

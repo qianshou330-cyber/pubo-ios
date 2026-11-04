@@ -50,6 +50,7 @@ public struct NoteStreamEvent: Equatable, Sendable {
                 let count = max(0, (reactions[reaction]?.int ?? 0) + (alreadyApplied ? 0 : kind == "reacted" ? 1 : -1))
                 if count == 0 { reactions.removeValue(forKey: reaction) } else { reactions[reaction] = .number(Double(count)) }
                 map["reactions"] = .object(reactions)
+                map["reactionCount"] = .number(Double(reactions.values.reduce(0) { $0 + $1.int }))
                 if ownEvent { map["myReaction"] = kind == "reacted" ? .string(reaction) : .null }
                 if let name = body["emoji"]["name"].string, let url = body["emoji"]["url"].string {
                     var emojis = value["reactionEmojis"].object; emojis[name] = .string(url); map["reactionEmojis"] = .object(emojis)

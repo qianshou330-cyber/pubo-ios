@@ -3,8 +3,9 @@ import PUBOCore
 
 final class ProtectedStore {
     private let root: URL
-    init() throws {
-        root = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("PUBO", isDirectory: true)
+    init(directory: URL? = nil) throws {
+        if let directory { root = directory }
+        else { root = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("PUBO", isDirectory: true) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.protectionKey: FileProtectionType.complete])
         var value = root
         var attributes = URLResourceValues(); attributes.isExcludedFromBackup = true

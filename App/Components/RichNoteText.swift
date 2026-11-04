@@ -26,6 +26,9 @@ struct RichNoteText: UIViewRepresentable {
     func updateUIView(_ view: AnimatedTextView, context: Context) {
         context.coordinator.openURL = openURL; context.coordinator.onTap = onTap; context.coordinator.view = view
         let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: UIFont.systemFont(ofSize: 14))
+        let imageKey = urls.keys.sorted().map { key in key + "=" + (images[key].map { String(describing: ObjectIdentifier($0)) } ?? "pending") }.joined(separator: "|")
+        let renderKey = parts.joined(separator: "\u{001f}") + imageKey + String(describing: font.pointSize)
+        if context.coordinator.renderKey != renderKey {
         let color = UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 222/255, green: 231/255, blue: 228/255, alpha: 1) : UIColor(white: 103/255, alpha: 1) }
         let output = NSMutableAttributedString(string: "")
         for part in parts {
@@ -51,7 +54,9 @@ struct RichNoteText: UIViewRepresentable {
                 }
             }
         }
-        if !view.attributedText.isEqual(to: output) { view.attributedText = output; view.rebuildAnimations() }
+        view.attributedText = output; view.rebuildAnimations()
+        context.coordinator.renderKey = renderKey
+        }
         view.linkTextAttributes = [.foregroundColor: UIColor(red: 0.42, green: 0.63, blue: 0.65, alpha: 1)]
         view.playing = playing; view.accessibilityIdentifier = identifier
         view.accessibilityTraits = onTap == nil ? .staticText : [.staticText, .button]
@@ -64,6 +69,7 @@ struct RichNoteText: UIViewRepresentable {
     static func dismantleUIView(_ view: AnimatedTextView, coordinator: Coordinator) { view.clearAnimations(); view.delegate = nil }
     final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
         weak var view: AnimatedTextView?
+        var renderKey: String?
         var openURL: ((URL) -> Void)?
         var onTap: (() -> Void)?
         func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool { openURL?(URL); return false }

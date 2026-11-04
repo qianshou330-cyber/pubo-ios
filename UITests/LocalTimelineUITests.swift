@@ -84,7 +84,10 @@ final class LocalTimelineUITests: XCTestCase {
     func testOlderPagesRemainReachable() {
         let app = launch()
         let oldest = reveal(app,"note.open.at4tltest0001"); XCTAssertTrue(oldest.exists)
-        capture(app,"local-history-pagination"); app.terminate()
+        capture(app,"local-history-pagination"); oldest.tap()
+        XCTAssertTrue(app.navigationBars["帖子"].waitForExistence(timeout: 8)); app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(find(app,"note.open.at4tltest0001").isHittable, "Returning from a historical post must preserve the loaded pages and reading position")
+        app.terminate()
     }
     func testBodyAuthorAndMediaOpenOnlyTheirOwnDestinations() {
         let app = launch()
@@ -102,5 +105,30 @@ final class LocalTimelineUITests: XCTestCase {
         let app = launch(["--reduce-motion", "--large-text"])
         app.buttons["home.more"].tap(); XCTAssertTrue(app.buttons["显示转帖"].exists)
         capture(app,"local-large-text-filters"); app.terminate()
+    }
+    func testSavedChoiceMigratesAndStaysIsolatedAcrossAccounts() {
+        let flags = ["--timeline-persistence", "--multi-account-preview"]
+        var app = launch(flags + ["--reset-timeline-preferences", "--legacy-timeline-home"])
+        XCTAssertTrue(app.buttons["timeline.home"].isSelected)
+        app.buttons["home.more"].tap(); app.buttons["仅限媒体"].tap()
+        XCTAssertTrue(find(app,"media.open.timelinegif").waitForExistence(timeout: 10)); app.terminate()
+        app = launch(flags)
+        XCTAssertTrue(app.buttons["timeline.home"].isSelected)
+        XCTAssertTrue(find(app,"media.open.timelinegif").waitForExistence(timeout: 10))
+        XCTAssertFalse(find(app,"note.open.at4tltest0025").exists)
+        app.tabBars.buttons["我的"].tap()
+        let accounts = app.buttons["多账号管理"]; for _ in 0..<6 where !accounts.isHittable { app.swipeUp() }; accounts.tap()
+        app.buttons["accounts.select.syntheticsecond"].tap()
+        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 10)); XCTAssertTrue(app.buttons["timeline.local"].isSelected)
+        XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10))
+        capture(app,"local-account-preferences-isolated"); app.terminate()
+    }
+    func testUnavailableLocalFallsBackAndFailedReadCanRetry() {
+        var app = launch(["--timeline-local-disabled"])
+        XCTAssertTrue(app.staticTexts["本地时间线暂不可用，已切换到关注。"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["timeline.home"].isSelected); capture(app,"local-unavailable-fallback"); app.terminate()
+        app = launch(["--timeline-offline-first"])
+        let retry = app.buttons["重试"]; XCTAssertTrue(retry.waitForExistence(timeout: 10)); retry.tap()
+        XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10)); capture(app,"local-retry-restored"); app.terminate()
     }
 }

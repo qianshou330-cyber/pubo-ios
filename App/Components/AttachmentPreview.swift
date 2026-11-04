@@ -48,6 +48,7 @@ struct AttachmentPreviewContent: View {
     let mime: String
     let name: String
     var gifImage: SDAnimatedImage? = nil
+    var previewImage: UIImage? = nil
     var imagePreviewDisabled = false
     @State private var exporting = false
     @State private var saving = false
@@ -57,7 +58,7 @@ struct AttachmentPreviewContent: View {
         VStack(spacing: 12) {
             if let gifImage { PrivateGIFPlayer(image: gifImage, fullscreen: true) }
             else if imagePreviewDisabled { Label("此图片无法预览，原文件仍可保存。", systemImage: "photo.badge.exclamationmark").padding() }
-            else if mime.hasPrefix("image/"), let image = UIImage(data: data) { ZoomableImage(image: image).frame(maxWidth: .infinity, maxHeight: .infinity).frame(minHeight: 200) }
+            else if mime.hasPrefix("image/"), let image = previewImage ?? UIImage(data: data) { ZoomableImage(image: image).frame(maxWidth: .infinity, maxHeight: .infinity).frame(minHeight: 200) }
             else if mime.hasPrefix("audio/") || mime.hasPrefix("video/") { MediaPlayer(url: url).frame(minHeight: 180) }
             else { Label(name, systemImage: "doc").padding() }
             HStack {
@@ -94,6 +95,7 @@ struct PublicAttachmentPreview: View {
     let file: Record
     var allowSensitive = false
     @State private var animatedImage: SDAnimatedImage?
+    @State private var previewImage: UIImage?
     @State private var data: Data?
     @State private var localURL: URL?
     @State private var error: String?
@@ -101,7 +103,7 @@ struct PublicAttachmentPreview: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: file["type"].string ?? "application/octet-stream", name: file["name"].string ?? "PUBO附件", gifImage: animatedImage) }
+                if let data, let localURL { AttachmentPreviewContent(data: data, url: localURL, mime: file["type"].string ?? "application/octet-stream", name: file["name"].string ?? "PUBO附件", gifImage: animatedImage, previewImage: previewImage, imagePreviewDisabled: file["type"].string?.hasPrefix("image/") == true && previewImage == nil) }
                 else if let error { ErrorBanner(message: error) { retry += 1 } }
                 else { ProgressView("加载原始文件…") }
             }.puboScreen().navigationTitle("查看附件").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { dismiss() } }
@@ -122,15 +124,15 @@ struct PublicAttachmentPreview: View {
             content = try await PublicImageDecoder.data(source)
             #endif
             guard epoch == session.generation, !Task.isCancelled else { return }
+            let decoded: UIImage?
+            if file["type"].string?.hasPrefix("image/") == true { decoded = try? await PublicImageDecoder.decode(content, maxPixel: 2048) }
+            else { decoded = nil }
+            guard epoch == session.generation, !Task.isCancelled else { return }
             let ext = UTType(mimeType: file["type"].string ?? "")?.preferredFilenameExtension ?? "bin"
             let destination = FileManager.default.temporaryDirectory.appendingPathComponent("pubo-private-\(UUID().uuidString).\(ext)")
             try content.write(to: destination, options: [.atomic, .completeFileProtection])
-            clear(); localURL = destination; data = content; error = nil
-            if file["type"].string?.hasPrefix("image/") == true {
-                let image = try? await PublicImageDecoder.decode(content, maxPixel: 1280)
-                if epoch == session.generation && !Task.isCancelled { animatedImage = image as? SDAnimatedImage }
-            }
+            clear(); localURL = destination; data = content; previewImage = decoded; animatedImage = decoded as? SDAnimatedImage; error = nil
         } catch { if epoch == session.generation && !Task.isCancelled { self.error = error.localizedDescription } }
     }
-    private func clear() { data = nil; animatedImage = nil; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
+    private func clear() { data = nil; animatedImage = nil; previewImage = nil; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
 }
