@@ -54,6 +54,24 @@ final class TimelineStateTests: XCTestCase {
         XCTAssertEqual(duplicate["renote"]["reactions"]["❤️"].int, 2, "An event after the user's API readback must not increment twice")
         XCTAssertEqual(TimelinePresentation.capturedIDs([quote]), ["001", "002"])
     }
+    func testLateOwnRemovalPreservesNewReactionAfterReadback() {
+        let verified = note("001", ["myReaction": .string("B"), "reactions": .object(["A": .number(4), "B": .number(3)]), "reactionCount": .number(7)])
+        let oldRemoval = NoteStreamEvent(id: "001", kind: "unreacted", body: .object(["userId": .string("me"), "reaction": .string("A")]))
+        let delayed = oldRemoval.applying(to: verified, accountID: "me")
+        XCTAssertEqual(delayed["myReaction"].string, "B")
+        XCTAssertEqual(delayed["reactions"]["A"].int, 4)
+        XCTAssertEqual(delayed["reactionCount"].int, 7)
+        let newReaction = NoteStreamEvent(id: "001", kind: "reacted", body: .object(["userId": .string("me"), "reaction": .string("B")]))
+        XCTAssertEqual(newReaction.applying(to: delayed, accountID: "me")["reactions"]["B"].int, 3)
+        let ownRemoval = NoteStreamEvent(id: "001", kind: "unreacted", body: .object(["userId": .string("me"), "reaction": .string("B")]))
+        let removed = ownRemoval.applying(to: verified, accountID: "me")
+        XCTAssertNil(removed["myReaction"].string)
+        XCTAssertEqual(removed["reactions"]["B"].int, 2)
+        let otherRemoval = NoteStreamEvent(id: "001", kind: "unreacted", body: .object(["userId": .string("other"), "reaction": .string("A")]))
+        let other = otherRemoval.applying(to: verified, accountID: "me")
+        XCTAssertEqual(other["myReaction"].string, "B")
+        XCTAssertEqual(other["reactions"]["A"].int, 3)
+    }
     func testOlderPageIsNotDroppedAtFormerMemoryWindowBoundary() {
         var state = TimelineState(); let p = TimelinePreferences()
         let rows = (1...2000).reversed().map { note(String(format: "%06d", $0)) }

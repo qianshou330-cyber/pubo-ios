@@ -46,12 +46,13 @@ public struct NoteStreamEvent: Equatable, Sendable {
             if kind == "reacted" || kind == "unreacted", let reaction = body["reaction"].string {
                 var reactions = value["reactions"].object
                 let ownEvent = body["userId"].string == accountID && accountID != nil
-                let alreadyApplied = ownEvent && (kind == "reacted" ? value["myReaction"].string == reaction : value["myReaction"].isNull)
+                let alreadyApplied = ownEvent && (kind == "reacted" ? value["myReaction"].string == reaction : value["myReaction"].string != reaction)
                 let count = max(0, (reactions[reaction]?.int ?? 0) + (alreadyApplied ? 0 : kind == "reacted" ? 1 : -1))
                 if count == 0 { reactions.removeValue(forKey: reaction) } else { reactions[reaction] = .number(Double(count)) }
                 map["reactions"] = .object(reactions)
                 map["reactionCount"] = .number(Double(reactions.values.reduce(0) { $0 + $1.int }))
-                if ownEvent { map["myReaction"] = kind == "reacted" ? .string(reaction) : .null }
+                // A delayed removal of A must not clear B after an authoritative readback.
+                if ownEvent && !alreadyApplied { map["myReaction"] = kind == "reacted" ? .string(reaction) : .null }
                 if let name = body["emoji"]["name"].string, let url = body["emoji"]["url"].string {
                     var emojis = value["reactionEmojis"].object; emojis[name] = .string(url); map["reactionEmojis"] = .object(emojis)
                 }
