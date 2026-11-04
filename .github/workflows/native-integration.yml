@@ -1,7 +1,7 @@
 name: Native app and isolated PUBO backend
 on:
   push:
-    branches: [main, 'parity-phase*', 'ui-social-parity-*', 'ui-local-timeline-*', 'ui-auth-static-*']
+    branches: [main, 'parity-phase*', 'ui-social-parity-*', 'ui-local-timeline-*', 'ui-auth-static-*', 'ci-auth-contract-*']
   workflow_dispatch:
 permissions:
   contents: read
@@ -89,4 +89,5 @@ jobs:
             build/integration-ui.xcresult
             build/integration-screenshots/
           retention-days: 7
+
 

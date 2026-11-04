@@ -1,6 +1,6 @@
 import {createServer} from 'node:http';
+import {createServer as createSMTPServer} from 'node:net';
 import {randomBytes,createHmac} from 'node:crypto';
-import {pathToFileURL} from 'node:url';
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {writeFile} from 'node:fs/promises';
@@ -8,9 +8,25 @@ import {writeFile} from 'node:fs/promises';
 function requireIsolated(){if(process.env.GITHUB_ACTIONS!=='true'||process.env.NODE_ENV!=='test')throw new Error('Disposable authentication runner required');}
 export async function setupAuthChannels(root){
  requireIsolated();const messages=[],codes=new Map();let deliveries=0;
- const {EmailService}=await import(pathToFileURL(join(root,'built/core/EmailService.js')));
- // Replace only the outbound delivery boundary. Real endpoint/validation/storage code stays intact.
- Object.defineProperty(EmailService.prototype,'sendEmail',{configurable:true,writable:true,value:async function(address,subject,html,text){messages.push({address,subject,text});}});
+ // A loopback SMTP sink exercises the real mail service without importing internals
+ // from the bundled backend or contacting any external mail provider.
+ const smtp=createSMTPServer(socket=>{
+  let buffer='',data=false,lines=[],recipient='';socket.setTimeout(30000,()=>socket.destroy());socket.write('220 isolated SMTP ready\r\n');
+  socket.on('data',chunk=>{
+   buffer+=chunk.toString();let end;
+   while((end=buffer.indexOf('\r\n'))>=0){
+    const line=buffer.slice(0,end);buffer=buffer.slice(end+2);
+    if(data){if(line!=='.'){lines.push(line.startsWith('..')?line.slice(1):line);continue;}messages.push({address:recipient,text:lines.join('\r\n').replace(/=\r\n/g,'')});lines=[];data=false;socket.write('250 accepted\r\n');continue;}
+    if(/^(EHLO|HELO) /i.test(line))socket.write('250 isolated.local\r\n');
+    else if(/^MAIL FROM:/i.test(line))socket.write('250 sender accepted\r\n');
+    else if(/^RCPT TO:/i.test(line)){recipient=line.match(/<([^>]+)>/)?.[1]??'';socket.write('250 recipient accepted\r\n');}
+    else if(/^DATA$/i.test(line)){data=true;socket.write('354 end with dot\r\n');}
+    else if(/^QUIT$/i.test(line)){socket.end('221 bye\r\n');}
+    else if(/^(RSET|NOOP)$/i.test(line))socket.write('250 ok\r\n');
+    else socket.write('502 unsupported\r\n');
+   }
+  });socket.on('error',()=>{});
+ });await new Promise((resolve,reject)=>{smtp.once('error',reject);smtp.listen(61916,'127.0.0.1',resolve);});
  const server=createServer(async(req,res)=>{
   if(req.method!=='POST'){res.writeHead(405);res.end();return;}
   let body='';for await(const chunk of req)body+=chunk;
@@ -19,7 +35,7 @@ export async function setupAuthChannels(root){
   codes.set(phone,code);deliveries++;res.setHeader('content-type','application/json');res.end(JSON.stringify({ReturnStatus:'Success',SuccessCounts:1}));
  });await new Promise(resolve=>server.listen(61915,'127.0.0.1',resolve));
  process.env.MISSKEY_SMS_ACCOUNT='synthetic';process.env.MISSKEY_SMS_PASSWORD='synthetic';process.env.MISSKEY_SMS_USERID='synthetic';process.env.MISSKEY_SMS_SEND_URL='http://127.0.0.1:61915/send';
- return {codes,messages,server,get deliveries(){return deliveries;}};
+ return {codes,messages,server,smtp,get deliveries(){return deliveries;}};
 }
 function totp(secret){const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const c of secret.replace(/=+$/,''))bits+=alphabet.indexOf(c).toString(2).padStart(5,'0');const key=Buffer.from((bits.match(/.{8}/g)??[]).map(x=>parseInt(x,2))),step=Buffer.alloc(8);step.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const hash=createHmac('sha1',key).update(step).digest(),offset=hash.at(-1)&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
 export async function verifyAuthContracts(api,owner,channels,root,destination){
@@ -29,7 +45,7 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
  try{
   // The isolated instance must exercise production signup guards (test mode skips SMS).
   process.env.NODE_ENV='production';
-  await api('admin/update-meta',{disableRegistration:false,emailRequiredForSignup:false,enableActiveEmailValidation:false},owner.token);
+  await api('admin/update-meta',{disableRegistration:false,emailRequiredForSignup:false,enableActiveEmailValidation:false,enableEmail:true,smtpHost:'127.0.0.1',smtpPort:61916,smtpSecure:false,smtpUser:null,smtpPass:null},owner.token);
   phase='prechecks';need((await api('username/available',{username:'auth_fixture'})).available,'usernameAvailable');need(!(await api('username/available',{username:'isolated_owner'})).available,'usernameOccupied');
   need(!(await api('email-address/available',{emailAddress:'invalid'})).available,'emailFormatRejected');
   need((await api('email-address/available',{emailAddress:'auth-fixture@example.test'})).available,'emailAvailable');
@@ -61,7 +77,8 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
   need(channels.messages.some(x=>x.address==='pending@example.test'&&x.text.includes('/signup-complete/')),'signupVerificationTestDelivery');
   phase='invitation';await api('admin/update-meta',{emailRequiredForSignup:false,disableRegistration:true},owner.token);const invitePhone='19900000013';await api('signup/request-phone-code',{phoneNumber:invitePhone});
   need((await response('signup',{username:'auth_restricted',password,phoneNumber:invitePhone,smsCode:channels.codes.get(invitePhone)})).status===400,'invitationRequired');
-  await writeFile(destination,JSON.stringify({status:'PASS',checks,productionAPIRequests:0,outboundSMS:'loopback test provider',outboundEmail:'in-memory test sink',signupProductionGuards:true},null,2));
- }catch(error){await writeFile(destination,JSON.stringify({status:'FAIL',phase,checks,productionAPIRequests:0},null,2));throw new Error('Isolated authentication failed at '+phase);}
+  await writeFile(destination,JSON.stringify({status:'PASS',checks,productionAPIRequests:0,outboundSMS:'loopback test provider',outboundEmail:'loopback SMTP test sink',signupProductionGuards:true},null,2));
+ }catch(error){const reason=/^(Authentication contract:|Synthetic setup failed:)/.test(error.message)?error.message.slice(0,200):error.name;await writeFile(destination,JSON.stringify({status:'FAIL',phase,reason,checks,productionAPIRequests:0},null,2));throw new Error('Isolated authentication failed at '+phase);}
  finally{process.env.NODE_ENV='test';await api('admin/update-meta',{disableRegistration:before.disableRegistration,emailRequiredForSignup:before.emailRequiredForSignup,enableActiveEmailValidation:before.enableActiveEmailValidation??false},owner.token);}
 }
+
