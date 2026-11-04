@@ -1,0 +1,62 @@
+name: PUBO build113 read-only three-page audit
+on:
+  push:
+    branches: ['audit-three-pages-build113-20261104']
+permissions:
+  contents: read
+jobs:
+  capture:
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [timeline-preview,timeline,social,gif,favorites,regression,home]
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b373f0e3c8b811ef7930a7808ad2889f8b8507e1
+          fetch-depth: 2
+      - name: Verify immutable product and prepare simulator only
+        run: |
+          mkdir -p build
+          git rev-parse HEAD > build/checked-out-source.txt
+          git diff fd15401356766f681c04ad694e3aaf3b8b6e2a80 HEAD -- App Sources project.yml Package.swift > build/product-diff.txt
+          test ! -s build/product-diff.txt
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Select only ordinary-page audit tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/local-timeline-tests.py')
+          text=p.read_text()
+          a=text.index('regressions=');b=text.index('\ngroups=',a)
+          tests=['testWebStyleFeedsAndChatsInBothThemes','testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNetworkFailureHasRetryAndKeepsTabs','testContentWarningStaysHidden']
+          text=text[:a]+'regressions='+repr(tests)+text[b:]
+          p.write_text(text)
+          PY
+      - name: Actual iPhone 17 Pro Max screenshots and recordings
+        env:
+          PUBO_SIM_SIZE: large
+          PUBO_UI_GROUPS: ${{ matrix.group }}
+          PUBO_UI_SCOPE: audit
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit113-${{ matrix.group }}-screens
+          path: |
+            build/*.json
+            build/*.txt
+            build/screenshots/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit113-${{ matrix.group }}-xcresult
+          path: build/*.xcresult/
+          retention-days: 14
