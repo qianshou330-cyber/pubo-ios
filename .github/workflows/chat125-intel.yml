@@ -1,20 +1,16 @@
-name: PUBO build128 baseline runtime verification
+name: PUBO build128 package baseline runtime
 on:
   push:
     branches: ['ci-chat125-intel-20261104']
 permissions:
   contents: read
 concurrency:
-  group: chat128-runtime-install
+  group: chat128-remaining-macos26
   cancel-in-progress: true
 jobs:
-  appearance:
-    strategy:
-      fail-fast: false
-      matrix:
-        size: [large, small]
+  package:
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,12 +22,14 @@ jobs:
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           assert head=='3bb946e5226500526181a320123921d070a1fb2f'
           pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard macOS26 ARM retry; exact baseline runtime'}))
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard macOS26 ARM exact baseline'}))
           PY
-      - name: Fixed tools
+      - name: Fixed tools and core checks
         run: |
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           brew install xcodegen
+          swift test
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
           swift scripts/brand-assets.swift
           xcodegen generate
       - name: Ensure exact baseline simulator runtime
@@ -51,145 +49,19 @@ jobs:
               if not any(d['name']==name for d in devices.get(runtime,[])):
                   subprocess.run(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.'+kind,runtime],check=True,timeout=60)
           PY
-      - name: Compile app
-        id: compile_app
-        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Chat alignment evidence
-        env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: chat
-        run: python3 scripts/local-timeline-tests.py
+      - name: Release simulator
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Release device
+        run: |
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          python3 scripts/package-device.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chat-detail-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
+          name: chat-package-3bb946e5226500526181a320123921d070a1fb2f
           path: |
-            build/chat*.json
-            build/chat.xcresult
-            build/screenshots/chat/
+            build/unsigned/
+            build/device-package.json
+            build/integration-product-source.json
           retention-days: 14
-      - name: Preserved interactions
-        if: ${{ !cancelled() && steps.compile_app.outcome == 'success' }}
-        env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: social,gif,favorites,regression
-        run: python3 scripts/local-timeline-tests.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: chat-ui-${{ matrix.size }}-3bb946e5226500526181a320123921d070a1fb2f
-          path: |
-            build/*.json
-            build/*.xcresult
-            build/screenshots/
-          retention-days: 14
-
-  joint:
-    runs-on: macos-26
-    timeout-minutes: 90
-    env:
-      CI: '1'
-      NODE_ENV: test
-      MK_NO_DAEMONS: '1'
-      PUBO_KPOP_CHARTS_ENABLED: 'false'
-      PUBO_MUSIC_CHARTS_ENABLED: 'false'
-      PUBO_SNAKE_ENABLED: 'false'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 3bb946e5226500526181a320123921d070a1fb2f
-      - name: Verify exact product checkout
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,platform,subprocess
-          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert head=='3bb946e5226500526181a320123921d070a1fb2f'
-          pathlib.Path('build').mkdir(exist_ok=True)
-          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':head,'runnerArchitecture':platform.machine(),'reason':'Exact build128; pinned baseline iOS26.0; standard macOS26 ARM retry; exact baseline runtime'}))
-          PY
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26.4.0
-      - name: Prepare disposable local tools
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen postgresql@18 redis
-          npm install --global pnpm@11.25.0
-          mkdir -p build "$RUNNER_TEMP/pubo-pg" "$RUNNER_TEMP/pubo-redis"
-          PGBIN="$(brew --prefix postgresql@18)/bin"
-          "$PGBIN/initdb" -D "$RUNNER_TEMP/pubo-pg" --auth=trust --encoding=UTF8
-          "$PGBIN/pg_ctl" -D "$RUNNER_TEMP/pubo-pg" -l "$RUNNER_TEMP/pubo-pg.log" -o '-h 127.0.0.1 -p 54312' -w start
-          "$PGBIN/createdb" -h 127.0.0.1 -p 54312 pubo_native_integration
-          redis-server --bind 127.0.0.1 --port 56312 --save '' --appendonly no --daemonize yes --pidfile "$RUNNER_TEMP/pubo-redis.pid" --logfile "$RUNNER_TEMP/pubo-redis.log" --dir "$RUNNER_TEMP/pubo-redis"
-      - name: Ensure exact baseline simulator runtime
-        timeout-minutes: 25
-        run: |
-          python3 - <<'PY'
-          import json,subprocess
-          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
-          def runtimes():
-              return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
-          if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
-              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','arm64'],check=True,timeout=1400)
-          found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
-          assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
-          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
-          for name,kind in [('iPhone 17 Pro Max','iPhone-17-Pro-Max'),('iPhone SE (3rd generation)','iPhone-SE-3rd-generation')]:
-              if not any(d['name']==name for d in devices.get(runtime,[])):
-                  subprocess.run(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.'+kind,runtime],check=True,timeout=60)
-          PY
-      - name: Compile native app before backend setup
-        run: |
-          swift scripts/brand-assets.swift
-          xcodegen generate
-          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/integration-derived CODE_SIGNING_ALLOWED=NO build
-      - name: Build exact isolated backend
-        run: python3 scripts/isolated/prepare-backend.py
-      - name: Start loopback-only backend and synthetic accounts
-        run: |
-          node scripts/isolated/start-backend.mjs > "$RUNNER_TEMP/pubo-native-backend.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/pubo-native-backend.pid"
-          python3 - <<'PY'
-          import time, urllib.request
-          for attempt in range(90):
-              try:
-                  with urllib.request.urlopen('http://127.0.0.1:61913/context', timeout=2) as response:
-                      assert response.status == 200
-                  break
-              except Exception:
-                  time.sleep(1)
-          else:
-              raise SystemExit('Isolated backend did not become ready; no production fallback')
-          PY
-      - name: Native UI against real isolated APIs
-        run: |
-          swift scripts/brand-assets.swift
-          xcodegen generate
-          /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' App/Info.plist
-          /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true' App/Info.plist
-          python3 scripts/isolated/native-ui.py
-      - name: Stop task-owned local services
-        if: always()
-        run: |
-          python3 - <<'PY'
-          import os,pathlib,signal
-          root=pathlib.Path(os.environ['RUNNER_TEMP'])
-          for name in ['pubo-native-backend.pid','pubo-redis.pid']:
-              path=root/name
-              if path.exists():
-                  try: os.kill(int(path.read_text()),signal.SIGTERM)
-                  except ProcessLookupError: pass
-          PY
-          PGBIN="$(brew --prefix postgresql@18)"
-          if [ -f "$RUNNER_TEMP/pubo-pg/postmaster.pid" ]; then "$PGBIN/bin/pg_ctl" -D "$RUNNER_TEMP/pubo-pg" -m fast -w stop; fi
-      - name: Collect safe integration evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-backend-integration-3bb946e5226500526181a320123921d070a1fb2f
-          path: |
-            build/integration-*.json
-            build/integration-ui.xcresult
-            build/integration-screenshots/
-          retention-days: 7
 
