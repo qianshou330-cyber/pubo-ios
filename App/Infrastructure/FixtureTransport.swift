@@ -42,7 +42,12 @@ actor FixtureTransport: HTTPTransport {
             if ProcessInfo.processInfo.arguments.contains("--multiple-announcements") { announcements.append(.object(["id": .string("fixtureannouncement2"), "display": .string("marquee"), "isActive": .bool(true), "silence": .bool(true), "title": .string("音乐与朋友，让每一天更精彩"), "text": .string("这是第二条公开公告的隔离样例。")])) }
             announcements.append(.object(["id": .string("fixturepast"), "display": .string("normal"), "isActive": .bool(false), "title": .string("历史公告样例"), "text": .string("已结束公告仍可查看。")]))
         }
-        posts = posts.map { var value = $0.object; value["visibility"] = .string("public"); return .object(value) }
+        posts = posts.map {
+            var value = $0.object
+            value["visibility"] = .string("public")
+            value["createdAt"] = .string("2026-11-03T10:00:00Z")
+            return .object(value)
+        }
         if ProcessInfo.processInfo.arguments.contains("--search-unavailable") {
             var value = profile.object; var policies = value["policies"]!.object
             policies["canSearchNotes"] = .bool(false); policies["canSearchUsers"] = .bool(true)

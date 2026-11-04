@@ -29,7 +29,14 @@ try:
     subprocess.run(['xcrun','simctl','install',identifier,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=90)
     subprocess.run(['xcrun','simctl','launch',identifier,'com.bolubo.native','--ui-testing','--timeline-align','--gif-preview'],check=True,timeout=60)
     time.sleep(12)
-    subprocess.run(['xcrun','simctl','io',identifier,'screenshot',str(root/('warmup-'+os.environ.get('PUBO_UI_SCOPE','all')+'.png'))],check=True,timeout=30)
+    try:
+        subprocess.run(['xcrun','simctl','io',identifier,'screenshot',str(root/('warmup-'+os.environ.get('PUBO_UI_SCOPE','all')+'.png'))],check=True,timeout=60)
+        record['warmupScreenshot']='CAPTURED'
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+        # Warmup diagnostics are separate from actual UI assertions and recordings.
+        # A slow simctl screenshot must not prevent XCTest from measuring the app.
+        record['warmupScreenshot']='FAILED: '+type(error).__name__
+        print('Warmup screenshot unavailable; real UI tests still required.',flush=True)
     try:
         cleanup=subprocess.run(['xcrun','simctl','terminate',identifier,'com.bolubo.native'],check=False,timeout=30)
         record['warmupCleanup']='TERMINATED' if cleanup.returncode==0 else 'XCTEST_WILL_RELAUNCH'
