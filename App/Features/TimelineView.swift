@@ -41,6 +41,46 @@ struct TimelineView: View {
 
     var body: some View {
         NavigationStack(path: $homePath) {
+            lifecycleContent
+        }
+    }
+    private var lifecycleContent: some View {
+        presentedContent.task(id: context) { await prepareTimeline() }
+
+                .onDisappear { pageVisible = false; requestID = UUID(); loading = false; reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
+                .onAppear { pageVisible = true; session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
+                .onReceive(session.timelineNotes) { note in
+                    guard active else { return }
+                    withAnimation(motion && atTop ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.receive(note, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
+                }
+                .onReceive(session.noteEvents) { event in
+                    withAnimation(motion && event.kind == "deleted" ? .timingCurve(0, 0.5, 0.5, 1, duration: 0.2) : nil) { feed.apply(event, accountID: session.user?.id) }
+                }
+                .onChange(of: choices) { _, available in
+                    let lostLocal = preferences.selected == "local" && !available.contains("local")
+                    session.timelinePreferences.normalize(available: available)
+                    if lostLocal { session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
+                }
+                .onChange(of: session.connectionRevision) { _, _ in startReconnect() }
+                .onChange(of: active) { _, value in
+                    if value { startReconnect() }
+                    else { reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
+                }
+                .onChange(of: preferences) { _, _ in session.saveTimelinePreferences() }
+    }
+    private var presentedContent: some View {
+        timelineScroll.puboScreen().toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: HomeDestination.self) { $0.view }
+                .safeAreaInset(edge: .top, spacing: 0) { header }
+                .overlay(alignment: .bottomTrailing) {
+                    Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48).background(PUBOTheme.accent, in: Circle()).shadow(color: .black.opacity(0.12), radius: 4, y: 2) }
+                        .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
+                }
+                .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
+                .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
+
+    }
+    private var timelineScroll: some View {
             ScrollViewReader { reader in
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -58,12 +98,13 @@ struct TimelineView: View {
                         if let error { ErrorBanner(message: error) { Task { await load(older: firstLoadFinished) } }.padding(12) }
                         if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
                         ForEach(Array(feed.notes.enumerated()), id: \.element.id) { index, note in
-                            VStack(spacing: 0) {
-                                if index > 0 && day(note) != day(feed.notes[index - 1]) { Text(day(note)).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10).frame(maxWidth: .infinity) }
-                                NoteCard(note: note, timelineStyle: true, hideSensitive: !preferences.withSensitive)
-                            }.clipShape(UnevenRoundedRectangle(topLeadingRadius: index == 0 ? 12 : 0, bottomLeadingRadius: index == feed.notes.count - 1 ? 12 : 0, bottomTrailingRadius: index == feed.notes.count - 1 ? 12 : 0, topTrailingRadius: index == 0 ? 12 : 0)).padding(.horizontal, 12).id(note.id)
+                            TimelinePostRow(note: note, first: index == 0,
+                                last: index == feed.notes.count - 1,
+                                dateBreak: index > 0 && day(note) != day(feed.notes[index - 1]) ? day(note) : nil,
+                                hideSensitive: !preferences.withSensitive)
+                                .id(note.id)
                                 .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity))
-                                .onAppear { visibleIDs.insert(note.id); captureVisible(); if index >= feed.notes.count - 5 && hasMore && error == nil { Task { await load(older: true) } } }
+                                .onAppear { appeared(note, index: index) }
                                 .onDisappear { visibleIDs.remove(note.id); captureVisible() }
                         }
                         if loading && !feed.notes.isEmpty { ProgressView().padding() }
@@ -92,16 +133,9 @@ struct TimelineView: View {
                         let next = index + (value.translation.width < 0 ? 1 : -1)
                         if choices.indices.contains(next) { selection.wrappedValue = choices[next] }
                     })
-            }.puboScreen().toolbar(.hidden, for: .navigationBar)
-                .navigationDestination(for: HomeDestination.self) { $0.view }
-                .safeAreaInset(edge: .top, spacing: 0) { header }
-                .overlay(alignment: .bottomTrailing) {
-                    Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48).background(PUBOTheme.accent, in: Circle()).shadow(color: .black.opacity(0.12), radius: 4, y: 2) }
-                        .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
-                }
-                .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
-                .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
-                .task(id: context) {
+            }
+    }
+    private func prepareTimeline() async {
                     guard !firstLoadFinished || requestContext != context else { return }
                     reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID()
                     requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; loading = false
@@ -111,27 +145,12 @@ struct TimelineView: View {
                         feed.page(saved.notes, older: false, preferences: preferences, accountID: owner); cached = !saved.notes.isEmpty
                     }
                     await load()
-                }
-                .onDisappear { pageVisible = false; requestID = UUID(); loading = false; reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
-                .onAppear { pageVisible = true; session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
-                .onReceive(session.timelineNotes) { note in
-                    guard active else { return }
-                    withAnimation(motion && atTop ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.receive(note, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
-                }
-                .onReceive(session.noteEvents) { event in
-                    withAnimation(motion && event.kind == "deleted" ? .timingCurve(0, 0.5, 0.5, 1, duration: 0.2) : nil) { feed.apply(event, accountID: session.user?.id) }
-                }
-                .onChange(of: choices) { _, available in
-                    let lostLocal = preferences.selected == "local" && !available.contains("local")
-                    session.timelinePreferences.normalize(available: available)
-                    if lostLocal { session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
-                }
-                .onChange(of: session.connectionRevision) { _, _ in startReconnect() }
-                .onChange(of: active) { _, value in
-                    if value { startReconnect() }
-                    else { reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
-                }
-                .onChange(of: preferences) { _, _ in session.saveTimelinePreferences() }
+    }
+    private func appeared(_ note: Record, index: Int) {
+        visibleIDs.insert(note.id)
+        captureVisible()
+        if index >= feed.notes.count - 5 && hasMore && error == nil {
+            Task { await load(older: true) }
         }
     }
     private var header: some View {
@@ -380,24 +399,16 @@ struct NoteCard: View {
         }.font(.system(size: 15))
     }
     private var reactions: some View {
-        Group { if shown["reactionAcceptance"].string != "likeOnly" { FlowReactionLayout {
-            ForEach(Array(shown["reactions"].object.keys.sorted().prefix(16)), id: \.self) { reaction in
-                Button {
-                    let previous = shown["myReaction"].string
-                    if previous != nil { proposedReaction = previous == reaction ? nil : reaction; confirmReaction = true }
-                    else { Task { await react(reaction) } }
-                } label: {
-                    HStack(spacing: 4) {
-                        ReactionImage(reaction: reaction, emojis: shown["reactionEmojis"])
-                        Text("\(shown["reactions"][reaction].int)").font(.system(size: 12, weight: .medium))
-                    }.padding(.horizontal, 7).padding(.vertical, 5)
-                        .background(shown["myReaction"].string == reaction ? PUBOTheme.accent.opacity(0.22) : PUBOTheme.button, in: RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(shown["myReaction"].string == reaction ? PUBOTheme.accent : .clear))
-                        .scaleEffect(reactionPulse && shown["myReaction"].string == reaction ? 1.16 : 1)
-                }.buttonStyle(.plain).disabled(busy || session.user == nil).accessibilityLabel(reaction + " \(shown["reactions"][reaction].int)").accessibilityValue(shown["myReaction"].string == reaction ? "已选择" : "未选择").accessibilityIdentifier("note.reaction." + shown.id + "." + reaction)
-            }
-            if shown["reactions"].object.count > 16 { Button("更多反应") { viewingReactions = true }.font(.caption).frame(minHeight: 32) }
-        } } }
+        NoteReactionStrip(note: shown, disabled: busy || session.user == nil,
+            pulse: reactionPulse, choose: chooseReaction,
+            more: { viewingReactions = true })
+    }
+    private func chooseReaction(_ reaction: String) {
+        let previous = shown["myReaction"].string
+        if previous != nil {
+            proposedReaction = previous == reaction ? nil : reaction
+            confirmReaction = true
+        } else { Task { await react(reaction) } }
     }
     private func favorite(_ wanted: Bool) async {
         guard !busy else { return }; busy = true; defer { busy = false }
