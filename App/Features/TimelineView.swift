@@ -344,7 +344,10 @@ struct NoteCard: View {
                 current = event.applying(to: current ?? note, accountID: session.user?.id)
                 if event.kind == "deleted" { session.deletedNoteIDs.insert(event.id) }
             }
-            .confirmationDialog(proposedReaction == nil ? "取消这个表情反应？" : "更换表情反应？", isPresented: $confirmReaction) { Button(proposedReaction == nil ? "取消反应" : "更换反应") { Task { await react(proposedReaction) } } }
+            .confirmationDialog(proposedReaction == nil ? "取消这个表情反应？" : "更换表情反应？", isPresented: $confirmReaction) {
+                Button(proposedReaction == nil ? "取消反应" : "更换反应") { Task { await react(proposedReaction) } }
+                    .accessibilityIdentifier("note.confirmReaction." + shown.id)
+            }
             .sheet(isPresented: $reactionPicker, onDismiss: { if pendingReactionConfirmation { pendingReactionConfirmation = false; confirmReaction = true } }) { ReactionPicker { reaction in
                 let previous = shown["myReaction"].string
                 proposedReaction = previous == reaction ? nil : reaction
@@ -399,7 +402,7 @@ struct NoteCard: View {
                 }.accessibilityLabel(shown["myReaction"].isNull ? "添加表情反应" : "取消反应")
                 Spacer(minLength: 0)
                 Menu {
-                    Button("收藏帖子") { Task { await favorite(true) } }
+                    Button("收藏帖子") { Task { await favorite(true) } }.accessibilityIdentifier("note.favorite." + shown.id)
                     Button("取消收藏") { Task { await favorite(false) } }
                     Button("加入剪藏") { selectingClip = true }
                     Button("查看反应详情") { viewingReactions = true }
@@ -407,7 +410,7 @@ struct NoteCard: View {
                     if let id = ownDeleteID { Button((session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id) ? "取消置顶帖子" : "置顶到个人主页") { Task { await pin(id) } } }
                     if shown.user.id != session.user?.id { Button("举报帖子") { reporting = true }; Button("屏蔽作者", role: .destructive) { confirmBlock = true } }
                     Link("在网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id))
-                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作")
+                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + shown.id)
             }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.secondary).disabled(busy)
             } else { Text("登录后可回复、转发或添加反应").font(.caption).foregroundStyle(.secondary) }
 

@@ -97,11 +97,12 @@ final class LocalTimelineUITests: XCTestCase {
         XCTAssertTrue(reaction.waitForExistence(timeout: 10)); reaction.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForExistence(timeout: 8)); capture(app,"local-reaction-selected")
         let custom = app.buttons.matching(identifier: "note.reaction.at4tltest0025.:a2o_lite_aijing1:").firstMatch
-        custom.tap(); XCTAssertTrue(app.buttons["更换反应"].waitForExistence(timeout: 5)); app.buttons["更换反应"].tap()
+        custom.tap(); let confirmation = app.buttons["note.confirmReaction.at4tltest0025"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5)); confirmation.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "已选择"), object: custom)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed)
         XCTAssertEqual(reaction.value as? String, "未选择"); capture(app,"local-reaction-replaced")
-        custom.tap(); let cancel = app.buttons.matching(identifier: "取消反应").allElementsBoundByIndex.last!; XCTAssertTrue(cancel.waitForExistence(timeout: 5)); cancel.tap()
+        custom.tap(); XCTAssertTrue(confirmation.waitForExistence(timeout: 5)); confirmation.tap()
         let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "未选择"), object: custom)
         XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 10), .completed)
         capture(app,"local-reaction-cancelled"); app.terminate()

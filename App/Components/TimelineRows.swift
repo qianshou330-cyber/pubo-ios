@@ -1,6 +1,22 @@
 import SwiftUI
 import PUBOCore
 
+struct TimelineMediaBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(PUBOTheme.background))
+            var stripes = Path()
+            for x in stride(from: -size.height, through: size.width, by: 16) {
+                stripes.move(to: CGPoint(x: x, y: size.height))
+                stripes.addLine(to: CGPoint(x: x + size.height, y: 0))
+            }
+            let tint = colorScheme == .dark ? Color.white : Color.black
+            context.stroke(stripes, with: .color(tint.opacity(0.02)), lineWidth: 5.3)
+        }.accessibilityHidden(true).allowsHitTesting(false)
+    }
+}
+
 struct TimelinePendingButton: View {
     let count: Int
     let action: () -> Void

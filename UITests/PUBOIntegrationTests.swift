@@ -10,7 +10,7 @@ import XCTest
         XCTAssertTrue(reaction.isHittable); reaction.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForExistence(timeout: 15))
         let created = try await proof("timelineReacted"); XCTAssertTrue(created); capture(app,"joint-timeline-reacted")
-        reaction.tap(); let confirm = app.buttons.matching(identifier: "取消反应").allElementsBoundByIndex.last!
+        reaction.tap(); let confirm = app.buttons["note.confirmReaction." + data["noteId"]!]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
         XCTAssertTrue(app.buttons["取消反应"].waitForNonExistence(timeout: 15))
         let removed = try await proof("timelineUnreacted"); XCTAssertTrue(removed); app.terminate()
@@ -133,8 +133,11 @@ import XCTest
         let field = app.textFields["search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
         let result = app.descendants(matching: .any).matching(identifier: "note.open." + data["noteId"]!).firstMatch
         guard result.waitForExistence(timeout: 15) else { capture(app,"joint-search-failure"); XCTFail("Search must return the real seeded post ID"); return }
-        XCTAssertEqual(result.label, "PUBO joint proof #PUBO")
-        app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
+        let text = result.descendants(matching: .textView).firstMatch
+        XCTAssertEqual(text.label, "PUBO joint proof #PUBO")
+        app.buttons["note.more." + data["noteId"]!].tap()
+        let save = app.buttons["note.favorite." + data["noteId"]!]
+        XCTAssertTrue(save.waitForExistence(timeout: 5)); XCTAssertTrue(save.isHittable); save.tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 10)); capture(app,"joint-real-search-favorite")
         let saved = try await proof("favorite"); XCTAssertTrue(saved)
     }
