@@ -1,0 +1,42 @@
+name: PUBO build113 auth precision validation
+on:
+  push:
+    branches: ['ci-auth-precision-113']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b373f0e3c8b811ef7930a7808ad2889f8b8507e1
+          fetch-depth: 2
+      - name: Verify unchanged app and compile
+        run: |
+          mkdir -p build
+          git rev-parse HEAD > build/checked-out-source.txt
+          git diff --exit-code fd15401356766f681c04ad694e3aaf3b8b6e2a80 HEAD -- App Sources project.yml Package.swift
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Authentication boundary tests with numeric tolerance
+        env:
+          PUBO_SIM_SIZE: large
+          PUBO_UI_GROUPS: auth-functional
+          PUBO_UI_SCOPE: timeline
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: auth113-precision-validation
+          path: |
+            build/checked-out-source.txt
+            build/auth-functional*.json
+            build/auth-functional.xcresult/
+            build/screenshots/auth-functional/
+            build/timeline*.json
+          retention-days: 14
