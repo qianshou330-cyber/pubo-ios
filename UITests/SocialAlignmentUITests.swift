@@ -39,7 +39,7 @@ final class SocialAlignmentUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["导出文件"].waitForExistence(timeout: 5)); XCTAssertTrue(app.buttons["查看与保存导出文件"].waitForExistence(timeout: 5)); capture(app, "social-export-destination")
         app.navigationBars.buttons.firstMatch.tap()
         app.descendants(matching: .any).matching(identifier: "notifications.filter").firstMatch.tap(); app.buttons["指定可见帖子"].tap()
-        XCTAssertTrue(app.buttons["note.open.socialdirect"].waitForExistence(timeout: 5)); capture(app, "social-specified-notes")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "note.open.socialdirect").firstMatch.waitForExistence(timeout: 5)); capture(app, "social-specified-notes")
     }
     func testRoomBubblesReactionEmojiAndFileMenuInBothThemes() {
         for dark in [false, true] {

@@ -7,7 +7,7 @@ enum PublicImageDecoder {
     private static let registered: Void = { SDImageCodersManager.shared.addCoder(SDImageAWebPCoder.shared) }()
     static func decode(_ data: Data, maxPixel: Int = 720) async throws -> UIImage {
         _ = registered
-        return try await Task.detached(priority: .userInitiated) {
+        let task = Task<UIImage, Error>.detached(priority: .userInitiated) {
             try Task.checkCancellation()
             guard data.count <= 50 * 1024 * 1024, let source = CGImageSourceCreateWithData(data as CFData, nil),
                   CGImageSourceGetCount(source) > 0, CGImageSourceGetCount(source) <= 2_000,
@@ -18,7 +18,8 @@ enum PublicImageDecoder {
                let image = SDAnimatedImage(data: data, scale: 1, options: [.decodeThumbnailPixelSize: NSValue(cgSize: CGSize(width: maxPixel, height: maxPixel)), .decodePreserveAspectRatio: true]) { return image }
             guard let frame = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel] as CFDictionary) else { throw APIError.invalidResponse }
             return UIImage(cgImage: frame)
-        }.value
+        }
+        return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
     }
     static func data(_ url: URL, limit: Int = 50 * 1024 * 1024) async throws -> Data {
         guard safeMediaURL(url.absoluteString) != nil else { throw APIError.invalidResponse }
@@ -41,8 +42,9 @@ struct PublicAnimationSurface: UIViewRepresentable {
     let image: SDAnimatedImage
     let playing: Bool
     var open: (() -> Void)? = nil
+    var identifier = "timeline.animatedImage"
     func makeUIView(context: Context) -> ProtectedGIFImageView { ProtectedGIFImageView(frame: .zero) }
-    func updateUIView(_ view: ProtectedGIFImageView, context: Context) { view.configure(image, playing: playing, identifier: "timeline.animatedImage", open: open); view.isUserInteractionEnabled = open != nil }
+    func updateUIView(_ view: ProtectedGIFImageView, context: Context) { view.configure(image, playing: playing, identifier: identifier, open: open); view.isUserInteractionEnabled = open != nil }
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: ProtectedGIFImageView, context: Context) -> CGSize? { CGSize(width: proposal.width ?? 24, height: proposal.height ?? 24) }
     static func dismantleUIView(_ view: ProtectedGIFImageView, coordinator: ()) { view.clear() }
 }
@@ -55,6 +57,7 @@ struct PublicAnimatedAsset: View {
     var emoji = false
     var open: (() -> Void)? = nil
     var emojiHeight: CGFloat? = nil
+    var animationIdentifier = "timeline.animatedImage"
     @State private var image: UIImage?
     @State private var error = false
     @State private var visible = false
@@ -62,7 +65,7 @@ struct PublicAnimatedAsset: View {
     var body: some View {
         Group {
             if let animated = image as? SDAnimatedImage, animated.animatedImageFrameCount > 1 {
-                PublicAnimationSurface(image: animated, playing: visible && phase == .active, open: open)
+                PublicAnimationSurface(image: animated, playing: visible && phase == .active, open: open, identifier: animationIdentifier)
             } else if let image { Image(uiImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill) }
             else if error { Button { retry += 1 } label: { Image(systemName: "arrow.clockwise").font(.caption) }.accessibilityLabel("重试图片") }
             else { ProgressView().controlSize(.small) }
@@ -121,7 +124,7 @@ struct TimelineMediaItem: View {
                     VStack(spacing: 6) { Image(systemName: "eye.slash"); Text("敏感媒体").bold(); Text("点击展开").font(.caption) }.frame(maxWidth: .infinity, minHeight: compact ? 120 : 150).background(PUBOTheme.button)
                 }.buttonStyle(.plain).accessibilityIdentifier("media.reveal." + file.id)
             } else if mime.hasPrefix("image/"), let url = mediaURL {
-                PublicAnimatedAsset(url: url, open: { preview = true }).aspectRatio(ratio, contentMode: .fit).frame(maxHeight: 420).clipped()
+                PublicAnimatedAsset(url: url, open: { preview = true }, animationIdentifier: "media.animation." + file.id).aspectRatio(ratio, contentMode: .fit).frame(maxHeight: 420).clipped()
                     .overlay(alignment: .bottomLeading) { if mime == "image/gif" { Text("GIF").font(.system(size: 10)).foregroundStyle(.white).padding(4).background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 3)).padding(5) } }
                     .contentShape(Rectangle()).onTapGesture { preview = true }.accessibilityLabel(file["comment"].string ?? "查看图片").accessibilityAddTraits(.isButton).accessibilityIdentifier("media.open." + file.id)
             } else if mime.hasPrefix("video/") || mime.hasPrefix("audio/") {

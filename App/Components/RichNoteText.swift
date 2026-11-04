@@ -14,7 +14,7 @@ struct RichNoteText: UIViewRepresentable {
     var onTap: (() -> Void)?
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> AnimatedTextView {
-        let view = AnimatedTextView(usingTextLayoutManager: false)
+        let view = AnimatedTextView()
         view.isEditable = false; view.isSelectable = true; view.isScrollEnabled = false
         view.backgroundColor = .clear; view.textContainerInset = .zero; view.textContainer.lineFragmentPadding = 0
         view.adjustsFontForContentSizeCategory = true; view.delegate = context.coordinator
@@ -78,6 +78,17 @@ struct RichNoteText: UIViewRepresentable {
     final class AnimatedTextView: UITextView {
         var playing = false
         private var overlays: [(NSRange, ProtectedGIFImageView, SDAnimatedImage)] = []
+        init() {
+            // Use our designated initializer so Swift-owned animation state is initialized.
+            // An explicit TextKit 1 stack also keeps attachment glyph positions consistent.
+            let storage = NSTextStorage()
+            let manager = NSLayoutManager()
+            let container = NSTextContainer(size: CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
+            container.widthTracksTextView = true
+            manager.addTextContainer(container); storage.addLayoutManager(manager)
+            super.init(frame: .zero, textContainer: container)
+        }
+        required init?(coder: NSCoder) { super.init(coder: coder) }
         func clearAnimations() { for (_, view, _) in overlays { view.clear(); view.removeFromSuperview() }; overlays = [] }
         func rebuildAnimations() {
             clearAnimations()

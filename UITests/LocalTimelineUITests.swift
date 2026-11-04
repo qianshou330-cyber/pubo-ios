@@ -34,11 +34,31 @@ final class LocalTimelineUITests: XCTestCase {
     }
     func testPublicGIFAutomaticallyMovesWithoutControls() {
         let app = launch(); let image = reveal(app,"media.open.timelinegif"); XCTAssertTrue(image.exists)
-        let player = find(app,"timeline.animatedImage"); XCTAssertTrue(player.waitForExistence(timeout: 12))
+        let player = find(app,"media.animation.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
         var frames = Set<String>(); let deadline = Date().addingTimeInterval(3)
         while Date() < deadline { frames.insert(player.value as? String ?? ""); Thread.sleep(forTimeInterval: 0.11) }
         XCTAssertGreaterThan(frames.count,1); XCTAssertFalse(app.buttons["暂停"].exists); capture(app,"local-gif-autoplay")
         app.terminate()
+    }
+    func testPublicAPNGAndWebPAnimateAndFiniteGIFKeepsLoopCount() {
+        for format in ["apng", "webp", "finite"] {
+            let app = launch(["--timeline-format=" + format])
+            _ = reveal(app,"media.open.timelinegif")
+            let player = find(app,"media.animation.timelinegif"); XCTAssertTrue(player.waitForExistence(timeout: 12))
+            let deadline = Date().addingTimeInterval(format == "finite" ? 12 : 3)
+            var frames = Set<String>(); var completed = false
+            while Date() < deadline {
+                let value = player.value as? String ?? ""
+                frames.insert(value)
+                if format == "finite" && value.contains("loops=2;") && value.contains("playing=false") { completed = true; break }
+                Thread.sleep(forTimeInterval: 0.11)
+            }
+            if format == "finite" {
+                XCTAssertTrue(completed); let stopped = player.value as? String
+                Thread.sleep(forTimeInterval: 1.2); XCTAssertEqual(player.value as? String, stopped)
+            } else { XCTAssertGreaterThan(frames.count,1) }
+            capture(app,"local-animation-" + format); app.terminate()
+        }
     }
     func testReactionToggleAndReadback() {
         let app = launch(); let reaction = app.buttons["note.reaction.at4tltest0025.❤️"]
@@ -61,10 +81,22 @@ final class LocalTimelineUITests: XCTestCase {
         app.buttons["home.more"].tap(); app.buttons["测试删除原帖"].tap()
         XCTAssertTrue(find(app,"note.context.unavailable").waitForExistence(timeout: 8)); capture(app,"local-deleted-reference"); app.terminate()
     }
-    func testOlderPagesAndLinkClickTargets() {
+    func testOlderPagesRemainReachable() {
         let app = launch()
         let oldest = reveal(app,"note.open.at4tltest0001"); XCTAssertTrue(oldest.exists)
         capture(app,"local-history-pagination"); app.terminate()
+    }
+    func testBodyAuthorAndMediaOpenOnlyTheirOwnDestinations() {
+        let app = launch()
+        let body = find(app,"note.open.at4tltest0025"); XCTAssertTrue(body.waitForExistence(timeout: 10)); body.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.1)).tap()
+        XCTAssertTrue(app.navigationBars["帖子"].waitForExistence(timeout: 8)); capture(app,"local-body-destination")
+        app.navigationBars.buttons.firstMatch.tap()
+        let author = app.buttons["note.author.at4tltest0025"]; XCTAssertTrue(author.waitForExistence(timeout: 8)); author.tap()
+        XCTAssertTrue(app.navigationBars["个人主页"].waitForExistence(timeout: 8)); capture(app,"local-author-destination")
+        app.navigationBars.buttons.firstMatch.tap()
+        let media = reveal(app,"media.open.timelinegif"); XCTAssertTrue(media.isHittable); media.tap()
+        XCTAssertTrue(app.buttons["attachment.saveFile"].waitForExistence(timeout: 10)); capture(app,"local-media-destination")
+        app.buttons["关闭"].tap(); XCTAssertTrue(app.buttons["timeline.local"].exists); app.terminate()
     }
     func testReducedMotionAndLargeTextKeepFiltersReachable() {
         let app = launch(["--reduce-motion", "--large-text"])

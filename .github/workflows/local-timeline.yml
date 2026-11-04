@@ -19,10 +19,10 @@ jobs:
           swift scripts/brand-assets.swift
           xcodegen generate
       - name: Build Release simulator
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
       - name: Build Release device
         run: |
-          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
           python3 scripts/verify-image-dependency.py
           python3 scripts/package-device.py
       - uses: actions/upload-artifact@v4
@@ -51,8 +51,25 @@ jobs:
           brew install xcodegen
           swift scripts/brand-assets.swift
           xcodegen generate
-          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Timeline appearance in both themes
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: timeline-preview
+          PUBO_UI_SCOPE: preview
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-layout-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/timeline-preview*.json
+            build/timeline-environment-preview.json
+            build/timeline-preview.xcresult/
+            build/screenshots/timeline-preview/
+          retention-days: 14
       - name: Timeline interactions
+        if: always() && steps.compile.outcome == 'success'
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_UI_GROUPS: timeline

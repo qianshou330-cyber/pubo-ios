@@ -143,7 +143,7 @@ struct PollView: View {
             if let date = poll["expiresAt"].string.flatMap(SocialContent.date) { Text("结束时间：\(date.formatted(date: .abbreviated, time: .shortened))").font(.caption) }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
             Button(uncertain ? "核对投票结果" : "更新票数") { Task { await refresh() } }.font(.caption).disabled(busy)
-        }
+        }.onChange(of: initial) { _, _ in current = nil }
     }
     private func refresh() async {
         guard !busy else { return }; busy = true; defer { busy = false }

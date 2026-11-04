@@ -28,10 +28,13 @@ struct TimelineView: View {
     @State private var anchor: String?
     @State private var visibleIDs = Set<String>()
     @State private var reconnectingContext: String?
+    @State private var reconnectAttempt = UUID()
+    @State private var reconnectTask: Task<Void, Never>?
+    @State private var pageVisible = false
     @State private var detailCollection: CollectionKind?
     private var preferences: TimelinePreferences { session.timelinePreferences }
     private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
-    private var active: Bool { session.selectedTab == 0 && scenePhase == .active }
+    private var active: Bool { pageVisible && session.selectedTab == 0 && scenePhase == .active }
     private var context: String { session.generation.uuidString + preferences.requestKey }
     private var motion: Bool { !reduceMotion && !ProcessInfo.processInfo.arguments.contains("--reduce-motion") }
     private var selection: Binding<String> { Binding(get: { preferences.selected }, set: { session.timelinePreferences.selected = $0; session.saveTimelinePreferences() }) }
@@ -58,8 +61,8 @@ struct TimelineView: View {
                             VStack(spacing: 0) {
                                 if index > 0 && day(note) != day(feed.notes[index - 1]) { Text(day(note)).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10).frame(maxWidth: .infinity) }
                                 NoteCard(note: note, timelineStyle: true, hideSensitive: !preferences.withSensitive)
-                            }.id(note.id)
-                                .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity.combined(with: .scale(scale: 0.01, anchor: .top))))
+                            }.clipShape(UnevenRoundedRectangle(topLeadingRadius: index == 0 ? 12 : 0, bottomLeadingRadius: index == feed.notes.count - 1 ? 12 : 0, bottomTrailingRadius: index == feed.notes.count - 1 ? 12 : 0, topTrailingRadius: index == 0 ? 12 : 0)).padding(.horizontal, 12).id(note.id)
+                                .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity))
                                 .onAppear { visibleIDs.insert(note.id); captureVisible(); if index >= feed.notes.count - 5 && hasMore && error == nil { Task { await load(older: true) } } }
                                 .onDisappear { visibleIDs.remove(note.id); captureVisible() }
                         }
@@ -70,7 +73,7 @@ struct TimelineView: View {
                     }.scrollTargetLayout().background(GeometryReader { g in
                         Color.clear.preference(key: TimelineOffset.self, value: g.frame(in: .named("timeline")).minY)
                     })
-                }.coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
+                }.accessibilityIdentifier("timeline.scroll").coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
                     .onPreferenceChange(TimelineOffset.self) { atTop = $0 > -80 }
                     .overlay(alignment: .top) {
                         if !feed.pending.isEmpty {
@@ -96,6 +99,7 @@ struct TimelineView: View {
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
                 .task(id: context) {
+                    reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID()
                     requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; loading = false
                     session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + preferences.requestKey), Date().timeIntervalSince(saved.savedAt) < 86_400 {
@@ -103,8 +107,8 @@ struct TimelineView: View {
                     }
                     await load()
                 }
-                .onDisappear { requestID = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
-                .onAppear { session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
+                .onDisappear { pageVisible = false; requestID = UUID(); loading = false; reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
+                .onAppear { pageVisible = true; session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
                 .onChange(of: session.newestTimelineNote) { _, note in
                     guard active, let note else { return }
                     withAnimation(motion && atTop ? .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) : nil) { feed.receive(note, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
@@ -114,8 +118,11 @@ struct TimelineView: View {
                     withAnimation(motion && event.kind == "deleted" ? .timingCurve(0, 0.5, 0.5, 1, duration: 0.2) : nil) { feed.apply(event, accountID: session.user?.id) }
                 }
                 .onChange(of: choices) { _, available in session.timelinePreferences.normalize(available: available) }
-                .onChange(of: session.connectionRevision) { _, _ in if active { Task { await reconnect() } } }
-                .onChange(of: active) { _, value in if value { Task { await reconnect() } } else { session.stream.captureNotes([]) } }
+                .onChange(of: session.connectionRevision) { _, _ in startReconnect() }
+                .onChange(of: active) { _, value in
+                    if value { startReconnect() }
+                    else { reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
+                }
                 .onChange(of: preferences) { _, _ in session.saveTimelinePreferences() }
         }
     }
@@ -151,11 +158,17 @@ struct TimelineView: View {
     }
     private func day(_ note: Record) -> String { guard let date = puboDate(note["createdAt"].string) else { return "" }; return date.formatted(.dateTime.month().day()) }
     private func captureVisible() { session.stream.captureNotes(active ? TimelinePresentation.capturedIDs(feed.notes.filter { visibleIDs.contains($0.id) }) : []) }
+    private func startReconnect() {
+        guard active, firstLoadFinished, reconnectingContext != context else { return }
+        reconnectTask?.cancel()
+        reconnectTask = Task { await reconnect() }
+    }
     private func reconnect() async {
         let reconnectContext = context
-        guard reconnectingContext != reconnectContext else { return }
+        guard active, !Task.isCancelled, reconnectingContext != reconnectContext else { return }
+        let attempt = UUID(); reconnectAttempt = attempt
         reconnectingContext = reconnectContext
-        defer { if reconnectingContext == reconnectContext { reconnectingContext = nil } }
+        defer { if reconnectAttempt == attempt { reconnectingContext = nil } }
         session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
         captureVisible()
         let epoch = session.generation, request = context, priorNewest = feed.notes.first?.id
@@ -166,11 +179,11 @@ struct TimelineView: View {
                 if let cursor { fields["untilId"] = .string(cursor) }
                 do {
                     let rows = Record.list(try await session.call("notes/\(preferences.selected)-timeline", fields))
-                    guard epoch == session.generation, context == request, !Task.isCancelled else { return }
+                    guard active, epoch == session.generation, context == request, !Task.isCancelled else { return }
                     for row in rows where row.id > priorNewest { feed.receive(row, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
                     finished = rows.count < 100 || (rows.last?.id ?? "") <= priorNewest
                     cursor = rows.last?.id; pages += 1
-                } catch { self.error = "重连后补取失败，已保留现有帖子。"; return }
+                } catch { if active && !Task.isCancelled && epoch == session.generation && context == request { self.error = "重连后补取失败，已保留现有帖子。" }; return }
             } while !finished && pages < 20
             if !finished { session.timelineNotice = "离线期间帖子较多，已获取最近内容；可向下继续加载历史。" }
         } else { await load() }
@@ -212,6 +225,9 @@ struct NoteCard: View {
     @Environment(\.openNoteCard) private var navigate
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .subheadline) private var nameSize = 14.0
+    @ScaledMetric(relativeTo: .caption) private var accountSize = 12.0
+    @ScaledMetric(relativeTo: .caption2) private var timeSize = 10.0
     let note: Record
     var detail = false
     var timelineStyle = false
@@ -220,6 +236,7 @@ struct NoteCard: View {
     @State private var revealSensitivePost = false
     @State private var confirmReaction = false
     @State private var proposedReaction: String?
+    @State private var pendingReactionConfirmation = false
     @State private var reactionPulse = false
     @State private var captureOwner = UUID().uuidString
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -246,7 +263,7 @@ struct NoteCard: View {
                 NoteContextCard(value: shown["reply"], targetID: shown["replyId"].string, label: "回复")
             }
             HStack(alignment: .top, spacing: 10) {
-                Button { navigate(.author(shown.user.id)) } label: { Avatar(user: shown.user, size: 44) }.buttonStyle(.plain).accessibilityLabel(shown.user.displayName + "的头像")
+                Button { navigate(.author(shown.user.id)) } label: { Avatar(user: shown.user, size: 46) }.buttonStyle(.plain).accessibilityLabel(shown.user.displayName + "的头像")
                 VStack(alignment: .leading, spacing: 4) {
                     authorHeader
                     if hideSensitive && TimelinePresentation.sensitive(shown) && !revealSensitivePost {
@@ -269,7 +286,7 @@ struct NoteCard: View {
                     if let error { Text(error).font(.caption).foregroundStyle(.red) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-        }.font(.system(size: 14)).padding(.horizontal, 16).padding(.vertical, 12)
+        }.font(.system(size: 14)).padding(.horizontal, 16).padding(.vertical, 14)
             .background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
             .listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(Color.clear)
             .contextMenu { Link("在本站网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) }
@@ -283,9 +300,10 @@ struct NoteCard: View {
                 if event.kind == "deleted" { session.deletedNoteIDs.insert(event.id) }
             }
             .confirmationDialog(proposedReaction == nil ? "取消这个表情反应？" : "更换表情反应？", isPresented: $confirmReaction) { Button(proposedReaction == nil ? "取消反应" : "更换反应") { Task { await react(proposedReaction) } } }
-            .sheet(isPresented: $reactionPicker) { ReactionPicker { reaction in
-                proposedReaction = reaction
-                if shown["myReaction"].string != nil { confirmReaction = true } else { Task { await react(reaction) } }
+            .sheet(isPresented: $reactionPicker, onDismiss: { if pendingReactionConfirmation { pendingReactionConfirmation = false; confirmReaction = true } }) { ReactionPicker { reaction in
+                let previous = shown["myReaction"].string
+                proposedReaction = previous == reaction ? nil : reaction
+                if previous != nil { pendingReactionConfirmation = true } else { Task { await react(reaction) } }
             } }
             .sheet(isPresented: $replying) { ComposeView(replyTo: shown) { }.environment(\.dynamicTypeSize, typeSize) }
             .sheet(isPresented: $quoting) { ComposeView(renote: shown) { }.environment(\.dynamicTypeSize, typeSize) }
@@ -300,9 +318,9 @@ struct NoteCard: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Button { navigate(.author(shown.user.id)) } label: {
                 HStack(spacing: 3) {
-                    Text(shown.user.displayName).font(.system(size: 14, weight: .bold)).lineLimit(1)
+                    Text(shown.user.displayName).font(.system(size: nameSize, weight: .bold)).lineLimit(1)
                     if shown.user["isBot"].bool { Text("bot").font(.system(size: 9)).padding(.horizontal, 2).overlay(RoundedRectangle(cornerRadius: 2).stroke(PUBOTheme.divider)) }
-                    Text("@" + (shown.user["username"].string ?? "")).font(.system(size: 12)).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
+                    Text("@" + (shown.user["username"].string ?? "")).font(.system(size: accountSize)).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
                     UserInlineBadges(user: shown.user)
                 }
             }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
@@ -312,9 +330,9 @@ struct NoteCard: View {
                     if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).lineLimit(1) }
                     if shown["visibility"].string != "public" { Image(systemName: TimelinePresentation.visibilityIcon(shown["visibility"].string)) }
                     if shown["localOnly"].bool { Image(systemName: "network.slash").accessibilityLabel("仅本站") }
-                }.font(.system(size: 10)).foregroundStyle(PUBOTheme.secondary)
+                }.font(.system(size: timeSize)).foregroundStyle(PUBOTheme.secondary)
             }.buttonStyle(.plain).accessibilityLabel("查看帖子时间和详情，" + TimelinePresentation.visibilityLabel(shown["visibility"].string)).accessibilityIdentifier("note.timestamp." + shown.id)
-        }.frame(minHeight: 22)
+        }.frame(minHeight: 18)
     }
     private var actions: some View {
         Group {
@@ -324,8 +342,16 @@ struct NoteCard: View {
                     Button("转发") { Task { await renote() } }
                     Button("引用转发") { quoting = true }
                 } label: { HStack(spacing: 3) { Image(systemName: "arrow.2.squarepath"); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(.caption2) } }.frame(minWidth: 44, minHeight: 44) }
-                Button { reactionPicker = true } label: { Image(systemName: "plus").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("添加表情反应")
-                if !shown["myReaction"].isNull { Button("取消反应") { proposedReaction = nil; confirmReaction = true }.font(.caption) }
+                Button {
+                    if !shown["myReaction"].isNull { proposedReaction = nil; confirmReaction = true }
+                    else if shown["reactionAcceptance"].string == "likeOnly" { Task { await react("❤️") } }
+                    else { reactionPicker = true }
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: shown["reactionAcceptance"].string == "likeOnly" ? (shown["myReaction"].isNull ? "heart" : "heart.fill") : (shown["myReaction"].isNull ? "plus" : "minus"))
+                        if shown["reactionAcceptance"].string == "likeOnly", shown["reactionCount"].int > 0 { Text("\(shown["reactionCount"].int)").font(.caption2) }
+                    }.frame(minWidth: 44, minHeight: 44).foregroundStyle(shown["myReaction"].isNull ? PUBOTheme.secondary : PUBOTheme.accent)
+                }.accessibilityLabel(shown["myReaction"].isNull ? "添加表情反应" : "取消反应")
                 Spacer(minLength: 0)
                 Menu {
                     Button("收藏帖子") { Task { await favorite(true) } }
@@ -343,8 +369,8 @@ struct NoteCard: View {
         }.font(.system(size: 15))
     }
     private var reactions: some View {
-        FlowReactionLayout {
-            ForEach(shown["reactions"].object.keys.sorted(), id: \.self) { reaction in
+        Group { if shown["reactionAcceptance"].string != "likeOnly" { FlowReactionLayout {
+            ForEach(Array(shown["reactions"].object.keys.sorted().prefix(16)), id: \.self) { reaction in
                 Button {
                     let previous = shown["myReaction"].string
                     if previous != nil { proposedReaction = previous == reaction ? nil : reaction; confirmReaction = true }
@@ -359,7 +385,8 @@ struct NoteCard: View {
                         .scaleEffect(reactionPulse && shown["myReaction"].string == reaction ? 1.16 : 1)
                 }.buttonStyle(.plain).disabled(busy || session.user == nil).accessibilityLabel(reaction + " \(shown["reactions"][reaction].int)").accessibilityIdentifier("note.reaction." + shown.id + "." + reaction)
             }
-        }
+            if shown["reactions"].object.count > 16 { Button("更多反应") { viewingReactions = true }.font(.caption).frame(minHeight: 32) }
+        } } }
     }
     private func favorite(_ wanted: Bool) async {
         guard !busy else { return }; busy = true; defer { busy = false }

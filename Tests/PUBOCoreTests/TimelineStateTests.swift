@@ -49,6 +49,15 @@ final class TimelineStateTests: XCTestCase {
         let result = update.applying(to: quote, accountID: "me")
         XCTAssertEqual(result["renote"]["reactions"]["❤️"].int, 2)
         XCTAssertEqual(result["renote"]["myReaction"].string, "❤️")
+        let duplicate = update.applying(to: result, accountID: "me")
+        XCTAssertEqual(duplicate["renote"]["reactions"]["❤️"].int, 2, "An event after the user's API readback must not increment twice")
         XCTAssertEqual(TimelinePresentation.capturedIDs([quote]), ["001", "002"])
+    }
+    func testOlderPageIsNotDroppedAtFormerMemoryWindowBoundary() {
+        var state = TimelineState(); let p = TimelinePreferences()
+        let rows = (1...2000).reversed().map { note(String(format: "%06d", $0)) }
+        state.page(rows, older: false, preferences: p, accountID: "me")
+        state.page([note("000000")], older: true, preferences: p, accountID: "me")
+        XCTAssertEqual(state.notes.last?.id, "000000"); XCTAssertEqual(state.notes.first?.id, "002000")
     }
 }

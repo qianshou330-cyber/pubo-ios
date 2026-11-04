@@ -39,7 +39,7 @@ jobs:
         run: |
           swift scripts/brand-assets.swift
           xcodegen generate
-          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/integration-derived CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/integration-derived CODE_SIGNING_ALLOWED=NO build
       - name: Build exact isolated backend
         run: python3 scripts/isolated/prepare-backend.py
       - name: Start loopback-only backend and synthetic accounts

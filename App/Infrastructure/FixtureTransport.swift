@@ -79,7 +79,7 @@ actor FixtureTransport: HTTPTransport {
             var policy = profile["policies"].object; policy["chatAvailability"] = .string("available"); var updated = profile.object; updated["policies"] = .object(policy); profile = .object(updated)
         }
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--timeline-align") { posts = TimelineTestFixtures.snapshot["posts"].array; announcements = TimelineTestFixtures.snapshot["announcements"].array }
+        if ProcessInfo.processInfo.arguments.contains("--timeline-align") { posts = TimelineTestFixtures.posts; announcements = TimelineTestFixtures.snapshot["announcements"].array }
         #endif
     }
     private var posts: [JSONValue] = [

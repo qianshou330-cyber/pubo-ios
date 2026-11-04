@@ -45,10 +45,12 @@ public struct NoteStreamEvent: Equatable, Sendable {
             if kind == "deleted" { return .object(["id": .string(id), "isHidden": .bool(true), "deleted": .bool(true)]) }
             if kind == "reacted" || kind == "unreacted", let reaction = body["reaction"].string {
                 var reactions = value["reactions"].object
-                let count = max(0, (reactions[reaction]?.int ?? 0) + (kind == "reacted" ? 1 : -1))
+                let ownEvent = body["userId"].string == accountID && accountID != nil
+                let alreadyApplied = ownEvent && (kind == "reacted" ? value["myReaction"].string == reaction : value["myReaction"].isNull)
+                let count = max(0, (reactions[reaction]?.int ?? 0) + (alreadyApplied ? 0 : kind == "reacted" ? 1 : -1))
                 if count == 0 { reactions.removeValue(forKey: reaction) } else { reactions[reaction] = .number(Double(count)) }
                 map["reactions"] = .object(reactions)
-                if body["userId"].string == accountID { map["myReaction"] = kind == "reacted" ? .string(reaction) : .null }
+                if ownEvent { map["myReaction"] = kind == "reacted" ? .string(reaction) : .null }
                 if let name = body["emoji"]["name"].string, let url = body["emoji"]["url"].string {
                     var emojis = value["reactionEmojis"].object; emojis[name] = .string(url); map["reactionEmojis"] = .object(emojis)
                 }
@@ -56,8 +58,10 @@ public struct NoteStreamEvent: Equatable, Sendable {
                 var poll = value["poll"].object; var choices = value["poll"]["choices"].array
                 let choice = body["choice"].int
                 if choices.indices.contains(choice) {
-                    var item = choices[choice].object; item["votes"] = .number(Double(choices[choice]["votes"].int + 1))
-                    if body["userId"].string == accountID { item["isVoted"] = .bool(true) }
+                    var item = choices[choice].object
+                    let alreadyApplied = accountID != nil && body["userId"].string == accountID && choices[choice]["isVoted"].bool
+                    item["votes"] = .number(Double(choices[choice]["votes"].int + (alreadyApplied ? 0 : 1)))
+                    if accountID != nil && body["userId"].string == accountID { item["isVoted"] = .bool(true) }
                     choices[choice] = .object(item); poll["choices"] = .array(choices); map["poll"] = .object(poll)
                 }
             }
@@ -81,17 +85,17 @@ public struct TimelineState: Sendable {
     }
     public mutating func page(_ items: [Record], older: Bool, preferences: TimelinePreferences, accountID: String?) {
         let values = cleaned(items, accountID: accountID).filter { preferences.accepts($0, accountID: accountID) }
-        notes = Records.merge(notes, values, limit: 2_000)
+        notes = Records.merge(notes, values, limit: max(2_000, notes.count + values.count))
         if older || olderCursor == nil { olderCursor = items.last?.id ?? olderCursor }
         let visibleIDs = Set(notes.map(\.id)); pending.removeAll { visibleIDs.contains($0.id) }
     }
     public mutating func receive(_ note: Record, atTop: Bool, preferences: TimelinePreferences, accountID: String?) {
         guard let note = cleaned([note], accountID: accountID).first else { return }
         guard !note.id.isEmpty, !deleted.contains(note.id), preferences.accepts(note, accountID: accountID) else { return }
-        if notes.contains(where: { $0.id == note.id }) || atTop { notes = Records.merge(notes, [note], limit: 2_000) }
+        if notes.contains(where: { $0.id == note.id }) || atTop { notes = Records.merge(notes, [note], limit: max(2_000, notes.count + 1)) }
         else { pending = Records.merge(pending, [note], limit: 2_000) }
     }
-    public mutating func revealPending() { notes = Records.merge(notes, pending, limit: 2_000); pending = [] }
+    public mutating func revealPending() { notes = Records.merge(notes, pending, limit: max(2_000, notes.count + pending.count)); pending = [] }
     public mutating func apply(_ event: NoteStreamEvent, accountID: String?) {
         if event.kind == "deleted" { deleted.insert(event.id) }
         notes = cleaned(notes.map { event.applying(to: $0, accountID: accountID) }, accountID: accountID)

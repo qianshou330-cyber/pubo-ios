@@ -169,7 +169,7 @@ final class AppSession {
         generation = UUID(); stream.stop(); admin.clear(); security.clear()
         await api.cancelAll()
         nativePush.logout()
-        clearAccountMemory(); savedAccounts.removeAll { $0.userID == owner }; reloadAccounts(); restoreChartPreferences()
+        clearAccountMemory(); savedAccounts.removeAll { $0.userID == owner }; reloadAccounts(); restoreChartPreferences(); restoreTimelinePreferences()
         do { try clearLocalAccountData(owner) } catch { self.error = "账号已退出，但该账号本机数据清理失败，请重新打开 App 后检查。"; throw error }
     }
     private func clearAccountMemory() {
@@ -193,6 +193,7 @@ final class AppSession {
     private func clearLocalAccountData(_ id: String) throws {
         var failure: Error?
         if !testMode { do { try store?.clear(account: id) } catch { failure = error } }
+        if !testMode { do { try store?.clear(account: "public-" + id) } catch { if failure == nil { failure = error } } }
         do { try gifStickers?.clear(account: id) } catch { if failure == nil { failure = error } }
         if let failure { throw failure }
     }

@@ -16,7 +16,8 @@ final class HomeMotionUITests: XCTestCase {
             XCTAssertFalse(app.buttons["修改公告"].exists); XCTAssertFalse(app.buttons["暂停"].exists)
             capture(app, dark ? "motion-home-dark" : "motion-home-light"); pause(4)
             // Pulling the real list refreshes isolated API data and moves stable song rows.
-            let list = app.collectionViews.firstMatch
+            let list = app.scrollViews["timeline.scroll"]
+            XCTAssertTrue(list.exists)
             let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
             start.press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
             pause(3); XCTAssertTrue(song.label.contains("排名 4")); capture(app, dark ? "motion-home-refreshed-dark" : "motion-home-refreshed-light")

@@ -131,7 +131,7 @@ import XCTest
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
         app.buttons["搜索"].tap()
         let field = app.textFields["search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
-        let result = app.buttons["note.open." + data["noteId"]!]
+        let result = app.descendants(matching: .any).matching(identifier: "note.open." + data["noteId"]!).firstMatch
         guard result.waitForExistence(timeout: 15) else { capture(app,"joint-search-failure"); XCTFail("Search must return the real seeded post ID"); return }
         XCTAssertEqual(result.label, "PUBO joint proof #PUBO")
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()

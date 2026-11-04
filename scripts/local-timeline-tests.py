@@ -1,6 +1,7 @@
 """Task-owned simulators; synthetic protected GIF responses, never production writes."""
 import json,os,pathlib,signal,subprocess
 from simulator_boot import boot
+from simulator_resources import SimulatorResources
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
 inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
 phones=[dict(d,runtime=r) for r,values in inventory.items() if '.iOS-26-' in r for d in values if d['name'].startswith('iPhone')]
@@ -9,7 +10,7 @@ device=next(d for d in phones if ('SE' in d['name'] if small else d['name']=='iP
 identifier=subprocess.check_output(['xcrun','simctl','create','PUBO Local '+device['name'],device['deviceTypeIdentifier'],device['runtime']],text=True,timeout=60).strip()
 record={'device':device['name'],'udid':identifier,'tests':'PENDING','productionRequests':0};(root/'timeline-environment.json').write_text(json.dumps(record))
 regressions=['testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testMultipleAccountsSwitchAndPreserveOtherAccount','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNativeLoginAndFourTabs']
-groups=[('timeline',['-only-testing:PUBOUITests/LocalTimelineUITests']),('home',['-only-testing:PUBOUITests/HomeMotionUITests']),('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
+groups=[('timeline-preview',['-only-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('timeline',['-only-testing:PUBOUITests/LocalTimelineUITests','-skip-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('home',['-only-testing:PUBOUITests/HomeMotionUITests']),('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
@@ -19,7 +20,8 @@ try:
         bundle=root/(name+'.xcresult')
         video=subprocess.Popen(['xcrun','simctl','io',identifier,'recordVideo','--codec=h264',str(shots/'interactions.mp4')])
         try:
-            result=subprocess.run(['xcodebuild','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1100)
+            with SimulatorResources(root/(name+'-resources.json')):
+                result=subprocess.run(['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1100)
         finally:
             video.send_signal(signal.SIGINT)
             try:video.wait(timeout=30)

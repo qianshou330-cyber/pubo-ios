@@ -35,7 +35,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
         let id = timelineChannelID
         Task {
             try? await send(.object(["type": .string("disconnect"), "body": .object(["id": .string(old)])]), socket: socket)
-            if let name, peerID == nil, roomID == nil {
+            if let name, id == timelineChannelID, self.socket === socket, peerID == nil, roomID == nil {
                 try? await send(.object(["type": .string("connect"), "body": .object(["channel": .string(name + "Timeline"), "id": .string(id), "params": .object(parameters)])]), socket: socket)
             }
         }
@@ -97,6 +97,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                     self.onConnect?(); self.notify()
                     while !Task.isCancelled {
                         let message = try await socket.receive()
+                        guard !Task.isCancelled, self.socket === socket else { return }
                         let data: Data
                         switch message { case .data(let value): data = value; case .string(let value): data = Data(value.utf8); @unknown default: continue }
                         guard let packet = try? JSONDecoder().decode(JSONValue.self, from: data) else { continue }

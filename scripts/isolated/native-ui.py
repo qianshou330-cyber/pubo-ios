@@ -9,7 +9,7 @@ device=subprocess.check_output(['xcrun','simctl','create','PUBO real backend',te
 result={'status':'RUNNING','device':template['name'],'runtime':template['runtime'],'productionAPIRequests':0,'transport':'loopback-only real backend'}
 try:
  boot(device,root/'integration-boot.json')
- command=['xcodebuild','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination','platform=iOS Simulator,id='+device,'-derivedDataPath','build/integration-derived','-resultBundlePath','build/integration-ui.xcresult','-parallel-testing-enabled','NO','-only-testing:PUBOUITests/PUBOIntegrationTests','CODE_SIGNING_ALLOWED=NO','test']
+ command=['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination','platform=iOS Simulator,id='+device,'-derivedDataPath','build/integration-derived','-resultBundlePath','build/integration-ui.xcresult','-parallel-testing-enabled','NO','-only-testing:PUBOUITests/PUBOIntegrationTests','CODE_SIGNING_ALLOWED=NO','test']
  subprocess.run(command,check=True,timeout=1200,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1'})
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
