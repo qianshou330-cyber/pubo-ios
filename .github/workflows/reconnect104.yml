@@ -1,0 +1,109 @@
+name: Verify build104 foreground reconnection
+on:
+  push:
+    branches: ['ci-reconnect104-20261104']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  joint:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      NODE_ENV: test
+      MK_NO_DAEMONS: '1'
+      PUBO_KPOP_CHARTS_ENABLED: 'false'
+      PUBO_MUSIC_CHARTS_ENABLED: 'false'
+      PUBO_SNAKE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d0068018211cd1ba5ac8d6a9b5bccff2d03093e7
+      - name: Add supplemental test only and verify unchanged application source
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          pathlib.Path('UITests/ReconnectionUITests.swift').write_text("import XCTest\n\n/// Supplemental real-loopback test; all writes are disposable, never production.\n@MainActor final class ReconnectionUITests: XCTestCase {\n    override func setUpWithError() throws { continueAfterFailure = false }\n    func testForegroundReconnectRecoversMissedNoteAndDeletion() async throws {\n        func request(_ path: String, method: String = \"GET\") async throws -> Data {\n            var request = URLRequest(url: URL(string: \"http://127.0.0.1:61913/\" + path)!)\n            request.httpMethod = method; request.timeoutInterval = 20\n            let (data, response) = try await URLSession.shared.data(for: request)\n            XCTAssertTrue((200..<300).contains((response as? HTTPURLResponse)?.statusCode ?? 0))\n            return data\n        }\n        _ = try await request(\"prepare-test\", method: \"POST\")\n        let context = try JSONDecoder().decode([String: String].self, from: await request(\"context\"))\n        let app = XCUIApplication(); app.launchArguments = [\"--isolated-backend\"]\n        app.launchEnvironment = [\"PUBO_ISOLATED_TOKEN\": context[\"token\"]!]; app.launch()\n        XCTAssertTrue(app.buttons[\"timeline.local\"].waitForExistence(timeout: 20))\n        XCTAssertTrue(app.buttons[\"poll.choice.0\"].waitForExistence(timeout: 20))\n        XCUIDevice.shared.press(.home)\n        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))\n        let created = try JSONDecoder().decode([String: String].self, from: await request(\"timeline-create\", method: \"POST\"))\n        app.activate()\n        let note = app.descendants(matching: .any).matching(identifier: \"note.open.\" + created[\"id\"]!).firstMatch\n        XCTAssertTrue(note.waitForExistence(timeout: 20))\n        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: \"note.open.\" + created[\"id\"]!).count, 1)\n        let recovered = XCTAttachment(screenshot: app.screenshot()); recovered.name = \"reconnect-missed-note\"; recovered.lifetime = .keepAlways; add(recovered)\n        XCUIDevice.shared.press(.home)\n        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))\n        _ = try await request(\"timeline-delete\", method: \"POST\")\n        app.activate()\n        XCTAssertTrue(note.waitForNonExistence(timeout: 20))\n        XCTAssertTrue(app.buttons[\"poll.choice.0\"].waitForExistence(timeout: 15))\n        let deleted = XCTAttachment(screenshot: app.screenshot()); deleted.name = \"reconnect-missed-deletion\"; deleted.lifetime = .keepAlways; add(deleted)\n        app.terminate()\n    }\n}\n")
+          p=pathlib.Path('scripts/isolated/native-ui.py')
+          p.write_text(p.read_text().replace('-only-testing:PUBOUITests/PUBOIntegrationTests','-only-testing:PUBOUITests/ReconnectionUITests').replace("summary.get('passedTests',0)==16","summary.get('passedTests',0)==1").replace('All sixteen real-backend UI tests','The real-backend reconnection test'))
+          PY
+          git diff --exit-code -- App Sources Package.swift project.yml
+          mkdir -p build
+          git rev-parse HEAD > build/integration-checked-out-source.txt
+          cp UITests/ReconnectionUITests.swift build/ReconnectionUITests.swift
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.4.0
+      - name: Prepare disposable local tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen postgresql@18 redis
+          npm install --global pnpm@11.25.0
+          mkdir -p build "$RUNNER_TEMP/pubo-pg" "$RUNNER_TEMP/pubo-redis"
+          PGBIN="$(brew --prefix postgresql@18)/bin"
+          "$PGBIN/initdb" -D "$RUNNER_TEMP/pubo-pg" --auth=trust --encoding=UTF8
+          "$PGBIN/pg_ctl" -D "$RUNNER_TEMP/pubo-pg" -l "$RUNNER_TEMP/pubo-pg.log" -o '-h 127.0.0.1 -p 54312' -w start
+          "$PGBIN/createdb" -h 127.0.0.1 -p 54312 pubo_native_integration
+          redis-server --bind 127.0.0.1 --port 56312 --save '' --appendonly no --daemonize yes --pidfile "$RUNNER_TEMP/pubo-redis.pid" --logfile "$RUNNER_TEMP/pubo-redis.log" --dir "$RUNNER_TEMP/pubo-redis"
+      - name: Compile native app before backend setup
+        run: |
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/integration-derived CODE_SIGNING_ALLOWED=NO build
+      - name: Build exact isolated backend
+        run: python3 scripts/isolated/prepare-backend.py
+      - name: Start loopback-only backend and synthetic accounts
+        run: |
+          node scripts/isolated/start-backend.mjs > "$RUNNER_TEMP/pubo-native-backend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/pubo-native-backend.pid"
+          python3 - <<'PY'
+          import time, urllib.request
+          for attempt in range(90):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:61913/context', timeout=2) as response:
+                      assert response.status == 200
+                  break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit('Isolated backend did not become ready; no production fallback')
+          PY
+      - name: Native UI against real isolated APIs
+        run: |
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' App/Info.plist
+          /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true' App/Info.plist
+          python3 scripts/isolated/native-ui.py
+      - name: Stop task-owned local services
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os,pathlib,signal
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          for name in ['pubo-native-backend.pid','pubo-redis.pid']:
+              path=root/name
+              if path.exists():
+                  try: os.kill(int(path.read_text()),signal.SIGTERM)
+                  except ProcessLookupError: pass
+          PY
+          PGBIN="$(brew --prefix postgresql@18)"
+          if [ -f "$RUNNER_TEMP/pubo-pg/postmaster.pid" ]; then "$PGBIN/bin/pg_ctl" -D "$RUNNER_TEMP/pubo-pg" -m fast -w stop; fi
+      - name: Collect safe integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-backend-integration-${{ github.sha }}
+          path: |
+            build/integration-*.json
+            build/integration-checked-out-source.txt
+            build/ReconnectionUITests.swift
+            build/integration-ui.xcresult
+            build/integration-screenshots/
+          retention-days: 7
+
