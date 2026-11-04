@@ -1,0 +1,112 @@
+name: Verify build104 small simulator after install timeout
+on:
+  push:
+    branches: ['ci-local104-small-retry-20261104']
+permissions:
+  contents: read
+jobs:
+  appearance:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small]
+    runs-on: macos-15
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d0068018211cd1ba5ac8d6a9b5bccff2d03093e7
+      - name: Verify immutable app source
+        run: |
+          mkdir -p build
+          git rev-parse HEAD > build/checked-out-source.txt
+          test "$(git rev-parse HEAD)" = 'd0068018211cd1ba5ac8d6a9b5bccff2d03093e7'
+      - name: Prepare and compile UI test app
+        id: compile
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Timeline appearance in both themes
+        id: preview
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: timeline-preview
+          PUBO_UI_SCOPE: preview
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-layout-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/warmup-preview.png
+            build/timeline-boot-preview.json
+            build/timeline-preview*.json
+            build/timeline-environment-preview.json
+            build/timeline-preview.xcresult/
+            build/screenshots/timeline-preview/
+          retention-days: 14
+      - name: Timeline interactions
+        if: always() && !cancelled() && steps.compile.outcome == 'success' && steps.preview.outputs.simulator_ready == 'true'
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: timeline
+          PUBO_UI_SCOPE: timeline
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-first-evidence-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/warmup-timeline.png
+            build/timeline*.json
+            build/timeline.xcresult/
+            build/screenshots/timeline/
+          retention-days: 14
+      - name: Existing feature regressions
+        if: always() && !cancelled() && steps.compile.outcome == 'success' && steps.preview.outputs.simulator_ready == 'true'
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: home,gif,favorites,social,regression
+          PUBO_UI_SCOPE: regression
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-summaries-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/checked-out-source.txt
+            build/warmup-regression.png
+            build/*.json
+            build/screenshots/**/manifest.json
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-home-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/home.xcresult/
+            build/screenshots/home/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-media-regression-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/gif.xcresult/
+            build/favorites.xcresult/
+            build/screenshots/gif/
+            build/screenshots/favorites/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timeline-social-regression-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/social.xcresult/
+            build/regression.xcresult/
+            build/screenshots/social/
+            build/screenshots/regression/
+          retention-days: 14
