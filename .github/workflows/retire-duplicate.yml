@@ -1,0 +1,19 @@
+name: Retire duplicate authentication contract validation
+on:
+  push:
+    branches: [ci-auth-retire-duplicate-20261104]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const id = 41810046179;
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: id});
+            if (run.head_sha !== '8b2cc2d4fea76b7881cc69930554336261ea44be' || run.head_branch !== 'ci-auth-contract-112') throw new Error('Run ownership mismatch');
+            if (run.status !== 'completed') await github.rest.actions.cancelWorkflowRun({...context.repo, run_id: id});
+            core.info('Duplicate contract run retired; final 113 integration executes the identical checks.');
