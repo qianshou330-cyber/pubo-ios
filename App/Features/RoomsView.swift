@@ -93,6 +93,7 @@ struct RoomMembersView: View {
     let roomID: String
     var canInvite = false
     var embedded = false
+    var owner: Record? = nil
     @State private var rows: [Record] = []
     @State private var hasMore = false
     @State private var busy = false
@@ -100,7 +101,8 @@ struct RoomMembersView: View {
     @State private var inviting = false
     var body: some View {
         List {
-            ForEach(rows) { row in let user = Record(row["user"]); NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); Text(user.displayName) } } }
+            if let owner, !owner.id.isEmpty { NavigationLink { ProfileView(userID: owner.id) } label: { HStack { Avatar(user: owner); Text(owner.displayName); Text("群主").font(.caption).foregroundStyle(.secondary) } } }
+            ForEach(rows.filter { $0["user"]["id"].string != owner?.id }) { row in let user = Record(row["user"]); NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); Text(user.displayName) } } }
             if hasMore { Button("加载更多成员") { Task { await load(older: true) } }.disabled(busy) }
             if busy { ProgressView() }
             if let error { ErrorBanner(message: error) { Task { await load() } } }

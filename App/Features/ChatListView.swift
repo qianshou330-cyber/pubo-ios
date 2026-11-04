@@ -34,7 +34,7 @@ struct ChatListView: View {
                     guard visible else { return }
                     do { try await Task.sleep(for: .milliseconds(500)); await state.load(session) } catch { }
                 }
-                .onChange(of: session.generation) { _, _ in state.invalidate(); section = "home"; search = false; creating = false }
+                .onChange(of: session.generation) { _, _ in state.clear(); section = "home"; search = false; creating = false }
         }
     }
     private var home: some View {
@@ -51,6 +51,8 @@ struct ChatListView: View {
             Section {
                 if let issue = error ?? state.error { ErrorBanner(message: issue) { Task { await state.load(session) } }.puboListRow() }
                 ForEach(state.rows) { row in
+                    if row.id == state.rows.first?.id && row.pinnedAt != nil { Text("置顶").font(.caption).foregroundStyle(.secondary).puboListRow() }
+                    if row.pinnedAt == nil && state.rows.contains(where: { $0.pinnedAt != nil }) && row.id == state.rows.first(where: { $0.pinnedAt == nil })?.id { Text("最近会话").font(.caption).foregroundStyle(.secondary).puboListRow() }
                     HStack(spacing: 0) {
                         NavigationLink { destination(row) } label: { conversation(row) }.buttonStyle(.plain)
                             .accessibilityIdentifier("conversation." + row.id)
@@ -83,7 +85,7 @@ struct ChatListView: View {
                     if row.pinnedAt != nil { Image(systemName: "pin.fill").font(.caption2) }
                     if row.muted { Image(systemName: "bell.slash").font(.caption2) }
                     Spacer(minLength: 0)
-                    if let date = puboDate(row.message["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                    if let date = puboDate(row.message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                 }
                 HStack {
                     Text((row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw)).font(.subheadline).lineLimit(1).foregroundStyle(.secondary)

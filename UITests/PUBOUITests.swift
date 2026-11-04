@@ -96,7 +96,7 @@ final class PUBOUITests: XCTestCase {
     }
     func testNativeRoomCreateAndSend() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap(); app.buttons["群聊"].tap()
+        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap(); app.buttons["chat.start"].tap()
         app.buttons["创建群聊"].tap(); let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room")
         app.buttons["保存群聊"].tap(); let room = app.staticTexts["Native room"]; XCTAssertTrue(room.waitForExistence(timeout: 5)); room.tap()
         let text = app.textViews["room.input"]; XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap(); text.typeText("Room proof")

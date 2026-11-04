@@ -8,23 +8,25 @@ struct ChatTab: Identifiable {
 }
 
 struct ChatTabs: View {
+    @ScaledMetric(relativeTo: .caption) private var labelSize = 12.6
     @Binding var selection: String
     let items: [ChatTab]
     var prefix = "chat.tab."
     var body: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 12) {
+            HStack(spacing: 2) {
                 ForEach(items) { item in
                     Button { selection = item.id } label: {
                         VStack(spacing: 0) {
-                            Label(item.title, systemImage: item.icon).font(.subheadline.weight(selection == item.id ? .semibold : .regular))
-                                .fixedSize().frame(minHeight: 44).padding(.horizontal, 8)
+                            HStack(spacing: 4) { Image(systemName: item.icon); Text(item.title) }
+                                .font(.system(size: labelSize, weight: selection == item.id ? .semibold : .regular))
+                                .fixedSize().frame(minWidth: 44, minHeight: 44).padding(.horizontal, 6)
                             Capsule().fill(selection == item.id ? PUBOTheme.accent : .clear).frame(height: 3)
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier(prefix + item.id)
                         .accessibilityAddTraits(selection == item.id ? .isSelected : [])
                 }
-            }.padding(.horizontal, 12)
+            }.padding(.horizontal, 8).frame(maxWidth: .infinity)
         }.scrollIndicators(.hidden).background(PUBOTheme.panel)
             .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
@@ -34,9 +36,22 @@ struct ChatDateSeparator: View {
     let text: String
     var body: some View {
         HStack(spacing: 12) { line; Text(text).font(.caption).foregroundStyle(PUBOTheme.secondary); line }
-            .padding(.vertical, 8).accessibilityLabel("鏃ユ湡 " + text)
+            .padding(.vertical, 8).accessibilityLabel("日期 " + text)
     }
     private var line: some View { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+}
+
+struct ChatRelativeTime: View {
+    let date: Date
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { tick in
+            Text(label(at: tick.date))
+        }
+    }
+    private func label(at now: Date) -> String {
+        let format = RelativeDateTimeFormatter(); format.locale = Locale(identifier: "zh_CN"); format.unitsStyle = .short
+        return format.localizedString(for: date, relativeTo: now)
+    }
 }
 
 /// Only stream insertions opt in; initial pages, restored rows and search context stay still.

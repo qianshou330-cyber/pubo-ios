@@ -50,10 +50,25 @@ jobs:
           xcodegen generate
       - name: Compile app
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Chat and preserved interactions
+      - name: Chat alignment evidence
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: chat,social,gif,favorites,regression
+          PUBO_UI_GROUPS: chat
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chat-detail-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/chat*.json
+            build/chat.xcresult
+            build/screenshots/chat/
+          retention-days: 14
+      - name: Preserved interactions
+        if: always()
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: social,gif,favorites,regression
         run: python3 scripts/local-timeline-tests.py
       - uses: actions/upload-artifact@v4
         if: always()

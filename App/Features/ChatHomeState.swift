@@ -11,11 +11,12 @@ import PUBOCore
     private var epoch = UUID()
     private var account: String?
 
-    func invalidate() { epoch = UUID() }
+    func invalidate() { epoch = UUID(); busy = false }
+    func clear() { invalidate(); rows = []; cursor = nil; hasMore = true; error = nil; account = nil }
     func load(_ session: AppSession, older: Bool = false) async {
         if account != session.user?.id { rows = []; cursor = nil; hasMore = true; account = session.user?.id; invalidate() }
         guard !busy, !older || hasMore else { return }
-        busy = true; defer { busy = false }; let attempt = epoch
+        busy = true; let attempt = epoch; defer { if attempt == epoch { busy = false } }
         let viewer = session.user?.id ?? ""
         var fields: [String: JSONValue] = ["limit": .number(30), "pinned": .bool(false)]
         if older, let cursor { fields["untilId"] = .string(cursor) }
@@ -28,11 +29,28 @@ import PUBOCore
         func values(_ result: Result<[JSONValue], Error>, _ title: String) -> [JSONValue]? {
             switch result { case .success(let rows): return rows; case .failure(let issue): failures.append(title + "：" + issue.localizedDescription); return nil }
         }
-        let direct = values(responses.0, "会话"), pinned = values(responses.1, "置顶"), rooms = values(responses.2, "群聊")
+        var direct = values(responses.0, "会话")
+        let pinned = values(responses.1, "置顶"), rooms = values(responses.2, "群聊")
+        var tail = direct ?? []
+        let previousHead = rows.filter { $0.kind == .user && $0.pinnedAt == nil }.map { $0.message.id }.max()
+        // Fill a burst of new conversations back to the known head before retaining older pages.
+        // If interrupted, continue from this new tail on the next explicit pagination request.
+        var reachedHistory = previousHead == nil || older
+        if !older, let previousHead, direct != nil {
+            for _ in 0..<10 {
+                guard attempt == epoch, !Task.isCancelled else { return }
+                guard tail.count == 30, let last = tail.last?["lastMessage"]["id"].string, last > previousHead else { reachedHistory = true; break }
+                let next = values(await fetch(session, "chat/conversations", ["limit": .number(30), "pinned": .bool(false), "untilId": .string(last)]), "会话续页")
+                guard let next else { break }
+                guard next.last?["lastMessage"]["id"].string != last else { break }
+                direct?.append(contentsOf: next); tail = next
+            }
+        }
+        guard attempt == epoch, account == session.user?.id, !Task.isCancelled else { return }
         let hadCursor = cursor != nil
-        if let direct, older || !hadCursor {
-            cursor = direct.last?["lastMessage"]["id"].string
-            hasMore = direct.count == 30
+        if direct != nil, older || !hadCursor || !reachedHistory {
+            cursor = tail.last?["lastMessage"]["id"].string
+            hasMore = tail.count == 30
         }
         rows = ChatConversation.merge(rows, ordinary: direct?.compactMap(ChatConversation.direct), pins: pinned?.compactMap(ChatConversation.direct), rooms: rooms?.compactMap { ChatConversation.room($0, viewer: viewer) })
         error = failures.isEmpty ? nil : failures.joined(separator: "\n")

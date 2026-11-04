@@ -391,7 +391,7 @@ actor FixtureTransport: HTTPTransport {
         if path == "chat/rooms/joining" { return .array(rooms.filter { !$0["invitationExists"].bool }.map { .object(["id": $0["id"], "room": $0]) }) }
         if path == "chat/rooms/invitations/inbox" { return .array(rooms.filter { $0["invitationExists"].bool }.map { .object(["id": $0["id"], "room": $0]) }) }
         if path == "chat/rooms/show" { return rooms.first { $0["id"] == body["roomId"] } ?? .null }
-        if path == "chat/rooms/members" { return .array([.object(["id": .string("membership"), "user": profile])]) }
+        if path == "chat/rooms/members" { return .array([.object(["id": .string("membership"), "user": args.contains("--chat-align") ? Self.chatParity["me"] : profile])]) }
         if path == "chat/messages/create-to-room" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("roommessage\(counter)"); value["fromUserId"] = Self.me["id"]; value["fromUser"] = profile; value["createdAt"] = .string(ISO8601DateFormatter().string(from: Date())); roomMessages.append(.object(value)); if ProcessInfo.processInfo.arguments.contains("--lost-room-response") { throw URLError(.networkConnectionLost) }; return .object(value) }
         if path == "chat/messages/room-timeline" { return .array(roomMessages.filter { $0["toRoomId"] == body["roomId"] }.reversed()) }
         if path == "chat/messages/search" { return .array((sent + roomMessages).filter { ($0["text"].string ?? "").contains(body["query"].string ?? "") && (body["roomId"].isNull || $0["toRoomId"] == body["roomId"]) && (body["userId"].isNull || $0["toRoomId"].isNull) }) }

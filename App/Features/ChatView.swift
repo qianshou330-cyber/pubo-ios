@@ -8,6 +8,7 @@ struct ChatView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .subheadline) private var messageFont = 12.6
     let peer: Record
     var initialMessageID: String? = nil
     @State private var messages: [Record] = []
@@ -166,7 +167,7 @@ struct ChatView: View {
     private func bubble(_ message: Record) -> some View {
         let own = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
-            if own { Spacer(minLength: 40) } else { Avatar(user: peer, size: 42) }
+            if own { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: peer.id) } label: { Avatar(user: peer, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(peer.displayName + "的主页") }
             VStack(alignment: own ? .trailing : .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(PUBOTheme.secondary) }
@@ -176,22 +177,22 @@ struct ChatView: View {
                                 Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
                             }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
                         }
-                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.subheadline) }
+                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.system(size: messageFont)) }
                         ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                     }
                 }.padding(.horizontal, 12).padding(.vertical, 8)
                     .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
                     .contextMenu { messageMenu(message, own: own) }
-                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
-                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction in Task { await toggleReaction(message, reaction) } }.accessibilityLabel("消息反应")
-                }
                 HStack(spacing: 6) {
                     Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id)
-                    if let date = puboDate(message["createdAt"].string) { Text(date, style: .relative) }
+                    if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date) }
                     if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
                     if !message["editedAt"].isNull { Text("已编辑") }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
+                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
+                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction in Task { await toggleReaction(message, reaction) } }.accessibilityLabel("消息反应")
+                }
             }.task(id: "\(contextMode)-\(scenePhase == .active)-\(searching)") { if !own && !contextMode && !searching && scenePhase == .active { await markRead(message) } }
             if !own { Spacer(minLength: 28) }
         }

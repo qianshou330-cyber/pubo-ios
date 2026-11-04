@@ -14,6 +14,7 @@ struct RoomChatView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .subheadline) private var messageFont = 12.6
     let roomID: String
     var initialMessage: Record? = nil
     @State private var room: Record?
@@ -39,6 +40,7 @@ struct RoomChatView: View {
     @State private var scrollTarget: String?
     @State private var animatedIDs = Set<String>()
     @State private var loadEpoch = UUID()
+    @State private var needsReconcile = false
     @State private var textSelection = NSRange(location: 0, length: 0)
     @State private var nearBottom = true
     @State private var unreadBelow = false
@@ -118,9 +120,13 @@ struct RoomChatView: View {
                 VStack(spacing: 0) {
                     ChatTabs(selection: $section, items: [ChatTab(id: "messages", title: "消息", icon: "bubble.left.and.bubble.right"), ChatTab(id: "members", title: "成员", icon: "person.2"), ChatTab(id: "search", title: "搜索", icon: "magnifyingglass"), ChatTab(id: "about", title: "关于", icon: "info.circle")], prefix: "room.tab.")
                     if section == "messages" { timeline }
-                    else if section == "members" { RoomMembersView(roomID: roomID, canInvite: own, embedded: true) }
+                    else if section == "members" { RoomMembersView(roomID: roomID, canInvite: own, embedded: true, owner: room.map { Record($0["owner"]) }) }
                     else if section == "search" { List { ChatSearchView(roomID: roomID, embedded: true, selectMessage: { message in section = "messages"; Task { await openContext(message) } }) }.puboList() }
-                    else { List { Text(room?["name"].string ?? "群聊").font(.headline); Text(room?["description"].string ?? "暂无群聊简介") }.puboList().accessibilityIdentifier("room.about") }
+                    else { List {
+                        Section("名称") { Text(room?["name"].string ?? "群聊") }
+                        Section("描述") { Text(room?["description"].string ?? "暂无群聊简介") }
+                        if !own { Toggle("消息免打扰", isOn: Binding(get: { room?["isMuted"].bool ?? false }, set: { _ in Task { await mute() } })).disabled(busy) }
+                    }.puboList().accessibilityIdentifier("room.about") }
                 }.safeAreaInset(edge: .bottom, spacing: 0) { if section == "messages" { composer } }
             }
         }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.hidden, for: .tabBar)
@@ -166,23 +172,23 @@ struct RoomChatView: View {
         let user = Record(message["fromUser"])
         let mine = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
-            if mine { Spacer(minLength: 40) } else { Avatar(user: user, size: 42) }
+            if mine { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(user.displayName + "的主页") }
             VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
 
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回") }
                     else {
-                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.subheadline) }
+                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.system(size: messageFont)) }
                         if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
                     }
                 }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
                     .accessibilityIdentifier("room.bubble." + message.id)
                     .contextMenu { messageMenu(message, mine: mine) }
-                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value in Task { await react(message, value) } } }
                 HStack(spacing: 6) {
                     Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id)
-                    if let date = puboDate(message["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary) }
+                    if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary) }
                 }
+                if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value in Task { await react(message, value) } } }
             }
             if !mine { Spacer(minLength: 28) }
         }
@@ -242,7 +248,11 @@ struct RoomChatView: View {
         do { try store.save(draft, account: ownerID, key: key); return true } catch { self.error = "群聊草稿保存失败。"; return false }
     }
     private func load(older: Bool = false, reconcile: Bool = false) async {
-        guard active, scenePhase == .active, !loading else { return }; loading = true; defer { loading = false }
+        if reconcile { needsReconcile = true }
+        guard active, scenePhase == .active, !loading else { return }
+        loading = true
+        let reconcile = needsReconcile && !older; if reconcile { needsReconcile = false }
+        defer { loading = false; if active && needsReconcile && section == "messages" { Task { await load() } } }
         let epoch = loadEpoch
         do {
             let fresh = Record(try await session.call("chat/rooms/show", ["roomId": .string(roomID)])); try Task.checkCancellation()
@@ -252,6 +262,7 @@ struct RoomChatView: View {
             guard section == "messages", !contextMode || older || reconcile else { return }
             var fields: [String: JSONValue] = ["roomId": .string(roomID), "limit": .number(reconcile ? 100 : 30)]
             if older, let id = messages.first?.id { fields["untilId"] = .string(id) }
+            if contextMode && reconcile, let last = messages.last, let date = ChatDays.date(last["createdAt"].string) { fields["untilDate"] = .number(floor(date.timeIntervalSince1970 * 1000) + 1) }
             let oldFloor = messages.first?.id
             var page: [Record] = []
             var lastCount = 0
