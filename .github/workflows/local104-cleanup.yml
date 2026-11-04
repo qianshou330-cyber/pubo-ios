@@ -1,4 +1,4 @@
-name: Release obsolete local validation slots
+name: Release superseded build104 regression slots
 on:
   push:
     branches: ['ci-cleanup-local104-20261104']
@@ -9,23 +9,18 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel only verified obsolete runs from this task
+      - name: Verify source and cancel only superseded build104 runs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import os,json,urllib.request
-          repo='qianshou330-cyber/pubo-ios'
-          expected=[
-            (41781427429,'ui-local-timeline-20261104-build103','73f6e0bc100c6c9ee18553b4348b8734f5d7872b'),
-            (41786806504,'ci-local104-validation-20261104','9223c06b4f0f48b9bc34b8b97e2b2d514ebe8e89')
-          ]
+          targets=[(41783341037,'ui-local-timeline-20261104-build104','d0068018211cd1ba5ac8d6a9b5bccff2d03093e7'),(41784447750,'ci-local104-small-retry-20261104','971c3b23ae2fbcb94c7544b275271c96b1e1e7fc')]
           headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
-          for run,branch,sha in expected:
-              url=f'https://api.github.com/repos/{repo}/actions/runs/{run}'
-              with urllib.request.urlopen(urllib.request.Request(url,headers=headers)) as response: value=json.load(response)
-              assert value['head_branch']==branch and value['head_sha']==sha, 'Run identity changed; refusing cancellation'
-              if value['status']=='completed':
-                  print(run,'already completed',value['conclusion']);continue
-              with urllib.request.urlopen(urllib.request.Request(url+'/cancel',data=b'',headers=headers,method='POST')) as response: print(run,'cancel requested',response.status)
+          for run,branch,sha in targets:
+              url=f'https://api.github.com/repos/qianshou330-cyber/pubo-ios/actions/runs/{run}'
+              with urllib.request.urlopen(urllib.request.Request(url,headers=headers)) as response:value=json.load(response)
+              assert value['head_branch']==branch and value['head_sha']==sha
+              if value['status']=='completed':print(run,'already completed',value['conclusion']);continue
+              with urllib.request.urlopen(urllib.request.Request(url+'/cancel',data=b'',headers=headers,method='POST')) as response:print(run,'cancel requested',response.status)
           PY
