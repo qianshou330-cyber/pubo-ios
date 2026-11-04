@@ -3,7 +3,7 @@ import {createServer as createSMTPServer} from 'node:net';
 import {randomBytes,createHmac} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
-import {writeFile} from 'node:fs/promises';
+import {writeFile,readFile} from 'node:fs/promises';
 
 function requireIsolated(){if(process.env.GITHUB_ACTIONS!=='true'||process.env.NODE_ENV!=='test')throw new Error('Disposable authentication runner required');}
 export async function setupAuthChannels(root){
@@ -40,6 +40,20 @@ export async function setupAuthChannels(root){
 function totp(secret){const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const c of secret.replace(/=+$/,''))bits+=alphabet.indexOf(c).toString(2).padStart(5,'0');const key=Buffer.from((bits.match(/.{8}/g)??[]).map(x=>parseInt(x,2))),step=Buffer.alloc(8);step.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const hash=createHmac('sha1',key).update(step).digest(),offset=hash.at(-1)&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
 export async function verifyAuthContracts(api,owner,channels,root,destination){
  requireIsolated();const checks={};let phase='setup';const need=(ok,key)=>{if(!ok)throw new Error('Authentication contract: '+key);checks[key]=true;};
+ // The upstream test harness recreates entity tables and drops this SQL-only
+ // migration table. Restore its exact existing definition only in the empty CI DB.
+ const dbRequire=createRequire(join(root,'package.json'));const {Client:SchemaClient}=dbRequire('pg');
+ const schema=new SchemaClient({host:'127.0.0.1',port:54312,database:'pubo_native_integration',user:process.env.USER});await schema.connect();
+ try{
+  if(!(await schema.query("SELECT to_regclass('public.sms_verification') AS table_name")).rows[0].table_name){
+   const migration=await readFile(join(root,'migration/1788904810458-SmsRegistration.js'),'utf8');
+   const statements=[...migration.matchAll(/queryRunner\.query\(`(CREATE (?:TABLE|INDEX) [^`]+)`\)/g)].map(x=>x[1]).filter(x=>x.includes('"sms_verification"'));
+   if(statements.length!==2)throw new Error('Unexpected existing SMS migration');
+   for(const sql of statements)await schema.query(sql);
+   checks.existingSMSMigrationRestored=true;
+  }
+ }finally{await schema.end();}
+ async function waitForMail(predicate){const deadline=Date.now()+5000;while(!predicate()&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,50));}
  async function response(path,fields={}){const r=await fetch('http://127.0.0.1:61812/api/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(fields),signal:AbortSignal.timeout(15000),redirect:'error'});const text=await r.text();return {status:r.status,value:text?JSON.parse(text):null};}
  const before=await api('meta');const password=randomBytes(24).toString('hex'),newPassword=randomBytes(24).toString('hex');
  try{
@@ -65,6 +79,7 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
   phase='email-reset';const require=createRequire(join(root,'package.json'));const {Client}=require('pg');const db=new Client({host:'127.0.0.1',port:54312,database:'pubo_native_integration',user:process.env.USER});await db.connect();
   try{await db.query('UPDATE "user_profile" SET "email"=$1,"emailVerified"=true WHERE "userId"=$2',['auth-fixture@example.test',user.id]);}finally{await db.end();}
   const mailCount=channels.messages.length;await api('request-reset-password',{username:'auth_fixture',email:'auth-fixture@example.test'});
+  await waitForMail(()=>channels.messages.length>mailCount);
   need(channels.messages.length===mailCount+1&&channels.messages.at(-1).text.includes('http://127.0.0.1:61812/reset-password/'),'emailResetTestDelivery');
   await api('request-reset-password',{username:'auth_fixture',email:'unmatched@example.test'});need(channels.messages.length===mailCount+1,'emailNoEnumerationDelivery');
   phase='phone-reset';await api('request-reset-password-phone',{phoneNumber:phone,username:'auth_fixture'});const reset=channels.codes.get(phone);need(/^\d{6}$/.test(reset??''),'phoneResetTestDelivery');
@@ -74,6 +89,7 @@ export async function verifyAuthContracts(api,owner,channels,root,destination){
   need((await response('reset-password-phone',{phoneNumber:phone,smsCode:reset,newPassword})).status===400,'resetSingleUse');
   phase='email-pending';await api('admin/update-meta',{emailRequiredForSignup:true},owner.token);const pendingPhone='19900000012';await api('signup/request-phone-code',{phoneNumber:pendingPhone});
   const pending=await response('signup',{username:'auth_pending',password,phoneNumber:pendingPhone,smsCode:channels.codes.get(pendingPhone),emailAddress:'pending@example.test'});need(pending.status===204&&pending.value===null,'signupEmailPending204');
+  await waitForMail(()=>channels.messages.some(x=>x.address==='pending@example.test'));
   need(channels.messages.some(x=>x.address==='pending@example.test'&&x.text.includes('/signup-complete/')),'signupVerificationTestDelivery');
   phase='invitation';await api('admin/update-meta',{emailRequiredForSignup:false,disableRegistration:true},owner.token);const invitePhone='19900000013';await api('signup/request-phone-code',{phoneNumber:invitePhone});
   need((await response('signup',{username:'auth_restricted',password,phoneNumber:invitePhone,smsCode:channels.codes.get(invitePhone)})).status===400,'invitationRequired');
