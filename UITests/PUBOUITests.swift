@@ -439,8 +439,8 @@ final class PUBOUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["auth.title"].waitForExistence(timeout: 5))
             XCTAssertFalse(app.buttons["auth.registrationContinue"].isEnabled)
             capture(app, dark ? "h5-sync-registration-intro-dark" : "h5-sync-registration-intro-light")
-            app.switches["auth.agreePolicy"].tap()
-            let agree = app.switches["auth.agreeNotes"]; for _ in 0..<4 where !agree.isHittable { app.swipeUp() }; agree.tap()
+            app.switches["auth.agreePolicy"].tap(); app.alerts.buttons["同意"].tap()
+            let agree = app.switches["auth.agreeNotes"]; for _ in 0..<4 where !agree.isHittable { app.swipeUp() }; agree.tap(); app.alerts.buttons["同意"].tap()
             let next = app.buttons["auth.registrationContinue"]; for _ in 0..<4 where !next.isHittable { app.swipeUp() }
             app.buttons["auth.registrationContinue"].tap()
             XCTAssertTrue(app.textFields["auth.phone"].waitForExistence(timeout: 5))
@@ -480,10 +480,10 @@ final class PUBOUITests: XCTestCase {
     func testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--logged-out", "--dark", "--large-text"]; app.launch()
         XCTAssertTrue(app.buttons["auth.openRegister"].waitForExistence(timeout: 10)); app.buttons["auth.openRegister"].tap()
-        let policy = app.switches["auth.agreePolicy"]; for _ in 0..<5 where !policy.isHittable { app.swipeUp() }; XCTAssertTrue(policy.isHittable); policy.tap()
+        let policy = app.switches["auth.agreePolicy"]; for _ in 0..<5 where !policy.isHittable { app.swipeUp() }; XCTAssertTrue(policy.isHittable); policy.tap(); app.alerts.buttons["同意"].tap()
         let notes = app.switches["auth.agreeNotes"]
         for _ in 0..<5 where !notes.isHittable { app.swipeUp() }
-        XCTAssertTrue(notes.isHittable); notes.tap()
+        XCTAssertTrue(notes.isHittable); notes.tap(); app.alerts.buttons["同意"].tap()
         let proceed = app.buttons["auth.registrationContinue"]
         for _ in 0..<5 where !proceed.isHittable { app.swipeUp() }
         XCTAssertTrue(proceed.isHittable); proceed.tap()

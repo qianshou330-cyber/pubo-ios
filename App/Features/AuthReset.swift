@@ -16,9 +16,9 @@ struct AuthResetFields: View {
             } else { Text("本站暂未启用邮件找回。可使用已绑定的手机号码，或联系管理员。").font(.footnote) }
             Text("通过手机重置").font(.headline)
             AuthPhoneFields(flow: flow, reset: true)
-            PUBOPasswordField(title: "新密码", value: $flow.password, identifier: "auth.password", newPassword: true)
+            PUBOPasswordField(title: "新密码", value: $flow.password, identifier: "auth.password", newPassword: true, compact: true)
             Text("至少 8 个字符").font(.footnote).foregroundStyle(PUBOTheme.secondary)
-            PUBOPasswordField(title: "再次输入密码", value: $flow.confirmation, identifier: "auth.confirmation", newPassword: true)
+            PUBOPasswordField(title: "再次输入密码", value: $flow.confirmation, identifier: "auth.confirmation", newPassword: true, compact: true)
             AuthPasswordMatch(flow: flow)
             Button(action: flow.phoneReset) { HStack { if flow.busy { ProgressView() }; Text("重置密码") } }
                 .buttonStyle(PUBOButtonStyle(kind: .primary, fullWidth: true))

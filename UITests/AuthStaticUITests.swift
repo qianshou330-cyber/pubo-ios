@@ -26,8 +26,8 @@ final class AuthStaticUITests: XCTestCase {
     }
     private func signup(_ app: XCUIApplication, restricted: Bool = false, expectsFields: Bool = true) {
         app.buttons["auth.openRegister"].tap()
-        if restricted { let rule = app.switches["auth.agreeRules"]; reveal(rule, app); rule.tap() }
-        for key in ["auth.agreePolicy", "auth.agreeNotes"] { let toggle = app.switches[key]; reveal(toggle, app); toggle.tap() }
+        if restricted { let rule = app.switches["auth.agreeRules"]; reveal(rule, app); rule.tap(); app.alerts.buttons["同意"].tap() }
+        for key in ["auth.agreePolicy", "auth.agreeNotes"] { let toggle = app.switches[key]; reveal(toggle, app); toggle.tap(); app.alerts.buttons["同意"].tap() }
         let next = app.buttons["auth.registrationContinue"]; reveal(next, app); XCTAssertTrue(next.isEnabled); next.tap()
         if expectsFields { XCTAssertTrue(app.textFields["auth.username"].waitForExistence(timeout: 8)) }
     }
@@ -69,7 +69,7 @@ final class AuthStaticUITests: XCTestCase {
             let app = launch(dark ? ["--dark"] : []); let theme = dark ? "dark" : "light"
             app.buttons["auth.openRegister"].tap(); capture(app, "centered-rules-" + theme); app.buttons["auth.close"].tap()
             signup(app); capture(app, "centered-signup-" + theme)
-            app.buttons["auth.close"].tap(); app.buttons["auth.openLogin"].tap()
+            app.buttons["auth.close"].tap(); loginPassword(app)
             let forgot = app.buttons["auth.forgot"]; reveal(forgot, app); forgot.tap()
             XCTAssertTrue(app.buttons["auth.emailReset"].waitForExistence(timeout: 5)); capture(app, "centered-reset-email-" + theme)
             reveal(app.buttons["auth.phoneReset"], app); capture(app, "centered-reset-phone-" + theme)
@@ -110,7 +110,7 @@ final class AuthStaticUITests: XCTestCase {
         XCTAssertFalse(app.secureTextFields["auth.password"].exists)
     }
     func testPhoneResetAndEmailRequest() {
-        let app = launch(); app.buttons["auth.openLogin"].tap(); reveal(app.buttons["auth.forgot"], app); app.buttons["auth.forgot"].tap()
+        let app = launch(); loginPassword(app); reveal(app.buttons["auth.forgot"], app); app.buttons["auth.forgot"].tap()
         type("auth.username", "fixture", app); type("auth.email", "fixture@example.test", app)
         reveal(app.buttons["auth.emailReset"], app); app.buttons["auth.emailReset"].tap()
         XCTAssertTrue(app.staticTexts["申请已提交。若账号与邮箱匹配，请查看邮件，并在网站完成重置。"].waitForExistence(timeout: 5))

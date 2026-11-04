@@ -147,7 +147,7 @@ import PUBOCore
             if reset && !username.isEmpty { fields["username"] = .string(username) }
             _ = try await session.api.call(reset ? "request-reset-password-phone" : "signup/request-phone-code", body: fields, mutation: true)
             guard current(id) else { return }
-            cooldownUntil = Date().addingTimeInterval(60); message = "验证码已发送，请查收短信。"
+            cooldownUntil = Date().addingTimeInterval(60); message = reset ? "申请已提交，如手机号已绑定账号，请查收短信。" : "验证码已发送，请查收短信。"
         }
     }
     func signup() {

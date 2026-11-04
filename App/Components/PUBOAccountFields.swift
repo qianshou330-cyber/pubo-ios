@@ -7,17 +7,19 @@ struct PUBOAccountField<Content: View>: View {
     var symbol: String? = nil
     var suffix: String? = nil
     var prefix: String? = nil
+    var compact = false
+    @ScaledMetric(relativeTo: .body) private var compactSize: CGFloat = 14
     @ViewBuilder let content: () -> Content
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline.weight(.medium)).accessibilityIdentifier("account.label." + title)
+            if !title.isEmpty { Text(title).font(.subheadline.weight(.medium)).accessibilityIdentifier("account.label." + title) }
             HStack(spacing: 8) {
                 if let symbol { Image(systemName: symbol).foregroundStyle(PUBOTheme.secondary).accessibilityHidden(true) }
                 if let prefix { Text(prefix).foregroundStyle(PUBOTheme.secondary).accessibilityHidden(true) }
-                content().frame(minWidth: 40, maxWidth: .infinity).font(.body)
+                content().frame(minWidth: 40, maxWidth: .infinity).font(compact ? .system(size: compactSize) : .body)
                 if let suffix, !typeSize.isAccessibilitySize { Text(suffix).font(.footnote).foregroundStyle(PUBOTheme.secondary).fixedSize() }
-            }.padding(.horizontal, 12).frame(minHeight: 48)
+            }.padding(.horizontal, 12).frame(minHeight: compact ? 44 : 48)
                 .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider, lineWidth: 1))
             if let suffix, typeSize.isAccessibilitySize { Text(suffix).font(.footnote).foregroundStyle(PUBOTheme.secondary) }
@@ -30,10 +32,12 @@ struct PUBOPasswordField: View {
     @Binding var value: String
     let identifier: String
     var newPassword = false
+    var compact = false
+    var showsTitle = true
     @State private var visible = false
     @FocusState private var focused: Bool
     var body: some View {
-        PUBOAccountField(title: title, symbol: "lock") {
+        PUBOAccountField(title: showsTitle ? title : "", symbol: "lock", compact: compact) {
             HStack(spacing: 0) {
                 Group {
                     if visible { TextField(title, text: $value) }

@@ -6,6 +6,7 @@ struct AuthDialog: View {
     let close: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var keyboardVisible = false
+    @ScaledMetric(relativeTo: .headline) private var headerSize: CGFloat = 14
     private var registration: Bool { [.rules, .signup, .emailPending].contains(flow.page) }
     private var title: String { registration ? "注册 PUBO" : flow.page == .forgot ? "重置密码" : "登录 PUBO" }
     var body: some View {
@@ -14,7 +15,7 @@ struct AuthDialog: View {
                 Color.black.opacity(0.5).ignoresSafeArea().onTapGesture(perform: close).accessibilityHidden(true)
                 VStack(spacing: 0) {
                     HStack {
-                        Text(title).font(.headline).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(title).font(.system(size: headerSize, weight: .semibold)).frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityAddTraits(.isHeader).accessibilityIdentifier("auth.title")
                         if keyboardVisible {
                             Button { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44) }
@@ -31,7 +32,7 @@ struct AuthDialog: View {
                                 Text(message).font(.footnote).foregroundStyle(flow.isError ? Color.red : PUBOTheme.text)
                                     .frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("auth.error")
                             }
-                        }.padding(24).frame(maxWidth: .infinity)
+                        }.padding(registration || flow.page == .forgot ? 28 : 32).frame(maxWidth: .infinity)
                     }.scrollDismissesKeyboard(.interactively).accessibilityIdentifier("auth.content")
                 }.frame(width: min(registration ? 500 : 400, max(0, area.size.width - 24)), height: min(registration || flow.page == .forgot ? 600 : 450, max(0, area.size.height - 24)))
                     .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
@@ -62,8 +63,9 @@ struct AuthDialog: View {
 
 struct AuthUsernameField: View {
     @Bindable var flow: AuthFlow
+    var showsTitle = true
     var body: some View {
-        PUBOAccountField(title: "用户名", suffix: "@bolubo.com", prefix: "@") {
+        PUBOAccountField(title: showsTitle ? "用户名" : "", suffix: "@bolubo.com", prefix: "@", compact: true) {
             TextField("用户名", text: $flow.username).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .textContentType(.username).accessibilityIdentifier("auth.username")
                 .disabled(flow.busy)
@@ -74,15 +76,20 @@ struct AuthUsernameField: View {
 
 struct AuthLoginFields: View {
     @Bindable var flow: AuthFlow
+    @ScaledMetric(relativeTo: .body) private var textSize: CGFloat = 14
     var body: some View {
         VStack(spacing: 20) {
             avatar
-            if flow.page == .username { AuthUsernameField(flow: flow) }
+            if flow.page == .username {
+                VStack(spacing: 8) { AuthUsernameField(flow: flow, showsTitle: false); continueButton }
+            }
             else if flow.page == .password {
-                Text("欢迎回来，\(flow.user?.displayName ?? flow.username)").font(.subheadline).multilineTextAlignment(.center)
-                PUBOPasswordField(title: "密码", value: $flow.password, identifier: "auth.password")
-                    .submitLabel(.continue).onSubmit { flow.login() }
-                Button("忘记密码？") { flow.changePage(.forgot) }.font(.footnote).accessibilityIdentifier("auth.forgot")
+                Text("欢迎回来，\(flow.user?.displayName ?? flow.username)").font(.system(size: textSize * 1.1)).multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 6) {
+                    PUBOPasswordField(title: "密码", value: $flow.password, identifier: "auth.password", compact: true, showsTitle: false)
+                        .submitLabel(.continue).onSubmit { flow.login() }.disabled(flow.busy)
+                    Button("忘记密码？") { flow.changePage(.forgot) }.font(.footnote).accessibilityIdentifier("auth.forgot")
+                }
             } else {
                 Text(flow.backup ? "使用备用码登录" : "两步验证").font(.headline)
                 PUBOAccountField(title: flow.backup ? "备用码" : "动态验证码") {
@@ -94,20 +101,24 @@ struct AuthLoginFields: View {
                 Button(flow.backup ? "使用动态验证码" : "使用备用码") { flow.toggleBackup() }
                     .font(.footnote).accessibilityIdentifier("auth.backup")
             }
-            Button(action: flow.login) {
-                HStack { if flow.busy { ProgressView() }; Label("继续", systemImage: "arrow.right") }
-            }.buttonStyle(PUBOButtonStyle(kind: .primary)).disabled(flow.busy || !flow.canLogin)
-                .accessibilityIdentifier(flow.page == .username ? "auth.loginContinue" : "auth.submit")
+            if flow.page != .username { continueButton }
             if flow.page != .username {
                 Button("更换账号") { flow.changePage(.username) }.font(.footnote).accessibilityIdentifier("auth.changeAccount")
             }
             if flow.page == .username {
-                HStack { Divider(); Text("或者").font(.footnote).fixedSize(); Divider() }.frame(height: 18).foregroundStyle(PUBOTheme.secondary)
-                Button(action: flow.authorize) { Label("通过本站网页安全登录", systemImage: "key") }.buttonStyle(PUBOButtonStyle()).disabled(flow.busy).accessibilityIdentifier("auth.web")
-                Text("通行密钥或网页安全验证由本站授权窗口完成。").font(.footnote).foregroundStyle(PUBOTheme.secondary).multilineTextAlignment(.center)
-                Button("忘记密码？") { flow.changePage(.forgot) }.font(.footnote).accessibilityIdentifier("auth.forgot")
+                HStack { Rectangle().frame(height: 1); Text("或者").font(.caption).fixedSize(); Rectangle().frame(height: 1) }.frame(height: 12).foregroundStyle(PUBOTheme.divider)
+                VStack(spacing: 6) {
+                    Button(action: flow.authorize) { Label("通过本站网页安全登录", systemImage: "key") }.buttonStyle(PUBOButtonStyle(kind: .primary)).disabled(flow.busy).accessibilityIdentifier("auth.web")
+                    Text("通行密钥／安全验证使用本站授权窗口").font(.caption2).foregroundStyle(PUBOTheme.secondary).multilineTextAlignment(.center)
+                }
             }
-        }
+        }.frame(minHeight: 336).font(.system(size: textSize))
+    }
+    private var continueButton: some View {
+        Button(action: flow.login) {
+            HStack { if flow.busy { ProgressView() }; Label("继续", systemImage: "arrow.right") }
+        }.buttonStyle(PUBOButtonStyle(kind: .primary)).disabled(flow.busy || !flow.canLogin)
+            .accessibilityIdentifier(flow.page == .username ? "auth.loginContinue" : "auth.submit")
     }
     private var avatar: some View {
         Group {
