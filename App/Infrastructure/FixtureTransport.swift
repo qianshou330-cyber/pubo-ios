@@ -92,6 +92,11 @@ actor FixtureTransport: HTTPTransport {
         #endif
         if ProcessInfo.processInfo.arguments.contains("--chat-align") {
             rooms = Self.chatParity["rooms"].array; roomMessages = Self.chatParity["roomMessages"].array; sent = Self.chatParity["private"].array
+            if ProcessInfo.processInfo.arguments.contains("--chat-animated-reaction"), !roomMessages.isEmpty {
+                var message = roomMessages[0].object
+                message["reactions"] = .array([.object(["user": Self.chatParity["me"], "reaction": .string(":a2o_lite_aijing1:")])])
+                roomMessages[0] = .object(message)
+            }
         }
 
     }
@@ -170,7 +175,7 @@ actor FixtureTransport: HTTPTransport {
         case "meta": response = .object(["maxNoteTextLength": .number(args.contains("--social-align") ? 60 : 3000), "name": .string("PUBO"), "disableRegistration": .bool(false), "emailRequiredForSignup": .bool(false)])
         case "emojis":
             #if DEBUG
-            response = .object(["emojis": args.contains("--timeline-align") ? TimelineTestFixtures.snapshot["emojis"] : .array([])])
+            response = .object(["emojis": (args.contains("--timeline-align") || args.contains("--chat-animated-reaction")) ? TimelineTestFixtures.snapshot["emojis"] : .array([])])
             #else
             response = .object(["emojis": .array([])])
             #endif

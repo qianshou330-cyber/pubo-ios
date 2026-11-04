@@ -97,4 +97,18 @@ final class ChatAlignmentUITests: XCTestCase {
         let search = app.buttons["room.tab.search"]; if !search.isHittable { app.scrollViews.firstMatch.swipeLeft() }; search.tap()
         XCTAssertTrue(app.textFields["chat.search.query"].waitForExistence(timeout: 6)); capture(app, "chat-room-large-search")
     }
+    func testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize() {
+        let app = launch(["--chat-animated-reaction", "--large-text", "--dark"]); room(app)
+        let image = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND value CONTAINS %@", "timeline.animatedImage", "frame=")).firstMatch
+        for _ in 0..<5 where !image.isHittable { app.swipeDown() }
+        XCTAssertTrue(image.waitForExistence(timeout: 8))
+        XCTAssertLessThanOrEqual(image.frame.height, 24.1)
+        XCTAssertEqual(image.frame.width / image.frame.height, 320.0 / 180.0, accuracy: 0.05)
+        let initial = image.value as? String ?? ""
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline && (image.value as? String ?? "") == initial { Thread.sleep(forTimeInterval: 0.07) }
+        XCTAssertNotEqual(image.value as? String ?? "", initial)
+        XCTAssertTrue((image.value as? String)?.contains("playing=true") == true)
+        capture(app, "chat-room-animated-reaction-large")
+    }
 }

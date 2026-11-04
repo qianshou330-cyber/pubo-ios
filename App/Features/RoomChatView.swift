@@ -76,7 +76,11 @@ struct RoomChatView: View {
                 }.scrollPosition(id: $visibleMessageID, anchor: .top).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in if !contextMode && (old == nil || nearBottom) { proxy.scrollTo("bottom", anchor: .bottom) } else { unreadBelow = true } }
-                    .onChange(of: scrollTarget) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
+                    .onChange(of: scrollTarget) { _, id in
+                        // Historical positioning shares the same stable scroll binding as
+                        // normal reading. Avoid competing center/top scroll anchors.
+                        if let id { var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { visibleMessageID = id } }
+                    }
                     .onChange(of: scrollRequest) { _, _ in proxy.scrollTo("bottom", anchor: .bottom); unreadBelow = false }
             }
         }
