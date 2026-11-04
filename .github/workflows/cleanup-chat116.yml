@@ -17,7 +17,7 @@ jobs:
           import urllib.request,json,os
           root='https://api.github.com/repos/qianshou330-cyber/pubo-ios/actions/runs/'
           headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
-          targets={41832245062:'2293ff8208b41c963b0f75fa47c46c43e387ee28',41832893846:'baf255507dc6541c48e71914b5e540df90bd84c5'}
+          targets={41833481654:'8189d0334a99030b633a769f3d09bfb61bfbc55b',41836448431:'e7a98ae007875fa6794bfc2dcb30dd6309d8a4ff',41838189495:'dd2d4e93c3cd99c281821e57896c35eb6631bebd'}
           for ident,sha in targets.items():
               url=root+str(ident)
               run=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=headers)))

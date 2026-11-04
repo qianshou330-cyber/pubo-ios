@@ -102,7 +102,7 @@ struct ChatView: View {
                         Button(conversationSettings["pinnedAt"].isNull ? "置顶会话" : "取消置顶") { Task { await updateConversation("pinned", conversationSettings["pinnedAt"].isNull) } }.disabled(settingBusy)
                         Button(conversationSettings["isMuted"].bool ? "关闭免打扰" : "开启免打扰") { Task { await updateConversation("isMuted", !conversationSettings["isMuted"].bool) } }.disabled(settingBusy)
                     }
-                    Button("搜索本会话") { searching = true }; Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis") }.accessibilityLabel("聊天选项") }
+                    Button("搜索本会话") { searching = true }; Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.accessibilityLabel("聊天选项") }
             }
     }
     private var chatLifecycle: some View {
@@ -192,7 +192,7 @@ struct ChatView: View {
                     if !message["editedAt"].isNull { Text("已编辑") }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
-                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }.accessibilityLabel("消息反应")
+                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }
                 }
             }.task(id: "\(contextMode)-\(scenePhase == .active)-\(searching)") { if !own && !contextMode && !searching && scenePhase == .active { await markRead(message) } }
             if !own { Spacer(minLength: 28) }

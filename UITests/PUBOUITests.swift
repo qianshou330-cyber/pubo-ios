@@ -74,7 +74,10 @@ final class PUBOUITests: XCTestCase {
         let second = app.buttons["accounts.select.syntheticsecond"]; XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap()
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["第二个测试账号"].waitForExistence(timeout: 5))
         for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap(); XCTAssertTrue(app.buttons["accounts.select.syntheticself"].waitForExistence(timeout: 5)); app.buttons["accounts.select.syntheticself"].tap()
-        app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5)); capture(app, "native-account-switch")
+        app.tabBars.buttons["我的"].tap()
+        let restoredName = app.staticTexts["测试用户"]
+        for _ in 0..<8 where !restoredName.isHittable { app.swipeDown() }
+        XCTAssertTrue(restoredName.waitForExistence(timeout: 5)); capture(app, "native-account-switch")
         for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap()
         let remove = app.buttons["accounts.remove.syntheticsecond"]; XCTAssertTrue(remove.waitForExistence(timeout: 5)); remove.tap()
         XCTAssertTrue(app.alerts.buttons["取消"].waitForExistence(timeout: 5)); app.alerts.buttons["取消"].tap()
@@ -712,5 +715,3 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))
     }
 }
-
-

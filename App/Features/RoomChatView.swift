@@ -83,7 +83,7 @@ struct RoomChatView: View {
     }
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if unreadBelow || contextMode { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { contextMode = false; highlightedID = nil; await load(); scrollRequest += 1 } }.frame(minHeight: 44) }
+            if unreadBelow || contextMode { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { await returnToLatest() } }.frame(minHeight: 44) }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.error") }
             if let sendProblem { Text(sendProblem).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.limit") }
             if draft.pending {
@@ -139,7 +139,7 @@ struct RoomChatView: View {
                         if !own { Button(room?["isMuted"].bool == true ? "恢复提醒" : "免打扰") { Task { await mute() } } }
                         if own { Button("修改群聊") { editing = true }; Button("删除群聊", role: .destructive) { operation = "delete" } }
                         else { Button("退出群聊", role: .destructive) { operation = "leave" } }
-                    } label: { Image(systemName: "ellipsis") }.disabled(busy)
+                    } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.disabled(busy)
                 }
             }
     }
@@ -240,6 +240,21 @@ struct RoomChatView: View {
             contextMode = true; messages = Records.merge(before, after, newestFirst: false, limit: 2000); hasMore = before.count == 30
             highlightedID = target.id; error = nil; scrollTarget = nil
             await Task.yield(); guard active, epoch == loadEpoch else { return }; scrollTarget = target.id
+        } catch { if active && epoch == loadEpoch { self.error = error.localizedDescription } }
+    }
+    private func returnToLatest() async {
+        guard active, section == "messages" else { return }
+        loadEpoch = UUID(); let epoch = loadEpoch
+        do {
+            let value = try await session.call("chat/messages/room-timeline", ["roomId": .string(roomID), "limit": .number(30)])
+            guard active, epoch == loadEpoch, section == "messages", !Task.isCancelled, case .array = value else { return }
+            let page = Record.list(value).filter { $0["toRoomId"].string == roomID }
+            // A historical context and the newest page may have an unloaded gap.
+            // Restart pagination at the newest page instead of joining those windows.
+            messages = Records.merge([], page, newestFirst: false, limit: 2000)
+            hasMore = page.count == 30; contextMode = false; highlightedID = nil
+            animatedIDs.removeAll(); unreadBelow = false; error = nil
+            await Task.yield(); guard active, epoch == loadEpoch else { return }; scrollRequest += 1
         } catch { if active && epoch == loadEpoch { self.error = error.localizedDescription } }
     }
     @discardableResult private func persist() -> Bool {
