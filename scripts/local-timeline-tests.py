@@ -4,7 +4,9 @@ from simulator_boot import boot
 from simulator_resources import SimulatorResources
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
 inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
-phones=[dict(d,runtime=r) for r,values in inventory.items() if '.iOS-26-' in r for d in values if d['name'].startswith('iPhone')]
+runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+assert runtime in inventory, 'The baseline iOS 26.0 runtime is required; do not silently use another runtime'
+phones=[dict(d,runtime=runtime) for d in inventory[runtime] if d['name'].startswith('iPhone')]
 small=os.environ.get('PUBO_SIM_SIZE')=='small'
 device=next(d for d in phones if ('SE' in d['name'] if small else d['name']=='iPhone 17 Pro Max'))
 owned=root/'timeline-owned-device.json'

@@ -3,7 +3,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from simulator_boot import boot
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
 inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
-devices=[dict(d,runtime=r) for r,values in inventory.items() if '.iOS-26-' in r for d in values if d['name'].startswith('iPhone')]
+runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+assert runtime in inventory, 'The baseline iOS 26.0 runtime is required; do not silently use another runtime'
+devices=[dict(d,runtime=runtime) for d in inventory[runtime] if d['name'].startswith('iPhone')]
 template=next(d for d in devices if d['name']=='iPhone 17 Pro Max')
 device=subprocess.check_output(['xcrun','simctl','create','PUBO real backend',template['deviceTypeIdentifier'],template['runtime']],text=True).strip()
 result={'status':'RUNNING','device':template['name'],'runtime':template['runtime'],'productionAPIRequests':0,'transport':'loopback-only real backend'}
