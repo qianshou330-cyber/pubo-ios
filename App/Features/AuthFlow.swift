@@ -5,11 +5,24 @@ import PUBOCore
 @MainActor @Observable final class AuthFlow {
     enum Page: String { case username, password, totp, rules, signup, forgot, emailPending }
     var page: Page
-    var username = "", password = "", confirmation = "", phone = "", code = "", otp = "", email = "", invitation = ""
-    var backup = false, busy = false, captchaStep = false
-    var agreedRules = false, agreedPolicy = false, agreedNotes = false
-    var usernameStatus: AccountAvailability = .idle, emailStatus: AccountAvailability = .idle
-    private var checkedUsername = "", checkedEmail = ""
+    var username = ""
+    var password = ""
+    var confirmation = ""
+    var phone = ""
+    var code = ""
+    var otp = ""
+    var email = ""
+    var invitation = ""
+    var backup = false
+    var busy = false
+    var captchaStep = false
+    var agreedRules = false
+    var agreedPolicy = false
+    var agreedNotes = false
+    var usernameStatus: AccountAvailability = .idle
+    var emailStatus: AccountAvailability = .idle
+    private var checkedUsername = ""
+    private var checkedEmail = ""
     var user: Record?
     var message: String?
     var isError = false

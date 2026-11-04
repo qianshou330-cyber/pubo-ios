@@ -4,7 +4,9 @@ import PUBOCore
 struct AuthRulesFields: View {
     @Bindable var flow: AuthFlow
     let close: () -> Void
-    @State private var showRules = true, showPolicies = true, showNotes = true
+    @State private var showRules = true
+    @State private var showPolicies = true
+    @State private var showNotes = true
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Label("注册前，请先了解 PUBO", systemImage: "checklist").font(.headline).frame(maxWidth: .infinity)
@@ -57,7 +59,8 @@ struct AuthAvailabilityLabel: View {
 
 struct AuthSignupFields: View {
     @Bindable var flow: AuthFlow
-    @State private var usernameRetry = 0, emailRetry = 0
+    @State private var usernameRetry = 0
+    @State private var emailRetry = 0
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             if flow.needsCaptcha {
