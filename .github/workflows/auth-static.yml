@@ -4,6 +4,9 @@ on:
     branches: ['ui-auth-static-*']
 permissions:
   contents: read
+concurrency:
+  group: pubo-auth-validation
+  cancel-in-progress: true
 jobs:
   package:
     runs-on: macos-15

@@ -6,6 +6,7 @@ final class AuthStaticUITests: XCTestCase {
         XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 12)); return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
+        Thread.sleep(forTimeInterval: 0.5) // Capture the settled state; the raw recording retains the actual transition.
         let item = XCTAttachment(screenshot: app.screenshot()); item.name = name; item.lifetime = .keepAlways; add(item)
     }
     private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {

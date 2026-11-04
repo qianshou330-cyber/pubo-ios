@@ -38,6 +38,7 @@ struct AuthDialog: View {
                     .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
                     .clipShape(RoundedRectangle(cornerRadius: PUBOTheme.radius))
                     .shadow(color: .black.opacity(0.2), radius: 24, y: 12)
+                    .accessibilityElement(children: .contain)
                     .accessibilityAddTraits(.isModal).accessibilityIdentifier("auth.dialog")
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }.foregroundStyle(PUBOTheme.text).tint(PUBOTheme.accent)
@@ -91,8 +92,8 @@ struct AuthLoginFields: View {
                     Button("忘记密码？") { flow.changePage(.forgot) }.font(.footnote).accessibilityIdentifier("auth.forgot")
                 }
             } else {
-                Text(flow.backup ? "使用备用码登录" : "两步验证").font(.headline)
-                PUBOAccountField(title: flow.backup ? "备用码" : "动态验证码") {
+                Text(flow.backup ? "使用备用码登录" : "两步验证").font(.system(size: textSize))
+                PUBOAccountField(title: flow.backup ? "备用码" : "动态验证码", compact: true) {
                     TextField(flow.backup ? "32 位备用码" : "6 位动态验证码", text: $flow.otp)
                         .keyboardType(flow.backup ? .asciiCapable : .numberPad)
                         .textInputAutocapitalization(flow.backup ? .characters : .never).autocorrectionDisabled()
@@ -122,7 +123,7 @@ struct AuthLoginFields: View {
     }
     private var avatar: some View {
         Group {
-            if flow.page == .totp { Image(systemName: "lock.shield").font(.system(size: 30)).frame(width: 64, height: 64) }
+            if flow.page == .totp { Image(systemName: "key").font(.system(size: 26)).frame(width: 64, height: 64).foregroundStyle(PUBOTheme.accent).background(PUBOTheme.ownBubble, in: Circle()) }
             else if flow.page != .username, let url = safeMediaURL(flow.user?["avatarUrl"].string) {
                 AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "person.fill") }
                     .frame(width: 64, height: 64).clipShape(Circle())
