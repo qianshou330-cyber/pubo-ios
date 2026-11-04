@@ -9,7 +9,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Stop verified obsolete build125 tasks, tolerate already-finished races
+      - name: Stop exact superseded125 and126 runs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -17,12 +17,12 @@ jobs:
           import urllib.request,urllib.error,json,os,time
           root='https://api.github.com/repos/qianshou330-cyber/pubo-ios/actions/runs/'
           headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
-          targets={41858100855:'d458f3dc291efc72b665d17511178da9e830865d',41861154901:'1c3fb41955d2911b32af2dba7155e8f448d82586'}
+          targets={41858100855:('d458f3dc291efc72b665d17511178da9e830865d','ci-chat125-intel-20261104'),41861154901:('1c3fb41955d2911b32af2dba7155e8f448d82586','ci-chat125-intel-20261104'),41863533920:('23e348968ca1c4e0d5fde44d719eff10f13438c6','ui-chat-alignment-20261104'),41863533850:('23e348968ca1c4e0d5fde44d719eff10f13438c6','ui-chat-alignment-20261104'),41864180167:('323cfb4eef9ca2e8090b212edd801d7ed67d1d56','ci-chat125-intel-20261104')}
           for action in ['cancel','force-cancel']:
-              for ident,sha in targets.items():
+              for ident,(sha,branch) in targets.items():
                   url=root+str(ident)
                   run=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=30))
-                  assert run['head_sha']==sha and run['head_branch']=='ci-chat125-intel-20261104'
+                  assert run['head_sha']==sha and run['head_branch']==branch
                   if run['status']=='completed':
                       print('Already finished',ident);continue
                   try:
@@ -30,6 +30,6 @@ jobs:
                       print(action,ident,'accepted')
                   except urllib.error.HTTPError as error:
                       if error.code!=409:raise
-                      print(action,ident,'state conflict; preserve prior results, continue other obsolete target')
+                      print(action,ident,'state conflict; continue remaining obsolete targets')
               if action=='cancel':time.sleep(20)
           PY
