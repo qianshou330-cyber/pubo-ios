@@ -1,5 +1,6 @@
 """Bounded recovery for a task-owned simulator that stalls before test execution."""
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -19,5 +20,10 @@ def boot(identifier, receipt):
                     raise
                 print('Simulator startup stalled; one task-owned restart before any tests.', flush=True)
                 subprocess.run(['xcrun', 'simctl', 'shutdown', identifier], check=False, timeout=60)
+                # GitHub provides an isolated, disposable VM. A stalled simulator
+                # service can outlive the device; reset it only on that CI host.
+                # Never reset the user's local Simulator service.
+                if os.environ.get('GITHUB_ACTIONS') == 'true':
+                    subprocess.run(['killall', '-TERM', 'com.apple.CoreSimulator.CoreSimulatorService'], check=False, timeout=30)
     finally:
         Path(receipt).write_text(json.dumps({'device': identifier, 'attempts': attempts}, indent=2))

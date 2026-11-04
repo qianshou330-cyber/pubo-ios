@@ -53,6 +53,7 @@ jobs:
           xcodegen generate
           xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
       - name: Timeline appearance in both themes
+        id: preview
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_UI_GROUPS: timeline-preview
@@ -71,7 +72,7 @@ jobs:
             build/screenshots/timeline-preview/
           retention-days: 14
       - name: Timeline interactions
-        if: always() && steps.compile.outcome == 'success'
+        if: always() && !cancelled() && steps.compile.outcome == 'success' && steps.preview.outputs.simulator_ready == 'true'
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_UI_GROUPS: timeline
@@ -88,7 +89,7 @@ jobs:
             build/screenshots/timeline/
           retention-days: 14
       - name: Existing feature regressions
-        if: always() && steps.compile.outcome == 'success'
+        if: always() && !cancelled() && steps.compile.outcome == 'success' && steps.preview.outputs.simulator_ready == 'true'
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_UI_GROUPS: home,gif,favorites,social,regression

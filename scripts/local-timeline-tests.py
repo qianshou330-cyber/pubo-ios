@@ -7,7 +7,16 @@ inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices',
 phones=[dict(d,runtime=r) for r,values in inventory.items() if '.iOS-26-' in r for d in values if d['name'].startswith('iPhone')]
 small=os.environ.get('PUBO_SIM_SIZE')=='small'
 device=next(d for d in phones if ('SE' in d['name'] if small else d['name']=='iPhone 17 Pro Max'))
-identifier=subprocess.check_output(['xcrun','simctl','create','PUBO Local '+device['name'],device['deviceTypeIdentifier'],device['runtime']],text=True,timeout=60).strip()
+owned=root/'timeline-owned-device.json'
+if owned.exists():
+    saved=json.loads(owned.read_text())
+    assert saved['name']=='PUBO Local '+device['name'] and saved['runtime']==device['runtime']
+    current=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+    assert any(d['udid']==saved['udid'] and d['name']==saved['name'] for values in current.values() for d in values), 'Only reuse the simulator created by this job'
+    identifier=saved['udid']
+else:
+    identifier=subprocess.check_output(['xcrun','simctl','create','PUBO Local '+device['name'],device['deviceTypeIdentifier'],device['runtime']],text=True,timeout=60).strip()
+    owned.write_text(json.dumps({'udid':identifier,'name':'PUBO Local '+device['name'],'runtime':device['runtime']}))
 record={'device':device['name'],'udid':identifier,'tests':'PENDING','productionRequests':0};(root/'timeline-environment.json').write_text(json.dumps(record))
 regressions=['testHistoricalReferenceAndReturnToLatest','testChatEditRecallAndReactions','testChatEditConflictAndLostResponseKeepDraftUntilManualResolution','testLargeTextChatKeepsInputAndActionsReachable','testMultipleAccountsSwitchAndPreserveOtherAccount','testLostChatReplyReconcilesWithoutNewMessage','testSecondChatShowsReplyRequired','testNativeLoginAndFourTabs']
 groups=[('timeline-preview',['-only-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('timeline',['-only-testing:PUBOUITests/LocalTimelineUITests','-skip-testing:PUBOUITests/LocalTimelineUITests/testFirstLocalAndFourTabsInBothThemes']),('home',['-only-testing:PUBOUITests/HomeMotionUITests']),('gif',['-only-testing:PUBOUITests/PrivateGIFUITests']),('favorites',['-only-testing:PUBOUITests/PersonalGIFUITests']),('social',['-only-testing:PUBOUITests/SocialAlignmentUITests']),('regression',['-only-testing:PUBOUITests/PUBOUITests/'+n for n in regressions])]
@@ -21,8 +30,14 @@ try:
     subprocess.run(['xcrun','simctl','launch',identifier,'com.bolubo.native','--ui-testing','--timeline-align','--gif-preview'],check=True,timeout=60)
     time.sleep(12)
     subprocess.run(['xcrun','simctl','io',identifier,'screenshot',str(root/('warmup-'+os.environ.get('PUBO_UI_SCOPE','all')+'.png'))],check=True,timeout=30)
-    subprocess.run(['xcrun','simctl','terminate',identifier,'com.bolubo.native'],check=True,timeout=30)
+    try:
+        cleanup=subprocess.run(['xcrun','simctl','terminate',identifier,'com.bolubo.native'],check=False,timeout=30)
+        record['warmupCleanup']='TERMINATED' if cleanup.returncode==0 else 'XCTEST_WILL_RELAUNCH'
+    except subprocess.TimeoutExpired:
+        record['warmupCleanup']='XCTEST_WILL_RELAUNCH_AFTER_CLEANUP_TIMEOUT'
     time.sleep(3)
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('simulator_ready=true\n')
     for name,selection in groups:
         shots=root/'screenshots'/name;shots.mkdir(parents=True,exist_ok=True)
         bundle=root/(name+'.xcresult')
