@@ -14,7 +14,7 @@ groups=[('timeline-preview',['-only-testing:PUBOUITests/LocalTimelineUITests/tes
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
-    boot(identifier,root/'gif-boot.json')
+    boot(identifier,root/('timeline-boot-'+os.environ.get('PUBO_UI_SCOPE','all')+'.json'))
     # Settle first-launch simulator services before XCTest requests its background
     # assertion. This is a separate, recorded fixture-only launch, not a test retry.
     subprocess.run(['xcrun','simctl','install',identifier,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=90)
@@ -45,6 +45,10 @@ try:
         # Continue independent regression groups so failures do not hide unrelated evidence.
     if any(record.get(name) != 'PASS' for name,_ in groups):raise RuntimeError('One or more UI groups failed; see individual summaries')
     record['tests']='PASS'
+except Exception as error:
+    record['tests']='FAIL'
+    record['error']=type(error).__name__+': '+str(error)
+    raise
 finally:
     (root/('timeline-environment-'+os.environ.get('PUBO_UI_SCOPE','all')+'.json')).write_text(json.dumps(record,indent=2))
     subprocess.run(['xcrun','simctl','shutdown',identifier],timeout=60)

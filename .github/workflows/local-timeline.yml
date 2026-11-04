@@ -64,6 +64,7 @@ jobs:
           name: timeline-layout-${{ matrix.size }}-${{ github.sha }}
           path: |
             build/warmup-preview.png
+            build/timeline-boot-preview.json
             build/timeline-preview*.json
             build/timeline-environment-preview.json
             build/timeline-preview.xcresult/

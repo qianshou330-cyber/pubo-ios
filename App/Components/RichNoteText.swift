@@ -76,7 +76,10 @@ struct RichNoteText: UIViewRepresentable {
         func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool { openURL?(URL); return false }
         private func link(at point: CGPoint, view: UITextView) -> Bool {
             guard view.attributedText.length > 0 else { return false }
-            let index = view.layoutManager.characterIndex(for: point, in: view.textContainer, fractionOfDistanceBetweenInsertionPoints: nil)
+            let glyph = view.layoutManager.glyphIndex(for: point, in: view.textContainer)
+            guard glyph < view.layoutManager.numberOfGlyphs,
+                  view.layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: view.textContainer).insetBy(dx: -2, dy: -2).contains(point) else { return false }
+            let index = view.layoutManager.characterIndexForGlyph(at: glyph)
             return index < view.attributedText.length && view.attributedText.attribute(.link, at: index, effectiveRange: nil) != nil
         }
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool { guard let view else { return false }; return onTap != nil && !link(at: touch.location(in: view), view: view) }

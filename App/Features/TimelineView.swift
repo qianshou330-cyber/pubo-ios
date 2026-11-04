@@ -202,7 +202,10 @@ struct TimelineView: View {
                 guard epoch == session.generation, context == request, active else { return }
                 // Full records refresh their containing quote/reply without discarding reference data.
                 session.latestNoteEvent = .init(id: id, kind: "replaced", body: value.raw)
-            } catch { if (error as? APIError)?.code == "NO_SUCH_NOTE" { session.latestNoteEvent = .init(id: id, kind: "deleted", body: .null) } }
+            } catch {
+                if active, !Task.isCancelled, epoch == session.generation, context == request,
+                   (error as? APIError)?.code == "NO_SUCH_NOTE" { session.latestNoteEvent = .init(id: id, kind: "deleted", body: .null) }
+            }
         }
     }
     private func load(older: Bool = false) async {
@@ -391,7 +394,7 @@ struct NoteCard: View {
                         .background(shown["myReaction"].string == reaction ? PUBOTheme.accent.opacity(0.22) : PUBOTheme.button, in: RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(shown["myReaction"].string == reaction ? PUBOTheme.accent : .clear))
                         .scaleEffect(reactionPulse && shown["myReaction"].string == reaction ? 1.16 : 1)
-                }.buttonStyle(.plain).disabled(busy || session.user == nil).accessibilityLabel(reaction + " \(shown["reactions"][reaction].int)").accessibilityIdentifier("note.reaction." + shown.id + "." + reaction)
+                }.buttonStyle(.plain).disabled(busy || session.user == nil).accessibilityLabel(reaction + " \(shown["reactions"][reaction].int)").accessibilityValue(shown["myReaction"].string == reaction ? "已选择" : "未选择").accessibilityIdentifier("note.reaction." + shown.id + "." + reaction)
             }
             if shown["reactions"].object.count > 16 { Button("更多反应") { viewingReactions = true }.font(.caption).frame(minHeight: 32) }
         } } }
