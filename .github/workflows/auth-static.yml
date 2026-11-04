@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: pubo-auth-validation
+  group: pubo-auth-final-validation
   cancel-in-progress: true
 jobs:
   package:

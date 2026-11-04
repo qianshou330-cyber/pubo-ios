@@ -9,7 +9,7 @@ struct AuthResetFields: View {
                 Text("通过邮箱重置").font(.headline)
                 AuthUsernameField(flow: flow)
                 AuthEmailField(flow: flow)
-                Button("发送重置邮件", action: flow.emailReset).buttonStyle(PUBOButtonStyle())
+                Button("发送重置邮件", action: flow.emailReset).buttonStyle(AuthButtonStyle())
                     .disabled(flow.busy || flow.username.isEmpty || flow.email.isEmpty).accessibilityIdentifier("auth.emailReset")
                 Text("邮件中的重置链接由本站网页处理。").font(.footnote).foregroundStyle(PUBOTheme.secondary)
                 Divider()
@@ -21,7 +21,7 @@ struct AuthResetFields: View {
             PUBOPasswordField(title: "再次输入密码", value: $flow.confirmation, identifier: "auth.confirmation", newPassword: true, compact: true)
             AuthPasswordMatch(flow: flow)
             Button(action: flow.phoneReset) { HStack { if flow.busy { ProgressView() }; Text("重置密码") } }
-                .buttonStyle(PUBOButtonStyle(kind: .primary, fullWidth: true))
+                .buttonStyle(AuthButtonStyle(kind: .primary, fullWidth: true))
                 .disabled(flow.busy || !AuthenticationInput.validPhone(flow.phone) || !AuthenticationInput.validCode(flow.code) || flow.password.count < 8 || flow.password != flow.confirmation)
                 .accessibilityIdentifier("auth.phoneReset")
             Button("返回登录") { flow.changePage(.username) }.font(.footnote).accessibilityIdentifier("auth.backToLogin")

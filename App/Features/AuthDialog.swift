@@ -5,6 +5,7 @@ struct AuthDialog: View {
     @Bindable var flow: AuthFlow
     let close: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .headline) private var headerSize: CGFloat = 14
     private var registration: Bool { [.rules, .signup, .emailPending].contains(flow.page) }
@@ -12,16 +13,16 @@ struct AuthDialog: View {
     var body: some View {
         GeometryReader { area in
             ZStack {
-                Color.black.opacity(0.5).ignoresSafeArea().onTapGesture(perform: close).accessibilityHidden(true)
+                Color.black.opacity(colorScheme == .dark ? 0.5 : 0.3).ignoresSafeArea().onTapGesture(perform: close).accessibilityHidden(true)
                 VStack(spacing: 0) {
                     HStack {
                         Text(title).font(.system(size: headerSize, weight: .semibold)).frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityAddTraits(.isHeader).accessibilityIdentifier("auth.title")
                         if keyboardVisible {
-                            Button { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44) }
+                            Button { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } label: { Image(systemName: "keyboard.chevron.compact.down").frame(width: 44, height: 44).contentShape(Rectangle()) }
                                 .buttonStyle(.plain).accessibilityLabel("收起键盘").accessibilityIdentifier("auth.hideKeyboard")
                         }
-                        Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                        Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
                             .buttonStyle(.plain).accessibilityLabel("关闭").accessibilityIdentifier("auth.close")
                     }.padding(.leading, 20).padding(.trailing, 4).frame(minHeight: 50)
                     Divider().overlay(PUBOTheme.divider)
@@ -57,8 +58,24 @@ struct AuthDialog: View {
             Image(systemName: "envelope.badge").font(.largeTitle).accessibilityHidden(true)
             Text("注册申请已提交").font(.headline)
             Text("请查看邮箱，按邮件中的链接完成验证后再登录。").font(.callout)
-            Button("返回登录") { flow.changePage(.username) }.buttonStyle(PUBOButtonStyle(kind: .primary))
+            Button("返回登录") { flow.changePage(.username) }.buttonStyle(AuthButtonStyle(kind: .primary))
         }
+    }
+}
+
+struct AuthButtonStyle: ButtonStyle {
+    var kind: PUBOButtonStyle.Kind = .secondary
+    var fullWidth = false
+    @Environment(\.isEnabled) private var enabled
+    @ScaledMetric(relativeTo: .body) private var textSize: CGFloat = 14
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.system(size: textSize, weight: .semibold))
+            .padding(.horizontal, 18).padding(.vertical, 10)
+            .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: 44)
+            .foregroundStyle(kind == .secondary ? PUBOTheme.text : Color.white)
+            .background(kind == .secondary ? PUBOTheme.button : kind == .registration ? PUBOTheme.registration : PUBOTheme.accent, in: Capsule())
+            .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.45)
+            .contentShape(Capsule())
     }
 }
 
@@ -109,7 +126,7 @@ struct AuthLoginFields: View {
             if flow.page == .username {
                 HStack { Rectangle().frame(height: 1); Text("或者").font(.caption).fixedSize(); Rectangle().frame(height: 1) }.frame(height: 12).foregroundStyle(PUBOTheme.divider)
                 VStack(spacing: 6) {
-                    Button(action: flow.authorize) { Label("通过本站网页安全登录", systemImage: "key") }.buttonStyle(PUBOButtonStyle(kind: .primary)).disabled(flow.busy).accessibilityIdentifier("auth.web")
+                    Button(action: flow.authorize) { Label("通过本站网页安全登录", systemImage: "key") }.buttonStyle(AuthButtonStyle(kind: .primary)).disabled(flow.busy).accessibilityIdentifier("auth.web")
                     Text("通行密钥／安全验证使用本站授权窗口").font(.caption2).foregroundStyle(PUBOTheme.secondary).multilineTextAlignment(.center)
                 }
             }
@@ -118,7 +135,7 @@ struct AuthLoginFields: View {
     private var continueButton: some View {
         Button(action: flow.login) {
             HStack { if flow.busy { ProgressView() }; Label("继续", systemImage: "arrow.right") }
-        }.buttonStyle(PUBOButtonStyle(kind: .primary)).disabled(flow.busy || !flow.canLogin)
+        }.buttonStyle(AuthButtonStyle(kind: .primary)).disabled(flow.busy || !flow.canLogin)
             .accessibilityIdentifier(flow.page == .username ? "auth.loginContinue" : "auth.submit")
     }
     private var avatar: some View {

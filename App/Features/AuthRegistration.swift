@@ -41,8 +41,8 @@ struct AuthRulesFields: View {
             if !flow.canAccept { Text("必须全部勾选“同意”才能继续。").font(.footnote).frame(maxWidth: .infinity) }
             HStack(spacing: 12) {
                 Spacer(minLength: 0)
-                Button("取消", action: close).buttonStyle(PUBOButtonStyle())
-                Button("继续") { flow.page = .signup }.buttonStyle(PUBOButtonStyle(kind: .primary))
+                Button("取消", action: close).buttonStyle(AuthButtonStyle())
+                Button("继续") { flow.page = .signup }.buttonStyle(AuthButtonStyle(kind: .primary))
                     .disabled(!flow.canAccept).accessibilityIdentifier("auth.registrationContinue")
                 Spacer(minLength: 0)
             }
@@ -96,7 +96,7 @@ struct AuthSignupFields: View {
             if flow.needsCaptcha {
                 Label("本站已启用网页安全验证", systemImage: "shield").font(.headline)
                 Text("请在本站网页完成注册，再返回 App 登录。").font(.callout)
-                Link("打开本站注册", destination: Endpoint.origin).buttonStyle(PUBOButtonStyle(kind: .primary))
+                Link("打开本站注册", destination: Endpoint.origin).buttonStyle(AuthButtonStyle(kind: .primary))
             } else {
                 if flow.inviteRequired {
                     PUBOAccountField(title: "邀请码", symbol: "key") { TextField("请输入邀请码", text: $flow.invitation).textInputAutocapitalization(.never).accessibilityIdentifier("auth.invitation") }
@@ -120,7 +120,7 @@ struct AuthSignupFields: View {
                 PUBOPasswordField(title: "再次输入密码", value: $flow.confirmation, identifier: "auth.confirmation", newPassword: true, compact: true)
                 AuthPasswordMatch(flow: flow)
                 Button(action: flow.signup) { HStack { if flow.busy { ProgressView() }; Text("注册") } }
-                    .buttonStyle(PUBOButtonStyle(kind: .registration, fullWidth: true)).disabled(flow.busy || !flow.canRegister).accessibilityIdentifier("auth.submit")
+                    .buttonStyle(AuthButtonStyle(kind: .registration, fullWidth: true)).disabled(flow.busy || !flow.canRegister).accessibilityIdentifier("auth.submit")
             }
             Button("返回规则") { flow.changePage(.rules) }.font(.footnote)
         }
@@ -166,7 +166,7 @@ struct AuthPhoneFields: View {
                 SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { context in
                     let seconds = max(0, Int(ceil(flow.cooldownUntil.timeIntervalSince(context.date))))
                     Button(seconds > 0 ? "\(seconds)秒" : "获取验证码") { flow.requestCode(reset: reset) }
-                        .buttonStyle(PUBOButtonStyle()).fixedSize(horizontal: true, vertical: false)
+                        .buttonStyle(AuthButtonStyle()).fixedSize(horizontal: true, vertical: false)
                         .disabled(seconds > 0 || flow.busy || !AuthenticationInput.validPhone(flow.phone)).accessibilityIdentifier("auth.requestCode")
                 }
             }

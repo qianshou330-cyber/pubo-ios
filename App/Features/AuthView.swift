@@ -49,6 +49,7 @@ struct AuthView: View {
                 .accessibilityHidden(flow != nil)
                 .allowsHitTesting(flow == nil)
         }
+        .blur(radius: flow == nil ? 0 : 4)
         .overlay {
             if let flow {
                 AuthDialog(flow: flow, close: close)
