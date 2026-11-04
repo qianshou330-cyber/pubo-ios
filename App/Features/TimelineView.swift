@@ -170,7 +170,7 @@ struct TimelineView: View {
                     for row in rows where row.id > priorNewest { feed.receive(row, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
                     finished = rows.count < 100 || (rows.last?.id ?? "") <= priorNewest
                     cursor = rows.last?.id; pages += 1
-                } catch { error = "重连后补取失败，已保留现有帖子。"; return }
+                } catch { self.error = "重连后补取失败，已保留现有帖子。"; return }
             } while !finished && pages < 20
             if !finished { session.timelineNotice = "离线期间帖子较多，已获取最近内容；可向下继续加载历史。" }
         } else { await load() }
