@@ -1,0 +1,19 @@
+name: Retire superseded authentication integration
+on:
+  push:
+    branches: [ci-auth-retire-integration-20261104]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const id = 41809440320;
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: id});
+            if (run.head_sha !== '0042def55511f0d9a5c90a682ba13dd9e9158f42' || run.head_branch !== 'ui-auth-static-build112') throw new Error('Run ownership mismatch');
+            if (run.status !== 'completed') await github.rest.actions.cancelWorkflowRun({...context.repo, run_id: id});
+            core.info('Superseded integration run retired; app UI and package runs retained.');
