@@ -112,7 +112,7 @@ const control=createServer(async(req,res)=>{
   if(req.method==='GET'&&req.url==='/proof'){
    const favorites=await api('i/favorites',{limit:100},alice.token);
    const timelineNote=await api('notes/show',{noteId:note.createdNote.id},alice.token);
-   const timelineOwn=await api('users/notes',{userId:alice.id,limit:100,includeReplies:true},alice.token);
+   const timelineOwn=await api('users/notes',{userId:alice.id,limit:100,withReplies:true},alice.token);
    const timelineReceipts={timelineReplied:timelineOwn.some(x=>x.replyId===note.createdNote.id&&x.text==='Native timeline reply proof'),timelineRenoted:timelineOwn.some(x=>x.renoteId===note.createdNote.id&&x.text==null)};
    const vote=await api('notes/show',{noteId:poll.createdNote.id},alice.token);
    const message=await api('chat/messages/show',{messageId:sent.id},alice.token);
@@ -139,4 +139,5 @@ const control=createServer(async(req,res)=>{
 await new Promise(resolve=>control.listen(61913,'127.0.0.1',resolve));
 console.log('Isolated native integration ready; synthetic credentials remain in memory.');
 process.on('SIGTERM',async()=>{control.close();await harness.teardown();process.exit(0);});
+
 

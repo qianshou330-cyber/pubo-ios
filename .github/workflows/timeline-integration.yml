@@ -1,7 +1,7 @@
-name: Timeline visual real backend verification
+name: Build129 corrected reply receipt verification
 on:
   push:
-    branches: ['ui-timeline-visual-*']
+    branches: ['ci-timeline129-receipts-20261105']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +21,15 @@ jobs:
       PUBO_SNAKE_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v4
+      - name: Verify unchanged product code
+        run: |
+          git fetch origin 36f9c5556cd2ae9e2c58edd9414163ffd8725ab4 --depth=1
+          git diff --exit-code 36f9c5556cd2ae9e2c58edd9414163ffd8725ab4 HEAD -- App Sources Package.swift Package.resolved project.yml
+          mkdir -p build
+          python3 - <<'PY'
+          import pathlib,json,subprocess
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':'36f9c5556cd2ae9e2c58edd9414163ffd8725ab4','controlCommit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'unchangedProductPaths':['App','Sources','Package.swift','Package.resolved','project.yml'],'testCorrection':'Use actual withReplies parameter when checking server reply receipt'}))
+          PY
       - uses: actions/setup-node@v4
         with:
           node-version: 26.4.0
@@ -106,4 +115,5 @@ jobs:
             build/integration-ui.xcresult
             build/integration-screenshots/
           retention-days: 7
+
 
