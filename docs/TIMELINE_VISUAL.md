@@ -9,3 +9,5 @@ Selected Tabler 3.35.0 vectors and MIT license are bundled without a runtime fra
 Current status: implementation and local packaging-unit checks complete; Mac builds, actual UI evidence, isolated mutation receipts and release verification pending. No new IPA is accepted yet. Main is unchanged; build128 backup branch is `backup-main-20261105-before-timeline-093`.
 
 Physical iPhone, minimum iOS17 and signed installation/upgrade remain unverified. Evidence is generated using simulator UI and the in-app browser; production writes are prohibited in validation.
+
+Calibration follow-up: resolved fixture emoji gives a 23.625px reaction image and 25.2px inline emoji; restored aspect ratio for role badges and matched the compact link preview. Transparent animated inline attachments now leave a transparent underlying glyph, avoiding a static first-frame ghost. All changes remain conditional on timeline appearance. Build130 validation pending.

@@ -168,8 +168,15 @@ struct TimelineMediaItem: View {
 
 struct UserInlineBadges: View {
     let user: Record
+    var appearance: NoteAppearance = .standard
+    @ScaledMetric(relativeTo: .subheadline) private var badgeSize = 12.6
     var body: some View { HStack(spacing: 2) { ForEach(Record.list(user["badgeRoles"]).prefix(3)) { role in
-        if let url = safeMediaURL(role["iconUrl"].string) { PublicAnimatedAsset(url: url, emoji: true).frame(width: 12, height: 12).accessibilityLabel(role["name"].string ?? "认证") }
+        if let url = safeMediaURL(role["iconUrl"].string) {
+            Group {
+                if appearance.isTimeline { PublicAnimatedAsset(url: url, emoji: true, emojiHeight: badgeSize) }
+                else { PublicAnimatedAsset(url: url, emoji: true).frame(width: 12, height: 12) }
+            }.accessibilityLabel(role["name"].string ?? "认证")
+        }
     } } }
 }
 
@@ -208,6 +215,10 @@ struct NoteLinkPreviews: View {
     @Environment(AppSession.self) private var session
     let text: String
     var active: Bool
+    var appearance: NoteAppearance = .standard
+    @ScaledMetric(relativeTo: .caption) private var titleSize = 10
+    @ScaledMetric(relativeTo: .caption2) private var summarySize = 8
+    @ScaledMetric(relativeTo: .caption2) private var domainHeight = 16
     @State private var previews: [JSONValue] = []
     private var links: [URL] {
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
@@ -218,10 +229,24 @@ struct NoteLinkPreviews: View {
     var body: some View {
         VStack(spacing: 6) { ForEach(Array(previews.enumerated()), id: \.offset) { _, preview in
             if let url = NativeLink.publicURL(preview["url"].string ?? "") {
-                Link(destination: url) { HStack(spacing: 8) {
+                Link(destination: url) { Group {
+                    if appearance.isTimeline {
+                        HStack(spacing: 0) {
+                            Group {
+                                if !preview["sensitive"].bool, let thumb = safeMediaURL(preview["thumbnail"].string) { PublicAnimatedAsset(url: thumb).scaledToFill() }
+                                else { Color.clear }
+                            }.frame(width: 56, height: 52).clipped().accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(preview["title"].string ?? url.host ?? "网页").font(.system(size: titleSize, weight: .bold)).lineLimit(2)
+                                Text(preview["description"].string ?? "").font(.system(size: summarySize)).lineLimit(2)
+                                Text(url.host ?? "").font(.system(size: summarySize)).frame(minHeight: domainHeight)
+                            }.frame(maxWidth: .infinity, alignment: .leading).padding(4)
+                        }.frame(minHeight: 52).foregroundStyle(PUBOTheme.text).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider))
+                    } else { HStack(spacing: 8) {
                     if !preview["sensitive"].bool, let thumb = safeMediaURL(preview["thumbnail"].string) { PublicAnimatedAsset(url: thumb).frame(width: 62, height: 62).clipped() }
                     VStack(alignment: .leading, spacing: 4) { Text(preview["title"].string ?? url.host ?? "网页").font(.caption.bold()).lineLimit(2); Text(preview["description"].string ?? "").font(.caption2).lineLimit(2); Text(url.host ?? "").font(.system(size: 9)) }.frame(maxWidth: .infinity, alignment: .leading)
                 }.padding(8).foregroundStyle(PUBOTheme.text).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider)) }
+                } }
             }
         } }.task(id: text + String(active)) {
             previews = []; guard active else { return }; let epoch = session.generation

@@ -36,11 +36,16 @@ struct RichNoteText: UIViewRepresentable {
         for part in parts {
             if let key = urls.keys.first(where: { $0.hasPrefix(part + "https://") }), let image = images[key] {
                 let attachment = NSTextAttachment(); attachment.image = image
-                let height = font.pointSize * 1.8
+                let height = font.pointSize * (appearance.isTimeline ? 2 : 1.8)
                 let width = height * min(4, max(0.25, image.size.width / max(1, image.size.height)))
                 attachment.bounds = CGRect(x: 0, y: font.descender - 1, width: width, height: height)
                 let string = NSMutableAttributedString(attachment: attachment)
-                if let animated = image as? SDAnimatedImage, animated.animatedImageFrameCount > 1 { string.addAttribute(.init("PUBOAnimatedImage"), value: animated, range: NSRange(location: 0, length: 1)) }
+                if let animated = image as? SDAnimatedImage, animated.animatedImageFrameCount > 1 {
+                    // The animated overlay owns the pixels; otherwise a transparent
+                    // frame reveals the static first frame underneath it.
+                    if appearance.isTimeline { attachment.image = UIImage() }
+                    string.addAttribute(.init("PUBOAnimatedImage"), value: animated, range: NSRange(location: 0, length: 1))
+                }
                 output.append(string)
             } else {
                 let value = (try? AttributedString(markdown: NativeLink.linkedText(part), options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(part)

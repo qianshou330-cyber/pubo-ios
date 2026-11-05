@@ -19,11 +19,11 @@ struct NoteContextCard: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Label { Text(label + " · " + note.user.displayName) } icon: { NoteIcon(system: "arrowshape.turn.up.left", web: "arrow-back-up", appearance: appearance) }.font(.caption).foregroundStyle(PUBOTheme.secondary)
                         Text(NoteContext.summary(note)).font(appearance.isTimeline ? .system(size: bodySize) : .subheadline).lineLimit(4).multilineTextAlignment(.leading)
-                        if !note["files"].array.isEmpty { Label("\(note["files"].array.count) 个附件", systemImage: "paperclip").font(.caption) }
+                        if !note["files"].array.isEmpty { Label { Text("\(note["files"].array.count) 个附件") } icon: { NoteIcon(system: "paperclip", web: "paperclip", appearance: appearance) }.font(.caption) }
                     }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(10)
                 }.buttonStyle(.plain).accessibilityIdentifier("note.context." + note.id)
             } else {
-                Label("\(label)：原帖已删除或无权查看", systemImage: "lock").font(.caption).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(10)
+                Label { Text("\(label)：原帖已删除或无权查看") } icon: { NoteIcon(system: "lock", web: "lock", appearance: appearance) }.font(.caption).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(10)
                     .accessibilityIdentifier("note.context.unavailable")
             }
         }.background(PUBOTheme.button.opacity(0.65), in: RoundedRectangle(cornerRadius: 8))

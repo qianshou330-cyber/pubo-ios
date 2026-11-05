@@ -83,15 +83,17 @@ final class TimelineVisualUITests: XCTestCase {
         capture(app, "visual-large-text-actions"); app.terminate()
     }
     func testGuestUsesPublicFeedAndCannotReact() {
+        for dark in [false, true] {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--logged-out", "--timeline-align", "--gif-preview", "--reduce-motion"]
+        app.launchArguments = ["--ui-testing", "--logged-out", "--timeline-align", "--gif-preview", "--reduce-motion"] + (dark ? ["--dark"] : [])
         app.launch()
         XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 15))
         let post = app.descendants(matching: .any).matching(identifier: "note.open." + id).firstMatch
         for _ in 0..<12 where !post.isHittable { app.swipeUp(velocity: .slow) }
         XCTAssertTrue(post.isHittable); XCTAssertFalse(app.buttons["note.reply." + id].exists)
-        capture(app, "visual-guest-public-feed")
+        capture(app, dark ? "visual-guest-public-feed-dark" : "visual-guest-public-feed-light")
         post.tap(); XCTAssertTrue(app.navigationBars["帖子"].waitForExistence(timeout: 8))
-        capture(app, "visual-guest-detail-standard"); app.terminate()
+        capture(app, dark ? "visual-guest-detail-standard-dark" : "visual-guest-detail-standard-light"); app.terminate()
+        }
     }
 }

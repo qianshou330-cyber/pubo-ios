@@ -24,7 +24,7 @@ struct TimelinePendingButton: View {
         Group {
             if count > 0 {
                 Button(action: action) {
-                    Label("新帖子 \(count)", systemImage: "arrow.up.circle")
+                    Label { Text("新帖子 \(count)") } icon: { FeedIcon(name: "arrow-up-circle") }
                         .font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10)
                         .background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.panel)
                 }.padding(8).accessibilityIdentifier("timeline.newPosts")
@@ -110,7 +110,7 @@ private struct NoteReactionButton: View {
     let identifier: String
     let action: () -> Void
     var appearance: NoteAppearance = .standard
-    @ScaledMetric(relativeTo: .subheadline) private var emojiSize = 25.2
+    @ScaledMetric(relativeTo: .subheadline) private var emojiSize = 23.625
     @ScaledMetric(relativeTo: .caption) private var countSize = 13.23
     @ScaledMetric(relativeTo: .subheadline) private var reactionHeight = 42
 

@@ -189,7 +189,7 @@ struct TimelineView: View {
                 Link("在网页查看时间线", destination: Endpoint.origin)
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--timeline-events") {
-                    Button("测试新帖") { var fields = TimelineTestFixtures.snapshot["posts"].array[0].object; fields["id"] = .string("zznewtimeline0001"); fields["text"] = .string("实时新帖，不打断历史阅读"); session.newestTimelineNote = Record(.object(fields)) }
+                    Button("测试新帖") { var fields = TimelineTestFixtures.snapshot["posts"].array[0].object; fields["id"] = .string("zznewtimeline0001"); fields["createdAt"] = .string(ISO8601DateFormatter().string(from: Date())); fields["text"] = .string("实时新帖，不打断历史阅读"); session.newestTimelineNote = Record(.object(fields)) }
                     Button("测试删除原帖") { session.latestNoteEvent = .init(id: "at4tltest0025", kind: "deleted", body: .null) }
                     Button("测试断线恢复") { session.connectionRevision += 1 }
                 }
@@ -305,7 +305,7 @@ struct NoteCard: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: appearance.isTimeline ? 4 : 6) {
             if NoteContext.isRepost(note) {
-                Button { navigate(.author(note.user.id)) } label: { Label(note.user.displayName + " 转发了", systemImage: "arrow.2.squarepath").font(.caption).frame(minHeight: 28) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
+                Button { navigate(.author(note.user.id)) } label: { Label { Text(note.user.displayName + " 转发了") } icon: { NoteIcon(system: "arrow.2.squarepath", web: "repeat", appearance: appearance) }.font(.caption).frame(minHeight: appearance.isTimeline ? 44 : 28) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
             }
             if !shown["replyId"].isNull || !shown["reply"]["id"].isNull {
                 NoteContextCard(value: shown["reply"], targetID: shown["replyId"].string, label: "回复", appearance: appearance)
@@ -318,14 +318,14 @@ struct NoteCard: View {
                         Button("已折叠含敏感媒体的帖子 · 展开") { revealSensitivePost = true }.font(.caption).frame(minHeight: 44)
                     } else {
                         if let cw = shown["cw"].string {
-                            Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }.buttonStyle(.plain).accessibilityValue(revealCW ? "已展开" : "已隐藏")
+                            Button { revealCW.toggle() } label: { Label { Text(cw.isEmpty ? "内容警告 · 点击展开" : cw) } icon: { NoteIcon(system: revealCW ? "eye.slash" : "eye", web: revealCW ? "eye-off" : "eye", appearance: appearance) }.frame(minHeight: 44) }.buttonStyle(.plain).accessibilityValue(revealCW ? "已展开" : "已隐藏")
                         }
                         if shown["cw"].isNull || revealCW {
                             NoteText(text: shown.text, remoteEmojis: shown["emojis"], onTap: detail ? nil : { navigate(.note(shown.id)) }, identifier: "note.open." + shown.id, appearance: appearance)
                             PublicMediaGrid(files: Record.list(shown["files"]), noteID: shown.id)
                             if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
                             if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull { NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用", appearance: appearance) }
-                            NoteLinkPreviews(text: shown.text, active: true)
+                            NoteLinkPreviews(text: shown.text, active: true, appearance: appearance)
                             if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
                         }
                         reactions
@@ -372,7 +372,7 @@ struct NoteCard: View {
                     Text(shown.user.displayName).font(.system(size: nameSize, weight: .bold)).lineLimit(1).layoutPriority(appearance.isTimeline ? 2 : 0)
                     if shown.user["isBot"].bool { Text("bot").font(.system(size: 9)).padding(.horizontal, 2).overlay(RoundedRectangle(cornerRadius: 2).stroke(PUBOTheme.divider)) }
                     Text("@" + (shown.user["username"].string ?? "")).font(.system(size: accountSize)).foregroundStyle(appearance.isTimeline ? PUBOTheme.text : PUBOTheme.secondary).lineLimit(1).layoutPriority(appearance.isTimeline ? -1 : 0)
-                    UserInlineBadges(user: shown.user).fixedSize(horizontal: appearance.isTimeline, vertical: appearance.isTimeline)
+                    UserInlineBadges(user: shown.user, appearance: appearance).fixedSize(horizontal: appearance.isTimeline, vertical: appearance.isTimeline)
                 }
             }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
             Spacer(minLength: 0)
