@@ -112,6 +112,8 @@ const control=createServer(async(req,res)=>{
   if(req.method==='GET'&&req.url==='/proof'){
    const favorites=await api('i/favorites',{limit:100},alice.token);
    const timelineNote=await api('notes/show',{noteId:note.createdNote.id},alice.token);
+   const timelineOwn=await api('users/notes',{userId:alice.id,limit:100,includeReplies:true},alice.token);
+   const timelineReceipts={timelineReplied:timelineOwn.some(x=>x.replyId===note.createdNote.id&&x.text==='Native timeline reply proof'),timelineRenoted:timelineOwn.some(x=>x.renoteId===note.createdNote.id&&x.text==null)};
    const vote=await api('notes/show',{noteId:poll.createdNote.id},alice.token);
    const message=await api('chat/messages/show',{messageId:sent.id},alice.token);
    const reactionMessage=await api('chat/messages/show',{messageId:received.id},alice.token);
@@ -129,7 +131,7 @@ const control=createServer(async(req,res)=>{
    const adminAnnouncements=await api('admin/announcements/list',{status:'all',limit:100},owner.token);
    const daily={adminAnnouncementCreated:adminAnnouncements.some(x=>x.title==='Native administrator announcement'&&x.text==='Native administrator body'),privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
    const reacted=reactionMessage.reactions.some(x=>x.user.id===alice.id&&x.reaction.replace(/\ufe0f/g,'')==='❤');
-   res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,timelineReacted:timelineNote.myReaction?.replace(/\ufe0f/g,'')==='❤',timelineUnreacted:timelineNote.myReaction==null,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
+   res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,...timelineReceipts,timelineReacted:timelineNote.myReaction?.replace(/\ufe0f/g,'')==='❤',timelineUnreacted:timelineNote.myReaction==null,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
   }
   res.writeHead(404);res.end();
  }catch{res.writeHead(500);res.end('Synthetic control failed');}

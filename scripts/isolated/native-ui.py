@@ -19,7 +19,7 @@ try:
  subprocess.run(command,check=True,timeout=1500,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1'})
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
- assert summary.get('passedTests',0)==20 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All twenty real-backend UI tests must actually run'
+ assert summary.get('passedTests',0)==21 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All twenty-one real-backend UI tests must actually run'
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)

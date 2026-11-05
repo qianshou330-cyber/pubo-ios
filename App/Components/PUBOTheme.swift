@@ -104,6 +104,7 @@ struct PUBOTimelineSelector: View {
     @Binding var selection: String
     var available = ["home", "local", "hybrid", "global"]
     var compact = false
+    var appearance: NoteAppearance = .standard
     @Environment(\.dynamicTypeSize) private var typeSize
     private let items = [("home", "关注", "house"), ("local", "本地", "building.2"), ("hybrid", "社交", "person.2"), ("global", "全球", "globe")]
     var body: some View {
@@ -113,8 +114,8 @@ struct PUBOTimelineSelector: View {
                 Button { selection = item.0 } label: {
                     VStack(spacing: 0) {
                         Group {
-                            if compact && selection != item.0 && !typeSize.isAccessibilitySize { Image(systemName: item.2) }
-                            else { Label(item.1, systemImage: item.2) }
+                            if compact && selection != item.0 && !typeSize.isAccessibilitySize { selectorIcon(item.0, system: item.2) }
+                            else { Label { Text(item.1) } icon: { selectorIcon(item.0, system: item.2) } }
                         }.font(.caption.weight(selection == item.0 ? .bold : .regular))
                             .frame(maxWidth: .infinity, minHeight: 44).padding(.horizontal, compact ? 2 : 8)
                         Rectangle().fill(selection == item.0 ? PUBOTheme.accent : .clear).frame(height: 3)
@@ -125,6 +126,9 @@ struct PUBOTimelineSelector: View {
                     .accessibilityLabel(item.1)
             }
         }
+    }
+    private func selectorIcon(_ id: String, system: String) -> some View {
+        NoteIcon(system: system, web: ["home": "home", "local": "planet", "hybrid": "universe", "global": "whirl"][id] ?? "home", appearance: appearance)
     }
 }
 

@@ -17,6 +17,14 @@ enum TimelineTestFixtures {
         let format = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--timeline-format=") }?.components(separatedBy: "=").last
         let grid = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--timeline-grid=") }?.components(separatedBy: "=").last.flatMap(Int.init)
         return snapshot["posts"].array.map { original in
+            if ProcessInfo.processInfo.arguments.contains("--timeline-visual-header"), original["id"].string == "at4tltest0025",
+               let url = Bundle.main.url(forResource: "TimelineVisualCases", withExtension: "json"),
+               let data = try? Data(contentsOf: url), let fixture = try? JSONDecoder().decode(JSONValue.self, from: data) {
+                var note = original.object, user = original["user"].object
+                user["name"] = fixture["headerName"]; user["username"] = fixture["headerUsername"]
+                note["user"] = .object(user); note["text"] = fixture["text"]; note["visibility"] = fixture["visibility"]
+                return .object(note)
+            }
             if original["id"].string == "at4tltest0022", let grid, (2...5).contains(grid) {
                 var note = original.object
                 let files: [JSONValue] = (1...grid).map { index in var file = original["files"].array[0].object; file["id"] = .string("timelineimage\(index)"); return .object(file) }

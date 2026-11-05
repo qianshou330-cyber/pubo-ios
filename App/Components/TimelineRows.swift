@@ -61,7 +61,7 @@ struct TimelinePostRow: View {
                 Text(dateBreak).font(.caption).foregroundStyle(PUBOTheme.secondary)
                     .padding(10).frame(maxWidth: .infinity)
             }
-            NoteCard(note: note, timelineStyle: true, hideSensitive: hideSensitive)
+            NoteCard(note: note, timelineStyle: true, hideSensitive: hideSensitive, appearance: .timeline)
         }
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: first ? 12 : 0,
             bottomLeadingRadius: last ? 12 : 0, bottomTrailingRadius: last ? 12 : 0,
@@ -76,6 +76,7 @@ struct NoteReactionStrip: View {
     let pulse: Bool
     let choose: (String) -> Void
     let more: () -> Void
+    var appearance: NoteAppearance = .standard
     private var keys: [String] { Array(note["reactions"].object.keys.sorted().prefix(16)) }
 
     var body: some View {
@@ -88,11 +89,11 @@ struct NoteReactionStrip: View {
                             emojis: note["reactionEmojis"],
                             selected: note["myReaction"].string == reaction,
                             pulse: pulse, identifier: "note.reaction." + note.id + "." + reaction,
-                            action: { choose(reaction) })
+                            action: { choose(reaction) }, appearance: appearance)
                             .disabled(disabled)
                     }
                     if note["reactions"].object.count > 16 {
-                        Button("更多反应", action: more).font(.caption).frame(minHeight: 32)
+                        Button("更多反应", action: more).font(.caption).frame(minHeight: appearance.isTimeline ? 44 : 32)
                     }
                 }
             }
@@ -108,19 +109,25 @@ private struct NoteReactionButton: View {
     let pulse: Bool
     let identifier: String
     let action: () -> Void
+    var appearance: NoteAppearance = .standard
+    @ScaledMetric(relativeTo: .subheadline) private var emojiSize = 25.2
+    @ScaledMetric(relativeTo: .caption) private var countSize = 13.23
+    @ScaledMetric(relativeTo: .subheadline) private var reactionHeight = 42
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                ReactionImage(reaction: reaction, emojis: emojis)
-                Text("\(count)").font(.system(size: 12, weight: .medium))
+                ReactionImage(reaction: reaction, emojis: emojis, emojiHeight: appearance.isTimeline ? emojiSize : 24, unicodeSize: appearance.isTimeline ? emojiSize : 18)
+                Text("\(count)").font(.system(size: appearance.isTimeline ? countSize : 12, weight: appearance.isTimeline ? .regular : .medium))
             }
-            .padding(.horizontal, 7).padding(.vertical, 5)
-            .background(selected ? PUBOTheme.accent.opacity(0.22) : PUBOTheme.button,
+            .padding(.horizontal, appearance.isTimeline ? 6 : 7).padding(.vertical, appearance.isTimeline ? 0 : 5)
+            .frame(minHeight: appearance.isTimeline ? reactionHeight : nil)
+            .background(selected ? PUBOTheme.accent.opacity(0.22) : (appearance.isTimeline ? FeedColors.reaction : PUBOTheme.button),
                 in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(selected ? PUBOTheme.accent : Color.clear))
             .scaleEffect(pulse && selected ? 1.16 : 1)
+            .frame(minWidth: appearance.isTimeline ? 44 : nil, minHeight: appearance.isTimeline ? 44 : nil)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(reaction + " \(count)")

@@ -9,3 +9,5 @@
 `App/Assets.xcassets/Brand.imageset/pubo-logo.png` 原样复用 PUBO 网站品牌资源。构建时仅将其置于纯色背景生成应用图标，不替换网站标志。
 
 Misskey 上游项目：<https://github.com/misskey-dev/misskey>，版权归 syuilo 和 misskey-project。`LICENSE` 使用与当前网站相同的 GNU Affero General Public License v3 全文。
+
+Timeline outline icons: Tabler Icons 3.35.0, MIT License, copyright Paweł Kuna. Only the selected SVG paths are included; see docs/Tabler-LICENSE.txt and docs/Tabler-icons.json. The license is also bundled in the application resources.

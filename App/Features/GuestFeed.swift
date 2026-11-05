@@ -22,7 +22,7 @@ struct GuestFeed: View {
                 }.frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("guest.timeline.filters")
             }
             ForEach(Array(feed.notes.enumerated()), id: \.element.id) { index, note in
-                NoteCard(note: note, hideSensitive: !preferences.withSensitive)
+                NoteCard(note: note, hideSensitive: !preferences.withSensitive, appearance: .timeline)
                     .onAppear { if index >= feed.notes.count - 5 && more && error == nil { Task { await load() } } }
             }
             if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }

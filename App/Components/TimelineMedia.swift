@@ -177,11 +177,13 @@ struct ReactionImage: View {
     @Environment(AppSession.self) private var session
     let reaction: String
     var emojis: JSONValue = .null
+    var emojiHeight: CGFloat = 24
+    var unicodeSize: CGFloat = 18
     private var name: String { reaction.trimmingCharacters(in: CharacterSet(charactersIn: ":")).replacingOccurrences(of: "@.", with: "") }
     private var url: URL? { safeMediaURL(emojis[name].string ?? session.emojis.first(where: { $0["name"].string == name })?["url"].string) }
     var body: some View {
-        if reaction.hasPrefix(":"), let url { PublicAnimatedAsset(url: url, emoji: true, emojiHeight: 24) }
-        else { Text(reaction).font(.system(size: 18)).lineLimit(1) }
+        if reaction.hasPrefix(":"), let url { PublicAnimatedAsset(url: url, emoji: true, emojiHeight: emojiHeight) }
+        else { Text(reaction).font(.system(size: unicodeSize)).lineLimit(1) }
     }
 }
 

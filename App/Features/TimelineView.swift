@@ -73,7 +73,7 @@ struct TimelineView: View {
                 .navigationDestination(for: HomeDestination.self) { $0.view }
                 .safeAreaInset(edge: .top, spacing: 0) { header }
                 .overlay(alignment: .bottomTrailing) {
-                    Button { composer = true } label: { Image(systemName: "pencil").font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48).background(PUBOTheme.accent, in: Circle()).shadow(color: .black.opacity(0.12), radius: 4, y: 2) }
+                    Button { composer = true } label: { FeedIcon(name: "pencil").font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48).background(PUBOTheme.accent, in: Circle()).shadow(color: .black.opacity(0.12), radius: 4, y: 2) }
                         .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
                 }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
@@ -172,10 +172,10 @@ struct TimelineView: View {
         HStack(spacing: 0) {
             if let user = session.user { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 28).frame(width: 40, height: 44) }.accessibilityLabel("我的主页") }
             ScrollView(.horizontal) { HStack(spacing: 0) {
-                PUBOTimelineSelector(selection: selection, available: choices, compact: true).frame(minWidth: 210)
-                NavigationLink { CollectionsView(kind: .list) } label: { Image(systemName: "list.bullet").frame(width: 44, height: 44) }.accessibilityLabel("列表")
-                NavigationLink { CollectionsView(kind: .antenna) } label: { Image(systemName: "antenna.radiowaves.left.and.right").frame(width: 44, height: 44) }.accessibilityLabel("天线")
-                NavigationLink { CollectionsView(kind: .channel) } label: { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("频道")
+                PUBOTimelineSelector(selection: selection, available: choices, compact: true, appearance: .timeline).frame(minWidth: 210)
+                NavigationLink { CollectionsView(kind: .list) } label: { FeedIcon(name: "list").frame(width: 44, height: 44) }.accessibilityLabel("列表")
+                NavigationLink { CollectionsView(kind: .antenna) } label: { FeedIcon(name: "antenna").frame(width: 44, height: 44) }.accessibilityLabel("天线")
+                NavigationLink { CollectionsView(kind: .channel) } label: { FeedIcon(name: "device-tv").frame(width: 44, height: 44) }.accessibilityLabel("频道")
             } }.scrollIndicators(.hidden)
             Menu {
                 Toggle("显示转帖", isOn: Binding(get: { preferences.withRenotes }, set: { session.timelinePreferences.withRenotes = $0 }))
@@ -194,7 +194,7 @@ struct TimelineView: View {
                     Button("测试断线恢复") { session.connectionRevision += 1 }
                 }
                 #endif
-            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+            } label: { FeedIcon(name: "dots").frame(width: 44, height: 44) }
                 .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
         }.font(.caption).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary).background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
@@ -277,6 +277,9 @@ struct NoteCard: View {
     var detail = false
     var timelineStyle = false
     var hideSensitive = false
+    var appearance: NoteAppearance = .standard
+    @ScaledMetric(relativeTo: .subheadline) private var actionSize = 16.3
+    @ScaledMetric(relativeTo: .subheadline) private var actionCountSize = 12.6
     @State private var revealCW = false
     @State private var revealSensitivePost = false
     @State private var confirmReaction = false
@@ -300,16 +303,16 @@ struct NoteCard: View {
     private var ownDeleteID: String? { note.user.id == session.user?.id ? note.id : shown.user.id == session.user?.id ? shown.id : nil }
     var body: some View { if !session.deletedNoteIDs.contains(note.id) && !session.deletedNoteIDs.contains(shown.id) { content } }
     private var content: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: appearance.isTimeline ? 4 : 6) {
             if NoteContext.isRepost(note) {
                 Button { navigate(.author(note.user.id)) } label: { Label(note.user.displayName + " 转发了", systemImage: "arrow.2.squarepath").font(.caption).frame(minHeight: 28) }.buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary)
             }
             if !shown["replyId"].isNull || !shown["reply"]["id"].isNull {
-                NoteContextCard(value: shown["reply"], targetID: shown["replyId"].string, label: "回复")
+                NoteContextCard(value: shown["reply"], targetID: shown["replyId"].string, label: "回复", appearance: appearance)
             }
             HStack(alignment: .top, spacing: 10) {
                 Button { navigate(.author(shown.user.id)) } label: { Avatar(user: shown.user, size: 46) }.buttonStyle(.plain).accessibilityLabel(shown.user.displayName + "的头像")
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: appearance.isTimeline ? 0 : 4) {
                     authorHeader
                     if hideSensitive && TimelinePresentation.sensitive(shown) && !revealSensitivePost {
                         Button("已折叠含敏感媒体的帖子 · 展开") { revealSensitivePost = true }.font(.caption).frame(minHeight: 44)
@@ -318,10 +321,10 @@ struct NoteCard: View {
                             Button { revealCW.toggle() } label: { Label(cw.isEmpty ? "内容警告 · 点击展开" : cw, systemImage: revealCW ? "eye.slash" : "eye").frame(minHeight: 44) }.buttonStyle(.plain).accessibilityValue(revealCW ? "已展开" : "已隐藏")
                         }
                         if shown["cw"].isNull || revealCW {
-                            NoteText(text: shown.text, remoteEmojis: shown["emojis"], onTap: detail ? nil : { navigate(.note(shown.id)) }, identifier: "note.open." + shown.id)
+                            NoteText(text: shown.text, remoteEmojis: shown["emojis"], onTap: detail ? nil : { navigate(.note(shown.id)) }, identifier: "note.open." + shown.id, appearance: appearance)
                             PublicMediaGrid(files: Record.list(shown["files"]), noteID: shown.id)
                             if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
-                            if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull { NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用") }
+                            if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull { NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用", appearance: appearance) }
                             NoteLinkPreviews(text: shown.text, active: true)
                             if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
                         }
@@ -365,42 +368,44 @@ struct NoteCard: View {
     private var authorHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Button { navigate(.author(shown.user.id)) } label: {
-                HStack(spacing: 3) {
-                    Text(shown.user.displayName).font(.system(size: nameSize, weight: .bold)).lineLimit(1)
+                HStack(spacing: appearance.isTimeline ? 6.3 : 3) {
+                    Text(shown.user.displayName).font(.system(size: nameSize, weight: .bold)).lineLimit(1).layoutPriority(appearance.isTimeline ? 2 : 0)
                     if shown.user["isBot"].bool { Text("bot").font(.system(size: 9)).padding(.horizontal, 2).overlay(RoundedRectangle(cornerRadius: 2).stroke(PUBOTheme.divider)) }
-                    Text("@" + (shown.user["username"].string ?? "")).font(.system(size: accountSize)).foregroundStyle(PUBOTheme.secondary).lineLimit(1)
-                    UserInlineBadges(user: shown.user)
+                    Text("@" + (shown.user["username"].string ?? "")).font(.system(size: accountSize)).foregroundStyle(appearance.isTimeline ? PUBOTheme.text : PUBOTheme.secondary).lineLimit(1).layoutPriority(appearance.isTimeline ? -1 : 0)
+                    UserInlineBadges(user: shown.user).fixedSize(horizontal: appearance.isTimeline, vertical: appearance.isTimeline)
                 }
             }.buttonStyle(.plain).accessibilityIdentifier("note.author." + shown.id)
             Spacer(minLength: 0)
             Button { navigate(.note(shown.id)) } label: {
                 HStack(spacing: 3) {
-                    if let date = puboDate(shown["createdAt"].string) { Text(date, style: .relative).lineLimit(1) }
-                    if shown["visibility"].string != "public" { Image(systemName: TimelinePresentation.visibilityIcon(shown["visibility"].string)) }
-                    if shown["localOnly"].bool { Image(systemName: "network.slash").accessibilityLabel("仅本站") }
+                    if let date = puboDate(shown["createdAt"].string) { Group { if appearance.isTimeline { ChatRelativeTime(date: date) } else { Text(date, style: .relative) } }.lineLimit(1) }
+                    if shown["visibility"].string != "public" { NoteIcon(system: TimelinePresentation.visibilityIcon(shown["visibility"].string), web: shown["visibility"].string == "home" ? "home" : shown["visibility"].string == "specified" ? "mail" : "lock", appearance: appearance, size: timeSize * 1.29) }
+                    if shown["localOnly"].bool { NoteIcon(system: "network.slash", web: "rocket-off", appearance: appearance, size: timeSize * 1.29).accessibilityLabel("仅本站") }
                 }.font(.system(size: timeSize)).foregroundStyle(PUBOTheme.secondary)
-            }.buttonStyle(.plain).accessibilityLabel("查看帖子时间和详情，" + TimelinePresentation.visibilityLabel(shown["visibility"].string)).accessibilityIdentifier("note.timestamp." + shown.id)
+            }.buttonStyle(.plain).fixedSize(horizontal: appearance.isTimeline, vertical: false).layoutPriority(appearance.isTimeline ? 3 : 0).accessibilityLabel("查看帖子时间和详情，" + TimelinePresentation.visibilityLabel(shown["visibility"].string) + (shown["localOnly"].bool ? "，仅本站" : "")).accessibilityIdentifier("note.timestamp." + shown.id)
         }.frame(minHeight: 18)
     }
+    private var actionLayout: AnyLayout { appearance.isTimeline ? AnyLayout(FeedActionsLayout(spacing: typeSize.isAccessibilitySize ? 8 : 28)) : AnyLayout(HStackLayout(spacing: 12)) }
     private var actions: some View {
         Group {
-            if session.user != nil { HStack(spacing: 12) {
-                Button { replying = true } label: { HStack(spacing: 4) { Image(systemName: "arrowshape.turn.up.left"); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(.caption) } }.frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复")
+            if session.user != nil { actionLayout {
+                Button { replying = true } label: { HStack(spacing: 4) { NoteIcon(system: "arrowshape.turn.up.left", web: "arrow-back-up", appearance: appearance, size: actionSize); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption) } }.frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("回复").accessibilityIdentifier("note.reply." + shown.id)
                 Menu {
                     Button("转发") { Task { await renote() } }
                     Button("引用转发") { quoting = true }
-                } label: { HStack(spacing: 3) { Image(systemName: "arrow.2.squarepath"); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(.caption2) } }.frame(minWidth: 44, minHeight: 44) }
+                } label: { HStack(spacing: 3) { NoteIcon(system: "arrow.2.squarepath", web: "repeat", appearance: appearance, size: actionSize); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption2) } }.frame(minWidth: 44, minHeight: 44) }
+                .accessibilityLabel("转发或引用").accessibilityIdentifier("note.renote." + shown.id)
                 Button {
                     if !shown["myReaction"].isNull { proposedReaction = nil; confirmReaction = true }
                     else if shown["reactionAcceptance"].string == "likeOnly" { Task { await react("❤️") } }
                     else { reactionPicker = true }
                 } label: {
                     HStack(spacing: 3) {
-                        Image(systemName: shown["reactionAcceptance"].string == "likeOnly" ? (shown["myReaction"].isNull ? "heart" : "heart.fill") : (shown["myReaction"].isNull ? "plus" : "minus"))
-                        if shown["reactionAcceptance"].string == "likeOnly", shown["reactionCount"].int > 0 { Text("\(shown["reactionCount"].int)").font(.caption2) }
-                    }.frame(minWidth: 44, minHeight: 44).foregroundStyle(shown["myReaction"].isNull ? PUBOTheme.secondary : PUBOTheme.accent)
-                }.accessibilityLabel(shown["myReaction"].isNull ? "添加表情反应" : "取消反应")
-                Spacer(minLength: 0)
+                        NoteIcon(system: shown["reactionAcceptance"].string == "likeOnly" ? (shown["myReaction"].isNull ? "heart" : "heart.fill") : (shown["myReaction"].isNull ? "plus" : "minus"), web: shown["reactionAcceptance"].string == "likeOnly" ? (shown["myReaction"].isNull ? "heart" : "heart-filled") : (shown["myReaction"].isNull ? "plus" : "minus"), appearance: appearance, size: actionSize)
+                        if shown["reactionAcceptance"].string == "likeOnly", shown["reactionCount"].int > 0 { Text("\(shown["reactionCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption2) }
+                    }.frame(minWidth: 44, minHeight: 44).foregroundStyle(shown["myReaction"].isNull ? (appearance.isTimeline ? FeedColors.action : PUBOTheme.secondary) : PUBOTheme.accent)
+                }.accessibilityLabel(shown["myReaction"].isNull ? "添加表情反应" : "取消反应").accessibilityIdentifier("note.addReaction." + shown.id)
+                if !appearance.isTimeline { Spacer(minLength: 0) }
                 Menu {
                     Button("收藏帖子") { Task { await favorite(true) } }.accessibilityIdentifier("note.favorite." + shown.id)
                     Button("取消收藏") { Task { await favorite(false) } }
@@ -410,16 +415,17 @@ struct NoteCard: View {
                     if let id = ownDeleteID { Button((session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id) ? "取消置顶帖子" : "置顶到个人主页") { Task { await pin(id) } } }
                     if shown.user.id != session.user?.id { Button("举报帖子") { reporting = true }; Button("屏蔽作者", role: .destructive) { confirmBlock = true } }
                     Link("在网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id))
-                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + shown.id)
-            }.buttonStyle(.borderless).foregroundStyle(PUBOTheme.secondary).disabled(busy)
+                } label: { NoteIcon(system: "ellipsis", web: "dots", appearance: appearance, size: actionSize).frame(width: 44, height: 44) }.accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + shown.id)
+            }.buttonStyle(.borderless).foregroundStyle(appearance.isTimeline ? FeedColors.action : PUBOTheme.secondary).disabled(busy)
             } else { Text("登录后可回复、转发或添加反应").font(.caption).foregroundStyle(.secondary) }
 
-        }.font(.system(size: 15))
+        }.font(.system(size: appearance.isTimeline ? actionSize : 15))
     }
     private var reactions: some View {
         NoteReactionStrip(note: shown, disabled: busy || session.user == nil,
             pulse: reactionPulse, choose: chooseReaction,
-            more: { viewingReactions = true })
+            more: { viewingReactions = true }, appearance: appearance)
+            .padding(.top, appearance.isTimeline && !shown["reactions"].object.isEmpty ? 6 : 0)
     }
     private func chooseReaction(_ reaction: String) {
         let previous = shown["myReaction"].string

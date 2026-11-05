@@ -105,6 +105,7 @@ struct NoteText: View {
     var remoteEmojis: JSONValue = .null
     var onTap: (() -> Void)? = nil
     var identifier = ""
+    var appearance: NoteAppearance = .standard
     @Environment(\.scenePhase) private var phase
     @State private var visible = false
     var expands = true
@@ -146,7 +147,7 @@ struct NoteText: View {
         RichNoteText(parts: parts, urls: urls, images: emojiStore.images, playing: visible && phase == .active, identifier: identifier, openURL: { url in
             if let link = NativeLink(url) { destination = NativeLinkTarget(link: link) }
             else if NativeLink.publicURL(url.absoluteString) != nil { UIApplication.shared.open(url) }
-        }, onTap: onTap)
+        }, onTap: onTap, appearance: appearance)
         } else { legacyText.textSelection(.enabled).environment(\.openURL, OpenURLAction { url in
             if let link = NativeLink(url) { destination = NativeLinkTarget(link: link); return .handled }
             return NativeLink.publicURL(url.absoluteString) == nil ? .discarded : .systemAction

@@ -1,0 +1,116 @@
+{
+  "version": "3.35.0",
+  "conversion": "currentColor -> black; template rendering; paths unchanged",
+  "icons": [
+    {
+      "name": "arrow-back-up",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/arrow-back-up.svg",
+      "sourceSHA256": "d59784fb4976ae24d544ad49da3f9de53839d096fe75519b8d90f02dab7b2520"
+    },
+    {
+      "name": "repeat",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/repeat.svg",
+      "sourceSHA256": "6b1b112b7c49d906989ddac7d3e5c75ba4b08d61db643c123f6378724c2f61e3"
+    },
+    {
+      "name": "plus",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/plus.svg",
+      "sourceSHA256": "5c22bc4601782a1aba6f67a6a97fbb864c6cf75a4aa1f012ae3f8478d1b128d2"
+    },
+    {
+      "name": "minus",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/minus.svg",
+      "sourceSHA256": "30ad5fcf9581cd2010bfc017da496fec3253a4e0d41a887f2b7ff8897dffd04c"
+    },
+    {
+      "name": "dots",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/dots.svg",
+      "sourceSHA256": "65a5bc47fd559bf517aaa1f84ee989db3178cfe74f5e8b53d9582cba7a25e624"
+    },
+    {
+      "name": "heart",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/heart.svg",
+      "sourceSHA256": "1e7501724e159b4df06ae32c6c5525cd7839fe0f72f988c3b03c807922dd6df7"
+    },
+    {
+      "name": "heart-filled",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/filled/heart.svg",
+      "sourceSHA256": "be7ffd75a014bb5199a7f8d9e25ffe1dd01ac3c865aa75641d04570fd2556f13"
+    },
+    {
+      "name": "rocket-off",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/rocket-off.svg",
+      "sourceSHA256": "dc61f30b08aa555a64dd0e82dbada5fe760b0836171cb53996442219ab869642"
+    },
+    {
+      "name": "home",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/home.svg",
+      "sourceSHA256": "364f70af3c90a9ef4178610227bf68c0b43b897241f146a8e56faf9724cc9c42"
+    },
+    {
+      "name": "lock",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/lock.svg",
+      "sourceSHA256": "6e784f5b3c19a76909c2627fd4192bbf98c3eb3b277d2d685af14570a682fd7e"
+    },
+    {
+      "name": "mail",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/mail.svg",
+      "sourceSHA256": "276c612a6bd26a4765bca06425e3335b8ff349e6df1899ef9a360c6a71b20d49"
+    },
+    {
+      "name": "device-tv",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/device-tv.svg",
+      "sourceSHA256": "bf4f14ebd3ba98712ed3f39fa505b4b4327ef195d354dab27a0956cdda4a583e"
+    },
+    {
+      "name": "list",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/list.svg",
+      "sourceSHA256": "7c29ffc1b7bfd04c0dd0018129a4a53552cf6bc1020879a6bce90b66ff87c658"
+    },
+    {
+      "name": "antenna",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/antenna.svg",
+      "sourceSHA256": "d13a8a7a2e54000c1aae0bd32c9eba2fa051c091a6b3dcff5839ac5d26f71323"
+    },
+    {
+      "name": "planet",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/planet.svg",
+      "sourceSHA256": "5218e378183d80744b7e30bd70e00c933d342899e0d2260e747866eb1f7bcbc6"
+    },
+    {
+      "name": "universe",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/universe.svg",
+      "sourceSHA256": "0d2f3e688fef1f071c56494275a59e526b540cb4af964e915e2bfb961621e3be"
+    },
+    {
+      "name": "whirl",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/whirl.svg",
+      "sourceSHA256": "4d9fdb2a8ad21f69372eb4f173ff317168da25e5a44c048082a0b1280f67b950"
+    },
+    {
+      "name": "pencil",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/pencil.svg",
+      "sourceSHA256": "bcf26673fe6c87a985ec327be0f3e834daa45f43767cc5316ddab202dd105736"
+    },
+    {
+      "name": "arrow-up-circle",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/arrow-up-circle.svg",
+      "sourceSHA256": "6cdba9835b5ee276efa8818cea6f10835584949e6ca76883edf0176e1ce99003"
+    },
+    {
+      "name": "eye",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/eye.svg",
+      "sourceSHA256": "c1d698e60f82d4c76f6640f866956c51c9249f2ca059b39aca194db936aac8ef"
+    },
+    {
+      "name": "eye-off",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/eye-off.svg",
+      "sourceSHA256": "5d772cff420727f494783cdebd08513b379e732652a972ea5e24cb5f819fe510"
+    },
+    {
+      "name": "paperclip",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/v3.35.0/icons/outline/paperclip.svg",
+      "sourceSHA256": "b86a8a2f917906594ddf20f4c450aabbb9e3c9853e0c5c5c72002c4c4f19d932"
+    }
+  ]
+}

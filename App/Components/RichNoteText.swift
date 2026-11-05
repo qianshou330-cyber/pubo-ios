@@ -12,6 +12,7 @@ struct RichNoteText: UIViewRepresentable {
     let identifier: String
     let openURL: (URL) -> Void
     var onTap: (() -> Void)?
+    var appearance: NoteAppearance = .standard
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> AnimatedTextView {
         let view = AnimatedTextView()
@@ -28,7 +29,7 @@ struct RichNoteText: UIViewRepresentable {
         // H5's 14px base is 0.9em in a phone-width note container.
         let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: UIFont.systemFont(ofSize: 12.6))
         let imageKey = urls.keys.sorted().map { key in key + "=" + (images[key].map { String(describing: ObjectIdentifier($0)) } ?? "pending") }.joined(separator: "|")
-        let renderKey = parts.joined(separator: "\u{001f}") + imageKey + String(describing: font.pointSize)
+        let renderKey = parts.joined(separator: "\u{001f}") + imageKey + String(describing: font.pointSize) + appearance.rawValue
         if context.coordinator.renderKey != renderKey {
         let color = UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 222/255, green: 231/255, blue: 228/255, alpha: 1) : UIColor(white: 103/255, alpha: 1) }
         let output = NSMutableAttributedString(string: "")
@@ -51,9 +52,23 @@ struct RichNoteText: UIViewRepresentable {
                     var attributes: [NSAttributedString.Key: Any] = [.font: runFont, .foregroundColor: color]
                     if let link = run.link { attributes[.link] = link }
                     if run.inlinePresentationIntent?.contains(.strikethrough) == true { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
-                    output.append(NSAttributedString(string: String(value[run.range].characters), attributes: attributes))
+                    var display = String(value[run.range].characters)
+                    if appearance.isTimeline, let link = run.link, link.host == Endpoint.origin.host,
+                       display == link.absoluteString {
+                        display = link.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                        if display.isEmpty { display = link.host ?? display }
+                        if let query = link.query { display += "?" + query }
+                        if let fragment = link.fragment { display += "#" + fragment }
+                    }
+                    output.append(NSAttributedString(string: display, attributes: attributes))
                 }
             }
+        }
+        if appearance.isTimeline {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.minimumLineHeight = font.pointSize * 1.35
+            paragraph.lineBreakMode = .byWordWrapping
+            output.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: output.length))
         }
         view.attributedText = output; view.rebuildAnimations()
         context.coordinator.renderKey = renderKey

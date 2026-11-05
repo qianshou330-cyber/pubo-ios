@@ -2,6 +2,28 @@ import XCTest
 
 /// Exercises the native UI against the pinned real backend on this runner's loopback network.
 @MainActor final class PUBOIntegrationTests: XCTestCase {
+    func testRealTimelineReplyAndRenoteButtons() async throws {
+        let data = try await context(); let id = data["noteId"]!
+        var app = launch(data)
+        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        let reply = app.buttons["note.reply." + id]
+        for _ in 0..<10 where !reply.isHittable { app.swipeUp() }
+        XCTAssertTrue(reply.isHittable); reply.tap()
+        let editor = app.textViews["compose.text"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap(); editor.typeText("Native timeline reply proof")
+        app.buttons["compose.send"].tap()
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 15))
+        let replied = try await proof("timelineReplied"); XCTAssertTrue(replied)
+        capture(app, "joint-timeline-reply-receipt"); app.terminate()
+        app = launch(data)
+        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        let renote = app.buttons["note.renote." + id]
+        for _ in 0..<10 where !renote.isHittable { app.swipeUp() }
+        XCTAssertTrue(renote.isHittable); renote.tap(); app.buttons["转发"].tap()
+        XCTAssertTrue(app.staticTexts["已转发"].waitForExistence(timeout: 15))
+        let renoted = try await proof("timelineRenoted"); XCTAssertTrue(renoted)
+        capture(app, "joint-timeline-renote-receipt"); app.terminate()
+    }
     func testRealLocalTimelineReactionAndCancellation() async throws {
         let data = try await context(); let app = launch(data)
         XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20)); XCTAssertTrue(app.buttons["timeline.local"].isSelected)
