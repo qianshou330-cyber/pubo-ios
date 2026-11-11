@@ -15,6 +15,7 @@ actor FixtureTransport: HTTPTransport {
     private var sent: [JSONValue] = []
     private var counter = 0
     private var timelineReads = 0
+    private var timelineOlderFailureSent = false
     #if DEBUG
     private var notificationFixtures = NotificationFixtureState()
     private var gifReads = 0
@@ -244,6 +245,9 @@ actor FixtureTransport: HTTPTransport {
                 status = 400; response = .object(["error": .object(["code": .string("LTL_DISABLED"), "message": .string("Local timeline disabled")])])
             } else if args.contains("--timeline-offline-first"), timelineReads == 0, path != "users/notes" {
                 timelineReads += 1; status = 503; response = .object(["error": .object(["code": .string("SERVICE_UNAVAILABLE"), "message": .string("隔离断网样例")])])
+            } else if args.contains("--timeline-older-failure"), !body["untilId"].isNull, !timelineOlderFailureSent, path != "users/notes" {
+                timelineOlderFailureSent = true; status = 503
+                response = .object(["error": .object(["code": .string("SERVICE_UNAVAILABLE"), "message": .string("分页断网样例")])])
             } else if args.contains("--timeline-align"), path != "users/notes" {
                 var rows = posts.filter { body["untilId"].isNull || ($0["id"].string ?? "") < (body["untilId"].string ?? "") }
                 if body["withFiles"].bool { rows = rows.filter { !$0["files"].array.isEmpty } }

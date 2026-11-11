@@ -15,6 +15,7 @@ struct TimelineView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var feed = TimelineState()
     @State private var error: String?
+    @State private var failedOlderRequest = false
     @State private var loading = false
     @State private var hasMore = true
     @State private var composer = false
@@ -103,6 +104,10 @@ struct TimelineView: View {
         LazyVStack(spacing: 0) {
             timelineHeading
             timelineRows
+            if let error, failedOlderRequest {
+                ErrorBanner(message: "加载更早帖子失败：" + error) { Task { await load(older: true) } }
+                    .padding(12).accessibilityIdentifier("timeline.olderRetry")
+            }
             TimelineLoadingStatus(loading: loading, empty: feed.notes.isEmpty,
                 loaded: firstLoadFinished, failed: error != nil, hasMore: hasMore)
             Color.clear.frame(height: 68)
@@ -123,7 +128,7 @@ struct TimelineView: View {
                         if preferences.fixedComposer && !composer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
                         if let notice = session.timelineNotice { Text(notice).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10) }
                         if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
-                        if let error { ErrorBanner(message: error) { Task { await load(older: firstLoadFinished) } }.padding(12) }
+                        if let error, !failedOlderRequest { ErrorBanner(message: error) { Task { await load() } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }
                         if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
         }
     }
@@ -155,7 +160,7 @@ struct TimelineView: View {
     private func prepareTimeline() async {
                     guard !firstLoadFinished || requestContext != context else { return }
                     reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID()
-                    requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; loading = false
+                    requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; failedOlderRequest = false; loading = false
                     anchor = "timeline-top"; atTop = true
                     session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + preferences.requestKey), Date().timeIntervalSince(saved.savedAt) < 86_400 {
@@ -186,9 +191,9 @@ struct TimelineView: View {
             } }.scrollIndicators(.hidden)
             Menu {
                 Toggle("显示转帖", isOn: Binding(get: { preferences.withRenotes }, set: { session.timelinePreferences.withRenotes = $0 }))
-                if ["local", "hybrid"].contains(preferences.selected) { Toggle("在时间线中显示对他人的回复", isOn: Binding(get: { preferences.withReplies }, set: { session.timelinePreferences.setReplies($0) })) }
+                if ["local", "hybrid"].contains(preferences.selected) { Toggle("在时间线中显示对他人的回复", isOn: Binding(get: { preferences.withReplies }, set: { session.timelinePreferences.setReplies($0) })).disabled(preferences.onlyFiles) }
                 Toggle("显示包含敏感媒体的帖子", isOn: Binding(get: { preferences.withSensitive }, set: { session.timelinePreferences.withSensitive = $0 }))
-                Toggle("仅限媒体", isOn: Binding(get: { preferences.onlyFiles }, set: { session.timelinePreferences.setOnlyFiles($0) }))
+                Toggle("仅限媒体", isOn: Binding(get: { preferences.onlyFiles }, set: { session.timelinePreferences.setOnlyFiles($0) })).disabled(["local", "hybrid"].contains(preferences.selected) && preferences.withReplies)
                 Toggle("在时间线顶部显示发帖框", isOn: Binding(get: { preferences.fixedComposer }, set: { session.timelinePreferences.fixedComposer = $0 }))
                 Divider()
                 NavigationLink("搜索") { SearchView() }; NavigationLink("站内公告") { AnnouncementsView() }
@@ -232,7 +237,7 @@ struct TimelineView: View {
                     for row in rows where row.id > priorNewest { feed.receive(row, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
                     finished = rows.count < 100 || (rows.last?.id ?? "") <= priorNewest
                     cursor = rows.last?.id; pages += 1
-                } catch { if active && !Task.isCancelled && epoch == session.generation && context == request { self.error = "重连后补取失败，已保留现有帖子。" }; return }
+                } catch { if active && !Task.isCancelled && epoch == session.generation && context == request { failedOlderRequest = false; self.error = "重连后补取失败，已保留现有帖子。" }; return }
             } while !finished && pages < 20
             if !finished { session.timelineNotice = "离线期间帖子较多，已获取最近内容；可向下继续加载历史。" }
         } else { await load() }
@@ -263,12 +268,12 @@ struct TimelineView: View {
             if older || atTop || feed.notes.isEmpty { feed.page(result, older: older, preferences: selected, accountID: session.user?.id) }
             else { for note in result { feed.receive(note, atTop: false, preferences: selected, accountID: session.user?.id) } }
             if older || !firstLoadFinished { hasMore = result.count == 20 }
-            error = nil; cached = false; firstLoadFinished = true
+            error = nil; failedOlderRequest = false; cached = false; firstLoadFinished = true
             if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(feed.notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected.requestKey) }
         } catch is CancellationError {} catch {
             guard requestID == attempt, context == currentContext else { return }
             if (error as? APIError)?.code == "LTL_DISABLED" { session.timelinePreferences.selected = "home"; session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
-            else { self.error = error.localizedDescription; firstLoadFinished = true }
+            else { failedOlderRequest = older; self.error = error.localizedDescription; firstLoadFinished = true }
         }
     }
 }

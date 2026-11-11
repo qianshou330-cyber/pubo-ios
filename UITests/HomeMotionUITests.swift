@@ -55,7 +55,10 @@ final class HomeMotionUITests: XCTestCase {
     func testReducedMotionKeepsAnnouncementAccessibleAndSongDismissible() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--home-motion", "--multiple-announcements", "--reduce-motion"]; app.launch()
         let announcement = app.buttons["home.announcement.fixtureannouncement"]
-        XCTAssertTrue(announcement.waitForExistence(timeout: 15)); announcement.tap()
+        XCTAssertTrue(announcement.waitForExistence(timeout: 15))
+        XCTAssertGreaterThanOrEqual(announcement.frame.height, 44)
+        XCTAssertTrue(announcement.isHittable)
+        announcement.tap()
         XCTAssertTrue(app.staticTexts["欢迎加入 PUBO"].firstMatch.waitForExistence(timeout: 5))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.buttons["home.song.fixturesong"].tap(); XCTAssertTrue(app.buttons["chart.sheet.close"].waitForExistence(timeout: 5))

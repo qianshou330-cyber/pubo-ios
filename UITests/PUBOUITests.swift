@@ -317,26 +317,29 @@ final class PUBOUITests: XCTestCase {
 
     func testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
-        let newest = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label BEGINSWITH %@", "note.open.refresh", "刷新样例 ")).firstMatch
+        let newest = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value BEGINSWITH %@", "note.open.refresh", "刷新样例 ")).firstMatch
         XCTAssertTrue(newest.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["刷新首页"].exists)
         XCTAssertFalse(app.buttons["我的资料"].exists)
-        let before = Int(newest.label.split(separator: " ").last ?? "0") ?? 0
+        guard let text = newest.value as? String,
+              let before = Int(text.split(separator: " ").last ?? ""), before > 0 else {
+            XCTFail("Refresh fixture must expose its generation in the text view value"); return
+        }
         // The short default swipe only partially reveals UIRefreshControl on SE.
         // Pull from below the header to above the tab bar, through the row gutter.
         let list = app.scrollViews["timeline.scroll"]
         list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.20))
             .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.86)))
         // Old rows remain in the list by design. Query the new row instead of
-        // holding the original accessibility element and expecting its label to mutate.
-        let refreshed = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "note.open.refresh", "刷新样例 \(before + 1)")).firstMatch
+        // holding the original accessibility element and expecting its text view value to mutate.
+        let refreshed = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 1)")).firstMatch
         XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
         capture(app, "home-pull-to-refresh")
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "note.open.refresh", "刷新样例 \(before + 2)")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 2)")).firstMatch.waitForExistence(timeout: 10))
         app.tabBars.buttons["我的"].tap()
         XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
         capture(app, "profile-avatar-tab")
@@ -521,7 +524,14 @@ final class PUBOUITests: XCTestCase {
             for _ in 0..<4 where !warning.isHittable { app.swipeUp() }
             XCTAssertTrue(warning.waitForExistence(timeout: 5))
             capture(app, dark ? "web-style-feed-dark" : "web-style-feed-light")
-            app.tabBars.buttons["通知"].tap(); XCTAssertTrue(app.staticTexts["测试朋友 关注了你"].waitForExistence(timeout: 5))
+            app.tabBars.buttons["通知"].tap()
+            // The redesigned row exposes a navigable notification with separate
+            // actor and summary text, rather than the former concatenated label.
+            let follow = app.buttons["notification.notice1"]
+            XCTAssertTrue(follow.waitForExistence(timeout: 5))
+            XCTAssertTrue(follow.label.contains("测试朋友"))
+            XCTAssertTrue(follow.label.contains("你有新的关注者"))
+            XCTAssertTrue(follow.isHittable)
             capture(app, dark ? "web-style-notifications-dark" : "web-style-notifications-light")
             app.tabBars.buttons["私信"].tap(); XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5))
             capture(app, dark ? "web-style-conversations-dark" : "web-style-conversations-light")

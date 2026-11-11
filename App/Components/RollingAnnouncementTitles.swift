@@ -19,6 +19,8 @@ struct RollingAnnouncementTitles: View {
     @State private var hovered = false
     @FocusState private var focused: Bool
     @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 12
+    // Keep the visual ticker and its interactive copies inside the same 44pt hit area.
+    private let touchHeight: CGFloat = 44
     private var staticMode: Bool { reduceMotion || voiceOver || ProcessInfo.processInfo.arguments.contains("--reduce-motion") }
     private var paused: Bool { !active || hovered || focused || staticMode }
 
@@ -26,9 +28,9 @@ struct RollingAnnouncementTitles: View {
         HStack(spacing: 40) {
             ForEach(entries) { entry in
                 if copy {
-                    Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 32).contentShape(Rectangle()).onTapGesture { open(entry) }
+                    Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: touchHeight).contentShape(Rectangle()).onTapGesture { open(entry) }
                 } else {
-                    Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: 32).contentShape(Rectangle()) }
+                    Button { open(entry) } label: { Text(entry["title"].string ?? "公告").font(.system(size: titleSize)).lineLimit(1).frame(minHeight: touchHeight).contentShape(Rectangle()) }
                         .buttonStyle(.plain).focused($focused).accessibilityIdentifier("home.announcement." + entry.id)
                 }
             }
@@ -51,7 +53,7 @@ struct RollingAnnouncementTitles: View {
                     }
                 }.clipped()
             }
-        }.frame(height: 32)
+        }.frame(height: touchHeight)
             .onPreferenceChange(AnnouncementWidth.self) { if $0 > 0 { width = $0 } }
             .onHover { hovered = $0 }
             .onChange(of: paused, initial: true) { _, stopped in

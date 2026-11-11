@@ -183,4 +183,31 @@ final class LocalTimelineUITests: XCTestCase {
         let retry = app.buttons["重试"]; XCTAssertTrue(retry.waitForExistence(timeout: 10)); retry.tap()
         XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10)); capture(app,"local-retry-restored"); app.terminate()
     }
+    func testH5FilterExclusionDoesNotSilentlyReplaceSelection() {
+        let app = launch()
+        app.buttons["home.more"].tap(); app.buttons["仅限媒体"].tap()
+        app.buttons["home.more"].tap()
+        XCTAssertFalse(app.buttons["在时间线中显示对他人的回复"].isEnabled)
+        XCTAssertTrue(app.buttons["仅限媒体"].isEnabled)
+        capture(app, "local-media-filter-exclusion")
+        app.buttons["仅限媒体"].tap()
+        app.buttons["home.more"].tap(); app.buttons["在时间线中显示对他人的回复"].tap()
+        app.buttons["home.more"].tap()
+        XCTAssertFalse(app.buttons["仅限媒体"].isEnabled)
+        XCTAssertTrue(app.buttons["在时间线中显示对他人的回复"].isEnabled)
+        capture(app, "local-replies-filter-exclusion"); app.terminate()
+    }
+    func testOlderFailureRetriesAtReadingPositionWithoutDroppingPosts() {
+        let app = launch(["--timeline-older-failure"])
+        let banner = reveal(app, "timeline.olderRetry")
+        XCTAssertTrue(banner.exists)
+        let retry = banner.buttons["重试"].firstMatch
+        XCTAssertTrue(retry.isHittable)
+        capture(app, "local-pagination-inline-retry")
+        retry.tap()
+        XCTAssertTrue(reveal(app, "note.open.at4tltest0001").exists)
+        XCTAssertFalse(find(app, "timeline.olderRetry").exists)
+        capture(app, "local-pagination-recovered"); app.terminate()
+    }
+
 }
