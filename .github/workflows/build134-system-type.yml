@@ -1,0 +1,38 @@
+name: PUBO build134 simulator system text
+on:
+  push:
+    branches: ['ci-build134-system-type-20261111']
+permissions:
+  contents: read
+jobs:
+  system-type:
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify identical build134 product and controls
+        run: |
+          test "$(git rev-parse HEAD^)" = cee0d81798adbc45c11acb3998a82ab3fc6d5b70
+          git diff --exit-code cee0d81798adbc45c11acb3998a82ab3fc6d5b70 HEAD -- App Sources project.yml Package.swift Package.resolved
+      - name: Fixed simulator tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          mkdir -p build/system-type
+          xcrun simctl help ui > build/system-type/simctl-ui-help.txt 2>&1
+          cat build/system-type/simctl-ui-help.txt
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Measure normal and system accessibility text and hit targets
+        run: python3 scripts/ci-system-type.py
+      - name: Read visible nickname prefixes from the original screenshot pixels
+        if: always()
+        run: swift scripts/ci-visible-nickname.swift build/system-type
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build134-system-type-${{ github.sha }}
+          path: build/system-type/
+          retention-days: 14
