@@ -83,6 +83,7 @@ struct AccountSecurityView: View {
 
 struct AuthorizedSessionsView: View {
     @Environment(AppSession.self) private var session
+    var appsOnly = false
     @State private var apps: [Record] = []
     @State private var history: [Record] = []
     @State private var more = true
@@ -92,11 +93,18 @@ struct AuthorizedSessionsView: View {
     var body: some View {
         List {
             Section("已授权应用") { ForEach(apps) { app in VStack(alignment: .leading) { Text(app["name"].string ?? "未命名授权").font(.headline); Text(app["permission"].array.compactMap(\.string).joined(separator: "、")).font(.caption); if let date = puboDate(app["lastUsedAt"].string) { Text("最近使用 " + date.formatted()).font(.caption) }; Button("撤销授权", role: .destructive) { removing = app } } } }
-            Section("登录记录") { ForEach(history) { row in VStack(alignment: .leading) { Text(row["success"].bool ? "登录成功" : "登录失败"); if let date = puboDate(row["createdAt"].string) { Text(date.formatted()).font(.caption) }; Text(row["ip"].string ?? "").font(.caption) } }; if more { Button("加载更多记录") { Task { await loadHistory() } } } }
+            if !appsOnly {
+                Section("登录记录") { ForEach(history) { row in VStack(alignment: .leading) { Text(row["success"].bool ? "登录成功" : "登录失败"); if let date = puboDate(row["createdAt"].string) { Text(date.formatted()).font(.caption) }; Text(row["ip"].string ?? "").font(.caption) } }; if more { Button("加载更多记录") { Task { await loadHistory() } } } }
+            }
             if let error { ErrorBanner(message: error) }
-        }.disabled(busy).puboForm().navigationTitle("授权会话与登录记录").privacySensitive().task { await loadApps(); await loadHistory() }.refreshable { history = []; await loadApps(); await loadHistory() }
+        }.disabled(busy).puboForm().navigationTitle(appsOnly ? "已授权应用" : "授权会话与登录记录").privacySensitive()
+            .task { await reload() }.refreshable { await reload() }
             .alert("撤销后此应用无法继续访问账号；当前 App 也可能受影响。", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), presenting: removing) { target in Button("确认撤销", role: .destructive) { Task { await revoke(target) } }; Button("取消", role: .cancel) { removing = nil } }
             .onDisappear { apps = []; history = [] }
+    }
+    private func reload() async {
+        await loadApps()
+        if !appsOnly { history = []; await loadHistory() }
     }
     private func loadApps() async { do { apps = Record.list(try await session.security.call(session: session, path: "i/apps", fields: ["sort": .string("+lastUsedAt")])) } catch { self.error = error.localizedDescription } }
     private func loadHistory() async {

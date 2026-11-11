@@ -2,6 +2,26 @@ import XCTest
 @testable import PUBOCore
 
 final class NotificationFeedTests: XCTestCase {
+    func testChangingBackBeforeTheNextCategoryLoadsRequiresARequest() {
+        var state = NotificationRefreshState()
+        state.didLoad("all", revision: state.revision)
+        state.clearDisplayedQuery()
+        XCTAssertNil(state.loadedQuery)
+        XCTAssertNotEqual(state.loadedQuery, "all", "The emptied list cannot be reused as an all-tab result")
+    }
+
+    func testReconnectDuringFetchStaysPendingUntilTopIsRefetched() {
+        var state = NotificationRefreshState()
+        let initialRevision = state.revision
+        state.invalidate()
+        state.didLoad("all", revision: initialRevision)
+        XCTAssertFalse(state.shouldRefresh("all", atTop: false))
+        XCTAssertFalse(state.shouldRefresh("mentions", atTop: true))
+        XCTAssertTrue(state.shouldRefresh("all", atTop: true))
+        state.didLoad("all", revision: state.revision)
+        XCTAssertFalse(state.shouldRefresh("all", atTop: true))
+    }
+
     func testTabsUseTheirOwnEndpointsAndParameters() {
         XCTAssertEqual(NotificationTab.all.endpoint, "i/notifications-grouped")
         XCTAssertEqual(NotificationTab.all.parameters(filter: .reaction, until: "older"), [
@@ -11,6 +31,11 @@ final class NotificationFeedTests: XCTestCase {
         XCTAssertEqual(NotificationTab.directNotes.endpoint, "notes/mentions")
         XCTAssertEqual(NotificationTab.mentions.parameters(filter: .follow, until: nil), ["limit": .number(10)])
         XCTAssertEqual(NotificationTab.directNotes.parameters(filter: .follow, until: nil), ["limit": .number(10), "visibility": .string("specified")])
+        let date = Date(timeIntervalSince1970: 123)
+        XCTAssertEqual(NotificationTab.mentions.parameters(filter: nil, until: nil, oldestFirst: true)["sinceId"], .string("0"))
+        XCTAssertEqual(NotificationTab.mentions.parameters(filter: nil, until: nil, oldestFirst: true, date: date)["sinceDate"], .number(123000))
+        XCTAssertEqual(NotificationTab.mentions.parameters(filter: nil, until: nil, date: date)["untilDate"], .number(123000))
+        XCTAssertEqual(NotificationTab.mentions.parameters(filter: nil, until: "cursor", oldestFirst: true, date: date), ["limit": .number(10), "sinceId": .string("cursor")])
     }
 
     func testGroupedCursorCanAdvanceEvenAfterOneVisibleGroup() {

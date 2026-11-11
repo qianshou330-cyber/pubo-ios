@@ -80,6 +80,9 @@ try:
                 subprocess.run(['xcrun','xcresulttool','export','attachments','--path',str(bundle),'--output-path',str(shots)],timeout=90,check=True)
                 summary=subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path',str(bundle)],text=True,timeout=60)
                 (root/(name+'-summary.json')).write_text(summary)
+                if name in ('notifications', 'notification-routes'):
+                    tree = subprocess.check_output(['xcrun', 'xcresulttool', 'get', 'test-results', 'tests', '--path', str(bundle)], text=True, timeout=90)
+                    (root / (name + '-tests.json')).write_text(tree)
         record[name]='PASS' if result.returncode==0 else 'FAIL'
         # Continue independent regression groups so failures do not hide unrelated evidence.
     if any(record.get(name) != 'PASS' for name,_ in groups):raise RuntimeError('One or more UI groups failed; see individual summaries')

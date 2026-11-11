@@ -1,5 +1,23 @@
 import Foundation
 
+/// Keep track of which query actually owns the displayed rows. An in-flight
+/// response cannot acknowledge a reconnect that happened after it started.
+public struct NotificationRefreshState: Sendable {
+    public private(set) var loadedQuery: String?
+    public private(set) var revision = 0
+    private var loadedRevision = 0
+    public init() {}
+    public mutating func invalidate() { revision += 1 }
+    public mutating func clearDisplayedQuery() { loadedQuery = nil; invalidate() }
+    public mutating func didLoad(_ query: String, revision: Int) {
+        loadedQuery = query
+        loadedRevision = revision
+    }
+    public func shouldRefresh(_ query: String, atTop: Bool) -> Bool {
+        atTop && loadedQuery == query && revision != loadedRevision
+    }
+}
+
 public enum NotificationTab: String, CaseIterable, Sendable {
     case all, mentions, directNotes
 

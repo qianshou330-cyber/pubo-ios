@@ -12,7 +12,7 @@ struct NotificationDestinationView: View {
         case .file(let id): NotificationFileView(fileID: id)
         case .achievements: AchievementsView()
         case .sessions: AdminGate(management: false) { AuthorizedSessionsView() }
-        case .connections: ServiceConnectionsView()
+        case .connections: AdminGate(management: false) { AuthorizedSessionsView(appsOnly: true) }
         case .followRequests: FollowRequestsView()
         case .scheduled: ScheduledNotesView()
         case .profile:

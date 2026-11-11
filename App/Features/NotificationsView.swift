@@ -14,8 +14,7 @@ struct NotificationsView: View {
     @State private var cursor: String?
     @State private var more = false
     @State private var loading = false
-    @State private var loadedQuery: String?
-    @State private var needsRefresh = false
+    @State private var refreshState = NotificationRefreshState()
     @State private var errorMessage: String?
     @State private var retryOlder = false
     @State private var actionMessage: String?
@@ -55,23 +54,24 @@ struct NotificationsView: View {
             .onDisappear { visible = false; invalidateRequest() }
             .task(id: query + (active ? "/visible" : "/hidden")) {
                 guard active else { invalidateRequest(); return }
-                if loadedQuery != query {
+                if refreshState.loadedQuery != query {
                     invalidateRequest()
+                    refreshState.clearDisplayedQuery()
                     items = []; queued = []; cursor = nil; more = false; errorMessage = nil; atTop = true
                     scrolledList = false; autoCursor = nil
                     await load()
-                } else if needsRefresh || (tab == .all && session.badges.notification) {
+                } else if refreshState.shouldRefresh(query, atTop: atTop) || (atTop && tab == .all && session.badges.notification) {
                     await load(keepTail: true)
                 }
             }
             .onChange(of: session.connectionRevision) { old, _ in
-                guard old > 0, loadedQuery == query else { return }
-                needsRefresh = true
+                guard old > 0 else { return }
+                refreshState.invalidate()
                 if active && atTop { Task { await load(keepTail: true) } }
             }
             .onReceive(session.notificationEvents, perform: receive)
             .onReceive(session.notificationFlushes) { _ in
-                needsRefresh = true
+                refreshState.invalidate()
                 if active && tab == .all {
                     invalidateRequest()
                     queued = []
@@ -166,16 +166,17 @@ struct NotificationsView: View {
         }.padding(.bottom, 8)
     }
     private var feed: some View {
-        ScrollView {
+        let displayed = items
+        return ScrollView {
             LazyVStack(spacing: tab == .all ? 0 : 8) {
                 Color.clear.frame(height: 1).background(GeometryReader { g in
                     Color.clear.preference(key: NotificationScrollTop.self, value: g.frame(in: .named("notification-scroll")).minY)
                 })
                 if tab != .all { noteControls }
                 if let errorMessage { ErrorBanner(message: errorMessage) { Task { await load(older: retryOlder) } } }
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                ForEach(Array(displayed.enumerated()), id: \.element.id) { index, item in
                     VStack(spacing: 0) {
-                        if index > 0 { dateBoundary(items[index - 1], item) }
+                        if index > 0 { dateBoundary(displayed[index - 1], item) }
                         row(item)
                         Rectangle().fill(PUBOTheme.divider).frame(height: 0.5)
                     }
@@ -200,8 +201,14 @@ struct NotificationsView: View {
         }.coordinateSpace(name: "notification-scroll")
             .onPreferenceChange(NotificationScrollTop.self) { top in
                 // The lazy stack removes the marker offscreen. Its absent value means history is visible.
+                let wasAtTop = atTop
                 atTop = top.map { $0 >= -2 } ?? false
-                if atTop { releaseQueue() }
+                if atTop {
+                    releaseQueue()
+                    if !wasAtTop && active && refreshState.shouldRefresh(query, atTop: true) {
+                        Task { await load(keepTail: true) }
+                    }
+                }
             }
             .refreshable { await load() }
             .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { drag in
@@ -239,7 +246,7 @@ struct NotificationsView: View {
         "\(Calendar.current.component(.month, from: date))/\(Calendar.current.component(.day, from: date))"
     }
     private func invalidateRequest() {
-        if loading { needsRefresh = true }
+        if loading { refreshState.invalidate() }
         requestID = UUID(); loading = false; receivedDuringRequest = []
     }
     private func loadVisibleOlder() {
@@ -249,7 +256,7 @@ struct NotificationsView: View {
     }
     private func receive(_ item: Record) {
         guard !item.id.isEmpty else { return }
-        guard active else { needsRefresh = true; return }
+        guard active else { refreshState.invalidate(); return }
         guard tab == .all else { return }
         session.stream.readVisibleNotifications()
         guard filter == nil || NotificationKind(record: item) == filter else { return }
@@ -272,8 +279,16 @@ struct NotificationsView: View {
         guard active, !loading, !older || (more && cursor != nil) else { return }
         let current = UUID(), key = query, source = tab, requestFilter = filter
         let oldCursor = older ? cursor : nil
+        let revision = refreshState.revision
         requestID = current; loading = true; receivedDuringRequest = []
-        defer { if requestID == current { loading = false; receivedDuringRequest = [] } }
+        defer {
+            if requestID == current {
+                loading = false; receivedDuringRequest = []
+                if !Task.isCancelled && active && errorMessage == nil && key == query && refreshState.shouldRefresh(key, atTop: atTop) {
+                    Task { await load(keepTail: true) }
+                }
+            }
+        }
         do {
             let value = try await session.call(source.endpoint, source.parameters(filter: requestFilter, until: oldCursor,
                                                    oldestFirst: noteOptions.oldestFirst, date: noteOptions.date))
@@ -288,7 +303,7 @@ struct NotificationsView: View {
                 if keepTail, let last = page.last?.id, let overlap = items.firstIndex(where: { $0.id == last }) {
                     next = joined(next, Array(items.dropFirst(overlap + 1)))
                 }
-                if loadedQuery == key && !items.isEmpty && !keepTail {
+                if refreshState.loadedQuery == key && !items.isEmpty && !keepTail {
                     withAnimation(enterAnimation) { items = next }
                 } else { items = next }
                 queued = []
@@ -298,7 +313,8 @@ struct NotificationsView: View {
                 cursor = page.last?.id
                 more = source.canLoadOlder(page, previousCursor: oldCursor)
             }
-            loadedQuery = key; needsRefresh = false; errorMessage = nil
+            if !older { refreshState.didLoad(key, revision: revision) }
+            errorMessage = nil
             if source == .all && !page.isEmpty { await session.refreshUnread() }
         } catch {
             if requestID == current && active && key == query && !Task.isCancelled {

@@ -153,6 +153,32 @@ final class NotificationAlignmentUITests: XCTestCase {
         goBack(app)
     }
 
+    func testMentionSortDateAndRefreshAreIndependentOfDirectNotes() {
+        let app = notificationsApp()
+        enterNotifications(app)
+        element("notifications.tab.mentions", in: app).tap()
+        let publicNote = element("note.open.notifmention01", in: app)
+        let specified = element("note.open.notifdirect001", in: app)
+        XCTAssertTrue(publicNote.waitForExistence(timeout: 5))
+        XCTAssertLessThan(publicNote.frame.minY, specified.frame.minY)
+        element("notifications.order", in: app).tap()
+        app.buttons["从旧到新"].firstMatch.tap()
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            specified.exists && publicNote.exists && specified.frame.minY < publicNote.frame.minY
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 6), .completed)
+        element("notifications.date", in: app).tap()
+        XCTAssertTrue(app.datePickers.firstMatch.waitForExistence(timeout: 5))
+        capture(app, "notifications-mentions-date")
+        element("notifications.date", in: app).tap()
+        XCTAssertTrue(app.datePickers.firstMatch.waitForNonExistence(timeout: 5))
+        element("notifications.refresh", in: app).tap()
+        XCTAssertTrue(specified.waitForExistence(timeout: 5))
+        element("notifications.tab.directNotes", in: app).tap()
+        XCTAssertTrue(element("notifications.order", in: app).label.contains("从新到旧"))
+        XCTAssertTrue(publicNote.waitForNonExistence(timeout: 5))
+    }
+
     func testAccessibleTextAndReducedMotionStillNavigate() {
         let app = notificationsApp(["--large-text", "--reduce-motion"])
         enterNotifications(app)
@@ -160,6 +186,22 @@ final class NotificationAlignmentUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["帖子"].waitForExistence(timeout: 5))
         goBack(app)
         capture(app, "notifications-large-type-reduced-motion")
+    }
+
+    func testSwitchingBackDuringSlowMentionsRestoresGroupedFeed() {
+        let app = notificationsApp(["--notifications-slow-mentions"])
+        enterNotifications(app)
+        let grouped = element("notification.noticetest0032", in: app)
+        element("notifications.tab.mentions", in: app).tap()
+        element("notifications.tab.all", in: app).tap()
+        XCTAssertTrue(grouped.waitForExistence(timeout: 5))
+        // Wait past the original response window before checking the visible content again.
+        let stale = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"),
+                                              object: element("note.open.notifdirect001", in: app))
+        stale.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [stale], timeout: 1.6), .completed)
+        XCTAssertTrue(grouped.isHittable)
+        capture(app, "notifications-restored-after-tab-switch")
     }
 }
 
@@ -233,9 +275,33 @@ final class NotificationRouteUITests: XCTestCase {
             Route("scheduledNotePosted", "定时发送成功", "notification.noticetest0020", "帖子", "note.open.notifsched001"),
             Route("scheduledNotePostFailed", "定时发送失败", "notification.noticetest0019", "定时帖子"),
             Route("exportCompleted", "已完成导出", "notification.noticetest0014", "导出文件", "notes-export.json"),
-            Route("login", "登录", "notification.noticetest0012", "安全验证", "验证当前账号 @fixture"),
-            Route("createToken", "创建访问令牌", "notification.noticetest0011", "服务连接"),
         ])
+    }
+
+    func testSecurityVerificationAndExactAuthorizedApplicationsDestination() {
+        let app = notificationsApp()
+        enterNotifications(app)
+        choose("login", title: "登录", in: app)
+        tapVisible("notification.noticetest0012", in: app)
+        XCTAssertTrue(app.navigationBars["安全验证"].waitForExistence(timeout: 5))
+        capture(app, "notification-login-verification")
+        let password = app.secureTextFields["admin.password"]
+        password.tap()
+        password.typeText("synthetic-only")
+        app.buttons["admin.authorize"].tap()
+        XCTAssertTrue(app.navigationBars["授权会话与登录记录"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["隔离歌单助手"].waitForExistence(timeout: 5))
+        capture(app, "notification-route-notification.noticetest0012")
+        goBack(app)
+        XCTAssertTrue(element("notification.noticetest0012", in: app).waitForExistence(timeout: 5))
+        choose("createToken", title: "创建访问令牌", in: app)
+        tapVisible("notification.noticetest0011", in: app)
+        XCTAssertTrue(app.navigationBars["已授权应用"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["隔离歌单助手"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["安全验证"].exists)
+        capture(app, "notification-route-notification.noticetest0011")
+        goBack(app)
+        XCTAssertTrue(element("notification.noticetest0011", in: app).waitForExistence(timeout: 5))
     }
 
     func testInformationOnlyRowsAndInlineFollowDecisions() {

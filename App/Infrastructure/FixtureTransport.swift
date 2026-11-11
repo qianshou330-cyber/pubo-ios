@@ -111,6 +111,9 @@ actor FixtureTransport: HTTPTransport {
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
         if args.contains("--notifications-align") {
+            if path == "notes/mentions" && args.contains("--notifications-slow-mentions") {
+                try await Task.sleep(for: .milliseconds(1_200))
+            }
             if path == "i/notifications-grouped" && args.contains("--notifications-refresh") {
                 try await Task.sleep(for: .milliseconds(650))
             }

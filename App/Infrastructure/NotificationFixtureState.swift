@@ -1,6 +1,6 @@
 #if DEBUG
 import Foundation
-import Combine
+import class Combine.PassthroughSubject
 import PUBOCore
 
 /// The same synthetic records drive the two visual captures. Only the fixture transport can reach this.
@@ -60,7 +60,21 @@ struct NotificationFixtureState {
             unread = false
             return .null
         case "notes/mentions":
-            return page(source[body["visibility"].string == "specified" ? "directNotes" : "mentions"].array, body)
+            var notes = source[body["visibility"].string == "specified" ? "directNotes" : "mentions"].array
+            let forward = !body["sinceId"].isNull || !body["sinceDate"].isNull
+            if forward { notes.reverse() }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if case .number(let boundary) = forward ? body["sinceDate"] : body["untilDate"] {
+                notes = notes.filter { row in
+                    guard let date = formatter.date(from: row["createdAt"].string ?? "") else { return false }
+                    let stamp = date.timeIntervalSince1970 * 1000
+                    return forward ? stamp > boundary : stamp < boundary
+                }
+            }
+            var params = body.object
+            if let since = body["sinceId"].string, since != "0" { params["untilId"] = .string(since) }
+            return page(notes, .object(params))
         case "notes/show":
             return source["notes"].array.first { $0["id"] == body["noteId"] } ?? .null
         case "users/show":
@@ -80,6 +94,8 @@ struct NotificationFixtureState {
             return .null
         case "users/achievements":
             return .array([.object(["name": .string("notes1"), "unlockedAt": .number(1_794_360_000_000)])])
+        case "i/apps":
+            return .array([.object(["id": .string("notifapp001"), "name": .string("隔离歌单助手"), "permission": .strings(["read:account"])])])
         default:
             return nil
         }
