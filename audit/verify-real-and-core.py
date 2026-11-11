@@ -11,7 +11,8 @@ t=read('target.json')
 for key in ['package', 'integration']:
     artifact=read(key+'.verified.json')
     metadata=read(key+'.github.json')
-    assert artifact['commit']==metadata['commit']==t['sha'] and artifact['artifactID']==metadata['id']
+    assert artifact['productCommit']==metadata['commit']==t['sha']
+    assert 'sha256:'+artifact['sha256']==metadata['digest'] and artifact['bytes']==metadata['size_in_bytes']
 pack=read('package/device-package.json')
 assert pack['commit']==t['sha'] and pack['status']=='PASS'
 corelog=(b/'package/notification-core-test.log').read_text('utf8')

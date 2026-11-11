@@ -120,7 +120,7 @@ def source_archive():
     expected= json.loads((build/'source-verification.json').read_bytes())
     assert expected['commit']==commit and expected['archiveSHA256']==sha(path)
     git_files={}
-    for record in subprocess.check_output(['git','ls-tree','-rz',commit]).split(b'\0'):
+    for record in subprocess.check_output(['git','ls-tree','-rz','--full-tree',commit]).split(b'\0'):
         if not record:continue
         details,name=record.split(b'\t',1)
         git_files[name.decode()]=details.split()[-1].decode()

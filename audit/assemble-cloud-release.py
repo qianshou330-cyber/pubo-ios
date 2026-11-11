@@ -51,9 +51,6 @@ def verify_archives(b,t):
         raw_hash = digest(local)
         require(a["size_in_bytes"]==size==a["verifiedBytes"] and a["digest"]=="sha256:"+raw_hash
                 and a["verifiedSHA256"]==raw_hash,f"Unverified archive for {suite}")
-        if suite in ("package","integration"):
-            write_json(b/(suite+".github.json"),dict(commit=t["sha"],id=a["id"],run=run))
-            write_json(b/(suite+".verified.json"),dict(commit=t["sha"],artifactID=a["id"],sha=raw_hash,bytes=size))
     return by_suite
 
 def verify_source(b,t):
