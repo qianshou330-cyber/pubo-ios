@@ -202,13 +202,23 @@ final class LocalTimelineUITests: XCTestCase {
     func testOlderFailureRetriesAtReadingPositionWithoutDroppingPosts() {
         let app = launch(["--timeline-older-failure"])
         let retry = reveal(app, "timeline.retryOlder")
+        if !retry.exists {
+            let tree = XCTAttachment(string: app.debugDescription); tree.name = "pagination-retry-accessibility-tree"; tree.lifetime = .keepAlways; add(tree)
+        }
         XCTAssertTrue(retry.exists)
         XCTAssertTrue(retry.isHittable)
+        XCTAssertFalse(app.buttons["timeline.refreshRetry"].exists)
         capture(app, "local-pagination-inline-retry")
         retry.tap()
         XCTAssertTrue(reveal(app, "note.open.at4tltest0001").exists)
         XCTAssertFalse(app.buttons["timeline.retryOlder"].exists)
-        capture(app, "local-pagination-recovered"); app.terminate()
+        capture(app, "local-pagination-recovered")
+        // Recovery must append history, not replace the already loaded first page.
+        let original = find(app, "note.open.at4tltest0025")
+        for _ in 0..<32 where !original.isHittable { app.scrollViews["timeline.scroll"].swipeDown() }
+        XCTAssertTrue(original.exists)
+        XCTAssertTrue(original.isHittable)
+        capture(app, "local-pagination-original-preserved"); app.terminate()
     }
 
     func testInitialFailureThenShortPageEndsPagination() {

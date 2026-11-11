@@ -13,6 +13,8 @@ struct ProfileView: View {
     @State private var editing = false
     @State private var busy = false
     @State private var hasMore = true
+    @State private var followConfirmation: ProfileFollowAction?
+    @State private var followNeedsRefresh = false
     private var own: Bool { session.user?.id == userID }
     var body: some View {
         List {
@@ -30,7 +32,15 @@ struct ProfileView: View {
                     }.font(.callout)
                     if own { Button("编辑个人资料") { editing = true } }
                     else if session.user != nil {
-                        Button(user["isFollowing"].bool ? "取消关注" : "关注") { Task { await follow(user) } }.disabled(busy)
+                        let action = ProfileFollowAction(user: user)
+                        Button(action.title) {
+                            if action.requiresConfirmation { followConfirmation = action }
+                            else { Task { await follow(action) } }
+                        }.disabled(busy || followNeedsRefresh).accessibilityIdentifier("profile.follow")
+                        if user["hasPendingFollowRequestFromYou"].bool && !user["isFollowing"].bool {
+                            Text(user["isLocked"].bool ? "关注申请待对方批准" : "关注请求处理中").font(.caption).foregroundStyle(.secondary)
+                        }
+                        if followNeedsRefresh { Text("请先刷新个人资料，核对关注状态后再操作。").font(.caption).foregroundStyle(.secondary) }
                         if user["host"].isNull { NavigationLink("发送私信") { ChatView(peer: user) } }
                         Menu("更多操作") {
                             Button("举报") { reporting = true }
@@ -45,9 +55,13 @@ struct ProfileView: View {
         }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
             .sheet(isPresented: $reporting) { ReportView(userID: userID) }
             .sheet(isPresented: $editing) { EditProfileView { Task { await load() } } }
+            .confirmationDialog(followConfirmation == .unfollow ? "确认取消关注此用户？" : "确认撤回关注申请？", isPresented: Binding(get: { followConfirmation != nil }, set: { if !$0 { followConfirmation = nil } })) {
+                if let action = followConfirmation { Button(action.title, role: .destructive) { Task { await follow(action) } } }
+                Button("保留", role: .cancel) { followConfirmation = nil }
+            }
     }
     private func load() async {
-        do { user = Record(try await session.call("users/show", ["userId": .string(userID)])); error = nil; await loadNotes() }
+        do { user = Record(try await session.call("users/show", ["userId": .string(userID)])); followNeedsRefresh = false; error = nil; await loadNotes() }
         catch { self.error = error.localizedDescription }
     }
     private func loadNotes(older: Bool = false) async {
@@ -59,10 +73,27 @@ struct ProfileView: View {
             notes = older ? Records.merge(notes, result) : result; hasMore = result.count == 20
         } catch { self.error = error.localizedDescription }
     }
-    private func follow(_ user: Record) async {
-        busy = true; defer { busy = false }
-        do { _ = try await session.call(user["isFollowing"].bool ? "following/delete" : "following/create", ["userId": .string(userID)], mutation: true); self.user = Record(try await session.call("users/show", ["userId": .string(userID)])) }
-        catch { self.error = error.localizedDescription }
+    private func follow(_ action: ProfileFollowAction) async {
+        guard !busy, !followNeedsRefresh else { return }
+        busy = true; defer { busy = false; followConfirmation = nil }
+        do {
+            let current = Record(try await session.call("users/show", ["userId": .string(userID)]))
+            self.user = current
+            guard ProfileFollowAction(user: current) == action else {
+                error = "关注状态已变化，请核对后重新选择。"; return
+            }
+            // Require a fresh read before any retry, even if the mutation response is lost.
+            followNeedsRefresh = true
+            _ = try await session.call(action.endpoint, ["userId": .string(userID)], mutation: true)
+            self.user = Record(try await session.call("users/show", ["userId": .string(userID)]))
+            followNeedsRefresh = false; error = nil
+        } catch {
+            let failure = error
+            if let checked = try? await session.call("users/show", ["userId": .string(userID)]) {
+                self.user = Record(checked); followNeedsRefresh = false
+            }
+            self.error = failure.localizedDescription
+        }
     }
     private func block(_ user: Record) async {
         do { _ = try await session.call(user["isBlocking"].bool ? "blocking/delete" : "blocking/create", ["userId": .string(userID)], mutation: true); await load() }

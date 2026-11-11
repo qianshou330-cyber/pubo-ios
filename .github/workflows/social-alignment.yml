@@ -64,3 +64,31 @@ jobs:
             build/*.xcresult
             build/screenshots/
           retention-days: 14
+  visual-reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated H5 visual tooling
+        working-directory: scripts/h5-capture
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Capture actual H5 with synthetic data only
+        working-directory: scripts/h5-capture
+        env:
+          FIXTURE_PATH: ../../App/Resources/TimelineParity.json
+        run: npm run capture
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h5-visual-reference-${{ github.sha }}
+          path: scripts/h5-capture/artifacts/
+          if-no-files-found: error
+          retention-days: 14

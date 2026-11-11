@@ -19,6 +19,8 @@ struct ChatView: View {
     @State private var unreadBelow = false
     @State private var conversationSettings: JSONValue = .null
     @State private var settingBusy = false
+    @State private var refreshedPeer: Record?
+    private var chatProblem: String? { ChatEligibility.problem(account: session.user, peer: refreshedPeer ?? peer) }
     private var sendProblem: String? { SendFeedback.limitError(text, limit: 2000) }
     @State private var attachments: [Record] = []
     @State private var reply: Record?
@@ -95,7 +97,10 @@ struct ChatView: View {
                 messageScroll.opacity(searching ? 0 : 1).allowsHitTesting(!searching).accessibilityHidden(searching)
                 if searching { ChatSearchView(peer: peer, select: { id in searching = false; Task { await openContext(id) } }).chatNavigationTitle(peer.displayName, embedded: false) }
             }.clipped()
-            if !searching { inputBar }
+            if !searching {
+                if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).padding().accessibilityIdentifier("chat.availability") }
+                inputBar
+            }
         }
             .puboScreen().navigationTitle(peer.displayName)
             .toolbar(.hidden, for: .tabBar)
@@ -113,6 +118,7 @@ struct ChatView: View {
         chatLayout
             .task {
                 active = true; session.stream.showChat(peer.id)
+                await refreshPeer()
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
                 if let initialMessageID { await openContext(initialMessageID) } else { await load() }; await loadConversation()
             }
@@ -149,7 +155,7 @@ struct ChatView: View {
                     HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button { attachments.removeAll { $0.id == file.id }; stickerNotice = nil; saveDraft() } label: { Image(systemName: "xmark.circle") }.accessibilityLabel("移除附件") }.font(.caption).padding(8).background(PUBOTheme.button, in: Capsule())
                 } } }
             }
-            CursorTextEditor(text: $text, selection: $textSelection, enabled: !busy, identifier: "chat.input", placeholder: "在此输入信息")
+            CursorTextEditor(text: $text, selection: $textSelection, enabled: !busy && chatProblem == nil, identifier: "chat.input", placeholder: "在此输入信息")
                 .overlay(alignment: .topLeading) { if text.isEmpty { Text("在此输入信息").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).allowsHitTesting(false) } }
             if let sendProblem { Text(sendProblem).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.limit") }
             HStack(spacing: 6) {
@@ -166,7 +172,7 @@ struct ChatView: View {
                 Button { Task { await sendNew() } } label: {
                     Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44).foregroundStyle(PUBOTheme.accent)
                 }.disabled(busy || sendProblem != nil || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)).accessibilityLabel("发送消息").accessibilityIdentifier("chat.send")
-            }.buttonStyle(.borderless)
+            }.buttonStyle(.borderless).disabled(chatProblem != nil)
         }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
             .background(PUBOTheme.panel).overlay(alignment: .top) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
@@ -327,7 +333,15 @@ struct ChatView: View {
             scrollTarget = nil; await Task.yield(); scrollTarget = "bottom"
         } catch { if epoch == syncEpoch { self.error = error.localizedDescription } }
     }
+    private func refreshPeer() async {
+        do {
+            let value = Record(try await session.call("users/show", ["userId": .string(peer.id)]))
+            guard !Task.isCancelled, value.id == peer.id else { return }
+            refreshedPeer = value
+        } catch { /* Preserve last-known policy; server checks every send. */ }
+    }
     private func sendNew() async {
+        if let chatProblem { error = chatProblem; return }
         guard !busy, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty else { return }
         if let sendProblem { error = sendProblem; saveDraft(); return }
         let item = PendingChat(recipientID: peer.id, text: text, attachmentIDs: attachments.map(\.id), replyToID: reply?.id)
@@ -337,6 +351,7 @@ struct ChatView: View {
         await send(item)
     }
     private func send(_ original: PendingChat) async {
+        if let chatProblem { error = chatProblem; return }
         busy = true; defer { busy = false }
         guard let index = pending.firstIndex(where: { $0.id == original.id }) else { return }
         pending[index].state = .sending

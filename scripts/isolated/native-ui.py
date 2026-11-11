@@ -1,6 +1,24 @@
 import json,os,pathlib,subprocess,sys,signal,time,urllib.request
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from simulator_boot import boot
+# No proxy or redirect may carry synthetic credentials outside this runner.
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+ def redirect_request(self, req, fp, code, msg, headers, newurl):
+  raise RuntimeError('Isolated endpoint redirected')
+opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+phase='initialization'
+def checkpoint(value):
+ global phase
+ phase=value
+ result['phase']=phase
+ result.setdefault('phases',[]).append({'phase':value,'time':time.time()})
+ (root/'integration-result.json').write_text(json.dumps(result,indent=2))
+def authenticate_owner(context):
+ request=urllib.request.Request('http://127.0.0.1:61812/api/i',data=json.dumps({'i':context['adminToken']}).encode(),headers={'Content-Type':'application/json'})
+ with opener.open(request,timeout=15) as response:
+  owner=json.load(response)
+ assert owner.get('isAdmin') is True and owner.get('username')=='isolated_owner'
+
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
 inventory=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
 runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
@@ -10,18 +28,22 @@ template=next(d for d in devices if d['name']=='iPhone 17 Pro Max')
 device=subprocess.check_output(['xcrun','simctl','create','PUBO real backend',template['deviceTypeIdentifier'],template['runtime']],text=True).strip()
 result={'status':'RUNNING','device':template['name'],'runtime':template['runtime'],'productionAPIRequests':0,'transport':'loopback-only real backend'}
 try:
- boot(device,root/'integration-boot.json')
- # Confirm the isolated owner can authenticate before measuring the installer and UI.
- with urllib.request.urlopen('http://127.0.0.1:61913/context',timeout=15) as response:
+ checkpoint('context-before-simulator')
+ with opener.open('http://127.0.0.1:61913/context',timeout=15) as response:
   context=json.load(response)
- request=urllib.request.Request('http://127.0.0.1:61812/api/i',data=json.dumps({'i':context['adminToken']}).encode(),headers={'Content-Type':'application/json'})
- with urllib.request.urlopen(request,timeout=15) as response:
-  owner=json.load(response)
- assert owner.get('isAdmin') is True and owner.get('username')=='isolated_owner'
+ # Distinguish an already-unhealthy backend from a failure caused during simulator boot.
+ # Two distinct checkpoints, not a retry of a failed request. Both must pass.
+ checkpoint('owner-auth-before-simulator')
+ authenticate_owner(context)
+ checkpoint('simulator-boot')
+ boot(device,root/'integration-boot.json')
+ checkpoint('owner-auth-after-simulator')
+ authenticate_owner(context)
  result['ownerAPIAuthenticated']=True
+ checkpoint('install')
  subprocess.run(['xcrun','simctl','install',device,'build/integration-derived/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
  warm=subprocess.run(['xcrun','simctl','launch',device,'com.bolubo.native','--isolated-backend'],check=True,timeout=60,capture_output=True,env={**os.environ,'SIMCTL_CHILD_PUBO_ISOLATED_TOKEN':context['adminToken']})
- del context,request,owner,warm
+ del context,warm
  time.sleep(12)
  subprocess.run(['xcrun','simctl','terminate',device,'com.bolubo.native'],check=True,timeout=30)
  result['simulatorWarmup']='Completed separate setup launch and termination'
@@ -33,6 +55,7 @@ try:
  recording={'startedAt':time.time(),'file':'integration-screenshots/interactions.mp4'}
  (root/'integration-recording.json').write_text(json.dumps(recording))
  video=subprocess.Popen(['xcrun','simctl','io',device,'recordVideo','--codec=h264',str(root/'integration-screenshots/interactions.mp4')])
+ checkpoint('native-tests')
  subprocess.run(command,check=True,timeout=1500,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1','TEST_RUNNER_PUBO_CHECK_NOTIFICATIONS':str(int(notification_test))})
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
@@ -40,6 +63,12 @@ try:
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)
+ # Backend logs can contain synthetic tokens: only collect bounded, whitelisted diagnostics.
+ try:
+  import runpy
+  runpy.run_path(str(pathlib.Path(__file__).with_name('backend-diagnostics.py')))['capture'](root/'integration-backend-diagnostics.json')
+ except Exception as diagnostic_error:
+  result['diagnosticError']=type(diagnostic_error).__name__
  raise
 finally:
  if 'video' in locals():
@@ -48,7 +77,7 @@ finally:
   except subprocess.TimeoutExpired:video.kill();video.wait(timeout=10)
  try:
   import urllib.request
-  with urllib.request.urlopen('http://127.0.0.1:61913/proof',timeout=20) as response: receipts=json.load(response)
+  with opener.open('http://127.0.0.1:61913/proof',timeout=20) as response: receipts=json.load(response)
   assert isinstance(receipts,dict) and all(isinstance(k,str) and isinstance(v,bool) for k,v in receipts.items())
   (root/'integration-final-receipts.json').write_text(json.dumps(receipts,indent=2))
  except Exception as error: result['receiptError']=type(error).__name__
@@ -59,6 +88,10 @@ finally:
    subprocess.run(['xcrun','xcresulttool','export','attachments','--path','build/integration-ui.xcresult','--output-path','build/integration-screenshots'],check=True,timeout=120)
   except Exception as error:
    result['evidenceError']=type(error).__name__+': '+str(error)
- subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
+ # Persist failure evidence even if simulator cleanup itself stalls.
  (root/'integration-result.json').write_text(json.dumps(result,indent=2))
+ try: subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
+ except subprocess.TimeoutExpired:
+  result['cleanupError']='Simulator shutdown timed out'
+  (root/'integration-result.json').write_text(json.dumps(result,indent=2))
 

@@ -13,14 +13,8 @@ struct CollectionsView: View {
     @State private var creating = false
     @State private var revision = 0
     private var context: String { mode + query + String(revision) }
-    private var endpoint: String {
-        switch kind {
-        case .channel: return mode == "search" ? "channels/search" : "channels/" + (mode == "mine" ? "owned" : mode)
-        case .gallery: return mode == "mine" ? "users/gallery/posts" : mode == "latest" ? "gallery/posts" : "gallery/" + mode
-        default: return kind.base + "/list"
-        }
-    }
-    private var paginated: Bool { !(kind == .list || kind == .antenna || (kind == .channel && ["featured", "my-favorites"].contains(mode)) || (kind == .gallery && mode == "popular")) }
+    private var endpoint: String { CollectionListing.endpoint(kind: kind, mode: mode) }
+    private var paginated: Bool { CollectionListing.paginated(kind: kind, mode: mode) }
     var body: some View {
         List {
             if kind == .channel || kind == .gallery {
@@ -29,6 +23,9 @@ struct CollectionsView: View {
                     if kind == .channel { Text("关注").tag("followed"); Text("收藏").tag("my-favorites"); Text("搜索").tag("search") }
                     else { Text("最新").tag("latest"); Text("热门").tag("popular") }
                 }
+            }
+            if kind == .clip {
+                Picker("分类", selection: $mode) { Text("我的").tag("mine"); Text("收藏").tag("favorites") }
             }
             if mode == "search" { TextField("搜索频道", text: $query) }
             ForEach(rows) { row in
@@ -52,7 +49,7 @@ struct CollectionsView: View {
         let request = context; busy = true; defer { if request == context { busy = false } }
         do {
             var fields: [String: JSONValue] = paginated ? ["limit": .number(30)] : [:]
-            if older, let id = rows.last?.id { fields["untilId"] = .string(id) }
+            if older && paginated, let id = rows.last?.id { fields["untilId"] = .string(id) }
             if kind == .gallery && mode == "mine" { fields["userId"] = .string(session.user?.id ?? "") }
             if mode == "search" { fields["query"] = .string(query) }
             let value = try await session.call(endpoint, fields); try Task.checkCancellation(); guard request == context else { return }

@@ -7,13 +7,14 @@ import FoundationNetworking
 /// Synthetic deterministic transport. Only AppSession's DEBUG launch argument enables it.
 /// No production request is made from UI tests, including image and WebSocket traffic.
 actor FixtureTransport: HTTPTransport {
-    static let me: JSONValue = .object(["id": .string("syntheticself"), "username": .string("fixture"), "name": .string("测试用户"), "host": .null, "chatScope": .string("mutual"), "roles": .array([]), "followingCount": .number(1), "followersCount": .number(1), "policies": .object(["ltlAvailable": .bool(true), "gtlAvailable": .bool(true)])])
+    static let me: JSONValue = .object(["id": .string("syntheticself"), "username": .string("fixture"), "name": .string("测试用户"), "host": .null, "chatScope": .string("mutual"), "roles": .array([]), "followingCount": .number(1), "followersCount": .number(1), "policies": .object(["ltlAvailable": .bool(true), "gtlAvailable": .bool(true), "chatAvailability": .string("available")])])
     static let peer: JSONValue = .object(["id": .string("syntheticpeer"), "username": .string("friend"), "name": .string("测试朋友"), "host": .null])
     private static let chatParity: JSONValue = {
         guard let url = Bundle.main.url(forResource: "ChatParity", withExtension: "json"), let data = try? Data(contentsOf: url), let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return .null }; return value
     }()
     private var sent: [JSONValue] = []
     private var counter = 0
+    private var pendingFollowRequest = true
     private var timelineReads = 0
     private var timelineOlderFailureSent = false
     #if DEBUG
@@ -101,6 +102,18 @@ actor FixtureTransport: HTTPTransport {
             }
         }
 
+        if ProcessInfo.processInfo.arguments.contains("--chat-readonly") {
+            var value = profile.object; var policy = profile["policies"].object
+            policy["chatAvailability"] = .string("readonly"); value["policies"] = .object(policy); profile = .object(value)
+        }
+        if ProcessInfo.processInfo.arguments.contains("--private-reply-preview") {
+            posts = posts.map { original in var value = original.object; value["visibility"] = .string("followers"); return .object(value) }
+        }
+    }
+    private var fixturePeer: JSONValue {
+        guard ProcessInfo.processInfo.arguments.contains("--pending-follow-preview") else { return Self.peer }
+        var value = Self.peer.object; value["isLocked"] = .bool(true); value["hasPendingFollowRequestFromYou"] = .bool(pendingFollowRequest)
+        return .object(value)
     }
     private var posts: [JSONValue] = [
         .object(["id": .string("fixturepost002"), "user": FixtureTransport.me, "text": .string("欢迎来到 PUBO。原生界面测试 :test:"), "cw": .null, "files": .array([]), "reactions": .object(["❤️": .number(1)])]),
@@ -217,7 +230,8 @@ actor FixtureTransport: HTTPTransport {
         case "username/available", "email-address/available": response = .object(["available": .bool(true)])
         case "signup": response = .object(["token": .string("synthetic-session"), "id": .string("syntheticself")])
         case "signup/request-phone-code": response = .null
-        case "users/show": response = body["userIds"].isNull ? (body["userId"].string == "syntheticself" ? profile : Self.peer) : .array(body["userIds"].array.map { $0.string == "syntheticself" ? profile : Self.peer })
+        case "users/show": response = body["userIds"].isNull ? (body["userId"].string == "syntheticself" ? profile : fixturePeer) : .array(body["userIds"].array.map { $0.string == "syntheticself" ? profile : fixturePeer })
+        case "following/requests/cancel": pendingFollowRequest = false; response = .null
         case "users/search": response = .array([Self.peer])
         case "notes/search": response = .array(posts.filter { ($0["text"].string ?? "").localizedCaseInsensitiveContains(body["query"].string ?? "") })
         case "hashtags/search": response = .strings(["PUBO", "A2OLITE"])
@@ -427,6 +441,8 @@ actor FixtureTransport: HTTPTransport {
         }
         if path == "chat/messages/search" { return .array((sent + roomMessages).filter { ($0["text"].string ?? "").contains(body["query"].string ?? "") && (body["roomId"].isNull || $0["toRoomId"] == body["roomId"]) && (body["userId"].isNull || $0["toRoomId"].isNull) }) }
         if path == "users/report-abuse" { if ProcessInfo.processInfo.arguments.contains("--report-uncertain") { throw URLError(.networkConnectionLost) }; return .null }
+        if path == "gallery/featured" || path == "gallery/posts" { return .array(collections[CollectionKind.gallery.rawValue] ?? []) }
+        if path == "clips/my-favorites" { return .array(collections[CollectionKind.clip.rawValue] ?? []) }
         if path == "notes/featured" { return .array(posts) }
         if path == "notes/reactions" { return .array([.object(["id": .string("reaction1"), "user": Self.peer, "type": .string("❤️")])]) }
         for kind in CollectionKind.allCases {

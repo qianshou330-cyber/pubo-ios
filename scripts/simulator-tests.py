@@ -55,7 +55,7 @@ for index, template in enumerate(selected):
                 social = subprocess.run(['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
                     '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
                     '-derivedDataPath', 'build/debug', '-resultBundlePath', str(social_bundle), '-parallel-testing-enabled', 'NO',
-                    '-only-testing:PUBOUITests/SocialAlignmentUITests', 'CODE_SIGNING_ALLOWED=NO', 'test'], timeout=1000)
+                    '-only-testing:PUBOUITests/SocialAlignmentUITests', '-only-testing:PUBOUITests/ParityBatchUITests', '-only-testing:PUBOUITests/LocalTimelineUITests/testOlderFailureRetriesAtReadingPositionWithoutDroppingPosts', 'CODE_SIGNING_ALLOWED=NO', 'test'], timeout=1000)
                 record['socialTests'] = 'PASS' if social.returncode == 0 else 'FAIL'
             finally:
                 video.send_signal(signal.SIGINT)

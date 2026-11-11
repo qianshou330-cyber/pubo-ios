@@ -12,6 +12,7 @@ struct ChatSearchView: View {
     @State private var rows: [Record] = []
     @State private var error: String?
     @State private var busy = false
+    @State private var completed = false
     private var content: some View {
         Group {
             TextField("搜索聊天文字", text: $query).submitLabel(.search).puboInput().accessibilityIdentifier("chat.search.query").puboListRow()
@@ -23,6 +24,9 @@ struct ChatSearchView: View {
                 else if let room = row["toRoomId"].string { NavigationLink { RoomChatView(roomID: room, initialMessage: row) } label: { result(row) } }
             }
             if busy { ProgressView() }
+            if ChatSearchPresentation.showsEmpty(completed: completed, busy: busy, hasError: error != nil, count: rows.count) {
+                Text("没有找到匹配的消息，请尝试其他关键词。").font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("chat.search.empty").puboListRow()
+            }
             if rows.count == 100 { Text("已显示最近 100 条匹配记录，请缩小搜索范围。").font(.caption) }
             if let error { ErrorBanner(message: error) }
         }
@@ -32,7 +36,7 @@ struct ChatSearchView: View {
             if embedded { content }
             else { List { content }.puboList().navigationTitle(roomID != nil ? "搜索本群" : (peer == nil ? "聊天搜索" : "搜索本会话")) }
         }.task(id: query) {
-                rows = []; error = nil; busy = false
+                rows = []; error = nil; busy = false; completed = false
                 guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 do {
                     try await Task.sleep(for: .milliseconds(350)); busy = true
@@ -40,15 +44,17 @@ struct ChatSearchView: View {
                     if let peer { fields["userId"] = .string(peer.id) }
                     if let roomID { fields["roomId"] = .string(roomID) }
                     let result = try await session.call("chat/messages/search", fields); try Task.checkCancellation()
-                    guard case .array = result else { throw APIError.invalidResponse }; rows = Record.list(result); busy = false
+                    guard case .array = result else { throw APIError.invalidResponse }; rows = Record.list(result); busy = false; completed = true
                 } catch { if !Task.isCancelled { busy = false; self.error = error.localizedDescription } }
             }
     }
     private func result(_ row: Record) -> some View {
         VStack(alignment: .leading, spacing: 5) {
+            Text(ChatSearchPresentation.sender(row, viewerID: session.user?.id)).font(.subheadline.weight(.semibold)).lineLimit(1)
+            Text(ChatSearchPresentation.destination(row, viewerID: session.user?.id)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             if let date = puboDate(row["createdAt"].string) { Text(date.formatted()).font(.caption).foregroundStyle(.secondary) }
             Text(row["recalledAt"].isNull ? row.text : "消息已撤回").lineLimit(4)
-            if !row["attachments"].array.isEmpty { Text("包含附件").font(.caption) }
+            if row["recalledAt"].isNull && (!row["attachments"].array.isEmpty || !row["file"].isNull) { Text("包含附件").font(.caption) }
         }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(PUBOTheme.divider, lineWidth: 1)).puboListRow()
     }
 }

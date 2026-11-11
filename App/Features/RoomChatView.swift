@@ -47,6 +47,7 @@ struct RoomChatView: View {
     @State private var unreadBelow = false
     @State private var scrollRequest = 0
     @State private var uploadTask: Task<Void, Never>?
+    private var chatProblem: String? { ChatEligibility.problem(account: session.user) }
     private var sendProblem: String? { SendFeedback.limitError(draft.text, limit: 2000) }
     @State private var preview: Record?
     @State private var editing = false
@@ -56,7 +57,7 @@ struct RoomChatView: View {
     private var own: Bool { room?["ownerId"].string == session.user?.id }
     private var invited: Bool { room?["invitationExists"].bool ?? false }
     private var key: String { "room-draft-" + roomID }
-    private var canSend: Bool { !draft.pending && !busy && sendProblem == nil && room != nil && !invited && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.file != nil) }
+    private var canSend: Bool { chatProblem == nil && !draft.pending && !busy && sendProblem == nil && room != nil && !invited && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.file != nil) }
 
     private var timeline: some View {
         GeometryReader { viewport in
@@ -88,6 +89,7 @@ struct RoomChatView: View {
         VStack(alignment: .leading, spacing: 8) {
             if unreadBelow || contextMode { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { await returnToLatest() } }.frame(minHeight: 44) }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.error") }
+            if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("room.availability") }
             if let sendProblem { Text(sendProblem).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.limit") }
             if draft.pending {
                 Text("发送结果待核对。请检查本群最新消息；不会自动重发。").font(.caption)
@@ -100,7 +102,7 @@ struct RoomChatView: View {
                 }
             }
             if let file = draft.file { HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button("移除附件") { draft.file = nil; persist() }.disabled(busy || draft.pending) } }
-            CursorTextEditor(text: $draft.text, selection: $textSelection, enabled: !busy && !draft.pending, identifier: "room.input", placeholder: "在此输入信息")
+            CursorTextEditor(text: $draft.text, selection: $textSelection, enabled: !busy && !draft.pending && chatProblem == nil, identifier: "room.input", placeholder: "在此输入信息")
                 .overlay(alignment: .topLeading) { if draft.text.isEmpty { Text("在此输入信息").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).allowsHitTesting(false) } }
             HStack(spacing: 4) {
                 Menu {
@@ -112,7 +114,7 @@ struct RoomChatView: View {
                 Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("插入群聊表情")
                 Spacer(minLength: 0)
                 Button { Task { await send() } } label: { Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44) }.disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
-            }.buttonStyle(.borderless)
+            }.buttonStyle(.borderless).disabled(chatProblem != nil)
         }.padding().background(PUBOTheme.panel)
     }
     private var roomContent: some View {
@@ -309,6 +311,7 @@ struct RoomChatView: View {
         }
     }
     private func send() async {
+        if let chatProblem { error = chatProblem; return }
         if let sendProblem { error = sendProblem; return }; guard canSend else { return }
         busy = true; defer { busy = false }; draft.pending = true; guard persist() else { draft.pending = false; return }
         do {

@@ -107,7 +107,7 @@ struct TimelineView: View {
             timelineRows
             if let error, failedOlderRequest {
                 ErrorBanner(message: "加载更早帖子失败：" + error, retryIdentifier: "timeline.retryOlder") { Task { await load(older: true) } }
-                    .padding(12).accessibilityIdentifier("timeline.olderRetry")
+                    .padding(12)
             }
             TimelineLoadingStatus(loading: loading, empty: feed.notes.isEmpty,
                 loaded: firstLoadFinished, failed: error != nil, hasMore: hasMore)

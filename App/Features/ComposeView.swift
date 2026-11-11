@@ -46,13 +46,15 @@ struct ComposeView: View {
     // UITextView owns focus; SwiftUI FocusState without a focused view resets after the first key.
     @State private var editingText = false
     private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? channelID ?? "new") }
-    private var editable: Bool { !busy && draft.outcome == "ready" }
+    private var editable: Bool { restored && !busy && draft.outcome == "ready" }
     private var sendProblem: String? { SendFeedback.limitError(draft.text, limit: max(1, session.meta["maxNoteTextLength"].int > 0 ? session.meta["maxNoteTextLength"].int : 1000), label: "正文") ?? (draft.useCW ? SendFeedback.limitError(draft.cw, limit: 100, label: "内容提示") : nil) }
     private var canSend: Bool { editable && sendProblem == nil && (draft.visibility != "specified" || !(draft.visibleUsers ?? []).isEmpty) && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
     private var submitTitle: String { draft.scheduledAt != nil ? "定时发布" : replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
     private var submitIcon: String { replyTo != nil ? "arrowshape.turn.up.left" : renote != nil ? "quote.opening" : "paperplane" }
     private var visibilityTitle: String { draft.visibility == "specified" ? "指定用户" : draft.visibility == "home" ? "首页" : draft.visibility == "followers" ? "关注者" : "公开" }
-    private var visibilityIcon: String { draft.visibility == "home" ? "house" : draft.visibility == "followers" ? "lock" : "globe" }
+    private var visibilityChoices: [String] { ComposePrivacy.allowedVisibilities(reply: replyTo, channelID: channelID, silenced: session.user?["isSilenced"].bool ?? false) }
+    private var visibilitySelection: Binding<String> { Binding(get: { draft.visibility }, set: { draft.visibility = $0; applyPrivacy(); save() }) }
+    private var visibilityIcon: String { draft.visibility == "home" ? "house" : draft.visibility == "followers" ? "lock" : draft.visibility == "specified" ? "envelope" : "globe" }
 
     var body: some View {
         Group { if embedded { editor.frame(height: 340) } else { NavigationStack { editor } } }.interactiveDismissDisabled(busy)
@@ -64,7 +66,7 @@ struct ComposeView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if let replyTo { contextNote(replyTo, title: "回复 \(replyTo.user.displayName)") }
                         if let renote { contextNote(renote, title: "引用转发") }
-                        if channelID != nil { Text("此帖发布到所选频道；频道帖子使用公开可见范围。").font(.caption) }
+                        if channelID != nil { Text("此帖发布到所选频道；频道帖子使用公开可见范围，仅本站发布。").font(.caption) }
                         if draft.useCW {
                             TextField("内容提示", text: $draft.cw).font(.subheadline).padding(.vertical, 10)
                                 .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 1) }
@@ -77,6 +79,9 @@ struct ComposeView: View {
                             }.disabled(!editable)
                         if let sendProblem { Text(sendProblem).font(.caption).foregroundStyle(.red).accessibilityIdentifier("compose.limit") }
                         if editable { ComposeSuggestions(text: $draft.text) }
+                        if let replyTo, replyTo["visibility"].string != "public" {
+                            Text("回复不会扩大原帖的可见范围；可以选择更严格的范围。").font(.caption).foregroundStyle(PUBOTheme.secondary)
+                        }
                         if draft.visibility == "specified" {
                             ForEach(draft.visibleUsers ?? []) { user in HStack { Text(user.displayName); Spacer(); Button("移除") { draft.visibleUsers?.removeAll { $0.id == user.id }; save() } } }
                             Button("添加可见用户") { choosingRecipient = true }.disabled(!editable)
@@ -115,7 +120,11 @@ struct ComposeView: View {
                 .overlay { if busy { ProgressView().padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
                 .task {
                     guard !restored else { return }; restored = true; ownerID = session.user?.id
-                    if let account = session.user?.id, let saved = try? session.store?.read(ComposeDraft.self, account: account, key: key) { draft = saved; error = saved.lastFailure; if draft.outcome == "sending" { draft.outcome = "uncertain" } }
+                    var hasSavedDraft = false
+                    if let account = session.user?.id, let saved = try? session.store?.read(ComposeDraft.self, account: account, key: key) { hasSavedDraft = true; draft = saved; error = saved.lastFailure; if draft.outcome == "sending" { draft.outcome = "uncertain" } }
+                    applyPrivacy(seedReplyRecipients: !hasSavedDraft)
+                    save()
+                    await resolveRecipientNames()
                 }
                 .onChange(of: draft.text) { _, _ in save() }
                 .onChange(of: draft.cw) { _, _ in save() }
@@ -125,7 +134,12 @@ struct ComposeView: View {
                 .onDisappear { uploadTask?.cancel() }
                 .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &draft.text, selection: &textSelection) }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(isPresented: $choosingDrive) { DrivePicker { file in if draft.files.count < 16 && !draft.files.contains(where: { $0.id == file.id }) { draft.files.append(file); save() } }.environment(\.dynamicTypeSize, typeSize) }
-                .sheet(isPresented: $choosingRecipient) { UserPicker { user in if !(draft.visibleUsers ?? []).contains(where: { $0.id == user.id }) { draft.visibleUsers = (draft.visibleUsers ?? []) + [user]; save() } } }
+                .sheet(isPresented: $choosingRecipient) { UserPicker { user in
+                    if replyTo?["visibility"].string == "specified", !ComposePrivacy.replyRecipientIDs(replyTo, accountID: ownerID ?? "").contains(user.id) {
+                        error = "此回复只能选择原帖的可见用户。"; return
+                    }
+                    if !(draft.visibleUsers ?? []).contains(where: { $0.id == user.id }) { draft.visibleUsers = (draft.visibleUsers ?? []) + [user]; applyPrivacy(); save() }
+                } }
                 .sheet(item: $editingFile) { file in AttachmentMetadataEditor(file: file) { current in draft.files = draft.files.map { $0.id == current.id ? current : $0 }; save() } }
                 .fullScreenCover(isPresented: $camera) { CameraCapture { result in camera = false; uploadTask = Task { await uploadCapture(result) } }.ignoresSafeArea() }
                 .photosPicker(isPresented: $showingPhotoPicker, selection: $selected, maxSelectionCount: max(1, 16 - draft.files.count), matching: .any(of: [.images, .videos]))
@@ -143,10 +157,16 @@ struct ComposeView: View {
             }
             HStack(spacing: 4) {
                 Menu {
-                    Picker("可见范围", selection: $draft.visibility) { Text("公开").tag("public"); Text("首页").tag("home"); Text("关注者").tag("followers"); Text("指定用户").tag("specified") }
-                    Toggle("仅本站发布", isOn: Binding(get: { draft.localOnly ?? false }, set: { draft.localOnly = $0; save() }))
+                    Picker("可见范围", selection: visibilitySelection) {
+                        ForEach(visibilityChoices, id: \.self) { scope in
+                            Text(["public": "公开", "home": "首页", "followers": "关注者", "specified": "指定用户"][scope] ?? scope).tag(scope)
+                        }
+                    }
+                    if draft.visibility != "specified" {
+                        Toggle("仅本站发布", isOn: Binding(get: { draft.localOnly ?? false }, set: { draft.localOnly = $0; applyPrivacy(); save() }))
+                    }
                 } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44) }
-                    .disabled(!editable).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
+                    .disabled(!editable || channelID != nil).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
                 Menu {
                     Toggle("预览", isOn: $showingPreview)
                     Button("从网盘选择") { choosingDrive = true }.disabled(!editable || draft.files.count >= 16)
@@ -193,6 +213,31 @@ struct ComposeView: View {
         VStack(alignment: .leading, spacing: 6) { Text(title).font(.caption).foregroundStyle(PUBOTheme.secondary); Text(note["cw"].string ?? note.text).font(.subheadline).lineLimit(3) }
             .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 8))
     }
+    private func applyPrivacy(seedReplyRecipients: Bool = false) {
+        let selection = ComposePrivacy.resolve(visibility: draft.visibility, localOnly: draft.localOnly ?? false,
+            recipientIDs: (draft.visibleUsers ?? []).map(\.id), reply: replyTo, channelID: channelID,
+            accountID: ownerID ?? session.user?.id ?? "", seedReplyRecipients: seedReplyRecipients,
+            silenced: session.user?["isSilenced"].bool ?? false)
+        let known = Dictionary((draft.visibleUsers ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        draft.visibility = selection.visibility; draft.localOnly = selection.localOnly
+        draft.visibleUsers = selection.recipientIDs.map { id in
+            if let user = known[id] { return user }
+            if let author = replyTo?.user, author.id == id { return author }
+            return Record(.object(["id": .string(id), "name": .string("用户 " + id)]))
+        }
+    }
+    private func resolveRecipientNames() async {
+        let ids = (draft.visibleUsers ?? []).map(\.id)
+        guard !ids.isEmpty, let ownerID else { return }
+        do {
+            let users = Record.list(try await session.call("users/show", ["userIds": .strings(ids)]))
+            try Task.checkCancellation()
+            guard ownerID == session.user?.id else { return }
+            let known = Dictionary(users.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            // A delayed lookup must not re-add recipients removed while it ran.
+            draft.visibleUsers = (draft.visibleUsers ?? []).map { known[$0.id] ?? $0 }; save()
+        } catch { /* IDs remain explicit and valid even if display-name lookup fails. */ }
+    }
     @discardableResult private func save() -> Bool {
         guard restored, let account = session.user?.id, account == ownerID else { return false }
         if session.testMode { return true }
@@ -214,6 +259,8 @@ struct ComposeView: View {
     }
     private func send() async {
         guard !busy, draft.outcome == "ready" else { return }
+        applyPrivacy()
+        if draft.visibility == "specified" && (draft.visibleUsers ?? []).isEmpty { error = "请至少选择一位可见用户。"; return }
         if let sendProblem { error = sendProblem; return }
         let poll: JSONValue?
         do {

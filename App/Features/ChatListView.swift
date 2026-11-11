@@ -11,6 +11,7 @@ struct ChatListView: View {
     @State private var creating = false
     @State private var settingBusy = false
     @State private var error: String?
+    private var chatProblem: String? { ChatEligibility.problem(account: session.user) }
     private var visible: Bool { active && session.selectedTab == 2 && scenePhase == .active && section == "home" }
     private let tabs = [ChatTab(id: "home", title: "首页", icon: "house"), ChatTab(id: "invited", title: "邀请", icon: "envelope"), ChatTab(id: "joining", title: "已加入的群聊", icon: "person.2"), ChatTab(id: "owned", title: "已创建的群聊", icon: "person.2.badge.gearshape")]
     var body: some View {
@@ -44,11 +45,12 @@ struct ChatListView: View {
     private var home: some View {
         List {
             VStack(alignment: .leading, spacing: 16) {
+                if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat.availability") }
                 Menu {
                     Button("一对一聊天") { search = true }
                     Button("创建群聊") { creating = true }
                 } label: { Label("开始聊天", systemImage: "plus").frame(minHeight: 44).padding(.horizontal, 22).background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.background) }
-                    .frame(maxWidth: .infinity).accessibilityIdentifier("chat.start")
+                    .frame(maxWidth: .infinity).disabled(chatProblem != nil).accessibilityIdentifier("chat.start")
                 NavigationLink { ContactsView() } label: { Label("联系人", systemImage: "person.2").frame(minHeight: 44) }
             }.puboListRow()
             ChatSearchView(embedded: true)
