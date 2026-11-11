@@ -383,24 +383,27 @@ struct NoteCard: View {
 
     }
     private var authorHeader: some View {
-        HStack(alignment: appearance.isTimeline ? .center : .firstTextBaseline, spacing: 4) {
+        let stacked = appearance.isTimeline && typeSize.isAccessibilitySize
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) :
+            AnyLayout(HStackLayout(alignment: appearance.isTimeline ? .center : .firstTextBaseline, spacing: 4))
+        return layout {
             Button { navigate(.author(shown.user.id)) } label: {
                 HStack(spacing: appearance.isTimeline ? 6.3 : 3) {
                     Text(shown.user.displayName).font(.system(size: nameSize, weight: .bold)).lineLimit(1).layoutPriority(appearance.isTimeline ? 2 : 0)
                     if shown.user["isBot"].bool { Text("bot").font(.system(size: 9)).padding(.horizontal, 2).overlay(RoundedRectangle(cornerRadius: 2).stroke(PUBOTheme.divider)) }
                     Text("@" + (shown.user["username"].string ?? "")).font(.system(size: accountSize)).foregroundStyle(appearance.isTimeline ? PUBOTheme.text : PUBOTheme.secondary).lineLimit(1).layoutPriority(appearance.isTimeline ? -1 : 0)
                     UserInlineBadges(user: shown.user, appearance: appearance).fixedSize(horizontal: appearance.isTimeline, vertical: appearance.isTimeline)
-                }.feedHeaderTarget(appearance, alignment: .leading)
+                }.feedHeaderTarget(appearance, alignment: .leading, fullWidth: stacked)
             }.buttonStyle(.plain).accessibilityIdentifier("note.author." + rowID)
-            Spacer(minLength: 0)
+            if !stacked { Spacer(minLength: 0) }
             Button { navigate(.note(shown.id)) } label: {
                 HStack(spacing: 3) {
                     if let date = puboDate(shown["createdAt"].string) { Group { if appearance.isTimeline { ChatRelativeTime(date: date) } else { Text(date, style: .relative) } }.lineLimit(1) }
                     if shown["visibility"].string != "public" { NoteIcon(system: TimelinePresentation.visibilityIcon(shown["visibility"].string), web: shown["visibility"].string == "home" ? "home" : shown["visibility"].string == "specified" ? "mail" : "lock", appearance: appearance, size: timeSize * 1.29) }
                     if shown["localOnly"].bool { NoteIcon(system: "network.slash", web: "rocket-off", appearance: appearance, size: timeSize * 1.29).accessibilityLabel("仅本站") }
                 }.font(.system(size: timeSize)).foregroundStyle(PUBOTheme.secondary)
-                    .feedHeaderTarget(appearance, alignment: .trailing)
-            }.buttonStyle(.plain).fixedSize(horizontal: appearance.isTimeline, vertical: false).layoutPriority(appearance.isTimeline ? 3 : 0).accessibilityLabel("查看帖子时间和详情，" + TimelinePresentation.visibilityLabel(shown["visibility"].string) + (shown["localOnly"].bool ? "，仅本站" : "")).accessibilityIdentifier("note.timestamp." + rowID)
+                    .feedHeaderTarget(appearance, alignment: .trailing, fullWidth: stacked)
+            }.buttonStyle(.plain).fixedSize(horizontal: appearance.isTimeline && !stacked, vertical: false).layoutPriority(appearance.isTimeline ? 3 : 0).accessibilityLabel("查看帖子时间和详情，" + TimelinePresentation.visibilityLabel(shown["visibility"].string) + (shown["localOnly"].bool ? "，仅本站" : "")).accessibilityIdentifier("note.timestamp." + rowID)
         }.frame(minHeight: 18)
     }
     private var actionLayout: AnyLayout { appearance.isTimeline ? AnyLayout(FeedActionsLayout(spacing: typeSize.isAccessibilitySize ? 8 : 24.5)) : AnyLayout(HStackLayout(spacing: 12)) }

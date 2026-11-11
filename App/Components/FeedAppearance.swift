@@ -58,9 +58,9 @@ struct FeedActionsLayout: Layout {
 
 extension View {
     @ViewBuilder
-    func feedHeaderTarget(_ appearance: NoteAppearance, alignment: Alignment) -> some View {
+    func feedHeaderTarget(_ appearance: NoteAppearance, alignment: Alignment, fullWidth: Bool = false) -> some View {
         if appearance.isTimeline {
-            frame(minWidth: 44, minHeight: 44, alignment: alignment).contentShape(Rectangle())
+            frame(minWidth: 44, maxWidth: fullWidth ? .infinity : nil, minHeight: 44, alignment: alignment).contentShape(Rectangle())
         } else {
             self
         }

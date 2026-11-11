@@ -76,31 +76,9 @@ jobs:
       - name: Compile app
         id: compile_app
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Prepare task-owned simulator before test execution
-        timeout-minutes: 15
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,subprocess,sys
-          sys.path.insert(0,'scripts')
-          from simulator_boot import boot
-          root=pathlib.Path('build')
-          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
-          name='PUBO Local iPhone 17 Pro Max'
-          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max',runtime],text=True,timeout=60).strip()
-          (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
-          record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
-          try:
-              boot(device,root/'prewarm-boot.json')
-              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
-              record['status']='PASS'
-          except Exception as error:
-              record['status']='FAIL';record['error']=type(error).__name__;raise
-          finally:
-              (root/'prewarm-install.json').write_text(json.dumps(record))
-              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
-          PY
       - name: Exercise selected UI groups
         env:
+          PUBO_SIM_INSTALL_TIMEOUT: '300'
           PUBO_SIM_SIZE: large
           PUBO_UI_GROUPS: timeline-preview,visual,timeline,home
         run: python3 scripts/local-timeline-tests.py
@@ -180,31 +158,9 @@ jobs:
       - name: Compile app
         id: compile_app
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Prepare task-owned simulator before test execution
-        timeout-minutes: 15
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,subprocess,sys
-          sys.path.insert(0,'scripts')
-          from simulator_boot import boot
-          root=pathlib.Path('build')
-          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
-          name='PUBO Local iPhone SE (3rd generation)'
-          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation',runtime],text=True,timeout=60).strip()
-          (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
-          record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
-          try:
-              boot(device,root/'prewarm-boot.json')
-              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
-              record['status']='PASS'
-          except Exception as error:
-              record['status']='FAIL';record['error']=type(error).__name__;raise
-          finally:
-              (root/'prewarm-install.json').write_text(json.dumps(record))
-              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
-          PY
       - name: Exercise selected UI groups
         env:
+          PUBO_SIM_INSTALL_TIMEOUT: '300'
           PUBO_SIM_SIZE: small
           PUBO_UI_GROUPS: visual,timeline-preview
         run: python3 scripts/local-timeline-tests.py
@@ -266,31 +222,9 @@ jobs:
       - name: Compile app
         id: compile_app
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-      - name: Prepare task-owned simulator before test execution
-        timeout-minutes: 15
-        run: |
-          python3 - <<'PY'
-          import json,pathlib,subprocess,sys
-          sys.path.insert(0,'scripts')
-          from simulator_boot import boot
-          root=pathlib.Path('build')
-          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
-          name='PUBO Local iPhone 17 Pro Max'
-          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max',runtime],text=True,timeout=60).strip()
-          (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
-          record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
-          try:
-              boot(device,root/'prewarm-boot.json')
-              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
-              record['status']='PASS'
-          except Exception as error:
-              record['status']='FAIL';record['error']=type(error).__name__;raise
-          finally:
-              (root/'prewarm-install.json').write_text(json.dumps(record))
-              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
-          PY
       - name: Exercise selected UI groups
         env:
+          PUBO_SIM_INSTALL_TIMEOUT: '300'
           PUBO_SIM_SIZE: large
           PUBO_UI_GROUPS: chat,social,gif,favorites,regression
         run: python3 scripts/local-timeline-tests.py
