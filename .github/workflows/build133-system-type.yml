@@ -1,0 +1,35 @@
+name: PUBO build133 simulator system text
+on:
+  push:
+    branches: ['ci-build133-system-type-20261111']
+permissions:
+  contents: read
+jobs:
+  system-type:
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify identical build133 product and controls
+        run: |
+          test "$(git rev-parse HEAD^)" = ba4755ad94b7dec24177971413c12bee0141268b
+          git diff --exit-code ba4755ad94b7dec24177971413c12bee0141268b HEAD -- App Sources project.yml Package.swift Package.resolved
+      - name: Fixed simulator tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          mkdir -p build/system-type
+          xcrun simctl help ui > build/system-type/simctl-ui-help.txt 2>&1
+          cat build/system-type/simctl-ui-help.txt
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Measure normal and system accessibility text and hit targets
+        run: python3 scripts/ci-system-type.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build133-system-type-${{ github.sha }}
+          path: build/system-type/
+          retention-days: 14
