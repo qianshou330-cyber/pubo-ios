@@ -1,5 +1,6 @@
 """Run only isolated UI scenarios; never authenticate against production."""
 import json
+import re
 import os
 import pathlib
 import signal
@@ -20,6 +21,10 @@ if len(selected) < 2:
     raise SystemExit('Two different iPhone sizes are required')
 if os.environ.get('PUBO_SIM_SIZE') in ('small', 'large'):
     selected = [selected[0 if os.environ['PUBO_SIM_SIZE'] == 'small' else -1]]
+focused = os.environ.get('PUBO_REGRESSION_147_ONLY') == '1'
+if focused and any(os.environ.get(key) == '1' for key in (
+    'PUBO_SOCIAL_ALIGNMENT', 'PUBO_AUTH_VIDEO', 'PUBO_HOME_MOTION', 'PUBO_AUTH_APPEARANCE')):
+    raise SystemExit('Focused regression cannot be combined with other suites')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -111,6 +116,13 @@ for index, template in enumerate(selected):
                    '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
                    '-derivedDataPath', 'build/debug', '-resultBundlePath', str(bundle),
                    '-parallel-testing-enabled', 'NO', '-only-testing:PUBOUITests/PUBOUITests', 'CODE_SIGNING_ALLOWED=NO', 'test']
+        if focused:
+            command.remove('-only-testing:PUBOUITests/PUBOUITests')
+            command[-1:-1] = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
+                'testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons',
+                'testHomePanelsAndChartNavigation',
+                'testNativePrivacyAndVerificationStatus']]
+            record['selection'] = 'regression-147-three-tests'
         if os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
             command.remove('-only-testing:PUBOUITests/PUBOUITests')
             command[-1:-1] = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
@@ -130,6 +142,15 @@ for index, template in enumerate(selected):
                     record['tests'] = 'TIMEOUT'
                     raise TimeoutError('UI runner exceeded 30 minutes')
         test_exit = process.returncode
+        if focused and test_exit == 0:
+            gate_result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary',
+                '--path', str(bundle)], capture_output=True, text=True, timeout=60, check=True)
+            gate = json.loads(gate_result.stdout)
+            (root / f'ui-{index}-summary.json').write_text(gate_result.stdout)
+            if not (gate.get('passedTests') == 3 and gate.get('failedTests') == 0
+                    and gate.get('skippedTests') == 0 and gate.get('expectedFailures') == 0):
+                test_exit = 1
+                record['gateError'] = 'Exactly three passing tests, zero failures/skips/expected failures required'
         record['tests'] = 'PASS' if test_exit == 0 else 'FAIL'
         if test_exit == 0 and os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
             subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', identifier,
@@ -144,7 +165,7 @@ for index, template in enumerate(selected):
                 video.send_signal(signal.SIGINT)
                 try: video.wait(timeout=30)
                 except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
-        if test_exit == 0 and index == 0:
+        if test_exit == 0 and index == 0 and not focused:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                       str(screenshots / 'loading-skeleton.mp4')])
@@ -183,6 +204,20 @@ for index, template in enumerate(selected):
         if test_exit:
             diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot',
                         str(screenshots / 'runner-failure.png')], timeout=30)
+        if focused:
+            capture = {'status': 'UNAVAILABLE', 'captureStarted': False}
+            try:
+                logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '30m', '--predicate',
+                    'subsystem == "com.pubo.refresh.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'refresh-diagnostics-{index}.json').write_text(logs.stdout)
+                capture['exitCode'] = logs.returncode
+                capture['captureStarted'] = bool(re.search(r'captureStarted=[1-9][0-9]*', logs.stdout))
+                capture['status'] = 'CAPTURED' if logs.returncode == 0 and capture['captureStarted'] else 'INCOMPLETE'
+                capture['interpretation'] = 'No callback inference permitted without captureStarted marker'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                capture['error'] = type(error).__name__
+            (root / f'refresh-capture-{index}.json').write_text(json.dumps(capture, indent=2))
         diagnostic(['xcrun', 'simctl', 'shutdown', identifier], timeout=60)
         (root / 'test-environment.json').write_text(json.dumps(environment, indent=2))
     if test_exit: raise SystemExit(test_exit)

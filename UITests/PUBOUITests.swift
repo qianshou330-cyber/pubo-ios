@@ -1,6 +1,18 @@
 import XCTest
 
 final class PUBOUITests: XCTestCase {
+    override func tearDown() {
+        if let run = testRun, run.failureCount > 0 {
+            let app = XCUIApplication()
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "failure-accessibility-tree"; tree.lifetime = .keepAlways; add(tree)
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "failure-screen"; shot.lifetime = .keepAlways; add(shot)
+        }
+        super.tearDown()
+    }
+
+
     func testAccountDeletionRequiresSameAccountSecuritySession() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
@@ -54,11 +66,28 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
         let settings = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !settings.isHittable { app.swipeUp() }; XCTAssertTrue(settings.isHittable); settings.tap()
     }
+    private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
+        XCTAssertTrue(control.isHittable)
+        // SwiftUI exposes the whole row as a Switch as well as the actual
+        // UIKit switch. Select the smaller switch within this exact row.
+        if (control.value as? String) != (value ? "1" : "0") {
+            let row = control.frame
+            let actual = app.switches.allElementsBoundByIndex.first { candidate in
+                candidate.identifier.isEmpty && candidate.frame.width < row.width * 0.5 &&
+                row.contains(CGPoint(x: candidate.frame.midX, y: candidate.frame.midY))
+            }
+            XCTAssertNotNil(actual, "Expected the concrete switch inside the identified row")
+            guard let actual else { return }
+            XCTAssertTrue(actual.isHittable); actual.tap()
+        }
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 8), .completed)
+    }
     func testNativePrivacyAndVerificationStatus() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
         app.buttons["认证申请"].tap(); XCTAssertTrue(app.staticTexts["尚未申请"].waitForExistence(timeout: 5)); let submit = app.buttons["提交认证申请"]; for _ in 0..<6 where !submit.exists { app.swipeUp() }; XCTAssertTrue(submit.exists); XCTAssertFalse(submit.isEnabled)
         app.navigationBars.buttons.firstMatch.tap(); app.buttons["隐私与内容偏好"].tap()
-        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); XCTAssertEqual(toggle.value as? String, "0"); toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap(); let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        let toggle = app.switches["privacy.hideOnlineStatus"]; XCTAssertTrue(toggle.waitForExistence(timeout: 5)); let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle); XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed); XCTAssertEqual(toggle.value as? String, "0"); setSwitch(toggle, to: true, in: app)
         let save = app.buttons["保存修改"]; for _ in 0..<6 where !save.isHittable { app.swipeUp() }; save.tap(); XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 5))
         capture(app, "native-privacy-settings")
     }
@@ -129,12 +158,13 @@ final class PUBOUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(more.frame.width, 44)
         XCTAssertGreaterThanOrEqual(more.frame.height, 44)
         more.tap()
-        let policy = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "隐私政策")).firstMatch
-        XCTAssertTrue(policy.waitForExistence(timeout: 5))
+        // This is a timeline preference menu, not the account policy menu.
+        let preference = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "显示转帖")).firstMatch
+        XCTAssertTrue(preference.waitForExistence(timeout: 5))
         capture(app, screenshot)
         // Dismiss outside the menu without following an external link.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.12)).tap()
-        XCTAssertTrue(policy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(preference.waitForNonExistence(timeout: 5))
     }
     func testShellLaunches() {
         let app = XCUIApplication()

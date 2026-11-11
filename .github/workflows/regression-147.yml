@@ -1,0 +1,467 @@
+name: PUBO 147 regression gate
+'on':
+  push:
+    branches:
+    - ui-regression-147-*
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: macos-15
+    steps:
+    - uses: actions/checkout@v4
+    - name: Prepare fixed tools
+      run: 'sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+
+        brew install xcodegen
+
+        swift scripts/brand-assets.swift
+
+        xcodegen generate
+
+        '
+    - name: Check diagnostic isolation and counters
+      run: 'sh scripts/test-refresh-diagnostics.sh
+
+        python3 -m unittest discover -s scripts/isolated -p ''test_backend_diagnostics.py'' -v'
+    - name: Compile before simulator boot
+      run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS
+        Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+    - name: Only the three build 147 regressions
+      env:
+        PUBO_SIM_SIZE: ${{ matrix.size }}
+        PUBO_REGRESSION_147_ONLY: '1'
+      run: python3 scripts/simulator-tests.py
+    - name: Prepare lossless raw evidence parts
+      if: always()
+      run: python3 scripts/split-test-evidence.py
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: regression147-screens-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: 'build/*.json
+
+          build/screenshots/
+
+          !build/screenshots/**/*.mp4
+
+          build/evidence-parts/manifest.json'
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-000') != ''
+      with:
+        name: regression147-raw-000-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-000
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-001') != ''
+      with:
+        name: regression147-raw-001-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-001
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-002') != ''
+      with:
+        name: regression147-raw-002-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-002
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-003') != ''
+      with:
+        name: regression147-raw-003-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-003
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-004') != ''
+      with:
+        name: regression147-raw-004-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-004
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-005') != ''
+      with:
+        name: regression147-raw-005-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-005
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-006') != ''
+      with:
+        name: regression147-raw-006-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-006
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-007') != ''
+      with:
+        name: regression147-raw-007-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-007
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-008') != ''
+      with:
+        name: regression147-raw-008-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-008
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-009') != ''
+      with:
+        name: regression147-raw-009-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-009
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-010') != ''
+      with:
+        name: regression147-raw-010-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-010
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-011') != ''
+      with:
+        name: regression147-raw-011-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-011
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-012') != ''
+      with:
+        name: regression147-raw-012-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-012
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-013') != ''
+      with:
+        name: regression147-raw-013-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-013
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-014') != ''
+      with:
+        name: regression147-raw-014-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-014
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-015') != ''
+      with:
+        name: regression147-raw-015-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-015
+        compression-level: 0
+        retention-days: 14
+    - name: Preserve unexpected overflow without masking failure
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-016') != ''
+      with:
+        name: regression147-overflow-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/
+        compression-level: 0
+        retention-days: 14
+    - name: Preserve raw evidence if archive preparation failed
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/manifest.json') == ''
+      with:
+        name: regression147-archive-failure-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: 'build/*.xcresult
+
+          build/screenshots/'
+        compression-level: 0
+        retention-days: 14
+    strategy:
+      fail-fast: false
+      matrix:
+        size:
+        - large
+        - small
+    timeout-minutes: 35
+  full-ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        size:
+        - large
+        - small
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+    - uses: actions/checkout@v4
+    - name: Prepare fixed tools
+      run: 'sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+
+        brew install xcodegen
+
+        swift scripts/brand-assets.swift
+
+        xcodegen generate
+
+        '
+    - name: Compile before simulator boot
+      run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS
+        Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+    - name: Social interactions and existing regressions
+      env:
+        PUBO_SIM_SIZE: ${{ matrix.size }}
+        PUBO_SOCIAL_ALIGNMENT: '1'
+        PUBO_AUTH_VIDEO: '1'
+      run: python3 scripts/simulator-tests.py
+    - name: Prepare lossless raw evidence parts
+      if: always()
+      run: python3 scripts/split-test-evidence.py
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: full147-screens-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: 'build/*.json
+
+          build/screenshots/
+
+          !build/screenshots/**/*.mp4
+
+          build/evidence-parts/manifest.json'
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-000') != ''
+      with:
+        name: full147-raw-000-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-000
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-001') != ''
+      with:
+        name: full147-raw-001-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-001
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-002') != ''
+      with:
+        name: full147-raw-002-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-002
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-003') != ''
+      with:
+        name: full147-raw-003-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-003
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-004') != ''
+      with:
+        name: full147-raw-004-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-004
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-005') != ''
+      with:
+        name: full147-raw-005-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-005
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-006') != ''
+      with:
+        name: full147-raw-006-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-006
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-007') != ''
+      with:
+        name: full147-raw-007-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-007
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-008') != ''
+      with:
+        name: full147-raw-008-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-008
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-009') != ''
+      with:
+        name: full147-raw-009-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-009
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-010') != ''
+      with:
+        name: full147-raw-010-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-010
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-011') != ''
+      with:
+        name: full147-raw-011-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-011
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-012') != ''
+      with:
+        name: full147-raw-012-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-012
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-013') != ''
+      with:
+        name: full147-raw-013-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-013
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-014') != ''
+      with:
+        name: full147-raw-014-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-014
+        compression-level: 0
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-015') != ''
+      with:
+        name: full147-raw-015-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/evidence.tar.gz.part-015
+        compression-level: 0
+        retention-days: 14
+    - name: Preserve unexpected overflow without masking failure
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-016') != ''
+      with:
+        name: full147-overflow-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: build/evidence-parts/
+        compression-level: 0
+        retention-days: 14
+    - name: Preserve raw evidence if archive preparation failed
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('build/evidence-parts/manifest.json') == ''
+      with:
+        name: full147-archive-failure-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: 'build/*.xcresult
+
+          build/screenshots/'
+        compression-level: 0
+        retention-days: 14
+    needs: regression
+  package:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+    - uses: actions/checkout@v4
+    - name: Prepare fixed tools and core checks
+      run: 'sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+
+        brew install xcodegen
+
+        swift test
+
+        python3 -m unittest discover -s scripts -p ''test_*.py'' -v
+
+        swift scripts/brand-assets.swift
+
+        xcodegen generate
+
+        '
+    - name: Release simulator
+      run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS
+        Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+    - name: Release device
+      run: 'xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination ''generic/platform=iOS''
+        -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=''''
+        build
+
+        python3 scripts/package-device.py
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: social-device-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: 'build/unsigned/
+
+          build/device-package.json
+
+          '
+        retention-days: 14
+    needs:
+    - regression
+    - full-ui
+  visual-reference:
+    runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.56.1-noble
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install isolated H5 visual tooling
+      working-directory: scripts/h5-capture
+      run: 'npm ci
+
+        # Matching official image already contains Chromium and OS libraries.
+
+        npx playwright --version
+
+        '
+    - name: Capture actual H5 with synthetic data only
+      working-directory: scripts/h5-capture
+      env:
+        FIXTURE_PATH: ../../App/Resources/TimelineParity.json
+      run: npm run capture
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: h5-visual-reference-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: scripts/h5-capture/artifacts/
+        if-no-files-found: error
+        retention-days: 14
+    needs: regression
+  visual-multipage:
+    runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.56.1-noble
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install isolated multipage reference tooling
+      working-directory: scripts/h5-multipage
+      run: npm ci
+    - name: Capture real H5 routes with synthetic read APIs
+      working-directory: scripts/h5-multipage
+      env:
+        FIXTURE_PATH: ../../App/Resources/TimelineParity.json
+      run: npm run capture
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: h5-multipage-reference-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        path: scripts/h5-multipage/artifacts/
+        if-no-files-found: error
+        retention-days: 14
+    needs: regression

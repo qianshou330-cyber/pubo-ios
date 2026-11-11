@@ -97,7 +97,13 @@ struct TimelineView: View {
                             }
                         }
                     }
-                    .refreshable { homeRefresh += 1; await load() }
+                    .refreshable {
+                        #if DEBUG
+                        RefreshDiagnostics.shared.record(.pullStarted)
+                        defer { RefreshDiagnostics.shared.record(.pullEnded) }
+                        #endif
+                        homeRefresh += 1; await load()
+                    }
                     .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded(switchTimeline))
             }
     }
@@ -256,27 +262,66 @@ struct TimelineView: View {
         }
     }
     private func load(older: Bool = false, automatic: Bool = false) async {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.loadAttempt)
+            #endif
+
         // Several visible rows can enqueue pagination before the first request fails.
         // Recheck when each task actually executes so a queued request cannot silently
         // consume the error and bypass the reader's explicit inline retry.
-        guard !automatic || error == nil else { return }
-        guard !loading || requestContext != context else { return }
-        guard !older || hasMore else { return }
+        guard !automatic || error == nil else {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.skippedError)
+            #endif
+            return
+        }
+        guard !loading || requestContext != context else {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.skippedBusy)
+            #endif
+            return
+        }
+        guard !older || hasMore else {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.skippedEnd)
+            #endif
+            return
+        }
         let attempt = UUID(), currentContext = context, selected = preferences
         requestID = attempt; requestContext = currentContext; loading = true
         defer { if requestID == attempt { loading = false } }
         var fields = selected.parameters; fields["limit"] = .number(20)
         if older, let id = feed.olderCursor { fields["untilId"] = .string(id) }
         do {
+
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.requestStarted)
+            #endif
             let result = Record.list(try await session.call("notes/\(selected.selected)-timeline", fields))
+
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.requestReturned)
+            #endif
             try Task.checkCancellation(); guard requestID == attempt, context == currentContext else { return }
-            if older || atTop || feed.notes.isEmpty { feed.page(result, older: older, preferences: selected, accountID: session.user?.id) }
-            else { for note in result { feed.receive(note, atTop: false, preferences: selected, accountID: session.user?.id) } }
+            if older || atTop || feed.notes.isEmpty {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.rowsApplied)
+            #endif
+                feed.page(result, older: older, preferences: selected, accountID: session.user?.id) }
+            else {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.rowsPending)
+            #endif
+                for note in result { feed.receive(note, atTop: false, preferences: selected, accountID: session.user?.id) } }
             if older || !firstPageLoaded { hasMore = result.count == 20 }
             if !older { firstPageLoaded = true }
             error = nil; failedOlderRequest = false; cached = false; firstLoadFinished = true
             if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(feed.notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected.requestKey) }
         } catch is CancellationError {} catch {
+            #if DEBUG
+            RefreshDiagnostics.shared.record(.loadFailed)
+            #endif
+
             guard requestID == attempt, context == currentContext else { return }
             if (error as? APIError)?.code == "LTL_DISABLED" { session.timelinePreferences.selected = "home"; session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
             else { failedOlderRequest = older; self.error = error.localizedDescription; firstLoadFinished = true }

@@ -67,6 +67,9 @@ actor FixtureTransport: HTTPTransport {
     private var mutedUsers: [JSONValue] = []
     private var driveFolders: [JSONValue] = [.object(["id": .string("fixturefolder"), "name": .string("测试文件夹"), "parentId": .null])]
     init() {
+        #if DEBUG
+        RefreshDiagnostics.shared.record(.captureStarted)
+        #endif
         if ProcessInfo.processInfo.arguments.contains("--contacts-preview") {
             contacts = [.object(["id": .string("contactgroup145"), "name": .string("合成联系人分组"), "userIds": .strings((1...51).map { String(format: "member-%03d", $0) })])]
         }
@@ -384,6 +387,9 @@ actor FixtureTransport: HTTPTransport {
                 response = .array(Array(rows.prefix(body["limit"].int > 0 ? body["limit"].int : 20)))
             } else if args.contains("--refreshable-feed"), path != "users/notes" {
                 timelineReads += 1
+                #if DEBUG
+                RefreshDiagnostics.shared.record(.fixtureGeneration)
+                #endif
                 let sample: JSONValue = .object(["id": .string(String(format: "refresh%08d", timelineReads)), "user": Self.me,
                     "text": .string("刷新样例 \(timelineReads)"), "cw": .null, "files": .array([]), "reactions": .object([:])])
                 response = .array([sample] + posts)
