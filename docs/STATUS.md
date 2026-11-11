@@ -137,3 +137,8 @@ IPA `PUBO-0.1.2-7-iphoneos-arm64-unsigned.ipa`；SHA-256 `1786d716b54b3cb5739b00
 [模拟器与 Release 构建](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/42966671681) 与 [真实隔离后端测试](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/42966672338)
 
 实体 iPhone、最低 iOS 17、真实系统权限及签名安装和升级仍待单独验收。
+
+
+## 0.9.4／build138 通知页
+
+核心 97 项，打包 6 项，真实隔离后端界面 22 项、接口检查 80 项通过。 模拟器回归与对应 Git 提交记录在[本版验收](NOTIFICATIONS.md)。

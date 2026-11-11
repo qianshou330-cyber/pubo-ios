@@ -78,3 +78,8 @@ TestFlight/App Store 前须完成真机安装、相机/相册与麦克风授权�
 ## 0.9.3／build134 对应构建
 
 Xcode 26.0.1 编译模拟器 Release 和 iPhoneOS arm64 Release。按 timeline-visual.yml 检查 22 个 Tabler 图标及许可、包名、最低系统和未签名状态。见 [本版记录与哈希](TIMELINE_VISUAL.md)。
+
+
+## 0.9.4／build138 对应构建
+
+通知候选分支使用 `notification-alignment.yml` 构建 Release 并保留模拟器录像。隔离后端验证使用 `timeline-integration.yml`。可核对[包及源码哈希](NOTIFICATIONS.md)。
