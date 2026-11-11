@@ -14,6 +14,7 @@ struct NotificationsView: View {
     @State private var cursor: String?
     @State private var more = false
     @State private var loading = false
+    @State private var pull = NotificationPullProgress()
     @State private var refreshState = NotificationRefreshState()
     @State private var errorMessage: String?
     @State private var retryOlder = false
@@ -216,7 +217,12 @@ struct NotificationsView: View {
                 }
             }.background(tab == .all ? PUBOTheme.panel : PUBOTheme.background).clipShape(RoundedRectangle(cornerRadius: PUBOTheme.radius))
                 .padding(12)
+                .background(alignment: .topLeading) {
+                    NotificationPullObserver(progress: pull, active: active, refresh: refreshFromUser)
+                        .frame(width: 0, height: 0)
+                }
         }.coordinateSpace(name: "notification-scroll")
+            .modifier(NotificationPullPresentation(progress: pull))
             .onPreferenceChange(NotificationScrollTop.self) { top in
                 // The lazy stack removes the marker offscreen. Its absent value means history is visible.
                 let wasAtTop = atTop
@@ -228,11 +234,9 @@ struct NotificationsView: View {
                     }
                 }
             }
-            .refreshable { await load() }
-            .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { drag in
+            .simultaneousGesture(DragGesture(minimumDistance: 34).onChanged { drag in
                 if abs(drag.translation.height) > abs(drag.translation.width) { scrolledList = true }
-            })
-            .simultaneousGesture(DragGesture(minimumDistance: 34).onEnded { drag in
+            }.onEnded { drag in
                 let x = drag.translation.width, y = drag.translation.height
                 guard abs(x) > 80, abs(x) > abs(y) * 2, let index = NotificationTab.allCases.firstIndex(of: tab) else { return }
                 let next = index + (x < 0 ? 1 : -1)
@@ -341,6 +345,12 @@ struct NotificationsView: View {
             }
         }
     }
+    private func refreshFromUser() async {
+        guard active else { return }
+        // Supersede pagination or badge reconciliation that was already in flight.
+        if loading { invalidateRequest() }
+        await load()
+    }
     private func markRead() async {
         guard !markingRead else { return }
         markingRead = true
@@ -375,4 +385,167 @@ private struct NotificationScrollTop: PreferenceKey {
 private struct NoteListOptions {
     var oldestFirst = false
     var date: Date?
+}
+
+@MainActor @Observable
+private final class NotificationPullProgress {
+    enum Phase { case idle, pulling, armed, refreshing }
+    static let threshold: CGFloat = 200
+    var phase = Phase.idle
+    var height: CGFloat = 0
+
+    func move(_ distance: CGFloat) {
+        phase = distance >= Self.threshold ? .armed : .pulling
+        // Match the resistance curve of the website's drag indicator.
+        height = (distance / (1.5 + distance / 170)).rounded()
+    }
+    func beginRefresh() {
+        move(Self.threshold)
+        phase = .refreshing
+    }
+    func reset() {
+        phase = .idle
+        height = 0
+    }
+}
+
+private struct NotificationPullPresentation: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    let progress: NotificationPullProgress
+
+    func body(content: Content) -> some View {
+        let phase = progress.phase
+        let refreshing = phase == .refreshing
+        let label = refreshing ? "刷新中" : phase == .armed ? "松开以刷新" : "下拉刷新"
+        content
+            .padding(.top, refreshing ? progress.height : 0)
+            .overlay(alignment: .top) {
+                if phase != .idle {
+                    VStack(spacing: 4) {
+                        if refreshing && !reduced {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: refreshing ? "arrow.clockwise" : "arrow.down.to.line")
+                                .rotationEffect(.degrees(phase == .armed && !reduced ? 180 : 0))
+                                .animation(reduced ? nil : .easeOut(duration: 0.25), value: phase == .armed)
+                        }
+                        Text(label).font(.footnote)
+                    }
+                    .foregroundStyle(PUBOTheme.secondary)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: progress.height, alignment: .bottom)
+                    .clipped().background(PUBOTheme.background)
+                    .allowsHitTesting(false)
+                    .accessibilityElement(children: .ignore).accessibilityLabel(label)
+                    .accessibilityIdentifier("notifications.pull.status")
+                    .transition(.opacity)
+                }
+            }
+            .animation(reduced ? nil : .easeOut(duration: 0.2), value: refreshing)
+            .animation(reduced ? nil : .easeOut(duration: 0.2), value: phase == .idle)
+    }
+}
+
+/// Observe the existing scroll pan without installing a competing recognizer or changing its delegate.
+private struct NotificationPullObserver: UIViewRepresentable {
+    let progress: NotificationPullProgress
+    let active: Bool
+    let refresh: @MainActor () async -> Void
+
+    func makeUIView(context: Context) -> Anchor { Anchor() }
+    func updateUIView(_ view: Anchor, context: Context) {
+        view.progress = progress
+        view.refresh = active ? refresh : nil
+        if !active { view.cancel() }
+        view.attach()
+    }
+    static func dismantleUIView(_ view: Anchor, coordinator: ()) { view.detach() }
+
+    final class Anchor: UIView {
+        weak var progress: NotificationPullProgress?
+        var refresh: (@MainActor () async -> Void)?
+        private weak var scroll: UIScrollView?
+        private var previousBounce = false
+        private var tracking = false
+        private var worker: Task<Void, Never>?
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+            accessibilityElementsHidden = true
+        }
+        required init?(coder: NSCoder) { nil }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil { detach() } else { attach() }
+        }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            attach()
+        }
+        func attach() {
+            guard window != nil else { return }
+            var ancestor = superview
+            while let view = ancestor {
+                if let container = view as? UIScrollView {
+                    if container !== scroll {
+                        detach()
+                        scroll = container
+                        previousBounce = container.alwaysBounceVertical
+                        container.alwaysBounceVertical = true
+                        container.panGestureRecognizer.addTarget(self, action: #selector(panChanged(_:)))
+                    }
+                    return
+                }
+                ancestor = view.superview
+            }
+        }
+        func cancel() {
+            if tracking || worker != nil { progress?.reset() }
+            tracking = false
+            worker?.cancel()
+            worker = nil
+        }
+        func detach() {
+            cancel()
+            scroll?.panGestureRecognizer.removeTarget(self, action: #selector(panChanged(_:)))
+            scroll?.alwaysBounceVertical = previousBounce
+            scroll = nil
+        }
+        @objc private func panChanged(_ pan: UIPanGestureRecognizer) {
+            guard let scroll, let progress, let refresh, worker == nil else { return }
+            let delta = pan.translation(in: window)
+            switch pan.state {
+            case .began:
+                tracking = scroll.contentOffset.y + scroll.adjustedContentInset.top <= 2
+            case .changed:
+                guard tracking else { return }
+                guard delta.y > 0, delta.y > abs(delta.x) else {
+                    progress.reset()
+                    return
+                }
+                progress.move(delta.y)
+            case .ended:
+                guard tracking else { return }
+                tracking = false
+                guard delta.y >= NotificationPullProgress.threshold, delta.y > abs(delta.x) else {
+                    progress.reset()
+                    return
+                }
+                progress.beginRefresh()
+                worker = Task { @MainActor [weak self] in
+                    await refresh()
+                    guard !Task.isCancelled else { return }
+                    progress.reset()
+                    self?.worker = nil
+                }
+            case .cancelled, .failed:
+                if tracking { progress.reset() }
+                tracking = false
+            default: break
+            }
+        }
+    }
 }

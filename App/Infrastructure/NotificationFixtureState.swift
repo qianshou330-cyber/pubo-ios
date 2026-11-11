@@ -40,7 +40,14 @@ struct NotificationFixtureState {
             let included = body["includeTypes"].array.compactMap(\.string)
             let excluded = body["excludeTypes"].array.compactMap(\.string)
             if body["markAsRead"].isNull || body["markAsRead"].bool { unread = false }
-            if body["untilId"].isNull && included.isEmpty && excluded.isEmpty { fullReads += 1 }
+            if body["untilId"].isNull && included.isEmpty && excluded.isEmpty {
+                fullReads += 1
+                if arguments.contains("--notifications-refresh") {
+                    let receipt = ["groupedReads": fullReads, "responsesWithNewRow": max(0, fullReads - 1)]
+                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("notification-refresh-count.json")
+                    try? JSONEncoder().encode(receipt).write(to: url, options: .atomic)
+                }
+            }
             var rows = source["notifications"].array
             if arguments.contains("--notifications-live") && fullReads == 1 && included.isEmpty && excluded.isEmpty && body["untilId"].isNull {
                 let incoming = Record(source["liveNotification"])

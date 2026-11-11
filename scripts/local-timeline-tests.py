@@ -1,5 +1,5 @@
 """Task-owned simulators; synthetic protected GIF responses, never production writes."""
-import json,os,pathlib,signal,subprocess,time
+import json,os,pathlib,plistlib,signal,subprocess,time
 from simulator_boot import boot
 from simulator_resources import SimulatorResources
 root=pathlib.Path('build');root.mkdir(exist_ok=True)
@@ -33,6 +33,47 @@ groups += [('notifications', ['-only-testing:PUBOUITests/NotificationAlignmentUI
            ('notification-routes', ['-only-testing:PUBOUITests/NotificationRouteUITests'])]
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
+
+def notification_test_run(device_id):
+    # Xcode normally removes the per-test recording for successful methods.
+    # Keep the real XCTest screen captures independently of the full simctl movie.
+    subprocess.run(['xcodebuild', '-quiet', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO',
+                    '-configuration', 'Debug', '-destination', f'platform=iOS Simulator,id={device_id}',
+                    '-derivedDataPath', 'build/debug', 'CODE_SIGNING_ALLOWED=NO', 'build-for-testing'],
+                   check=True, timeout=800)
+    products = root / 'debug/Build/Products'
+    original, = sorted(products.glob('PUBO_*.xctestrun'))
+    settings = plistlib.loads(original.read_bytes())
+    targets = [target for configuration in settings.get('TestConfigurations', [])
+               for target in configuration.get('TestTargets', [])]
+    if not targets:
+        targets = [target for target in settings.values() if isinstance(target, dict) and 'TestBundlePath' in target]
+    ui_targets = [target for target in targets if 'PUBOUITests' in str(target.get('TestBundlePath', ''))]
+    assert ui_targets, 'Missing UI test target in Xcode-generated test run'
+    for target in ui_targets:
+        target['SystemAttachmentLifetime'] = 'keepAlways'
+    output = original.with_name('notifications-keep-recordings.xctestrun')
+    output.write_bytes(plistlib.dumps(settings))
+    return output
+
+def record_successful_method(method, retained_run, device_id, shots):
+    # Some simulator runtimes omit a system film even when retention is enabled.
+    # In that case record this successful interaction on its own. Its assertion must pass again.
+    out = shots / ('single-' + method + '.mp4')
+    result_bundle = root / ('single-' + method + '.xcresult')
+    recorder = subprocess.Popen(['xcrun', 'simctl', 'io', device_id, 'recordVideo', '--codec=h264', str(out)])
+    try:
+        subprocess.run(['xcodebuild', '-quiet', '-xctestrun', str(retained_run), '-destination',
+                        'platform=iOS Simulator,id=' + device_id, '-parallel-testing-enabled', 'NO',
+                        '-resultBundlePath', str(result_bundle),
+                        '-only-testing:PUBOUITests/NotificationAlignmentUITests/' + method, 'test-without-building'],
+                       check=True, timeout=360)
+    finally:
+        recorder.send_signal(signal.SIGINT)
+        try: recorder.wait(timeout=30)
+        except subprocess.TimeoutExpired: recorder.kill(); recorder.wait(timeout=10)
+    return out.name
+
 try:
     boot(identifier,root/('timeline-boot-'+os.environ.get('PUBO_UI_SCOPE','all')+'.json'))
     # Settle first-launch simulator services before XCTest requests its background
@@ -62,6 +103,7 @@ try:
     time.sleep(3)
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('simulator_ready=true\n')
+    retained_run = notification_test_run(identifier) if any(name == 'notifications' for name, _ in groups) else None
     for name,selection in groups:
         shots=root/'screenshots'/name;shots.mkdir(parents=True,exist_ok=True)
         bundle=root/(name+'.xcresult')
@@ -69,7 +111,14 @@ try:
         video=subprocess.Popen(['xcrun','simctl','io',identifier,'recordVideo','--codec=h264',str(shots/'interactions.mp4')])
         try:
             with SimulatorResources(root/(name+'-resources.json')):
-                result=subprocess.run(['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1600 if name in ('auth-functional', 'chat', 'notification-routes') else 1100)
+                common = ['-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
+                          '-resultBundlePath', str(bundle), '-parallel-testing-enabled', 'NO']
+                if name == 'notifications':
+                    command = ['xcodebuild', '-quiet', '-xctestrun', str(retained_run)] + common + selection + ['test-without-building']
+                else:
+                    command = ['xcodebuild', '-quiet', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO',
+                               '-configuration', 'Debug', '-derivedDataPath', 'build/debug'] + common + selection + ['CODE_SIGNING_ALLOWED=NO', 'test']
+                result = subprocess.run(command, timeout=1600 if name in ('auth-functional', 'chat', 'notification-routes') else 1100)
         finally:
             video.send_signal(signal.SIGINT)
             try:video.wait(timeout=30)
@@ -84,10 +133,27 @@ try:
                     tree = subprocess.check_output(['xcrun', 'xcresulttool', 'get', 'test-results', 'tests', '--path', str(bundle)], text=True, timeout=90)
                     (root / (name + '-tests.json')).write_text(tree)
         record[name]='PASS' if result.returncode==0 else 'FAIL'
-        if name == 'notifications' and result.returncode == 0:
-            badge = subprocess.run(['swift', 'scripts/check-notification-badge.swift', str(shots),
-                                    str(root / 'notification-visible-badge.json')], timeout=120)
-            if badge.returncode != 0:
+        if name == 'notifications':
+            container = subprocess.check_output(['xcrun', 'simctl', 'get_app_container', identifier,
+                                                 'com.bolubo.native', 'data'], text=True, timeout=30).strip()
+            response_file = pathlib.Path(container) / 'tmp/notification-refresh-count.json'
+            response = json.loads(response_file.read_bytes()) if response_file.is_file() else {}
+            (root / 'notification-refresh-count.json').write_text(json.dumps(response, indent=2))
+            if response != {'groupedReads': 2, 'responsesWithNewRow': 1}:
+                record[name] = 'FAIL'
+            media = {}
+            for method in json.loads((shots / 'manifest.json').read_bytes()):
+                files = [a['exportedFileName'] for a in method['attachments']
+                         if pathlib.Path(a['exportedFileName']).suffix.lower() in ('.mp4', '.mov')]
+                if files:
+                    media[method['testIdentifier']] = files
+            for method in ('testNewNotificationArrivesWhileReadingAtTop', 'testUnreadAndPullToRefresh'):
+                if result.returncode == 0 and not any(method in key for key in media):
+                    media['NotificationAlignmentUITests/' + method + '()'] = [
+                        record_successful_method(method, retained_run, identifier, shots)]
+            (root / 'notification-test-recordings.json').write_text(json.dumps(media, indent=2))
+            if result.returncode == 0 and subprocess.run(['swift', 'scripts/check-notification-badge.swift', str(shots),
+                                    str(root / 'notification-visible-badge.json')], timeout=120).returncode != 0:
                 record[name] = 'FAIL'
         # Continue independent regression groups so failures do not hide unrelated evidence.
     if any(record.get(name) != 'PASS' for name,_ in groups):raise RuntimeError('One or more UI groups failed; see individual summaries')

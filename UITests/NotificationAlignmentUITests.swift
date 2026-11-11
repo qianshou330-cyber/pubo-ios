@@ -154,13 +154,13 @@ final class NotificationAlignmentUITests: XCTestCase {
         // Begin inside the feed's empty right-hand margin and release at the end of the drag.
         // This avoids long-press, profile links, note text and reaction targets.
         let start = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.982, dy: 0.12))
-        let end = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.982, dy: 0.78))
-        start.press(forDuration: 0.025, thenDragTo: end, withVelocity: .default, thenHoldForDuration: 0)
-        if !newRow.waitForExistence(timeout: 5) {
-            capture(app, "notifications-after-edge-pull")
-            feed.swipeDown(velocity: .fast)
-        }
-        XCTAssertTrue(newRow.waitForExistence(timeout: 8), "Pulling to refresh must display the next server response")
+        let smallPull = start.withOffset(CGVector(dx: 0, dy: 90))
+        start.press(forDuration: 0.04, thenDragTo: smallPull, withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertFalse(newRow.waitForExistence(timeout: 1.5), "A pull below 200pt must not refresh")
+        capture(app, "notifications-short-pull-returned")
+        let end = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.982, dy: 0.88))
+        start.press(forDuration: 0.04, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.65)
+        XCTAssertTrue(newRow.waitForExistence(timeout: 8), "One full pull must display the next server response")
         capture(app, "notifications-pull-refreshed")
         element("notifications.markRead", in: app).tap()
         XCTAssertTrue(newRow.waitForExistence(timeout: 6))

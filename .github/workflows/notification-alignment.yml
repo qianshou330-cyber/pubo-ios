@@ -54,9 +54,9 @@ jobs:
           fetch-depth: 2
       - name: Fixed tools, source and fixtures
         env:
-          PUBO_PACKAGED_COMMIT: ${{ startsWith(github.ref_name, 'verify-notifications-') && '7b7cf72a5c27e5b9b24849efa570b2db46715926' || '' }}
+          PUBO_VERIFY_PRODUCT_PARENT: ${{ startsWith(github.ref_name, 'verify-notifications-') }}
         run: |
-          if [[ -n "$PUBO_PACKAGED_COMMIT" ]]; then git fetch --no-tags --depth=1 origin "$PUBO_PACKAGED_COMMIT"; fi
+          if [[ "$PUBO_VERIFY_PRODUCT_PARENT" == true ]]; then export PUBO_PACKAGED_COMMIT="$(git rev-parse HEAD^)"; fi
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           brew install xcodegen
           swift scripts/brand-assets.swift
