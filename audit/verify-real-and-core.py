@@ -47,5 +47,8 @@ for file in sorted((b/'integration').glob('integration-*-contract.json')):
     contracts[file.name]=list(checks)
 assert len(contracts['integration-notifications-contract.json'])>=11
 out=dict(product=t['sha'],build=t['build'],version=t['version'],core=max(int(n) for n,_,_ in totals),packageTests=6,realUITests=summ['passedTests'],device=device['modelName'],runtime=device['osVersion'],individualRealTests=[identifier for identifier,_ in cases],individualResultSource=result_db.relative_to(b).as_posix(),individualResultSourceSHA256=source_digest,contracts=contracts,totalContractChecks=sum(map(len,contracts.values())),productionAPIRequests=0)
+integration=read('integration.github.json')
+out['individualResultArchive']={'artifactId':integration['id'],'url':integration['url'],
+                               'member':'integration-ui.xcresult/database.sqlite3','digest':integration['digest']}
 (b/'real-and-core-results.json').write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf8')
 print(json.dumps({k:v for k,v in out.items() if k not in ['contracts','individualRealTests']}))

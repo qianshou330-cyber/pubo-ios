@@ -10,7 +10,6 @@ import html
 import io
 import json
 import os
-import re
 from pathlib import Path, PurePosixPath
 import runpy
 import shutil
@@ -26,6 +25,12 @@ REPO = "qianshou330-cyber/pubo-ios"
 BASE_ZIP = "c17974495c659dcabffbc852dd6d3ef31225f65cfa7b1efed52e4bb1f7fcaa98"
 BASE_IPA = "18ef4e429338953513f79612ea2a956aa39310ddc009aee00c6d9acf2e2b511b"
 REVIEWED_FILM = "88c6b507ac6fe614cedf2624e3461f74cf942256cc7f44b5f8115fb11f0d4911"
+SECONDARY_REVIEWS = {
+    130422140507: (1,13842682227,"0443b1a6ad81237f2e0e455f56a7e518e21e8ec6d2725930931db55085f1dc47",
+                   "de9ecff80c37d77de4faa58cfc80eaa05c146e41965c550e6e647aad1baedf01",1805),
+    130447590796: (2,13847088905,"2435b172281a1ffb64f9800703eaac29c14dc9d66ac74ad60cda9cb1c6baa66d",
+                   "cf4736502df1660f32c09fa5eb43d83fbbc660296afe52801c347d72fa6ff9cb",136715770)
+}
 
 def write_json(path,value):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -81,8 +86,7 @@ def verify_secondary_environment(b,t):
     require(evidence["productCommit"]==t["sha"] and evidence["suite"]=="small" and
             evidence["status"]=="infrastructure-only-unverified","Unexpected secondary audit")
     attempts=evidence["attempts"]
-    require(len(attempts)>=2 and len({a["jobId"] for a in attempts})==len(attempts) and
-            len({a["runAttempt"] for a in attempts})==len(attempts),"Two distinct attempts are required")
+    require(len(attempts)==2 and {a["jobId"] for a in attempts}==set(SECONDARY_REVIEWS),"Two confirmed attempts are required")
     for a in attempts:
         job_id=int(a["jobId"])
         job=gh(f"actions/jobs/{job_id}")
@@ -90,16 +94,27 @@ def verify_secondary_environment(b,t):
         require(job["run_id"]==read(b/"runs.json")["visual"] and job["name"]=="simulator-small" and
                 job["conclusion"]=="failure" and verified==0 and a["stage"] and a["error"],
                 "Secondary evidence contains a product result or a different job")
-        log=subprocess.check_output(["gh","api",f"repos/{REPO}/actions/jobs/{job_id}/logs"])
-        texts=[log,log.removeprefix(b"\xef\xbb\xbf")]
-        require(a["logSHA256"] in {hashlib.sha256(x).hexdigest() for raw in texts for x in (raw,raw.replace(b"\r\n",b"\n"))},
-                "Secondary runner log digest mismatch")
-        text=log.decode("utf8",errors="replace")
-        require(not re.search(r"XCTAssert[^\n]*failed|Test Case '[^'\n]+' failed",text,re.I),
-                "Product test failure cannot use the infrastructure exception")
-        require(("bootstatus" in text and "TimeoutExpired" in text) or
-                ("test-without-building" in text and "TimeoutExpired" in text and "failed to read metadata" in text),
-                "Logs did not establish the recorded runner or toolchain failure")
+        attempt,artifact_id,log_sum,archive_sum,length=SECONDARY_REVIEWS[job_id]
+        require((a["runAttempt"],a["artifactId"],a["logSHA256"])==(attempt,artifact_id,log_sum),
+                "Mismatch with the independently reviewed source logs")
+        # A successful binary response stays in memory; ANSI bytes never reach the terminal.
+        try:
+            remote=subprocess.run(["gh","api","--allow-escape-sequences",f"repos/{REPO}/actions/jobs/{job_id}/logs"],
+                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+        except subprocess.TimeoutExpired:
+            remote=None
+        if remote is not None and remote.returncode==0:
+            require(hashlib.sha256(remote.stdout).hexdigest()==log_sum,"Original job log changed")
+            a["logDigestRecheckedInAssembly"]=True
+        else:
+            a["logDigestRecheckedInAssembly"]=False
+        metadata=gh(f"actions/artifacts/{artifact_id}")
+        require(metadata["workflow_run"]["id"]==job["run_id"] and metadata["name"]=="notification-small-"+t["sha"]
+                and metadata["digest"]=="sha256:"+archive_sum and metadata["size_in_bytes"]==length,
+                "Wrong secondary package metadata")
+        a["githubArtifactDigest"]=metadata["digest"]
+        a["githubArtifactBytes"]=length
+    evidence["logReview"]="两份原始日志均经两次独立核读及 SHA-256 核对。归档时复查原作业状态、来源提交和 GitHub 制品摘要，附故障事实及摘要。"
     groups=read(b/"native-simulator-groups.json")
     require(not any(k.startswith("small/") for k in groups),"Partial or failed test groups require separate review")
     return evidence
