@@ -1,0 +1,186 @@
+name: Build 130 on-screen timeline verification
+on:
+  push:
+    branches: ['ci-timeline130-ui-20261111']
+permissions:
+  contents: read
+jobs:
+  large:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact product checkout
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,platform,subprocess
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          product='9117cdef6026c1e1b8c3e48aba1d55cafbe19605'
+          subprocess.run(['git','diff','--exit-code',product,'HEAD','--','App','Sources','Package.swift','Package.resolved','project.yml','scripts/brand-assets.swift'],check=True)
+          pathlib.Path('build').mkdir(exist_ok=True)
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':product,'verificationCommit':head,'runnerArchitecture':platform.machine()}))
+          PY
+      - name: Fixed tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Ensure exact baseline simulator runtime
+        timeout-minutes: 25
+        run: |
+          python3 - <<'PY'
+          import json,subprocess
+          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+          def runtimes():
+              return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
+          if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
+              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','arm64'],check=True,timeout=1400)
+          found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
+          assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+          for name,kind in [('iPhone 17 Pro Max','iPhone-17-Pro-Max'),('iPhone SE (3rd generation)','iPhone-SE-3rd-generation')]:
+              if not any(d['name']==name for d in devices.get(runtime,[])):
+                  subprocess.run(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.'+kind,runtime],check=True,timeout=60)
+          PY
+      - name: Compile app
+        id: compile_app
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Prepare task-owned simulator before test execution
+        timeout-minutes: 15
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,subprocess,sys
+          sys.path.insert(0,'scripts')
+          from simulator_boot import boot
+          root=pathlib.Path('build')
+          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+          name='PUBO Local iPhone 17 Pro Max'
+          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max',runtime],text=True,timeout=60).strip()
+          (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
+          record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
+          try:
+              boot(device,root/'prewarm-boot.json')
+              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
+              record['status']='PASS'
+          except Exception as error:
+              record['status']='FAIL';record['error']=type(error).__name__;raise
+          finally:
+              (root/'prewarm-install.json').write_text(json.dumps(record))
+              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
+          PY
+      - name: Exercise selected UI groups
+        env:
+          PUBO_SIM_SIZE: large
+          PUBO_UI_GROUPS: visual,nav-proof,room-report
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revisit-large-visual-${{ github.sha }}
+          path: |
+            build/*.json
+            build/visual.xcresult
+            build/screenshots/visual/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revisit-large-nav-proof-${{ github.sha }}
+          path: |
+            build/*.json
+            build/nav-proof.xcresult
+            build/screenshots/nav-proof/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revisit-large-room-report-${{ github.sha }}
+          path: |
+            build/*.json
+            build/room-report.xcresult
+            build/screenshots/room-report/
+          retention-days: 14
+
+  small:
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact product checkout
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,platform,subprocess
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          product='9117cdef6026c1e1b8c3e48aba1d55cafbe19605'
+          subprocess.run(['git','diff','--exit-code',product,'HEAD','--','App','Sources','Package.swift','Package.resolved','project.yml','scripts/brand-assets.swift'],check=True)
+          pathlib.Path('build').mkdir(exist_ok=True)
+          pathlib.Path('build/integration-product-source.json').write_text(json.dumps({'productCommit':product,'verificationCommit':head,'runnerArchitecture':platform.machine()}))
+          PY
+      - name: Fixed tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Ensure exact baseline simulator runtime
+        timeout-minutes: 25
+        run: |
+          python3 - <<'PY'
+          import json,subprocess
+          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+          def runtimes():
+              return json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json']))['runtimes']
+          if not any(r['identifier']==runtime and r.get('isAvailable') for r in runtimes()):
+              subprocess.run(['xcodebuild','-downloadPlatform','iOS','-architectureVariant','universal'],check=True,timeout=1400)
+          found=next(r for r in runtimes() if r['identifier']==runtime and r.get('isAvailable'))
+          assert found['version']=='26.0.1' and found['buildversion']=='23A8464', found
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+          for name,kind in [('iPhone 17 Pro Max','iPhone-17-Pro-Max'),('iPhone SE (3rd generation)','iPhone-SE-3rd-generation')]:
+              if not any(d['name']==name for d in devices.get(runtime,[])):
+                  subprocess.run(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.'+kind,runtime],check=True,timeout=60)
+          PY
+      - name: Compile app
+        id: compile_app
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Prepare task-owned simulator before test execution
+        timeout-minutes: 15
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,subprocess,sys
+          sys.path.insert(0,'scripts')
+          from simulator_boot import boot
+          root=pathlib.Path('build')
+          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
+          name='PUBO Local iPhone SE (3rd generation)'
+          device=subprocess.check_output(['xcrun','simctl','create',name,'com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation',runtime],text=True,timeout=60).strip()
+          (root/'timeline-owned-device.json').write_text(json.dumps({'udid':device,'name':name,'runtime':runtime}))
+          record={'device':device,'scope':'one preparatory install before original UI tests; no assertions skipped'}
+          try:
+              boot(device,root/'prewarm-boot.json')
+              subprocess.run(['xcrun','simctl','install',device,'build/debug/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
+              record['status']='PASS'
+          except Exception as error:
+              record['status']='FAIL';record['error']=type(error).__name__;raise
+          finally:
+              (root/'prewarm-install.json').write_text(json.dumps(record))
+              subprocess.run(['xcrun','simctl','shutdown',device],check=False,timeout=60)
+          PY
+      - name: Exercise selected UI groups
+        env:
+          PUBO_SIM_SIZE: small
+          PUBO_UI_GROUPS: visual
+        run: python3 scripts/local-timeline-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revisit-small-visual-${{ github.sha }}
+          path: |
+            build/*.json
+            build/visual.xcresult
+            build/screenshots/visual/
+          retention-days: 14
