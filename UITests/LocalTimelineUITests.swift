@@ -209,6 +209,10 @@ final class LocalTimelineUITests: XCTestCase {
         XCTAssertTrue(retry.isHittable)
         XCTAssertFalse(app.buttons["timeline.refreshRetry"].exists)
         capture(app, "local-pagination-inline-retry")
+        // Queued row-appearance callbacks must not retry behind the reader's back.
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertTrue(retry.exists)
+        XCTAssertFalse(find(app, "note.open.at4tltest0001").exists)
         retry.tap()
         XCTAssertTrue(reveal(app, "note.open.at4tltest0001").exists)
         XCTAssertFalse(app.buttons["timeline.retryOlder"].exists)

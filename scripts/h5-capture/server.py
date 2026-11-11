@@ -58,7 +58,7 @@ class H(http.server.BaseHTTPRequestHandler):
    import base64
    return self.out(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='),'image/png')
   if p=='/url':return self.out(json.dumps({'title':'下载 PUBO Android 版','description':'PUBO 官方下载页面','sitename':'bolubo.com','url':'http://127.0.0.1:8765/download/android','icon':None,'thumbnail':None}))
-  if p.startswith(('/vite/','/assets/','/static-assets/')) or p in ['/favicon.ico','/apple-touch-icon.png','/manifest.json']:
+  if p.startswith(('/vite/','/assets/','/static-assets/','/twemoji/')) or p in ['/favicon.ico','/apple-touch-icon.png','/manifest.json']:
    key=CACHE/hashlib.sha256(p.encode()).hexdigest()
    try:
     if not key.exists():

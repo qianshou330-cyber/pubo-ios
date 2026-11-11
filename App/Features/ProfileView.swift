@@ -24,7 +24,19 @@ struct ProfileView: View {
                     HStack { Avatar(user: user, size: 64); VStack(alignment: .leading) { Text(user.displayName).font(.title2.bold()); Text("@" + (user["username"].string ?? "")).foregroundStyle(.secondary) } }
                     RoleBadges(user: user)
                     if let description = user["description"].string { NoteText(text: description) }
-                    ForEach(Array(user["fields"].array.enumerated()), id: \.offset) { _, field in VStack(alignment: .leading) { Text(field["name"].string ?? "").font(.caption.bold()); NoteText(text: field["value"].string ?? "") } }
+                    if let location = user["location"].string, !location.isEmpty { Label(location, systemImage: "mappin.and.ellipse").accessibilityLabel("所在地：" + location) }
+                    if let birthday = user["birthday"].string, !birthday.isEmpty { Label("生日：" + birthday, systemImage: "gift").accessibilityIdentifier("profile.birthday") }
+                    if let date = puboDate(user["createdAt"].string) { Label("注册于 " + date.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar") }
+                    Text("帖子 \(user["notesCount"].int)").font(.callout).foregroundStyle(.secondary)
+                    ForEach(Array(user["fields"].array.enumerated()), id: \.offset) { _, field in
+                        VStack(alignment: .leading) {
+                            Text(field["name"].string ?? "").font(.caption.bold())
+                            NoteText(text: field["value"].string ?? "")
+                            if ProfilePresentation.verified(field["value"].string ?? "", links: user["verifiedLinks"]) {
+                                Label("已验证链接", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(PUBOTheme.accent)
+                            }
+                        }
+                    }
                     HStack {
                         NavigationLink("关注 \(user["followingCount"].int)") { FollowListView(userID: userID, followers: false) }
                         Spacer()
@@ -55,9 +67,9 @@ struct ProfileView: View {
         }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
             .sheet(isPresented: $reporting) { ReportView(userID: userID) }
             .sheet(isPresented: $editing) { EditProfileView { Task { await load() } } }
-            .confirmationDialog(followConfirmation == .unfollow ? "确认取消关注此用户？" : "确认撤回关注申请？", isPresented: Binding(get: { followConfirmation != nil }, set: { if !$0 { followConfirmation = nil } })) {
-                if let action = followConfirmation { Button(action.title, role: .destructive) { Task { await follow(action) } } }
-                Button("保留", role: .cancel) { followConfirmation = nil }
+            .alert(followConfirmation == .unfollow ? "确认取消关注此用户？" : "确认撤回关注申请？", isPresented: Binding(get: { followConfirmation != nil }, set: { if !$0 { followConfirmation = nil } })) {
+                if let action = followConfirmation { Button(action.title, role: .destructive) { Task { await follow(action) } }.accessibilityIdentifier("profile.confirmFollow") }
+                Button("保留", role: .cancel) { followConfirmation = nil }.accessibilityIdentifier("profile.keepFollow")
             }
     }
     private func load() async {
@@ -134,6 +146,8 @@ struct EditProfileView: View {
     let onSaved: () -> Void
     @State private var name = ""
     @State private var description = ""
+    @State private var location = ""
+    @State private var birthday = ""
     @State private var error: String?
     @State private var busy = false
     @State private var selectingMedia = false
@@ -144,11 +158,21 @@ struct EditProfileView: View {
     @State private var showPhotos = false
     @State private var profileFields: [ProfileField] = []
     @State private var restoredProfile = false
+    private var validationError: String? {
+        ProfilePresentation.validationError(name: name, description: description, birthday: birthday, fieldCount: profileFields.count)
+    }
     var body: some View {
         NavigationStack {
             Form {
-                TextField("昵称", text: $name)
-                TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160)
+                Section("基本资料") {
+                    TextField("昵称", text: $name).accessibilityIdentifier("profile.edit.name")
+                    Text("\(ProfilePresentation.length(name)) / 30").font(.caption).foregroundStyle(ProfilePresentation.length(name) > 30 ? Color.red : Color.secondary)
+                    TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160).accessibilityLabel("简介").accessibilityIdentifier("profile.edit.description")
+                    Text("\(ProfilePresentation.length(description)) / 500").font(.caption).foregroundStyle(ProfilePresentation.length(description) > 500 ? Color.red : Color.secondary)
+                    TextField("所在地", text: $location).accessibilityIdentifier("profile.edit.location")
+                    TextField("生日 YYYY-MM-DD", text: $birthday).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("profile.edit.birthday")
+                    Text("所在地和生日会显示在个人主页。留空可清除。").font(.caption).foregroundStyle(.secondary)
+                }
                 mediaRow("头像", field: "avatarId", file: avatar)
                 mediaRow("背景图", field: "bannerId", file: banner)
                 Section("附加资料") {
@@ -158,12 +182,13 @@ struct EditProfileView: View {
                     if profileFields.count < 16 { Button("添加附加资料") { profileFields.append(ProfileField()) } }
                 }
                 NavigationLink("头像装饰") { AvatarDecorationsView() }
+                if let validationError { Text(validationError).foregroundStyle(.red).accessibilityIdentifier("profile.edit.validation") }
                 if let error { Text(error).foregroundStyle(.red) }
             }.disabled(busy)
                 .puboForm().navigationTitle("编辑资料").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("保存") { Task { await save() } }.disabled(busy) }
-                }.task { guard !restoredProfile else { return }; restoredProfile = true; name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? ""; profileFields = (session.user?["fields"].array ?? []).map { ProfileField(name: $0["name"].string ?? "", value: $0["value"].string ?? "") } }
+                    ToolbarItem(placement: .confirmationAction) { Button("保存") { Task { await save() } }.disabled(busy || validationError != nil).accessibilityIdentifier("profile.edit.save") }
+                }.task { guard !restoredProfile else { return }; restoredProfile = true; name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? ""; location = session.user?["location"].string ?? ""; birthday = session.user?["birthday"].string ?? ""; profileFields = (session.user?["fields"].array ?? []).map { ProfileField(name: $0["name"].string ?? "", value: $0["value"].string ?? "") } }
                 .sheet(isPresented: $selectingMedia) { DrivePicker(imagesOnly: true) { selected in setMedia(selected) } }
                 .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
                 .onChange(of: photo) { _, item in Task { await upload(item) } }
@@ -192,9 +217,11 @@ struct EditProfileView: View {
         } catch { self.error = error.localizedDescription }
     }
     private func save() async {
+        guard !busy else { return }
+        if let validationError { error = validationError; return }
         busy = true; defer { busy = false }
-        var fields: [String: JSONValue] = ["name": .string(name), "description": .string(description)]
-        fields["fields"] = .array(profileFields.map { .object(["name": .string($0.name), "value": .string($0.value)]) })
+        var fields: [String: JSONValue] = ["name": ProfilePresentation.optionalText(name), "description": ProfilePresentation.optionalText(description), "location": ProfilePresentation.optionalText(location), "birthday": ProfilePresentation.optionalText(birthday)]
+        fields["fields"] = ProfilePresentation.fields(profileFields.map { ($0.name, $0.value) })
         if let avatar { fields["avatarId"] = .string(avatar.id) }; if let banner { fields["bannerId"] = .string(banner.id) }
         do { _ = try await session.call("i/update", fields, mutation: true); try await session.refreshUser(); onSaved(); dismiss() }
         catch { self.error = error.localizedDescription }

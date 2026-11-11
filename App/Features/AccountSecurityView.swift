@@ -16,6 +16,7 @@ struct AccountSecurityView: View {
     @State private var action: String?
     @State private var busy = false
     @State private var error: String?
+    private var emailAvailable: Bool { AccountSettingsPolicy.emailAvailable(meta: session.meta) }
     var body: some View {
         Form {
             Section("操作验证") {
@@ -24,9 +25,11 @@ struct AccountSecurityView: View {
                 Text("敏感操作仍由服务器单独验证密码和验证码。内容仅驻留此页面，离页或进入后台后清除。").font(.footnote)
             }
             Section("邮箱") {
+                if !emailAvailable { Text("本站尚未启用邮件服务，暂时不能修改邮箱或发送验证邮件。").font(.footnote).accessibilityIdentifier("security.email.unavailable") }
                 TextField("邮箱地址", text: $email).keyboardType(.emailAddress).textInputAutocapitalization(.never)
+                    .disabled(!emailAvailable || account.isNull).accessibilityIdentifier("security.email.address")
                 Text(account["emailVerified"].bool ? "邮箱已验证" : "邮箱未验证").font(.caption)
-                Button("保存邮箱并发送验证邮件") { action = "email" }.disabled(password.isEmpty)
+                Button("保存邮箱并发送验证邮件") { action = "email" }.disabled(!emailAvailable || account.isNull || password.isEmpty).accessibilityIdentifier("security.email.save")
             }
             Section("修改密码") {
                 SecureField("新密码", text: $newPassword).textContentType(.newPassword)
@@ -61,7 +64,11 @@ struct AccountSecurityView: View {
     private func clear() { password = ""; otp = ""; email = ""; newPassword = ""; repeatPassword = ""; setup = .null; setupCode = ""; backupCodes = []; account = .null }
     private func load() async { do { account = try await session.security.call(session: session, path: "i"); email = account["email"].string ?? "" } catch { self.error = error.localizedDescription } }
     private func perform(_ selected: String) async {
-        guard !busy else { return }; busy = true; defer { busy = false; password = ""; otp = ""; newPassword = ""; repeatPassword = ""; action = nil }
+        guard !busy else { return }
+        // Recheck at execution as well as disabling the button: an already-open
+        // confirmation must not submit after the server capability disappears.
+        guard selected != "email" || emailAvailable else { action = nil; error = "本站尚未启用邮件服务。"; return }
+        busy = true; defer { busy = false; password = ""; otp = ""; newPassword = ""; repeatPassword = ""; action = nil }
         do {
             var fields: [String: JSONValue] = ["password": .string(password)]; if !otp.isEmpty { fields["token"] = .string(otp) }
             let endpoint: String

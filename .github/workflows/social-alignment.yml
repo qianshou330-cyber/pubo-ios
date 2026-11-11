@@ -38,7 +38,7 @@ jobs:
       matrix:
         size: [large, small]
     runs-on: macos-15
-    timeout-minutes: 50
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - name: Prepare fixed tools
@@ -66,6 +66,7 @@ jobs:
           retention-days: 14
   visual-reference:
     runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.56.1-noble
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +80,8 @@ jobs:
         working-directory: scripts/h5-capture
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          # Matching official image already contains Chromium and OS libraries.
+          npx playwright --version
       - name: Capture actual H5 with synthetic data only
         working-directory: scripts/h5-capture
         env:

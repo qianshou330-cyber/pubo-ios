@@ -173,7 +173,7 @@ struct TimelineView: View {
         visibleIDs.insert(note.id)
         captureVisible()
         if index >= feed.notes.count - 5 && hasMore && error == nil {
-            Task { await load(older: true) }
+            Task { await load(older: true, automatic: true) }
         }
     }
     private var header: some View {
@@ -255,7 +255,11 @@ struct TimelineView: View {
             }
         }
     }
-    private func load(older: Bool = false) async {
+    private func load(older: Bool = false, automatic: Bool = false) async {
+        // Several visible rows can enqueue pagination before the first request fails.
+        // Recheck when each task actually executes so a queued request cannot silently
+        // consume the error and bypass the reader's explicit inline retry.
+        guard !automatic || error == nil else { return }
         guard !loading || requestContext != context else { return }
         guard !older || hasMore else { return }
         let attempt = UUID(), currentContext = context, selected = preferences

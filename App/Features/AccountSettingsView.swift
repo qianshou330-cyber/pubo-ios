@@ -63,7 +63,7 @@ struct PrivacySettingsView: View {
     var body: some View {
         Form {
             if original.isNull { ProgressView("读取当前设置…") }
-            ForEach(switches, id: \.0) { key, title in Toggle(title, isOn: Binding(get: { values[key]?.bool ?? false }, set: { values[key] = .bool($0) })).disabled(busy || original.isNull).accessibilityIdentifier("privacy." + key) }
+            ForEach(switches, id: \.0) { key, title in Toggle(title, isOn: Binding(get: { values[key]?.bool ?? false }, set: { values[key] = .bool($0) })).disabled(!AccountSettingsPolicy.canEditPrivacyOption(key, values: values, loaded: !original.isNull, busy: busy)).accessibilityIdentifier("privacy." + key) }
             ForEach([("followingVisibility", "关注列表可见性"), ("followersVisibility", "关注者可见性")], id: \.0) { key, title in
                 Picker(title, selection: Binding(get: { values[key]?.string ?? "public" }, set: { values[key] = .string($0) })) { Text("公开").tag("public"); Text("仅关注者").tag("followers"); Text("仅自己").tag("private") }.disabled(busy || original.isNull)
             }
