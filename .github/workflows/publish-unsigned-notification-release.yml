@@ -1,0 +1,50 @@
+name: Publish the verified unsigned PUBO iPhone package
+on:
+  push:
+    branches: ['release-notifications-138-*']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Verify the exact tested product and archive before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PRODUCT: 68aee1cadedae645a5f5823a5c062fdb296db56f
+          VERIFIED_RUN: 43006642241
+          LIGHT_ID: 13848946439
+          LIGHT_SHA: 79f4549a995ad91860e370dfb42c43fb45164b354bb29685c45fdc2e6d5083c8
+          VERIFIED_MAIN: b46d5c2aae4b1520fcb10ca6b9edd5041769e4b0
+          TAG: v0.9.4-build138
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$REPO" = qianshou330-cyber/pubo-ios
+          test "$(gh api "repos/$REPO/git/ref/heads/main" --jq .object.sha)" = "$VERIFIED_MAIN"
+          test "$(gh api "repos/$REPO/compare/$PRODUCT...$VERIFIED_MAIN" --jq .behind_by)" = 0
+          test "$(gh api "repos/$REPO/actions/runs/$VERIFIED_RUN" --jq .conclusion)" = success
+          test "$(gh api "repos/$REPO/actions/artifacts/$LIGHT_ID" --jq .digest)" = "sha256:$LIGHT_SHA"
+          curl --fail --silent --show-error --location --retry 2 -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/actions/artifacts/$LIGHT_ID/zip" -o review.zip
+          echo "$LIGHT_SHA  review.zip" | sha256sum -c -
+          mkdir verified
+          unzip -q review.zip -d verified
+          cd verified
+          ipa=PUBO-0.9.4-138-iphoneos-arm64-unsigned.ipa
+          source=PUBO-0.9.4-138-source.zip
+          echo "da531c479d65d9a83dbf9e5f9fecc7d4e272cbab6af0b1441d953556525e10ff  $ipa" | sha256sum -c -
+          echo "8360fbad5feeaa25d00cc66ddee5153cc85ee302f730bb8a95290b15594dd7f4  $source" | sha256sum -c -
+          cp ../review.zip PUBO-0.9.4-138-review.zip
+          sha256sum "$ipa" "$source" PUBO-0.9.4-138-review.zip > PUBO-0.9.4-138-SHA256.txt
+          echo '通知页新增 20 类筛选，校准未读角标、聚合通知排版和下拉刷新。对照包包含 H5 与 iPhone 17 Pro Max 模拟器的截图、实际录像和按钮核对结果。IPA 为未签名的 iPhoneOS arm64 包，真机安装需签名。' > ../release-notes.md
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            test "$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq .object.sha)" = "$PRODUCT"
+            gh release download "$TAG" -R "$REPO" -D ../prior-release
+            (cd ../prior-release && sha256sum -c PUBO-0.9.4-138-SHA256.txt)
+            cmp PUBO-0.9.4-138-SHA256.txt ../prior-release/PUBO-0.9.4-138-SHA256.txt
+          else
+            gh release create "$TAG" -R "$REPO" --target "$PRODUCT" --prerelease --title 'PUBO iOS 0.9.4 (build 138, 未签名)' --notes-file ../release-notes.md "$ipa" "$source" PUBO-0.9.4-138-review.zip PUBO-0.9.4-138-SHA256.txt
+          fi
