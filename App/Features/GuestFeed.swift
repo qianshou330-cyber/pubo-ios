@@ -14,12 +14,14 @@ struct GuestFeed: View {
         LazyVStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("公开动态").font(.headline); Spacer()
-                Menu("筛选") {
+                Menu {
                     Toggle("显示转帖", isOn: Binding(get: { preferences.withRenotes }, set: { session.timelinePreferences.withRenotes = $0 }))
                     Toggle("在时间线中显示对他人的回复", isOn: Binding(get: { preferences.withReplies }, set: { session.timelinePreferences.setReplies($0) }))
                     Toggle("显示包含敏感媒体的帖子", isOn: Binding(get: { preferences.withSensitive }, set: { session.timelinePreferences.withSensitive = $0 }))
                     Toggle("仅限媒体", isOn: Binding(get: { preferences.onlyFiles }, set: { session.timelinePreferences.setOnlyFiles($0) }))
-                }.frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("guest.timeline.filters")
+                } label: {
+                    Text("筛选").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                }.accessibilityIdentifier("guest.timeline.filters")
             }
             ForEach(Array(feed.notes.enumerated()), id: \.element.id) { index, note in
                 NoteCard(note: note, hideSensitive: !preferences.withSensitive, appearance: .timeline)

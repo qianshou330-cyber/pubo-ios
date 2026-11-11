@@ -6,10 +6,12 @@ final class TimelineNavigationEvidenceTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--timeline-align", "--gif-preview"]
         app.launch()
         XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 15))
-        for destination in ["列表", "天线", "频道"] {
+        for destination in ["我的主页", "列表", "天线", "频道"] {
             let link = app.buttons.matching(identifier: destination).firstMatch
             XCTAssertTrue(link.isHittable, destination)
-            link.tap()
+            XCTAssertGreaterThanOrEqual(link.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(link.frame.height, 44)
+            link.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.18)).tap()
             let bar = app.navigationBars[destination]
             XCTAssertTrue(bar.waitForExistence(timeout: 8), destination)
             let shot = XCTAttachment(screenshot: app.screenshot())

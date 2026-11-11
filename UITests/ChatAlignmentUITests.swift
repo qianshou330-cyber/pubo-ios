@@ -73,7 +73,14 @@ final class ChatAlignmentUITests: XCTestCase {
     }
     func testReportUnknownOutcomeDisablesResubmission() {
         let app = launch(["--report-uncertain"]); room(app)
-        app.buttons["room.menu.room0003"].tap(); app.buttons["举报"].tap()
+        let menu = app.buttons["room.menu.room0003"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: menu)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+        menu.tap()
+        let report = app.buttons["举报"]
+        let presented = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: report)
+        XCTAssertEqual(XCTWaiter.wait(for: [presented], timeout: 8), .completed)
+        report.tap()
         let reason = app.textViews["report.reason"]; XCTAssertTrue(reason.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["提交"].isEnabled); reason.tap(); reason.typeText("隔离举报原因"); app.buttons["提交"].tap()
         XCTAssertTrue(app.staticTexts["提交结果尚未确认，请稍后核对；此页不会重复提交。"].waitForExistence(timeout: 8)); XCTAssertFalse(app.buttons["提交"].isEnabled); capture(app, "chat-report-uncertain")

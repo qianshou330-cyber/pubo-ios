@@ -170,12 +170,16 @@ struct TimelineView: View {
     }
     private var header: some View {
         HStack(spacing: 0) {
-            if let user = session.user { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 28).frame(width: 40, height: 44) }.accessibilityLabel("我的主页") }
+            if let user = session.user {
+                NavigationLink { ProfileView(userID: user.id) } label: {
+                    Avatar(user: user, size: 28).frame(width: 44, height: 44).contentShape(Rectangle())
+                }.accessibilityLabel("我的主页")
+            }
             ScrollView(.horizontal) { HStack(spacing: 0) {
                 PUBOTimelineSelector(selection: selection, available: choices, compact: true, appearance: .timeline).frame(minWidth: 210)
-                NavigationLink { CollectionsView(kind: .list) } label: { FeedIcon(name: "list").frame(width: 44, height: 44) }.accessibilityLabel("列表")
-                NavigationLink { CollectionsView(kind: .antenna) } label: { FeedIcon(name: "antenna").frame(width: 44, height: 44) }.accessibilityLabel("天线")
-                NavigationLink { CollectionsView(kind: .channel) } label: { FeedIcon(name: "device-tv").frame(width: 44, height: 44) }.accessibilityLabel("频道")
+                NavigationLink { CollectionsView(kind: .list) } label: { FeedIcon(name: "list").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("列表")
+                NavigationLink { CollectionsView(kind: .antenna) } label: { FeedIcon(name: "antenna").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("天线")
+                NavigationLink { CollectionsView(kind: .channel) } label: { FeedIcon(name: "device-tv").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("频道")
             } }.scrollIndicators(.hidden)
             Menu {
                 Toggle("显示转帖", isOn: Binding(get: { preferences.withRenotes }, set: { session.timelinePreferences.withRenotes = $0 }))
@@ -194,7 +198,7 @@ struct TimelineView: View {
                     Button("测试断线恢复") { session.connectionRevision += 1 }
                 }
                 #endif
-            } label: { FeedIcon(name: "dots").frame(width: 44, height: 44) }
+            } label: { FeedIcon(name: "dots").frame(width: 44, height: 44).contentShape(Rectangle()) }
                 .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
         }.font(.caption).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary).background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
@@ -316,7 +320,10 @@ struct NoteCard: View {
                 VStack(alignment: .leading, spacing: appearance.isTimeline ? 0 : 4) {
                     authorHeader
                     if hideSensitive && TimelinePresentation.sensitive(shown) && !revealSensitivePost {
-                        Button("已折叠含敏感媒体的帖子 · 展开") { revealSensitivePost = true }.font(.caption).frame(minHeight: 44)
+                        Button { revealSensitivePost = true } label: {
+                            Text("已折叠含敏感媒体的帖子 · 展开").font(.caption)
+                                .frame(minHeight: 44).feedHitShape(appearance)
+                        }
                     } else {
                         if let cw = shown["cw"].string {
                             Button { revealCW.toggle() } label: { Label { Text(cw.isEmpty ? "内容警告 · 点击展开" : cw) } icon: { NoteIcon(system: revealCW ? "eye.slash" : "eye", web: revealCW ? "eye-off" : "eye", appearance: appearance) }.frame(minHeight: 44) }.buttonStyle(.plain).accessibilityValue(revealCW ? "已展开" : "已隐藏")
@@ -327,7 +334,11 @@ struct NoteCard: View {
                             if !shown["poll"].isNull { PollView(noteID: shown.id, initial: shown["poll"]).id(shown.id).disabled(session.user == nil) }
                             if !shown["renoteId"].isNull || !shown["renote"]["id"].isNull { NoteContextCard(value: shown["renote"], targetID: shown["renoteId"].string, label: "引用", appearance: appearance) }
                             NoteLinkPreviews(text: shown.text, active: true, appearance: appearance)
-                            if shown.text.contains("$[") { Link("在网页查看完整内容", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)).font(.caption) }
+                            if shown.text.contains("$[") {
+                                Link(destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id)) {
+                                    Text("在网页查看完整内容").font(.caption).feedHeaderTarget(appearance, alignment: .leading)
+                                }
+                            }
                         }
                         reactions
                     }

@@ -117,7 +117,8 @@ struct PUBOTimelineSelector: View {
                             if compact && selection != item.0 && !typeSize.isAccessibilitySize { selectorIcon(item.0, system: item.2) }
                             else { Label { Text(item.1) } icon: { selectorIcon(item.0, system: item.2) } }
                         }.font(.caption.weight(selection == item.0 ? .bold : .regular))
-                            .frame(maxWidth: .infinity, minHeight: 44).padding(.horizontal, compact ? 2 : 8)
+                            .frame(minWidth: appearance.isTimeline ? 40 : nil, maxWidth: .infinity, minHeight: 44)
+                            .padding(.horizontal, compact ? 2 : 8)
                         Rectangle().fill(selection == item.0 ? PUBOTheme.accent : .clear).frame(height: 3)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain).foregroundStyle(selection == item.0 ? PUBOTheme.accent : PUBOTheme.secondary)

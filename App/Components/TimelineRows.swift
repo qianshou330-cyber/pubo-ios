@@ -27,6 +27,7 @@ struct TimelinePendingButton: View {
                     Label { Text("新帖子 \(count)") } icon: { FeedIcon(name: "arrow-up-circle") }
                         .font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10)
                         .background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.panel)
+                        .frame(minHeight: 44).contentShape(Rectangle())
                 }.padding(8).accessibilityIdentifier("timeline.newPosts")
             }
         }
@@ -93,7 +94,10 @@ struct NoteReactionStrip: View {
                             .disabled(disabled)
                     }
                     if note["reactions"].object.count > 16 {
-                        Button("更多反应", action: more).font(.caption).frame(minHeight: appearance.isTimeline ? 44 : 32)
+                        Button(action: more) {
+                            Text("更多反应").font(.caption)
+                                .frame(minHeight: appearance.isTimeline ? 44 : 32).feedHitShape(appearance)
+                        }
                     }
                 }
             }

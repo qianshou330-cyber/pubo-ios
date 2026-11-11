@@ -13,3 +13,5 @@ Physical iPhone, minimum iOS17 and signed installation/upgrade remain unverified
 Calibration follow-up: resolved fixture emoji gives a 23.625px reaction image and 25.2px inline emoji; restored aspect ratio for role badges and matched the compact link preview. Transparent animated inline attachments now leave a transparent underlying glyph, avoiding a static first-frame ghost. All changes remain conditional on timeline appearance. Build130 validation pending.
 
 Build131 gives the timeline author and timestamp independent 44 × 44pt minimum hit areas. The surrounding row padding absorbs the extra header height. Timeline action identifiers distinguish a repost row from its original. The screenshot calibration reduces the horizontal spacing between the four 44pt targets by 3.5pt. Inline links still follow TextKit glyph bounds. The unchanged standard appearance is used in other screens.
+
+Build132 expands the personal avatar target on the timeline toolbar from 40 to 44pt. The profile, collection shortcuts and menu respond throughout their padded labels. Tests tap the corners of the four navigation targets and verify the actual destination and return path.
