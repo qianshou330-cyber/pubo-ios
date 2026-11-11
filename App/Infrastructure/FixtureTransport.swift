@@ -19,6 +19,26 @@ actor FixtureTransport: HTTPTransport {
     private var timelineOlderFailureSent = false
     #if DEBUG
     private var notificationFixtures = NotificationFixtureState()
+    // Synthetic response barriers make race tests depend on a real overlapping request,
+    // not on whether XCTest manages to tap within an arbitrary sleep window.
+    private var pendingRaceResponses: [String: CheckedContinuation<Void, Error>] = [:]
+    private func holdRaceResponse(_ key: String) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            pendingRaceResponses[key] = continuation
+            Task {
+                try? await Task.sleep(for: .seconds(45))
+                expireRaceResponse(key)
+            }
+        }
+    }
+    private func releaseRaceResponse(_ key: String) {
+        pendingRaceResponses.removeValue(forKey: key)?.resume()
+    }
+    private func expireRaceResponse(_ key: String) {
+        pendingRaceResponses.removeValue(forKey: key)?.resume(throwing: APIError(
+            code: "FIXTURE_RACE_NOT_TRIGGERED", message: "Synthetic overlapping action was not observed before timeout."
+        ))
+    }
     private var gifReads = 0
     private var stickerUpload: Data?
     #endif
@@ -158,6 +178,7 @@ actor FixtureTransport: HTTPTransport {
                 value = .array(contacts)
             } else {
                 contactMemberReads += 1
+                if contactMemberReads > 1 { releaseRaceResponse("contacts-first-read") }
                 if args.contains("--contacts-member-failure-once") && contactMemberReads == 1 { throw URLError(.timedOut) }
                 let requested = body["userIds"].array.compactMap(\.string)
                 if args.contains("--contacts-older-failure-once"), requested == ["member-051"], !contactOlderFailed {
@@ -167,7 +188,7 @@ actor FixtureTransport: HTTPTransport {
                 value = .array(requested.reversed().map { id in
                     .object(["id": .string(id), "username": .string(id), "name": .string((old ? "旧成员 " : "成员 ") + String(id.suffix(3))), "host": .null])
                 })
-                if old { try? await Task.sleep(for: .seconds(5)) }
+                if old { try await holdRaceResponse("contacts-first-read") }
             }
             return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
         }
@@ -195,13 +216,17 @@ actor FixtureTransport: HTTPTransport {
                 if !sent { receivedRequestReads += 1 }
                 // Deliberately return the captured old snapshot after cancellation:
                 // consumers must reject stale generations, not trust transport timing.
-                if (sent && args.contains("--follow-requests-slow-sent")) || (!sent && receivedRequestReads > 1 && args.contains("--follow-requests-slow-refresh")) {
-                    try? await Task.sleep(for: .milliseconds(sent ? 1_500 : 5_000))
+                if !sent && receivedRequestReads == 2 && args.contains("--follow-requests-slow-refresh") {
+                    // Snapshot stays stale until the real reject/accept mutation has happened.
+                    try await holdRaceResponse("follow-requests-refresh")
+                } else if sent && args.contains("--follow-requests-slow-sent") {
+                    try? await Task.sleep(for: .milliseconds(1_500))
                 }
             } else if path == "following/requests/cancel" {
                 sentFollowRequests.removeAll { $0["followee"]["id"] == body["userId"] }
             } else if path == "following/requests/accept" || path == "following/requests/reject" {
                 receivedFollowRequests.removeAll { $0["follower"]["id"] == body["userId"] }
+                releaseRaceResponse("follow-requests-refresh")
             } else { throw APIError(code: "UNEXPECTED_FIXTURE_ENDPOINT", message: "Unexpected follow-request fixture endpoint") }
             return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
         }

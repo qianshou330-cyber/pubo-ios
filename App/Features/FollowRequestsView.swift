@@ -34,16 +34,23 @@ struct FollowRequestsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     NavigationLink { ProfileView(userID: user.id) } label: {
                         HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } }
-                    }
+                    }.buttonStyle(.plain)
                     HStack {
                         if direction == .received {
-                            Button("接受") { Task { await respond(row, user: user, decision: .accept, source: .received, generation: session.generation) } }.accessibilityIdentifier("followRequests.accept." + row.id)
+                            Button { Task { await respond(row, user: user, decision: .accept, source: .received, generation: session.generation) } } label: {
+                                Text("接受").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                            }.accessibilityIdentifier("followRequests.accept." + row.id)
                             Spacer()
-                            Button("拒绝", role: .destructive) { confirmation = FollowRequestConfirmation(row: row, user: user, decision: .reject, direction: direction, generation: session.generation) }.accessibilityIdentifier("followRequests.reject." + row.id)
+                            Button(role: .destructive) { confirmation = FollowRequestConfirmation(row: row, user: user, decision: .reject, direction: direction, generation: session.generation) } label: {
+                                Text("拒绝").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                            }.accessibilityIdentifier("followRequests.reject." + row.id)
                         } else {
-                            Button("撤回申请", role: .destructive) { confirmation = FollowRequestConfirmation(row: row, user: user, decision: .cancel, direction: direction, generation: session.generation) }.accessibilityIdentifier("followRequests.cancel." + row.id)
+                            Button(role: .destructive) { confirmation = FollowRequestConfirmation(row: row, user: user, decision: .cancel, direction: direction, generation: session.generation) } label: {
+                                Text("撤回申请").frame(minHeight: 44).contentShape(Rectangle())
+                            }.accessibilityIdentifier("followRequests.cancel." + row.id)
                         }
-                    }.disabled(acting != nil || uncertainIDs.contains(row.id))
+                    // List's automatic row button behavior must not dispatch both actions or navigation.
+                    }.buttonStyle(.borderless).disabled(acting != nil || uncertainIDs.contains(row.id))
                     if uncertainIDs.contains(row.id) { Text("结果待核对，请刷新后再操作。").font(.caption).foregroundStyle(.secondary) }
                 }.accessibilityElement(children: .contain)
             }
@@ -53,6 +60,10 @@ struct FollowRequestsView: View {
             }
             if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
         }.puboList().navigationTitle("关注申请")
+            .toolbar {
+                Button { Task { await load(reset: true) } } label: { Label("刷新申请", systemImage: "arrow.clockwise") }
+                    .disabled(acting != nil).accessibilityIdentifier("followRequests.refresh")
+            }
             .onAppear { visible = true }
             .onDisappear { visible = false; requestID = UUID(); busy = false; confirmation = nil }
             .task(id: direction.rawValue + session.generation.uuidString) {

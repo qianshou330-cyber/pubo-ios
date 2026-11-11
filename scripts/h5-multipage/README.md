@@ -54,3 +54,18 @@ server.py, capture.mjs, package files and this documentation for an experiment.
 
 These assertions are intentionally strict and may reveal additional missing local fixtures
 in CI. Such failure is a diagnostic, not permission to suppress errors or use placeholder UI.
+
+## 145 evidence-recovery follow-up
+
+The isolated recovery run reached a different channel failure: the initial featured API
+had not been observed at the fixed 12-second preflight. The harness now waits, for at
+most 90 seconds, for the real successful POST response before proving page content.
+It does not make the request itself, suppress errors, synthesize a response, or waive
+the featured-result/search-control checks. A missing API still fails the capture.
+This is a readiness-race mitigation, not a confirmed explanation of that CI failure.
+
+The existing late-onboarding handler uses the real Later action and its specific
+confirmation. It never removes the overlay or forces clicks through it. All existing
+route, bundle, theme, network and page-specific proof checks remain mandatory.
+Local syntax/diff checks passed; Chromium could not launch because socket creation
+is restricted in this executor. Real browser validation must run in the isolated CI.

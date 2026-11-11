@@ -50,7 +50,8 @@ final class FollowRequestParityUITests: XCTestCase {
         let app = open(["--follow-requests-slow-refresh"])
         let reject = app.buttons["followRequests.reject.received-031"]
         XCTAssertTrue(reject.waitForExistence(timeout: 10))
-        app.swipeDown()
+        let refresh = app.buttons["followRequests.refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5)); refresh.tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "followRequests.loading").firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(reject.isHittable); reject.tap()
         app.alerts.firstMatch.buttons.matching(identifier: "followRequests.confirm").firstMatch.tap()

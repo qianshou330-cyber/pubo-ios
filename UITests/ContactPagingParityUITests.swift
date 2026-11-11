@@ -39,7 +39,9 @@ final class ContactPagingParityUITests: XCTestCase {
     func testRefreshDuringSlowMemberReadRejectsOldSnapshot() {
         let app = open(["--contacts-slow-first"]); group(app)
         XCTAssertTrue(app.descendants(matching: .any)["contactGroup.loading"].waitForExistence(timeout: 10))
-        app.swipeDown()
+        let refresh = app.buttons["contactGroup.refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5)); XCTAssertTrue(refresh.isEnabled)
+        refresh.tap()
         XCTAssertTrue(app.staticTexts["成员 001"].waitForExistence(timeout: 10))
         Thread.sleep(forTimeInterval: 6)
         XCTAssertFalse(app.staticTexts["旧成员 001"].exists)

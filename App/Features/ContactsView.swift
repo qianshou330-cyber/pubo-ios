@@ -132,7 +132,12 @@ struct ContactGroupView: View {
             if let warning { Text(warning).font(.caption).foregroundStyle(.secondary) }
             if let error { ErrorBanner(message: error, retryIdentifier: "contactGroup.retry") { Task { await load(reset: retryReset) } } }
         }.puboList().navigationTitle(group["name"].string ?? "联系人分组")
-            .toolbar { Button("添加联系人") { adding = true }.disabled(changing || loading || missing || !loaded) }
+            .toolbar {
+                // Remains available during the initial read, including an otherwise empty List.
+                Button { Task { await load(reset: true) } } label: { Label("刷新联系人", systemImage: "arrow.clockwise") }
+                    .disabled(changing).accessibilityIdentifier("contactGroup.refresh")
+                Button("添加联系人") { adding = true }.disabled(changing || loading || missing || !loaded)
+            }
             .sheet(isPresented: $adding) { UserPicker { user in let generation = session.generation; Task { await change(user, add: true, expectedGeneration: generation) } } }
             .task(id: session.generation.uuidString + group.id) {
                 visible = true; readID = UUID(); loading = false

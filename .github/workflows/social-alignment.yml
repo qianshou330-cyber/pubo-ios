@@ -27,7 +27,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: social-device-${{ github.sha }}
+          name: social-device-${{ github.sha }}-attempt-${{ github.run_attempt }}
           path: |
             build/unsigned/
             build/device-package.json
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: social-evidence-${{ matrix.size }}-${{ github.sha }}
+          name: social-evidence-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
           path: |
             build/*.json
             build/*.xcresult
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: h5-visual-reference-${{ github.sha }}
+          name: h5-visual-reference-${{ github.sha }}-attempt-${{ github.run_attempt }}
           path: scripts/h5-capture/artifacts/
           if-no-files-found: error
           retention-days: 14
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: h5-multipage-reference-${{ github.sha }}
+          name: h5-multipage-reference-${{ github.sha }}-attempt-${{ github.run_attempt }}
           path: scripts/h5-multipage/artifacts/
           if-no-files-found: error
           retention-days: 14
