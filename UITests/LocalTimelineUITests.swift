@@ -187,27 +187,38 @@ final class LocalTimelineUITests: XCTestCase {
         let app = launch()
         app.buttons["home.more"].tap(); app.buttons["仅限媒体"].tap()
         app.buttons["home.more"].tap()
+        XCTAssertTrue(app.buttons["在时间线中显示对他人的回复"].exists)
         XCTAssertFalse(app.buttons["在时间线中显示对他人的回复"].isEnabled)
         XCTAssertTrue(app.buttons["仅限媒体"].isEnabled)
         capture(app, "local-media-filter-exclusion")
         app.buttons["仅限媒体"].tap()
         app.buttons["home.more"].tap(); app.buttons["在时间线中显示对他人的回复"].tap()
         app.buttons["home.more"].tap()
+        XCTAssertTrue(app.buttons["仅限媒体"].exists)
         XCTAssertFalse(app.buttons["仅限媒体"].isEnabled)
         XCTAssertTrue(app.buttons["在时间线中显示对他人的回复"].isEnabled)
         capture(app, "local-replies-filter-exclusion"); app.terminate()
     }
     func testOlderFailureRetriesAtReadingPositionWithoutDroppingPosts() {
         let app = launch(["--timeline-older-failure"])
-        let banner = reveal(app, "timeline.olderRetry")
-        XCTAssertTrue(banner.exists)
-        let retry = banner.buttons["重试"].firstMatch
+        let retry = reveal(app, "timeline.retryOlder")
+        XCTAssertTrue(retry.exists)
         XCTAssertTrue(retry.isHittable)
         capture(app, "local-pagination-inline-retry")
         retry.tap()
         XCTAssertTrue(reveal(app, "note.open.at4tltest0001").exists)
-        XCTAssertFalse(find(app, "timeline.olderRetry").exists)
+        XCTAssertFalse(app.buttons["timeline.retryOlder"].exists)
         capture(app, "local-pagination-recovered"); app.terminate()
+    }
+
+    func testInitialFailureThenShortPageEndsPagination() {
+        let app = launch(["--timeline-offline-first", "--timeline-short-page"])
+        let retry = app.buttons["重试"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 10)); retry.tap()
+        XCTAssertTrue(find(app, "note.open.at4tltest0025").waitForExistence(timeout: 10))
+        for _ in 0..<12 where !app.staticTexts["已显示全部帖子"].isHittable { app.scrollViews["timeline.scroll"].swipeUp() }
+        XCTAssertTrue(app.staticTexts["已显示全部帖子"].exists)
+        capture(app, "local-initial-retry-short-page"); app.terminate()
     }
 
 }

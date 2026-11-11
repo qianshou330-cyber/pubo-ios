@@ -4,11 +4,12 @@ import AVKit
 
 struct ErrorBanner: View {
     let message: String
+    var retryIdentifier: String = ""
     var retry: (() -> Void)? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(message, systemImage: "exclamationmark.circle").font(.callout)
-            if let retry { Button("重试", action: retry) }
+            if let retry { Button("重试", action: retry).accessibilityIdentifier(retryIdentifier) }
         }.foregroundStyle(.secondary).padding().frame(maxWidth: .infinity, alignment: .leading).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
     }
 }

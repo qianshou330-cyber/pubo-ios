@@ -253,6 +253,7 @@ actor FixtureTransport: HTTPTransport {
                 if body["withFiles"].bool { rows = rows.filter { !$0["files"].array.isEmpty } }
                 if body["withRenotes"] == .bool(false) { rows = rows.filter { !NoteContext.isRepost(Record($0)) } }
                 if !body["withReplies"].bool { rows = rows.filter { $0["replyId"].isNull } }
+                if args.contains("--timeline-short-page") { rows = Array(rows.prefix(5)) }
                 response = .array(Array(rows.prefix(body["limit"].int > 0 ? body["limit"].int : 20)))
             } else if args.contains("--refreshable-feed"), path != "users/notes" {
                 timelineReads += 1

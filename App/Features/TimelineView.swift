@@ -24,6 +24,7 @@ struct TimelineView: View {
     @State private var cached = false
     @State private var homeRefresh = 0
     @State private var firstLoadFinished = false
+    @State private var firstPageLoaded = false
     @State private var homePath: [HomeDestination] = []
     @State private var songSelection: ChartSongSelection?
     @State private var atTop = true
@@ -105,7 +106,7 @@ struct TimelineView: View {
             timelineHeading
             timelineRows
             if let error, failedOlderRequest {
-                ErrorBanner(message: "加载更早帖子失败：" + error) { Task { await load(older: true) } }
+                ErrorBanner(message: "加载更早帖子失败：" + error, retryIdentifier: "timeline.retryOlder") { Task { await load(older: true) } }
                     .padding(12).accessibilityIdentifier("timeline.olderRetry")
             }
             TimelineLoadingStatus(loading: loading, empty: feed.notes.isEmpty,
@@ -160,7 +161,7 @@ struct TimelineView: View {
     private func prepareTimeline() async {
                     guard !firstLoadFinished || requestContext != context else { return }
                     reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID()
-                    requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; error = nil; failedOlderRequest = false; loading = false
+                    requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; firstPageLoaded = false; error = nil; failedOlderRequest = false; loading = false
                     anchor = "timeline-top"; atTop = true
                     session.stream.showTimeline(preferences.selected, parameters: preferences.parameters)
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + preferences.requestKey), Date().timeIntervalSince(saved.savedAt) < 86_400 {
@@ -267,7 +268,8 @@ struct TimelineView: View {
             try Task.checkCancellation(); guard requestID == attempt, context == currentContext else { return }
             if older || atTop || feed.notes.isEmpty { feed.page(result, older: older, preferences: selected, accountID: session.user?.id) }
             else { for note in result { feed.receive(note, atTop: false, preferences: selected, accountID: session.user?.id) } }
-            if older || !firstLoadFinished { hasMore = result.count == 20 }
+            if older || !firstPageLoaded { hasMore = result.count == 20 }
+            if !older { firstPageLoaded = true }
             error = nil; failedOlderRequest = false; cached = false; firstLoadFinished = true
             if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(feed.notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected.requestKey) }
         } catch is CancellationError {} catch {
