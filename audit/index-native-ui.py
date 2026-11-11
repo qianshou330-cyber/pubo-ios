@@ -14,6 +14,7 @@ from PIL import Image
 parser = argparse.ArgumentParser()
 parser.add_argument("build")
 parser.add_argument("--clips", action="store_true")
+parser.add_argument("--preserve-timing", action="store_true")
 args = parser.parse_args()
 root = Path(__file__).parent.resolve() / ("build" + args.build)
 ff = "ffmpeg"
@@ -78,6 +79,15 @@ for variant in ["large", "small", "preserved", "evidence-large", "evidence-small
                     assert digest(root / relative) == record["sha256"]
                     record["namedOriginal"] = relative.as_posix()
                 records.append(record)
+if args.preserve_timing:
+    earlier_groups = load(root / "native-simulator-groups.json")
+    earlier_rows = { (r["group"], r["name"], r["sha256"]): r for r in load(root / "native-screenshot-index.json") }
+    for group in earlier_groups.keys() & groups.keys():
+        assert groups[group]['rawVideoSHA256'] == earlier_groups[group]['rawVideoSHA256'], 'Primary film changed; rerun its visual verification'
+        groups[group].update({k:v for k,v in earlier_groups[group].items() if k not in groups[group]})
+    for r in records:
+        earlier = earlier_rows.get((r["group"], r["name"], r["sha256"]), {})
+        r.update({k:v for k,v in earlier.items() if k not in r})
 write(root / "native-simulator-groups.json", groups)
 write(root / "native-screenshot-index.json", records)
 print("Indexed", len(records), "screenshots across", len(groups), "recordings")

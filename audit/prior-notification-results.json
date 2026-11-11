@@ -1,0 +1,81 @@
+{
+  "product": "7b7cf72a5c27e5b9b24849efa570b2db46715926",
+  "build": 137,
+  "firstRun": 42983548841,
+  "verificationRun": 42989121941,
+  "firstPass": {
+    "large": {
+      "notification-routes-summary": {
+        "passedTests": 5,
+        "failedTests": 0,
+        "skippedTests": 0,
+        "expectedFailures": 0,
+        "result": "Passed"
+      },
+      "notifications-summary": {
+        "passedTests": 6,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "expectedFailures": 0,
+        "result": "Failed"
+      }
+    },
+    "small": {
+      "notifications-summary": {
+        "passedTests": 6,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "expectedFailures": 0,
+        "result": "Failed"
+      }
+    }
+  },
+  "artifacts": {
+    "large": "6ba28f3cc22c7e05aba04686a10dee984edb220d94e1831c1e3b5a9eac847d62",
+    "small": "8690496406c70a174ace84576e3d35e724a2b88e664667975fe8e6d08d67c504"
+  },
+  "supplemental": {
+    "large": {
+      "productCommit": "7b7cf72a5c27e5b9b24849efa570b2db46715926",
+      "testCommit": "39810e7faeb0f06589937f8b04d9058f499a46af",
+      "firstPass": {
+        "passedTests": 6,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "expectedFailures": 0,
+        "result": "Failed"
+      },
+      "verification": "NOT_RUN",
+      "reason": "TimeoutExpired: Command '['xcrun', 'simctl', 'bootstatus', 'CA794E2F-9DD0-446D-AEB6-8FF964ABFD1F', '-b']' timed out after 300 seconds"
+    },
+    "small": {
+      "productCommit": "7b7cf72a5c27e5b9b24849efa570b2db46715926",
+      "testCommit": "39810e7faeb0f06589937f8b04d9058f499a46af",
+      "firstPass": {
+        "passedTests": 6,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "expectedFailures": 0,
+        "result": "Failed"
+      },
+      "verification": {
+        "passedTests": 6,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "result": "Failed"
+      },
+      "newRowConfirmed": false,
+      "standardSwipeAlsoTried": true,
+      "firstEdgePullDisplayedNewRow": false
+    }
+  },
+  "localSummarySHA256": {
+    "native-first-pass-groups.json": "2f0ed816ef93c3d042bfcc5567693a0efb9cdc44b3d76417d5f7d217c048c5d7",
+    "notification-verification.json": "780daa102bef89dd30074e7590f973fa7086c4f8027179ccddccc53d3a47bceb",
+    "verification-source-proof.json": "412a892c966170edbe554339c290343f1009af9e2ca31bbd7570ce46e5066bf5"
+  },
+  "notes": [
+    "首次大屏下拉没有出现新通知。首次小屏数字识别未通过。",
+    "同产品源小屏复验确认角标为12并清零，两次真实下拉仍未取得新行。大屏复验因模拟器启动超时未执行。"
+  ]
+}

@@ -98,7 +98,7 @@ def original(artifacts,b,relative):
                 url=f"https://github.com/{REPO}/actions/runs/{artifact['run_id']}/artifacts/{artifact['id']}",
                 expires=artifact.get("expires_at"),sha256=artifact["verifiedSHA256"])
 
-def write_light(light,b,t,artifacts,classification,archive_sha):
+def write_light(light,b,t,artifacts,classification,archive,archive_sha,release):
     light.mkdir(parents=True,exist_ok=True)
     pkg=read(b/"package-verification.json")
     prefix=f"PUBO-{t['version']}-{t['build']}"
@@ -107,6 +107,25 @@ def write_light(light,b,t,artifacts,classification,archive_sha):
     for source,target in ((safe_file(b,pkg["ipaRelativePath"]),ipa),(b/"source.zip",src)):
         shutil.copyfile(source,light/target)
     comparisons=read(b/"comparison/index.json")
+    info=json.loads(release.generated["VALIDATION.json"])
+    info["completeArchive"]=dict(file=archive.name,bytes=archive.stat().st_size,sha256=archive_sha,
+                                 githubRun=int(os.environ["GITHUB_RUN_ID"]),actionsRetentionDays=14)
+    write_json(light/"VALIDATION.json",info)
+    for name in ("real-and-core-results.json","native-routes.json"):
+        shutil.copyfile(b/name,light/name)
+    comparison_index=json.loads(release.generated["comparison/index.json"])
+    comparison_index["pathsInFullArchive"]="媒体路径相对于完整 ZIP 内的 comparison/index.json。轻量包内已展示的配对图和录像均放在 REPORT.html 同目录。"
+    write_json(light/"comparison/index.json",comparison_index)
+    write_json(light/"验收文件位置.json",{
+        "completeArchive":info["completeArchive"],
+        "localAndArchivePaths":{
+            "VALIDATION.json":"VALIDATION.json",
+            "real-and-core-results.json":"evidence/real-and-core-results.json",
+            "native-routes.json":"native-routes.json",
+            "comparison/index.json":"comparison/index.json",
+            "prior-notification-results.json":"evidence/prior-notification-results.json"
+        },"referenceBase":"各验收 JSON 中的原始截图及录像路径以完整 ZIP 为准。可用 原件索引.json 查 GitHub 原始制品。"})
+    shutil.copyfile(ROOT/"prior-notification-results.json", light/"prior-notification-results.json")
     review_names={"overview-light.png","overview-dark.png","paired-interactions.mp4"}
     review_names.update(v["file"] for v in comparisons["pairs"]+comparisons["videos"])
     for name in review_names:
@@ -160,11 +179,12 @@ def write_light(light,b,t,artifacts,classification,archive_sha):
 <img src="overview-light.png" alt="浅色对照"><img src="overview-dark.png" alt="深色对照"><div class="links">{images}</div>
 <video controls preload="none" src="paired-interactions.mp4"></video><ul>{details}</ul></section>
 <section><h2>分类、跳转与返回</h2><p>20类，含聚合变体及行内操作。{lib['link']('按钮检查表.csv','下载逐项检查表')} · {lib['link']('原件索引.json','查看原始截图、录像路径及秒数')}</p><div class="table"><table><thead>{lib['cells'](['操作','H5','IPA','返回','差异','来源'],'th')}</thead><tbody>{''.join(rows)}</tbody></table></div></section>
-<section><h2>验证范围</h2><p>{real['core']} 项核心测试、{real['packageTests']} 项打包测试、{counts} 项模拟器界面测试和 {real['realUITests']} 项隔离后端界面测试通过。两台设备均验证短拉后没有新增请求，超过 200pt 松手取得新通知。</p>
+<section><h2>验证范围</h2><p>{real['core']} 项核心测试、{real['packageTests']} 项打包测试、{counts} 项模拟器界面测试和 {real['realUITests']} 项隔离后端界面测试通过。137 首轮发现下拉刷新没有显示新通知，138 两台设备均验证短拉后没有新增请求，超过 200pt 松手取得新通知。</p>
+<p>{lib['link']('VALIDATION.json','验收与完整 ZIP 的大小及校验值')} · {lib['link']('real-and-core-results.json','隔离后端与核心回执')} · {lib['link']('native-routes.json','按钮与返回记录')} · {lib['link']('comparison/index.json','配对媒体索引')} · {lib['link']('prior-notification-results.json','137 首轮与复验记录')}</p>
 <p>原片保存在 GitHub Actions，保留 14 天。打开原片链接后下载对应制品，按索引里的 ZIP 内路径和时间点定位。完整验收 ZIP 另含可离线查看的原件。</p>
 <p>实体手机、最低 iOS 17、真机签名安装和覆盖升级、真实锁屏推送尚未验收。</p></section></html>"""
     (light/"REPORT.html").write_text(body,encoding="utf8")
-    sums="".join(f"{digest(f)}  {f.name}\n" for f in sorted(light.iterdir()) if f.is_file() and f.name!="SHA256SUMS.txt")
+    sums="".join(f"{digest(f)}  {f.relative_to(light).as_posix()}\n" for f in sorted(light.rglob("*")) if f.is_file() and f.name!="SHA256SUMS.txt")
     (light/"SHA256SUMS.txt").write_text(sums,encoding="utf8")
 
 def main():
@@ -185,6 +205,11 @@ def main():
     d=lib["Delivery"](b,t)
     d.collect(None)
     d.from_b("source-artifacts.json","evidence/github-artifacts.json")
+    d.copy(ROOT/"prior-notification-results.json","evidence/prior-notification-results.json")
+    validation=json.loads(d.generated["VALIDATION.json"])
+    validation["changeFrom137"]=dict(previous=read(ROOT/"prior-notification-results.json"),
+                current={s:read(b/("native-"+s)/"notification-refresh-count.json") for s in ("large","small")})
+    d.generated["VALIDATION.json"]=lib["json_text"](validation)
     d.generated["H5-原件说明.txt"]="内置浏览器的原始 MP4、成对截图、样本帧及完整采帧时间索引均随附。逐帧 JPEG 序列的其余文件保留在原采集目录。\n"
     output=b/"delivery-output"
     archive_root=output/"whole"
@@ -215,7 +240,7 @@ def main():
     archive_sha=digest(archive)
     (archive_root/(name+".sha256")).write_text(archive_sha+"  "+name+"\n",encoding="ascii")
     classification=list(csv.DictReader((b/"comparison/buttons.csv").read_text("utf-8-sig").splitlines()))
-    write_light(output/"light",b,t,artifacts,classification,archive_sha)
+    write_light(output/"light",b,t,artifacts,classification,archive,archive_sha,d)
     print(json.dumps(dict(build=t["build"],sha=t["sha"],archive=name,archiveBytes=archive.stat().st_size,
                           archiveSHA256=archive_sha,lightBytes=sum(f.stat().st_size for f in (output/"light").rglob("*") if f.is_file()))))
 
