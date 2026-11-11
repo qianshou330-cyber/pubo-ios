@@ -1,7 +1,7 @@
 name: PUBO notification alignment
 on:
   push:
-    branches: ['ui-notifications-*']
+    branches: ['ui-notifications-*', 'verify-notifications-*']
 permissions:
   contents: read
 concurrency:
@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   package:
+    if: startsWith(github.ref_name, 'ui-notifications-')
     runs-on: macos-15-intel
     timeout-minutes: 45
     steps:
@@ -44,16 +45,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {suite: large, runner: macos-26, size: large, groups: 'notifications,notification-routes'}
-          - {suite: small, runner: macos-15-intel, size: small, groups: 'notifications'}
-          - {suite: preserved, runner: macos-26, size: large, groups: 'timeline-preview,social,regression,gif,chat,favorites'}
-    runs-on: ${{ matrix.runner }}
+        suite: ${{ fromJSON(startsWith(github.ref_name, 'verify-notifications-') && '["large","small"]' || '["large","small","preserved"]') }}
+    runs-on: ${{ matrix.suite == 'small' && 'macos-15-intel' || 'macos-26' }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Fixed tools, source and fixtures
+        env:
+          PUBO_PACKAGED_COMMIT: ${{ startsWith(github.ref_name, 'verify-notifications-') && '7b7cf72a5c27e5b9b24849efa570b2db46715926' || '' }}
         run: |
+          if [[ -n "$PUBO_PACKAGED_COMMIT" ]]; then git fetch --no-tags --depth=1 origin "$PUBO_PACKAGED_COMMIT"; fi
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           brew install xcodegen
           swift scripts/brand-assets.swift
@@ -63,8 +66,8 @@ jobs:
         run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
       - name: Exercise selected groups and capture the actual simulator
         env:
-          PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_GROUPS: ${{ matrix.groups }}
+          PUBO_SIM_SIZE: ${{ matrix.suite == 'small' && 'small' || 'large' }}
+          PUBO_UI_GROUPS: ${{ matrix.suite == 'preserved' && 'timeline-preview,social,regression,gif,chat,favorites' || (matrix.suite == 'large' && (startsWith(github.ref_name, 'ui-notifications-') || contains(github.ref_name, '-routes-'))) && 'notifications,notification-routes' || 'notifications' }}
           PUBO_UI_SCOPE: ${{ matrix.suite }}
           PUBO_SIM_INSTALL_TIMEOUT: '300'
         run: python3 scripts/local-timeline-tests.py

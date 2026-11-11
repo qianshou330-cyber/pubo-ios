@@ -26,7 +26,18 @@ for name, model in [("iPhone 17 Pro Max", "iPhone-17-Pro-Max"), ("iPhone SE (3rd
 commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 assert commit == os.environ["GITHUB_SHA"]
 fixture = Path("App/Resources/NotificationVisualCases.json")
-manifest = {"productCommit": commit, "fixtureSHA256": hashlib.sha256(fixture.read_bytes()).hexdigest(),
+packaged = os.environ.get("PUBO_PACKAGED_COMMIT") or commit
+changed = subprocess.check_output(["git", "diff", "--name-only", packaged, commit], text=True).splitlines()
+allowed_checks = {".github/workflows/notification-alignment.yml", "scripts/local-timeline-tests.py",
+                  "scripts/notification-simulator-runtime.py", "scripts/check-notification-badge.swift"}
+assert all(p.startswith("UITests/") or p in allowed_checks for p in changed), changed
+product_trees = {}
+for path in ["App", "Sources", "project.yml", "Package.swift", "scripts/package-device.py", "scripts/brand-assets.swift"]:
+    blob = subprocess.check_output(["git", "rev-parse", packaged + ":" + path], text=True).strip()
+    assert blob == subprocess.check_output(["git", "rev-parse", commit + ":" + path], text=True).strip()
+    product_trees[path] = blob
+manifest = {"productCommit": packaged, "testCommit": commit, "testOnlyChanges": changed, "productTrees": product_trees,
+            "fixtureSHA256": hashlib.sha256(fixture.read_bytes()).hexdigest(),
             "xcode": subprocess.check_output(["xcodebuild", "-version"], text=True).strip(),
             "runtime": runtime["version"], "runtimeBuild": runtime["buildversion"], "runnerArchitecture": platform.machine()}
 Path("build").mkdir(exist_ok=True)

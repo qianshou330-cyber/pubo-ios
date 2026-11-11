@@ -84,6 +84,11 @@ try:
                     tree = subprocess.check_output(['xcrun', 'xcresulttool', 'get', 'test-results', 'tests', '--path', str(bundle)], text=True, timeout=90)
                     (root / (name + '-tests.json')).write_text(tree)
         record[name]='PASS' if result.returncode==0 else 'FAIL'
+        if name == 'notifications' and result.returncode == 0:
+            badge = subprocess.run(['swift', 'scripts/check-notification-badge.swift', str(shots),
+                                    str(root / 'notification-visible-badge.json')], timeout=120)
+            if badge.returncode != 0:
+                record[name] = 'FAIL'
         # Continue independent regression groups so failures do not hide unrelated evidence.
     if any(record.get(name) != 'PASS' for name,_ in groups):raise RuntimeError('One or more UI groups failed; see individual summaries')
     record['tests']='PASS'
