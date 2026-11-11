@@ -15,24 +15,40 @@ final class TimelineVisualUITests: XCTestCase {
         shot.lifetime = .keepAlways; add(shot)
     }
     private func reveal(_ app: XCUIApplication, _ id: String) -> XCUIElement {
-        let item = app.descendants(matching: .any).matching(identifier: id).firstMatch
+        let matches = app.descendants(matching: .any).matching(identifier: id)
         let scroll = app.scrollViews["timeline.scroll"]
-        for _ in 0..<32 {
-            let upper = max(110, app.buttons["home.more"].frame.maxY + 12)
-            let lower = app.tabBars.firstMatch.frame.minY - 16
-            if item.exists && item.isHittable && item.frame.midY > upper && item.frame.midY < lower { return item }
-            let reverse = item.exists && item.frame.midY <= upper
-            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: reverse ? 0.40 : 0.72))
-            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: reverse ? 0.72 : 0.40))
-            start.press(forDuration: 0.05, thenDragTo: end)
+        // A repost and the original can expose controls for the same note ID.
+        // Search only the visible reading area, including the taller accessible selector.
+        for _ in 0..<24 {
+            let header = [app.buttons["home.more"], app.buttons["timeline.global"]]
+                .filter { $0.exists }.map { $0.frame.maxY }.max() ?? scroll.frame.minY
+            let upper = max(scroll.frame.minY, header) + 6
+            let lower = app.tabBars.firstMatch.frame.minY - 12
+            let controls = matches.allElementsBoundByIndex.filter { !$0.frame.isEmpty }
+            if let visible = controls.first(where: {
+                $0.frame.midY >= upper && $0.frame.midY <= lower && $0.isHittable
+            }) { return visible }
+            let center = (upper + lower) / 2
+            let nearest = controls.min { abs($0.frame.midY - center) < abs($1.frame.midY - center) }
+            let distance = min(110, max(48, abs((nearest?.frame.midY ?? lower) - center)))
+            let dy = (nearest?.frame.midY ?? lower) < center ? distance : -distance
+            let start = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: app.frame.midX, dy: center))
+            start.press(forDuration: 0.12, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)),
+                        withVelocity: .slow, thenHoldForDuration: 0.22)
         }
-        return item
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "unreachable-" + id
+        tree.lifetime = .keepAlways
+        add(tree)
+        XCTFail("Could not reach control " + id)
+        return matches.firstMatch
     }
     func testCompactActionTargetsAndBothThemes() {
         for dark in [false, true] {
             let app = launch(dark ? ["--dark"] : [])
             let more = reveal(app, "note.more." + id)
-            let buttons = ["note.reply.", "note.renote.", "note.addReaction.", "note.more."].map { app.buttons[$0 + id] }
+            let buttons = ["note.reply.", "note.renote.", "note.addReaction.", "note.more."].map { reveal(app, $0 + id) }
             for button in buttons {
                 XCTAssertTrue(button.isHittable)
                 XCTAssertGreaterThanOrEqual(button.frame.width, 43.5)
@@ -64,8 +80,12 @@ final class TimelineVisualUITests: XCTestCase {
         for dark in [false,true] {
             let app = launch(["--timeline-visual-header"] + (dark ? ["--dark"] : []))
             _ = reveal(app, "note.more." + id)
-            let author = app.buttons["note.author." + id], time = app.buttons["note.timestamp." + id]
+            let author = reveal(app, "note.author." + id), time = reveal(app, "note.timestamp." + id)
             XCTAssertTrue(author.isHittable); XCTAssertTrue(time.isHittable)
+            for button in [author, time] {
+                XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+                XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+            }
             XCTAssertLessThanOrEqual(author.frame.maxX, time.frame.minX + 1)
             XCTAssertLessThanOrEqual(time.frame.maxX, app.frame.maxX - 12)
             capture(app, dark ? "visual-long-header-dark" : "visual-long-header-light")

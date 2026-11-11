@@ -55,3 +55,19 @@ struct FeedActionsLayout: Layout {
         }
     }
 }
+
+extension View {
+    @ViewBuilder
+    func feedHeaderTarget(_ appearance: NoteAppearance, alignment: Alignment) -> some View {
+        if appearance.isTimeline {
+            frame(minWidth: 44, minHeight: 44, alignment: alignment).contentShape(Rectangle())
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func feedHitShape(_ appearance: NoteAppearance) -> some View {
+        if appearance.isTimeline { contentShape(Rectangle()) } else { self }
+    }
+}

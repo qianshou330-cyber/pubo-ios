@@ -128,6 +128,7 @@ private struct NoteReactionButton: View {
                 .strokeBorder(selected ? PUBOTheme.accent : Color.clear))
             .scaleEffect(pulse && selected ? 1.16 : 1)
             .frame(minWidth: appearance.isTimeline ? 44 : nil, minHeight: appearance.isTimeline ? 44 : nil)
+            .feedHitShape(appearance)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(reaction + " \(count)")

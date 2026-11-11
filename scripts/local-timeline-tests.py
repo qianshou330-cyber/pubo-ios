@@ -25,7 +25,10 @@ groups=[('timeline-preview',['-only-testing:PUBOUITests/LocalTimelineUITests/tes
 groups += [('auth-preview',['-only-testing:PUBOUITests/AuthStaticUITests/testStaticWelcomeAndCenteredLoginBothThemes','-only-testing:PUBOUITests/AuthStaticUITests/testTotpBackupAndAccountChange','-only-testing:PUBOUITests/AuthStaticUITests/testRegistrationRulesFormAndResetBothThemes']),('auth-functional',['-only-testing:PUBOUITests/AuthStaticUITests','-skip-testing:PUBOUITests/AuthStaticUITests/testStaticWelcomeAndCenteredLoginBothThemes','-skip-testing:PUBOUITests/AuthStaticUITests/testTotpBackupAndAccountChange','-skip-testing:PUBOUITests/AuthStaticUITests/testRegistrationRulesFormAndResetBothThemes'])]
 groups = [(name, tests + (['-only-testing:PUBOUITests/PUBOUITests/testPasswordVisibilityAndAccountChangePreserveSafety', '-only-testing:PUBOUITests/PUBOUITests/testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable'] if name == 'auth-functional' else [])) for name, tests in groups]
 groups += [('chat',['-only-testing:PUBOUITests/ChatAlignmentUITests'])]
-groups += [('visual',['-only-testing:PUBOUITests/TimelineVisualUITests'])]
+visual = ['-only-testing:PUBOUITests/TimelineVisualUITests']
+if not small:
+    visual.append('-only-testing:PUBOUITests/TimelineNavigationEvidenceTests')
+groups += [('visual', visual)]
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
