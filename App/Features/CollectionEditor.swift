@@ -19,6 +19,7 @@ struct CollectionEditor: View {
     @State private var busy = false
     @State private var pending = false
     @State private var error: String?
+    private var canSave: Bool { ChannelPolicy.canSave(kind: kind, creating: item == nil, user: session.user?.raw ?? .null) }
     private var pendingKey: String { "collection-create-" + kind.rawValue }
     private func string(_ key: String) -> Binding<String> { Binding(get: { values[key]?.string ?? "" }, set: { values[key] = .string($0) }) }
     private func flag(_ key: String) -> Binding<Bool> { Binding(get: { values[key]?.bool ?? false }, set: { values[key] = .bool($0) }) }
@@ -59,8 +60,9 @@ struct CollectionEditor: View {
                 fields.disabled(busy || pending)
                 if kind == .antenna { antennaFields.disabled(busy || pending) }
                 if pending { Text("上次创建的结果待确认。请先关闭并检查列表，避免重复创建。"); Button("已核对列表，继续创建") { do { try session.markPendingAction(pendingKey, pending: false); pending = false } catch { self.error = error.localizedDescription } } }
+                if !canSave { Text("当前账号没有创建频道的权限。").foregroundStyle(.secondary).accessibilityIdentifier("channels.create.unavailable") }
                 if let error { ErrorBanner(message: error) }
-                Button("保存") { Task { await save() } }.disabled(!loaded || busy || pending)
+                Button("保存") { Task { await save() } }.disabled(!loaded || busy || pending || !canSave)
             }.puboForm().navigationTitle((item == nil ? "创建" : "修改") + kind.title)
                 .toolbar { Button("关闭") { dismiss() }.disabled(busy) }
                 .task { await restore() }
@@ -88,6 +90,7 @@ struct CollectionEditor: View {
     }
     private func save() async {
         guard loaded && !busy && !pending else { return }
+        guard canSave else { error = "当前账号没有创建频道的权限。"; return }
         let name = values[kind.nameKey]?.string ?? ""
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, name.unicodeScalars.count <= nameLimit else { error = "请填写有效名称，最多 \(nameLimit) 字。"; return }
         guard (values["description"]?.string ?? "").unicodeScalars.count <= 2048 else { error = "说明最多 2048 字。"; return }
@@ -120,6 +123,7 @@ struct CollectionEditor: View {
                 let checked = try await session.call(kind.base + "/show", [kind.idKey: .string(item.id)])
                 guard wanted.allSatisfy({ checked[$0.key] == $0.value }) else { throw APIError.uncertain }
             } else {
+                guard canSave else { throw APIError(code: "CHANNEL_CREATE_UNAVAILABLE", message: "当前账号没有创建频道的权限。") }
                 try session.markPendingAction(pendingKey, pending: true); pending = true
                 let result = Record(try await session.call(kind.base + "/create", request, mutation: true)); guard !result.id.isEmpty else { throw APIError.uncertain }
                 try session.markPendingAction(pendingKey, pending: false); pending = false

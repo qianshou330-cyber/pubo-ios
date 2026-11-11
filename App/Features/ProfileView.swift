@@ -158,6 +158,8 @@ struct EditProfileView: View {
     @State private var showPhotos = false
     @State private var profileFields: [ProfileField] = []
     @State private var restoredProfile = false
+    private enum EditingField: Hashable { case name, description, location, birthday }
+    @FocusState private var editingField: EditingField?
     private var validationError: String? {
         ProfilePresentation.validationError(name: name, description: description, birthday: birthday, fieldCount: profileFields.count)
     }
@@ -165,12 +167,12 @@ struct EditProfileView: View {
         NavigationStack {
             Form {
                 Section("基本资料") {
-                    TextField("昵称", text: $name).accessibilityIdentifier("profile.edit.name")
+                    TextField("昵称", text: $name).focused($editingField, equals: .name).accessibilityIdentifier("profile.edit.name")
                     Text("\(ProfilePresentation.length(name)) / 30").font(.caption).foregroundStyle(ProfilePresentation.length(name) > 30 ? Color.red : Color.secondary)
-                    TextEditor(text: $description).scrollContentBackground(.hidden).frame(minHeight: 160).accessibilityLabel("简介").accessibilityIdentifier("profile.edit.description")
+                    TextEditor(text: $description).focused($editingField, equals: .description).scrollContentBackground(.hidden).frame(minHeight: 160).accessibilityLabel("简介").accessibilityIdentifier("profile.edit.description")
                     Text("\(ProfilePresentation.length(description)) / 500").font(.caption).foregroundStyle(ProfilePresentation.length(description) > 500 ? Color.red : Color.secondary)
-                    TextField("所在地", text: $location).accessibilityIdentifier("profile.edit.location")
-                    TextField("生日 YYYY-MM-DD", text: $birthday).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("profile.edit.birthday")
+                    TextField("所在地", text: $location).focused($editingField, equals: .location).accessibilityIdentifier("profile.edit.location")
+                    TextField("生日 YYYY-MM-DD", text: $birthday).focused($editingField, equals: .birthday).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("profile.edit.birthday")
                     Text("所在地和生日会显示在个人主页。留空可清除。").font(.caption).foregroundStyle(.secondary)
                 }
                 mediaRow("头像", field: "avatarId", file: avatar)
@@ -187,9 +189,13 @@ struct EditProfileView: View {
             }.disabled(busy)
                 .puboForm().navigationTitle("编辑资料").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("收起键盘") { editingField = nil }.accessibilityIdentifier("profile.edit.dismissKeyboard")
+                    }
                     ToolbarItem(placement: .confirmationAction) { Button("保存") { Task { await save() } }.disabled(busy || validationError != nil).accessibilityIdentifier("profile.edit.save") }
                 }.task { guard !restoredProfile else { return }; restoredProfile = true; name = session.user?["name"].string ?? ""; description = session.user?["description"].string ?? ""; location = session.user?["location"].string ?? ""; birthday = session.user?["birthday"].string ?? ""; profileFields = (session.user?["fields"].array ?? []).map { ProfileField(name: $0["name"].string ?? "", value: $0["value"].string ?? "") } }
-                .sheet(isPresented: $selectingMedia) { DrivePicker(imagesOnly: true) { selected in setMedia(selected) } }
+                .sheet(isPresented: $selectingMedia) { DrivePicker(imagesOnly: true, confirmedSensitiveChoice: { selected in setMedia(selected, sensitiveConfirmed: true) }) { selected in setMedia(selected) } }
                 .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
                 .onChange(of: photo) { _, item in Task { await upload(item) } }
         }
@@ -203,8 +209,8 @@ struct EditProfileView: View {
             if let file { Text(file["name"].string ?? "已选择图片").font(.caption) }
         }
     }
-    private func setMedia(_ file: Record) {
-        guard file["type"].string?.hasPrefix("image/") == true, !file["isSensitive"].bool else { error = "请选择非敏感的图片文件。"; return }
+    private func setMedia(_ file: Record, sensitiveConfirmed: Bool = false) {
+        guard file["type"].string?.hasPrefix("image/") == true, !file["isSensitive"].bool || sensitiveConfirmed else { error = "请选择图片；敏感图片需先在网盘选择时明确确认。"; return }
         if mediaTarget == "avatarId" { avatar = file } else { banner = file }
     }
     private func upload(_ item: PhotosPickerItem?) async {

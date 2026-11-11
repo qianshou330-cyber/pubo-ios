@@ -6,13 +6,16 @@ struct CollectionsView: View {
     let kind: CollectionKind
     @State private var mode = "mine"
     @State private var query = ""
+    @State private var channelSearchScope = ChannelSearchScope.nameAndDescription
+    @State private var requestID = UUID()
     @State private var rows: [Record] = []
     @State private var busy = false
     @State private var more = false
     @State private var error: String?
     @State private var creating = false
     @State private var revision = 0
-    private var context: String { mode + query + String(revision) }
+    private var context: String { mode + "|" + channelSearchScope.rawValue + "|" + query + "|" + String(revision) }
+    private var canCreate: Bool { ChannelPolicy.canSave(kind: kind, creating: true, user: session.user?.raw ?? .null) }
     private var endpoint: String { CollectionListing.endpoint(kind: kind, mode: mode) }
     private var paginated: Bool { CollectionListing.paginated(kind: kind, mode: mode) }
     var body: some View {
@@ -22,12 +25,21 @@ struct CollectionsView: View {
                     Text("我的").tag("mine"); Text("推荐").tag("featured")
                     if kind == .channel { Text("关注").tag("followed"); Text("收藏").tag("my-favorites"); Text("搜索").tag("search") }
                     else { Text("最新").tag("latest"); Text("热门").tag("popular") }
-                }
+                }.accessibilityIdentifier("collections.mode")
             }
             if kind == .clip {
                 Picker("分类", selection: $mode) { Text("我的").tag("mine"); Text("收藏").tag("favorites") }
             }
-            if mode == "search" { TextField("搜索频道", text: $query) }
+            if mode == "search" {
+                TextField("搜索频道", text: $query).accessibilityIdentifier("channels.search.query")
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.search)
+                Picker("搜索范围", selection: $channelSearchScope) {
+                    ForEach(ChannelSearchScope.allCases) { Text($0.title).tag($0) }
+                }.pickerStyle(.segmented).accessibilityIdentifier("channels.search.scope")
+                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("输入频道名称或说明进行搜索").foregroundStyle(.secondary).accessibilityIdentifier("channels.search.prompt")
+                }
+            }
             ForEach(rows) { row in
                 NavigationLink { CollectionDetail(kind: kind, itemID: row.id) } label: {
                     VStack(alignment: .leading, spacing: 5) {
@@ -36,26 +48,30 @@ struct CollectionsView: View {
                     }
                 }
             }
-            if rows.isEmpty && !busy { Text("暂无内容") }
+            if rows.isEmpty && !busy && error == nil && (mode != "search" || !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) { Text("暂无内容") }
             if busy { ProgressView() }
             if more { Button("加载更多") { Task { await load(older: true) } }.disabled(busy) }
             if let error { ErrorBanner(message: error) { revision += 1 } }
-        }.puboList().navigationTitle(kind.title).toolbar { Button("创建" + kind.title) { creating = true } }
-            .task(id: context) { rows = []; more = false; do { if mode == "search" { try await Task.sleep(for: .milliseconds(350)) }; await load() } catch {} }
+        }.puboList().navigationTitle(kind.title).scrollDismissesKeyboard(.interactively).toolbar { if canCreate { Button("创建" + kind.title) { creating = true }.accessibilityIdentifier("collections.create") } }
+            .task(id: context) { requestID = UUID(); rows = []; more = false; error = nil; busy = false; do { if mode == "search" { try await Task.sleep(for: .milliseconds(350)) }; await load() } catch {} }
             .refreshable { revision += 1 }
+            .onDisappear { requestID = UUID(); busy = false }
             .sheet(isPresented: $creating, onDismiss: { revision += 1 }) { CollectionEditor(kind: kind) }
     }
     private func load(older: Bool = false) async {
-        let request = context; busy = true; defer { if request == context { busy = false } }
+        guard !older || (!busy && more) else { return }
+        if mode == "search" && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+        let request = context, attempt = UUID(); requestID = attempt; busy = true
+        defer { if requestID == attempt { busy = false } }
         do {
             var fields: [String: JSONValue] = paginated ? ["limit": .number(30)] : [:]
             if older && paginated, let id = rows.last?.id { fields["untilId"] = .string(id) }
             if kind == .gallery && mode == "mine" { fields["userId"] = .string(session.user?.id ?? "") }
-            if mode == "search" { fields["query"] = .string(query) }
-            let value = try await session.call(endpoint, fields); try Task.checkCancellation(); guard request == context else { return }
+            if mode == "search" { fields.merge(channelSearchScope.request(query: query), uniquingKeysWith: { _, new in new }) }
+            let value = try await session.call(endpoint, fields); try Task.checkCancellation(); guard request == context && requestID == attempt else { return }
             guard case .array = value else { throw APIError.invalidResponse }
             let page = Record.list(value); rows = older ? rows + page.filter { p in !rows.contains { $0.id == p.id } } : page; more = paginated && page.count == 30; error = nil
-        } catch { if !Task.isCancelled && request == context { self.error = error.localizedDescription } }
+        } catch { if !Task.isCancelled && request == context && requestID == attempt { self.error = error.localizedDescription } }
     }
 }
 

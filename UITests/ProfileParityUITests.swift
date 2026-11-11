@@ -12,8 +12,19 @@ final class ProfileParityUITests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, upwards: Bool = true) {
-        for _ in 0..<7 where !element.isHittable {
-            if upwards { app.swipeUp() } else { app.swipeDown() }
+        let dismiss = app.buttons.matching(identifier: "profile.edit.dismissKeyboard").firstMatch
+        if app.keyboards.firstMatch.exists && dismiss.isHittable {
+            dismiss.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        }
+        for _ in 0..<10 where !element.isHittable {
+            // Stay within the visible form; a screen-wide swipe can land on the keyboard.
+            let keyboardY = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
+            let top = max(app.navigationBars.firstMatch.frame.maxY + 24, 140)
+            let bottom = min(keyboardY - 24, app.frame.maxY - 60)
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: upwards ? bottom : top))
+            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: upwards ? top : bottom))
+            start.press(forDuration: 0.05, thenDragTo: end)
         }
         XCTAssertTrue(element.isHittable)
     }

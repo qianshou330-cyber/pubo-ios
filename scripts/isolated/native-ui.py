@@ -42,6 +42,7 @@ try:
  result['ownerAPIAuthenticated']=True
  checkpoint('install')
  subprocess.run(['xcrun','simctl','install',device,'build/integration-derived/Build/Products/Debug-iphonesimulator/PUBO.app'],check=True,timeout=300)
+ checkpoint('simulator-app-warmup')
  warm=subprocess.run(['xcrun','simctl','launch',device,'com.bolubo.native','--isolated-backend'],check=True,timeout=60,capture_output=True,env={**os.environ,'SIMCTL_CHILD_PUBO_ISOLATED_TOKEN':context['adminToken']})
  del context,warm
  time.sleep(12)
@@ -63,6 +64,12 @@ try:
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)
+ # Capture the synthetic simulator screen on setup failures without printing tokens.
+ try:
+  (root/'integration-screenshots').mkdir(exist_ok=True)
+  subprocess.run(['xcrun','simctl','io',device,'screenshot',str(root/'integration-screenshots/setup-failure.png')],check=True,timeout=20,capture_output=True)
+ except Exception as screenshot_error:
+  result['setupScreenshotError']=type(screenshot_error).__name__
  # Backend logs can contain synthetic tokens: only collect bounded, whitelisted diagnostics.
  try:
   import runpy

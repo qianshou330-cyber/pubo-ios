@@ -74,10 +74,21 @@ final class SocialAlignmentUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["compose.limit"].waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["compose.send"].isEnabled)
         capture(app, "social-post-limit")
         editor.typeText(XCUIKeyboardKey.delete.rawValue)
-        let updatedText = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", String(repeating: "a", count: 60)), object: editor)
-        XCTAssertEqual(XCTWaiter.wait(for: [updatedText], timeout: 5), .completed)
+        // SwiftUI can temporarily rebuild the accessibility node after the limit
+        // banner disappears. Re-query it instead of holding the previous snapshot.
+        let updatedText = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let current = app.textViews.matching(identifier: "compose.text").firstMatch
+            return current.exists && current.value as? String == String(repeating: "a", count: 60)
+        }, object: nil)
+        let textResult = XCTWaiter.wait(for: [updatedText], timeout: 10)
+        if textResult != .completed {
+            let tree = XCTAttachment(string: app.debugDescription); tree.name = "post-limit-recovery-accessibility-tree"; tree.lifetime = .keepAlways; add(tree)
+            capture(app, "social-post-limit-recovery-failed")
+        }
+        XCTAssertEqual(textResult, .completed)
         let enabledSend = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["compose.send"])
-        XCTAssertEqual(XCTWaiter.wait(for: [enabledSend], timeout: 5), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabledSend], timeout: 10), .completed)
+        capture(app, "social-post-limit-recovered")
     }
     func testUncertainRoomSendKeepsDraftAndPreventsDuplicate() {
         let app = launch(["--lost-room-response"]); openRoom(app)

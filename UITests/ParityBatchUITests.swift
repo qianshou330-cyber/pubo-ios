@@ -29,11 +29,11 @@ final class ParityBatchUITests: XCTestCase {
         XCTAssertTrue(follow.waitForExistence(timeout: 8)); XCTAssertEqual(follow.label, "取消关注申请")
         capture(app, "profile-pending-request")
         follow.tap()
-        let keep = app.alerts.buttons["profile.keepFollow"]
+        let keep = app.alerts.firstMatch.buttons.matching(identifier: "profile.keepFollow").firstMatch
         XCTAssertTrue(keep.waitForExistence(timeout: 5)); keep.tap()
         XCTAssertTrue(app.alerts.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertEqual(follow.label, "取消关注申请")
-        follow.tap(); let confirm = app.alerts.buttons["profile.confirmFollow"]
+        follow.tap(); let confirm = app.alerts.firstMatch.buttons.matching(identifier: "profile.confirmFollow").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
         let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "申请关注"), object: follow)
         XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 8), .completed)

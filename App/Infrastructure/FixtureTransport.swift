@@ -39,8 +39,15 @@ actor FixtureTransport: HTTPTransport {
     private var mutedUsers: [JSONValue] = []
     private var driveFolders: [JSONValue] = [.object(["id": .string("fixturefolder"), "name": .string("测试文件夹"), "parentId": .null])]
     init() {
+        // Build143 synthetic-only drive disclosure scenarios. No production media.
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--drive-sensitive-preview") || ProcessInfo.processInfo.arguments.contains("--drive-sensitive-late") {
+            driveFile = .object(["id": .string("fixturefile"), "name": .string("敏感测试图片.png"), "type": .string("image/png"), "size": .number(128), "url": .string("https://timeline-fixture.invalid/still.png"), "isSensitive": .bool(true)])
+        }
+        #endif
         var user = profile.object; var policies = user["policies"]!.object
         policies["scheduledNoteLimit"] = .number(10); policies["avatarDecorationLimit"] = .number(2)
+        policies["canCreateChannel"] = .bool(!ProcessInfo.processInfo.arguments.contains("--channel-create-denied"))
         user["policies"] = .object(policies); user["isAdmin"] = .bool(ProcessInfo.processInfo.arguments.contains("--admin-preview")); profile = .object(user)
         if ProcessInfo.processInfo.arguments.contains("--moderator-preview") { var values = profile.object; values["isModerator"] = .bool(true); profile = .object(values) }
         if ProcessInfo.processInfo.arguments.contains("--empty-announcements") { announcements = [] }
@@ -237,7 +244,14 @@ actor FixtureTransport: HTTPTransport {
         case "hashtags/search": response = .strings(["PUBO", "A2OLITE"])
         case "notes/search-by-tag": response = .array(posts)
         case "drive/folders": response = .array(driveFolders.filter { $0["parentId"] == body["folderId"] })
-        case "drive/files": response = .array([driveFile])
+        case "drive/files":
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--drive-sensitive-late") {
+                var stale = driveFile.object; stale["isSensitive"] = .bool(false); response = .array([.object(stale)])
+            } else { response = .array([driveFile]) }
+            #else
+            response = .array([driveFile])
+            #endif
         case "drive/files/show": response = driveFile
         case "drive/files/update": var value = driveFile.object; for key in ["name", "comment", "isSensitive", "folderId"] where body.object[key] != nil { value[key] = body[key] }; driveFile = .object(value); response = driveFile
         case "notes/state": response = .object(["isFavorited": .bool(favorites.contains(body["noteId"].string ?? ""))])
@@ -441,6 +455,12 @@ actor FixtureTransport: HTTPTransport {
         }
         if path == "chat/messages/search" { return .array((sent + roomMessages).filter { ($0["text"].string ?? "").contains(body["query"].string ?? "") && (body["roomId"].isNull || $0["toRoomId"] == body["roomId"]) && (body["userId"].isNull || $0["toRoomId"].isNull) }) }
         if path == "users/report-abuse" { if ProcessInfo.processInfo.arguments.contains("--report-uncertain") { throw URLError(.networkConnectionLost) }; return .null }
+        if path == "channels/search", ProcessInfo.processInfo.arguments.contains("--channel-parity-preview") {
+            guard ["nameOnly", "nameAndDescription"].contains(body["type"].string ?? "") else { throw APIError(code: "INVALID_SEARCH_SCOPE", message: "频道搜索范围缺失。") }
+            guard body["query"].string == "music" else { return .array([]) }
+            let title = body["type"].string == "nameOnly" ? "仅名称结果" : "名称和说明结果"
+            return .array([.object(["id": .string("syntheticchannel"), "name": .string(title), "description": .string("隔离频道搜索，不访问生产数据。")])])
+        }
         if path == "gallery/featured" || path == "gallery/posts" { return .array(collections[CollectionKind.gallery.rawValue] ?? []) }
         if path == "clips/my-favorites" { return .array(collections[CollectionKind.clip.rawValue] ?? []) }
         if path == "notes/featured" { return .array(posts) }

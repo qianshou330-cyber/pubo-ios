@@ -92,7 +92,9 @@ struct DriveItemManager: View {
     @State private var name = ""
     @State private var move = false
     @State private var metadata = false
-    @State private var preview = false
+    @State private var previewFile: Record?
+    @State private var pendingSensitiveFile: Record?
+    @State private var confirmSensitive = false
     @State private var deleting = false
     @State private var error: String?
     @State private var busy = false
@@ -104,7 +106,8 @@ struct DriveItemManager: View {
                     Button("保存名称") { Task { await update(["name": .string(name)]) } }.disabled(name.isEmpty || name.count > 200)
                 } else {
                     Text(operation.item["name"].string ?? "文件")
-                    Button("查看与保存文件") { preview = true }.disabled(operation.item["isSensitive"].bool)
+                    Button("查看与保存文件") { Task { await requestPreview() } }.accessibilityIdentifier("drive.preview.request")
+                    if operation.item["isSensitive"].bool { Text("此文件标记为敏感媒体，确认后才会加载预览；不会移除敏感标记。").font(.caption) }
                     Button("名称、媒体说明与敏感标记") { metadata = true }
                 }
                 Button("移动到文件夹") { move = true }
@@ -113,10 +116,30 @@ struct DriveItemManager: View {
             }.puboForm().navigationTitle(operation.folder ? "管理文件夹" : "管理文件").disabled(busy)
                 .toolbar { Button("关闭") { dismiss() } }.task { name = operation.item["name"].string ?? "" }
                 .sheet(isPresented: $metadata) { AttachmentMetadataEditor(file: operation.item) { _ in changed(); dismiss() } }
-                .sheet(isPresented: $preview) { PublicAttachmentPreview(file: operation.item) }
+                .sheet(item: $previewFile) { file in PublicAttachmentPreview(file: file, allowSensitive: file["isSensitive"].bool) }
+                .alert("查看敏感文件？", isPresented: $confirmSensitive) {
+                    Button("取消", role: .cancel) { pendingSensitiveFile = nil }.accessibilityIdentifier("drive.preview.cancel")
+                    Button("查看文件") { previewFile = pendingSensitiveFile; pendingSensitiveFile = nil }.accessibilityIdentifier("drive.preview.confirm")
+                } message: { Text("此操作会加载文件内容。敏感标记保持不变，保存文件仍需在预览页另行操作。") }
+                .onChange(of: session.generation) { _, _ in pendingSensitiveFile = nil; previewFile = nil; confirmSensitive = false; dismiss() }
                 .sheet(isPresented: $move) { NavigationStack { FolderDestinationPicker(excluding: operation.folder ? operation.id : nil) { id in move = false; Task { await update([operation.folder ? "parentId" : "folderId": id.map(JSONValue.string) ?? .null]) } } } }
                 .confirmationDialog(operation.folder ? "删除此文件夹？服务器会检查它是否为空。" : "删除此文件？引用它的帖子可能无法再显示附件。", isPresented: $deleting) { Button("确认删除", role: .destructive) { Task { await remove() } } }
         }
+    }
+    private func requestPreview() async {
+        guard !busy, !operation.folder else { return }
+        busy = true; error = nil; defer { busy = false }
+        let epoch = session.generation
+        do {
+            // Re-read metadata before deciding: a stale list must not bypass a newer sensitive flag.
+            let value = try await session.call("drive/files/show", ["fileId": .string(operation.id)])
+            guard epoch == session.generation, !Task.isCancelled else { return }
+            guard value["id"].string == operation.id else { throw APIError.invalidResponse }
+            let current = Record(value)
+            if DriveMediaPolicy.requiresConfirmation(isSensitive: current["isSensitive"].bool) {
+                pendingSensitiveFile = current; confirmSensitive = true
+            } else { previewFile = current }
+        } catch { if epoch == session.generation, !Task.isCancelled { self.error = error.localizedDescription } }
     }
     private func update(_ fields: [String: JSONValue]) async {
         guard !busy else { return }; busy = true; defer { busy = false }
