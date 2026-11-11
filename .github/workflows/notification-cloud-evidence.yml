@@ -49,17 +49,24 @@ jobs:
           retention-days: 14
       - name: Verify seven primary interface tests and five full route scenarios
         run: python3 cloud-inputs.py gate-primary
+      - name: Verify and reuse the already reviewed motion and image comparisons
+        id: visual
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 cloud-inputs.py reuse-visual
       - name: Prepare Linux media tools
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk python3-numpy python3-pil
       - name: Match original simulator frames, cut clips and index exact route evidence
+        if: steps.visual.outputs.reused != 'true'
         run: |
           /usr/bin/python3 index-native-ui.py 138 --clips
           /usr/bin/python3 index-native-routes.py 138
           /usr/bin/python3 inspect-route-motion.py 138
           /usr/bin/python3 check-clip-matches.py 138
       - name: Match actual website recordings and render the comparison
+        if: steps.visual.outputs.reused != 'true'
         env:
           NOTIFICATION_WINDOWS_JSON: ${{ inputs.reviewed_windows }}
         run: /usr/bin/python3 notification-comparison-cloud.py 138

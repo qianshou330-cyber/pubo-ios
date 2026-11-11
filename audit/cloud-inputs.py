@@ -128,6 +128,37 @@ def acquire(item):
     print('Verified',suite, path.stat().st_size,checksum,flush=True)
 def write_index(items, states):
     save(build/'source-artifacts.json',{'productCommit':commit,'workflows':runs,'states':states,'artifacts':list(items.values())})
+def reuse_visual():
+    pin_path=build/'verified-visual-artifact.json'
+    reused=False
+    if pin_path.exists():
+        pin=json.loads(pin_path.read_bytes())
+        assert pin['productCommit']==commit
+        entries=read(api+'/actions/runs/'+str(pin['sourceRun'])+'/artifacts?per_page=100')['artifacts']
+        entry,=[a for a in entries if a['id']==pin['sourceArtifact'] and a['name']==pin['sourceName'] and not a['expired']]
+        assert entry['digest']=='sha256:'+pin['sourceSHA256'] and entry['size_in_bytes']==pin['sourceBytes']
+        archive=build/'verified-visual-artifact.zip'
+        with get(api+'/actions/artifacts/'+str(entry['id'])+'/zip') as response, archive.open('wb') as file:
+            shutil.copyfileobj(response,file,1024*1024)
+        assert archive.stat().st_size==pin['sourceBytes'] and sha(archive)==pin['sourceSHA256']
+        safe_extract(archive,build,force=True)
+        # Check originals on the current runner against the actual source ZIP + commit,
+        # not merely the exported preview files. Enforce the exact hand-reviewed movie.
+        groups=json.loads((build/'native-simulator-groups.json').read_bytes())
+        for kind in ('large/notifications','large/notification-routes'):
+            group=groups[kind]
+            assert group['sourceCommit']==commit and sha(build/group['source'])==group['rawVideoSHA256']
+        for item in json.loads((build/'native-screenshot-index.json').read_bytes()):
+            if item.get('namedOriginal'):
+                assert item['sha256']==sha(build/item['namedOriginal'])==sha(build/item['path'])
+        for excerpt in json.loads((build/'native-clips.json').read_bytes()):
+            assert sha(build/excerpt['path'])==excerpt['sha256'] and excerpt['encodedFrames']>0
+        comparison=json.loads((build/'comparison/index.json').read_bytes())
+        assert comparison['windowsReview']=='confirmed' and len(comparison['pairs'])==10
+        assert sha(build/'comparison/paired-interactions.mp4')==pin['pairedVideoSHA256']
+        reused=True
+    with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+        print('reused='+str(reused).lower(),file=output)
 def collect_summary():
     summary = build / 'cloud-summary'
     summary.mkdir(exist_ok=True)
@@ -188,8 +219,9 @@ def ensure_results(primary=False):
     print('Verification gaps',shortfalls,flush=True)
     if shortfalls: raise SystemExit(3)
 if __name__=='__main__':
-    arg=argparse.ArgumentParser();arg.add_argument('action', choices=['discover','primary','collect','summary','gate','gate-primary']);mode=arg.parse_args().action
-    if mode=='summary':collect_summary()
+    arg=argparse.ArgumentParser();arg.add_argument('action', choices=['discover','primary','collect','summary','gate','gate-primary','reuse-visual']);mode=arg.parse_args().action
+    if mode=='reuse-visual':reuse_visual()
+    elif mode=='summary':collect_summary()
     elif mode in ('gate','gate-primary'):ensure_results(primary=mode=='gate-primary')
     else:
         if mode in ('primary','collect'):source_archive()
