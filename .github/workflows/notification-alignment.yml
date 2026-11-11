@@ -1,0 +1,80 @@
+name: PUBO notification alignment
+on:
+  push:
+    branches: ['ui-notifications-*']
+permissions:
+  contents: read
+concurrency:
+  group: notification-alignment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests and fixed Xcode project
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          mkdir -p build
+          set -o pipefail
+          swift test 2>&1 | tee build/notification-core-test.log
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v 2>&1 | tee build/notification-package-test.log
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Release simulator and arm64 device builds
+        run: |
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          python3 scripts/package-device.py
+          test ! -e build/device/Build/Products/Release-iphoneos/PUBO.app/NotificationVisualCases.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notification-package-${{ github.sha }}
+          path: |
+            build/unsigned/
+            build/device-package.json
+            build/notification-*-test.log
+          retention-days: 14
+  simulator:
+    name: simulator-${{ matrix.suite }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {suite: large, runner: macos-26, size: large, groups: 'notifications,notification-routes'}
+          - {suite: small, runner: macos-15-intel, size: small, groups: 'notifications'}
+          - {suite: preserved, runner: macos-26, size: large, groups: 'timeline-preview,social,regression,gif,chat,favorites'}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fixed tools, source and fixtures
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          python3 scripts/notification-simulator-runtime.py
+      - name: Build debug simulator app
+        run: xcodebuild -quiet -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Exercise selected groups and capture the actual simulator
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_GROUPS: ${{ matrix.groups }}
+          PUBO_UI_SCOPE: ${{ matrix.suite }}
+          PUBO_SIM_INSTALL_TIMEOUT: '300'
+        run: python3 scripts/local-timeline-tests.py
+      - name: Preserve original screenshots, recordings and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notification-${{ matrix.suite }}-${{ github.sha }}
+          path: |
+            build/*.json
+            build/*.xcresult/
+            build/screenshots/
+          retention-days: 14

@@ -65,11 +65,12 @@ public enum NotificationTarget: Equatable, Sendable {
         case "receiveFollowRequest": return .followRequests
         case "scheduledNotePostFailed": return .scheduled
         case "roleAssigned": return .profile
-        default: break
+        case "note", "mention", "quote", "reply", "reaction", "reaction:grouped", "renote", "renote:grouped", "pollEnded", "scheduledNotePosted":
+            if let id = item["note"]["id"].string, !id.isEmpty { return .note(id) }
+            return item["type"].string == "scheduledNotePosted" ? .scheduled : .none
+        case "follow", "followRequestAccepted":
+            return item.user.id.isEmpty ? .none : .user(item.user.id)
+        default: return .none
         }
-        if let id = item["note"]["id"].string, !id.isEmpty { return .note(id) }
-        if item["type"].string == "scheduledNotePosted" { return .scheduled }
-        if !item.user.id.isEmpty { return .user(item.user.id) }
-        return .none
     }
 }

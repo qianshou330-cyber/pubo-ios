@@ -10,13 +10,7 @@ struct NotificationDestinationView: View {
         case .user(let id): ProfileView(userID: id)
         case .room(let id): RoomChatView(roomID: id)
         case .file(let id): NotificationFileView(fileID: id)
-        case .achievements:
-            List {
-                let name = item["achievement"].string ?? ""
-                Label(NativeStrings.achievement(name), systemImage: "medal").font(.title3)
-                Text(NativeStrings.achievement(name, field: "description"))
-                NavigationLink("查看全部成就") { AchievementsView() }
-            }.puboList().navigationTitle("成就详情")
+        case .achievements: AchievementsView()
         case .sessions: AdminGate(management: false) { AuthorizedSessionsView() }
         case .connections: ServiceConnectionsView()
         case .followRequests: FollowRequestsView()

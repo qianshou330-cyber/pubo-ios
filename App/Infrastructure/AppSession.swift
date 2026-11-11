@@ -1,5 +1,8 @@
 import SwiftUI
 import class Combine.PassthroughSubject
+#if DEBUG
+import class Combine.AnyCancellable
+#endif
 import PUBOCore
 
 @Observable @MainActor
@@ -31,11 +34,18 @@ final class AppSession {
     let timelineNotes = PassthroughSubject<Record, Never>()
     let noteEvents = PassthroughSubject<NoteStreamEvent, Never>()
     let chatEvents = PassthroughSubject<ChatStreamEvent, Never>()
+    let notificationEvents = PassthroughSubject<Record, Never>()
+    let notificationFlushes = PassthroughSubject<Void, Never>()
     var newestTimelineNote: Record? { didSet { if let newestTimelineNote { timelineNotes.send(newestTimelineNote) } } }
     var latestNoteEvent: NoteStreamEvent? { didSet { if let latestNoteEvent { noteEvents.send(latestNoteEvent) } } }
     var badges = NotificationBadges()
     var chartPreferences = KpopPreferences()
     private var unreadAttempt: UUID?
+    private var unreadRefreshQueued = false
+    private var notificationRevision = 0
+    #if DEBUG
+    private var notificationFixtureSubscription: AnyCancellable?
+    #endif
     private var started = false
     let store: ProtectedStore?
     let gifStickers: GIFStickerVault?
@@ -87,12 +97,34 @@ final class AppSession {
         stream.onConnect = { [weak self] in self?.connectionRevision += 1 }
         stream.onTimelineNote = { [weak self] note in self?.newestTimelineNote = note }
         stream.onNoteEvent = { [weak self] event in self?.latestNoteEvent = event }
+        stream.onNotificationEvent = { [weak self] kind, body in
+            guard let self else { return }
+            switch kind {
+            case "notification": self.notificationEvents.send(Record(body))
+            case "notificationFlushed": self.notificationFlushes.send(())
+            case "readAllNotifications": self.recordNotificationsRead()
+            case "unreadNotification":
+                self.notificationRevision += 1
+                if !self.badges.notification {
+                    self.badges.applyAccount(.object(["hasUnreadNotification": .bool(true)]))
+                }
+                Task { await self.refreshUnread() }
+            default: break
+            }
+        }
         stream.onChatMessageEvent = { [weak self] event in self?.chatEvents.send(event) }
         stream.onChatEvent = { [weak self] id in
             guard let self else { return }
             self.changedChatIDs.insert(id)
             if self.changedChatIDs.count > 2_000 { self.changedChatIDs = []; self.connectionRevision += 1 }
         }
+        #if DEBUG
+        if testing && ProcessInfo.processInfo.arguments.contains("--notifications-live") {
+            notificationFixtureSubscription = NotificationFixtureState.stream.sink { [weak self] item in
+                self?.notificationEvents.send(item)
+            }
+        }
+        #endif
     }
 
     func start() async {
@@ -149,6 +181,7 @@ final class AppSession {
             clearAccountMemory()
         }
         self.token = token; user = account; error = nil; authorizationRequired = false
+        badges.applyAccount(account.raw)
         if testMode { savedAccounts.removeAll { $0.userID == account.id }; savedAccounts.append(secret) } else { reloadAccounts() }
         recentEmojis = ((try? store?.read([String].self, account: account.id, key: "recent-emojis")) ?? []).prefix(32).map { $0 }
         restoreChartPreferences()
@@ -192,7 +225,7 @@ final class AppSession {
     }
     private func clearAccountMemory() {
         token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
-        badges = NotificationBadges(); unreadAttempt = nil; chartPreferences = KpopPreferences(); recentEmojis = []
+        badges = NotificationBadges(); unreadAttempt = nil; unreadRefreshQueued = false; notificationRevision = 0; chartPreferences = KpopPreferences(); recentEmojis = []
         timelinePreferences = TimelinePreferences(); timelineNotice = nil; newestTimelineNote = nil; latestNoteEvent = nil
         stream.clearAllCaptures(); stream.showTimeline(nil)
         InlineEmojiStore.shared.clear(); try? PrivateFiles.clear(); URLCache.shared.removeAllCachedResponses()
@@ -241,14 +274,28 @@ final class AppSession {
     }
     func hasPendingAction(_ key: String) -> Bool { guard let owner = user?.id else { return false }; return (try? store?.read(Bool.self, account: owner, key: key)) ?? false }
     func resumeStream() { if let token, !testMode || isolatedBackend { stream.start(token: token) } }
+    func recordNotificationsRead() {
+        notificationRevision += 1
+        badges.markNotificationsRead()
+    }
     func refreshUnread() async {
-        guard user != nil, unreadAttempt == nil else { return }
+        guard user != nil else { return }
+        guard unreadAttempt == nil else { unreadRefreshQueued = true; return }
         let attempt = UUID(); unreadAttempt = attempt
-        defer { if unreadAttempt == attempt { unreadAttempt = nil } }
+        let revision = notificationRevision
+        defer {
+            if unreadAttempt == attempt {
+                unreadAttempt = nil
+                if unreadRefreshQueued {
+                    unreadRefreshQueued = false
+                    Task { await self.refreshUnread() }
+                }
+            }
+        }
         do {
             let account = try await call("i")
             guard unreadAttempt == attempt else { return }
-            badges.notification = account["hasUnreadNotification"].bool
+            if revision == notificationRevision { badges.applyAccount(account) }
             if account["policies"]["chatAvailability"].string != "unavailable" {
                 let summary = try await call("chat/unread-summary")
                 guard unreadAttempt == attempt else { return }

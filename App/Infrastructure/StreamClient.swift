@@ -15,6 +15,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     var onChatMessageEvent: ((ChatStreamEvent) -> Void)?
     var onTimelineNote: ((Record) -> Void)?
     var onNoteEvent: ((NoteStreamEvent) -> Void)?
+    var onNotificationEvent: ((String, JSONValue) -> Void)?
     private var task: Task<Void, Never>?
     private var socket: URLSessionWebSocketTask?
     private var session: URLSession?
@@ -52,6 +53,13 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
         }
     }
     func clearAllCaptures() { captureOwners = [:]; captureNotes([]) }
+    func readVisibleNotifications() {
+        guard let socket else { return }
+        Task {
+            guard self.socket === socket else { return }
+            try? await send(.object(["type": .string("readNotification")]), socket: socket)
+        }
+    }
     private func send(_ packet: JSONValue, socket: URLSessionWebSocketTask) async throws {
         try await socket.send(.data(try JSONEncoder().encode(packet)))
     }
@@ -111,6 +119,10 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                                 continue
                             }
                             if packet["body"]["id"].string?.hasPrefix("timeline-") == true { continue }
+                            if packet["body"]["id"].string == "main", let kind = packet["body"]["type"].string,
+                               ["notification", "notificationFlushed", "readAllNotifications", "unreadNotification"].contains(kind) {
+                                self.onNotificationEvent?(kind, packet["body"]["body"])
+                            }
                             if let channel = packet["body"]["id"].string, ["chatUser", "chatRoom"].contains(channel),
                                let target = channel == "chatRoom" ? self.roomID : self.peerID,
                                let kind = packet["body"]["type"].string {

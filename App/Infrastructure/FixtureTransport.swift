@@ -16,6 +16,7 @@ actor FixtureTransport: HTTPTransport {
     private var counter = 0
     private var timelineReads = 0
     #if DEBUG
+    private var notificationFixtures = NotificationFixtureState()
     private var gifReads = 0
     private var stickerUpload: Data?
     #endif
@@ -109,6 +110,15 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if args.contains("--notifications-align") {
+            if path == "i/notifications-grouped" && args.contains("--notifications-refresh") {
+                try await Task.sleep(for: .milliseconds(650))
+            }
+            if let reply = notificationFixtures.response(path: path, body: body, profile: profile, arguments: args) {
+                return (try JSONEncoder().encode(reply),
+                        HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+            }
+        }
         if args.contains("--sticker-testing") {
             func jsonReply(_ value: JSONValue, _ status: Int = 200) throws -> (Data, HTTPURLResponse) {
                 (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
@@ -296,7 +306,7 @@ actor FixtureTransport: HTTPTransport {
             var fields = note.object; fields["localOnly"] = body["localOnly"]; fields["visibleUserIds"] = body["visibleUserIds"]; fields["channelId"] = body["channelId"]
             let complete = JSONValue.object(fields); posts.insert(complete, at: 0); response = .object(["createdNote": complete])
             if args.contains("--lost-post-response") { throw URLError(.networkConnectionLost) }
-        case "i/notifications":
+        case "i/notifications", "i/notifications-grouped":
             if args.contains("--social-align") {
                 response = .array([
                     .object(["id": .string("socialnotice1"), "type": .string("chatRoomInvitationReceived"), "user": Self.peer, "invitation": .object(["room": rooms[0]]), "createdAt": .string("2026-11-03T10:00:00Z")]),

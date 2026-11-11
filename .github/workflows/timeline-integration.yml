@@ -1,7 +1,7 @@
 name: Timeline visual real backend verification
 on:
   push:
-    branches: ['ui-timeline-visual-*']
+    branches: ['ui-timeline-visual-*', 'ui-notifications-*']
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,6 +19,7 @@ jobs:
       PUBO_KPOP_CHARTS_ENABLED: 'false'
       PUBO_MUSIC_CHARTS_ENABLED: 'false'
       PUBO_SNAKE_ENABLED: 'false'
+      PUBO_CHECK_NOTIFICATIONS: ${{ startsWith(github.ref_name, 'ui-notifications-') && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

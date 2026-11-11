@@ -3,75 +3,340 @@ import PUBOCore
 
 struct NotificationsView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.scenePhase) private var phase
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    @Environment(\.timelineWindowTypeSize) private var typeSize
+    @State private var tab = NotificationTab.all
+    @State private var filter: NotificationKind?
     @State private var items: [Record] = []
+    @State private var queued: [Record] = []
+    @State private var receivedDuringRequest: [Record] = []
+    @State private var cursor: String?
+    @State private var more = false
     @State private var loading = false
-    @State private var error: String?
-    @State private var hasMore = true
-    @State private var category = "all"
-    @State private var attempt = UUID()
+    @State private var loadedQuery: String?
+    @State private var needsRefresh = false
+    @State private var errorMessage: String?
+    @State private var retryOlder = false
+    @State private var actionMessage: String?
+    @State private var markingRead = false
+    @State private var requestStates: [String: String] = [:]
+    @State private var requestID = UUID()
+    @State private var visible = false
+    @State private var atTop = true
+    @State private var showRequests = false
+    @State private var options: [NotificationTab: NoteListOptions] = [:]
+    @State private var scrolledList = false
+    @State private var autoCursor: String?
+    @ScaledMetric(relativeTo: .caption) private var tabSize = 11.2
+
+    private var active: Bool { visible && session.selectedTab == 1 && phase == .active }
+    private var noteOptions: NoteListOptions { options[tab] ?? NoteListOptions() }
+    private var query: String {
+        if tab == .all { return "all/" + (filter?.rawValue ?? "*") }
+        return "\(tab.rawValue)/\(noteOptions.oldestFirst)/\(noteOptions.date?.timeIntervalSince1970 ?? 0)"
+    }
+    private var enterAnimation: Animation? { reduced ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.7) }
+    private var tabItems: [ChatTab] { [
+        .init(id: "all", title: "全部", icon: "circle"),
+        .init(id: "mentions", title: "提到我的", icon: "at"),
+        .init(id: "directNotes", title: "私信", icon: "envelope")
+    ] }
     var body: some View {
         NavigationStack {
-            List {
-                Picker("通知分类", selection: $category) {
-                    Text("全部").tag("all"); Text("指定可见帖子").tag("directNotes"); Text("提及与回复").tag("mentions"); Text("表情反应").tag("reactions"); Text("关注").tag("following"); Text("系统与其他").tag("system")
-                }.accessibilityIdentifier("notifications.filter")
-                NavigationLink("关注申请") { FollowRequestsView() }
-                if let error { ErrorBanner(message: error) { Task { await load() } } }
-                ForEach(items) { item in
-                    if category == "directNotes" { NoteCard(note: item) }
-                    else {
-                        NavigationLink { NotificationDestinationView(item: item) } label: {
-                            HStack(alignment: .top, spacing: 10) {
-                                if !item["user"].isNull { Avatar(user: item.user) }
-                                else { Image(systemName: icon(item)).frame(width: 38, height: 38).foregroundStyle(PUBOTheme.accent) }
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(title(item)).font(.subheadline.weight(.semibold))
-                                    if let cw = item["note"]["cw"].string { Text(cw.isEmpty ? "内容警告 · 打开帖子查看" : cw).lineLimit(2) }
-                                    else if let text = item["note"]["text"].string { Text(text).lineLimit(2) }
-                                    if item["type"].string == "achievementEarned" { Text(NativeStrings.achievement(item["achievement"].string ?? "")).font(.caption) }
-                                    if let name = item["invitation"]["room"]["name"].string { Text(name).font(.caption) }
-                                    if let date = puboDate(item["createdAt"].string) { Text(date, style: .relative).font(.caption2).foregroundStyle(.secondary) }
-                                }
-                                Spacer(minLength: 0)
-                                if !item["isRead"].bool { Circle().fill(PUBOTheme.accent).frame(width: 7, height: 7).accessibilityLabel("未读") }
-                            }
-                        }.accessibilityIdentifier("notification." + item.id).puboCard().puboListRow()
-                    }
+            VStack(spacing: 0) {
+                header
+                feed.id(query)
+            }
+            .puboScreen().navigationTitle("通知").toolbar(.hidden, for: .navigationBar)
+            .environment(\.dynamicTypeSize, typeSize)
+            .navigationDestination(isPresented: $showRequests) { FollowRequestsView() }
+            .onAppear { visible = true }
+            .onDisappear { visible = false; invalidateRequest() }
+            .task(id: query + (active ? "/visible" : "/hidden")) {
+                guard active else { invalidateRequest(); return }
+                if loadedQuery != query {
+                    invalidateRequest()
+                    items = []; queued = []; cursor = nil; more = false; errorMessage = nil; atTop = true
+                    scrolledList = false; autoCursor = nil
+                    await load()
+                } else if needsRefresh || (tab == .all && session.badges.notification) {
+                    await load(keepTail: true)
                 }
-                if items.isEmpty && !loading { Text(category == "directNotes" ? "暂无指定可见帖子" : "暂无通知") }
-                if loading { ProgressView() }
-                if hasMore && !items.isEmpty { Button("加载更多") { Task { await load(older: true) } }.disabled(loading) }
-            }.puboList().navigationTitle("通知").toolbar { if category != "directNotes" { Button("全部已读") { Task { await markRead() } } } }
-                .task(id: category) { attempt = UUID(); loading = false; items = []; hasMore = true; await load() }.refreshable { await load() }
-                .task(id: session.streamRevision) { if session.selectedTab == 1 { try? await Task.sleep(for: .milliseconds(700)); if !Task.isCancelled { await load() } } }
-                .onDisappear { attempt = UUID(); loading = false }
+            }
+            .onChange(of: session.connectionRevision) { old, _ in
+                guard old > 0, loadedQuery == query else { return }
+                needsRefresh = true
+                if active && atTop { Task { await load(keepTail: true) } }
+            }
+            .onReceive(session.notificationEvents, perform: receive)
+            .onReceive(session.notificationFlushes) { _ in
+                needsRefresh = true
+                if active && tab == .all {
+                    invalidateRequest()
+                    queued = []
+                    Task { await load() }
+                }
+            }
+            .alert("通知", isPresented: Binding(get: { actionMessage != nil }, set: { if !$0 { actionMessage = nil } })) {
+                Button("好") { actionMessage = nil }
+            } message: { Text(actionMessage ?? "") }
         }
     }
-    private func icon(_ item: Record) -> String {
-        switch item["type"].string { case "chatRoomInvitationReceived": "bubble.left.and.bubble.right"; case "achievementEarned": "medal"; case "exportCompleted": "archivebox"; case "login", "createToken": "lock.shield"; default: "bell" }
+    private var header: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .trailing) {
+                Label("通知", systemImage: "bell").font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity).accessibilityAddTraits(.isHeader)
+                if tab == .all {
+                    HStack(spacing: 0) {
+                        headerFilter
+                        Button { Task { await markRead() } } label: { headerIcon("checkmark") }
+                            .disabled(markingRead).accessibilityLabel("全部标记为已读").accessibilityIdentifier("notifications.markRead")
+                    }.padding(.trailing, 8)
+                }
+            }.frame(minHeight: 50)
+            ViewThatFits(in: .horizontal) {
+                tabs
+                ScrollView(.horizontal) { tabs }.scrollIndicators(.hidden)
+            }
+        }.background(PUBOTheme.background)
+            .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
-    private func title(_ record: Record) -> String {
-        let names = ["follow": "关注了你", "mention": "提到了你", "reply": "回复了你", "renote": "转发了你的帖子", "quote": "引用了你的帖子", "reaction": "回应了你的帖子", "login": "账号登录提醒", "receiveFollowRequest": "请求关注你", "followRequestAccepted": "通过了关注请求", "scheduledNotePosted": "定时帖子已发布", "scheduledNotePostFailed": "定时发布失败", "pollEnded": "投票已结束", "roleAssigned": "角色已分配", "chatRoomInvitationReceived": "群聊邀请", "achievementEarned": "获得成就", "exportCompleted": "数据导出完成", "createToken": "新的账号授权", "note": "发布了新帖子"]
-        return (record["user"].isNull ? "" : record.user.displayName + " ") + (names[record["type"].string ?? ""] ?? "新通知")
+    private var tabs: some View {
+        HStack(spacing: 0) {
+            ForEach(tabItems) { option in
+                Button { if let value = NotificationTab(rawValue: option.id) { tab = value } } label: {
+                    Label(option.title, systemImage: option.icon).labelStyle(.titleAndIcon)
+                        .font(.system(size: tabSize, weight: option.id == tab.rawValue ? .semibold : .regular))
+                        .fixedSize().padding(.horizontal, 12).frame(minHeight: 44)
+                        .overlay(alignment: .bottom) {
+                            Capsule().fill(option.id == tab.rawValue ? PUBOTheme.accent : .clear).frame(height: 3)
+                        }.contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityLabel(option.title).accessibilityIdentifier("notifications.tab." + option.id)
+                    .accessibilityAddTraits(option.id == tab.rawValue ? .isSelected : [])
+            }
+        }
     }
-    private func load(older: Bool = false) async {
-        guard !loading else { return }; loading = true; let request = UUID(); attempt = request; defer { if attempt == request { loading = false } }
+    private var headerFilter: some View {
+                Menu {
+                    if filter != nil {
+                        Button { filter = nil } label: { Label("清除", systemImage: "xmark") }
+                            .accessibilityIdentifier("notifications.filter.clear")
+                        Divider()
+                    }
+                    ForEach(NotificationKind.allCases, id: \.self) { type in
+                        Button { filter = type } label: {
+                            if filter == type { Label(type.title, systemImage: "checkmark") }
+                            else { Text(type.title) }
+                        }.accessibilityIdentifier("notifications.filter." + type.rawValue)
+                    }
+                    Divider()
+                    Button("关注申请") { showRequests = true }
+                } label: { headerIcon("line.3.horizontal.decrease") }
+                    .foregroundStyle(filter == nil ? PUBOTheme.text : PUBOTheme.accent)
+                    .accessibilityLabel("筛选").accessibilityValue(filter?.title ?? "全部")
+                    .accessibilityIdentifier("notifications.filter")
+    }
+    private func headerIcon(_ system: String) -> some View {
+        Image(systemName: system).font(.system(size: 15)).frame(width: 44, height: 44).contentShape(Rectangle())
+    }
+    private var noteControls: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Menu {
+                    Button("从新到旧") { options[tab, default: .init()].oldestFirst = false }
+                    Button("从旧到新") { options[tab, default: .init()].oldestFirst = true }
+                } label: {
+                    HStack { Image(systemName: "arrow.up.arrow.down"); Text(noteOptions.oldestFirst ? "从旧到新" : "从新到旧"); Spacer(); Image(systemName: "chevron.down") }
+                        .padding(.horizontal, 12).frame(minHeight: 44)
+                        .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+                }.accessibilityIdentifier("notifications.order")
+                Button {
+                    options[tab, default: .init()].date = noteOptions.date == nil ? Date() : nil
+                } label: { headerIcon("calendar") }.accessibilityLabel("日期").accessibilityIdentifier("notifications.date")
+                    .foregroundStyle(noteOptions.date == nil ? PUBOTheme.text : PUBOTheme.accent)
+                Button { Task { await load() } } label: { headerIcon("arrow.clockwise") }
+                    .accessibilityLabel("刷新").accessibilityIdentifier("notifications.refresh")
+            }.font(.caption).buttonStyle(.plain)
+            if let date = noteOptions.date {
+                DatePicker("日期", selection: Binding(get: { date }, set: { options[tab, default: .init()].date = Calendar.current.startOfDay(for: $0) }), displayedComponents: .date)
+                    .datePickerStyle(.compact)
+            }
+        }.padding(.bottom, 8)
+    }
+    private var feed: some View {
+        ScrollView {
+            LazyVStack(spacing: tab == .all ? 0 : 8) {
+                Color.clear.frame(height: 1).background(GeometryReader { g in
+                    Color.clear.preference(key: NotificationScrollTop.self, value: g.frame(in: .named("notification-scroll")).minY)
+                })
+                if tab != .all { noteControls }
+                if let errorMessage { ErrorBanner(message: errorMessage) { Task { await load(older: retryOlder) } } }
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    VStack(spacing: 0) {
+                        if index > 0 { dateBoundary(items[index - 1], item) }
+                        row(item)
+                        Rectangle().fill(PUBOTheme.divider).frame(height: 0.5)
+                    }
+                    .background(PUBOTheme.panel)
+                    .clipShape(RoundedRectangle(cornerRadius: tab == .all ? 0 : PUBOTheme.radius))
+                    .transition(.asymmetric(insertion: reduced ? .identity : .offset(y: -64).combined(with: .opacity),
+                                            removal: reduced ? .identity : .opacity.animation(.easeOut(duration: 0.2))))
+                }
+                if more && !items.isEmpty {
+                    Button { Task { await load(older: true) } } label: {
+                        Group { if loading { ProgressView() } else { Text("加载更多").font(.subheadline) } }
+                            .frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
+                    }.disabled(loading).buttonStyle(.plain).accessibilityIdentifier("notifications.more")
+                        .onAppear { loadVisibleOlder() }
+                } else if loading && items.isEmpty {
+                    ProgressView("加载中…").padding(24)
+                } else if items.isEmpty && errorMessage == nil {
+                    Text(tab == .all ? "暂无通知" : "暂无帖子").font(.subheadline).foregroundStyle(.secondary).padding(28)
+                }
+            }.background(tab == .all ? PUBOTheme.panel : PUBOTheme.background).clipShape(RoundedRectangle(cornerRadius: PUBOTheme.radius))
+                .padding(12)
+        }.coordinateSpace(name: "notification-scroll")
+            .onPreferenceChange(NotificationScrollTop.self) { top in
+                // The lazy stack removes the marker offscreen. Its absent value means history is visible.
+                atTop = top.map { $0 >= -2 } ?? false
+                if atTop { releaseQueue() }
+            }
+            .refreshable { await load() }
+            .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { drag in
+                if abs(drag.translation.height) > abs(drag.translation.width) { scrolledList = true }
+            })
+            .simultaneousGesture(DragGesture(minimumDistance: 34).onEnded { drag in
+                let x = drag.translation.width, y = drag.translation.height
+                guard abs(x) > 80, abs(x) > abs(y) * 2, let index = NotificationTab.allCases.firstIndex(of: tab) else { return }
+                let next = index + (x < 0 ? 1 : -1)
+                if NotificationTab.allCases.indices.contains(next) { tab = NotificationTab.allCases[next] }
+            })
+    }
+    @ViewBuilder private func row(_ item: Record) -> some View {
+        if tab != .all { NoteCard(note: item, appearance: .timeline) }
+        else if ["mention", "reply", "quote"].contains(item["type"].string ?? ""), !item["note"]["id"].isNull {
+            NoteCard(note: Record(item["note"]), appearance: .timeline)
+        } else {
+            NotificationRow(item: item, requestState: requestStates[item.id]) { accept in
+                Task { await respond(item, accept: accept) }
+            }
+        }
+    }
+    @ViewBuilder private func dateBoundary(_ previous: Record, _ next: Record) -> some View {
+        if let a = puboDate(previous["createdAt"].string), let b = puboDate(next["createdAt"].string),
+           !Calendar.current.isDate(a, inSameDayAs: b) {
+            HStack(spacing: 12) {
+                Text("⌃ " + dateText(a))
+                Rectangle().fill(PUBOTheme.divider).frame(width: 1, height: 12)
+                Text(dateText(b) + " ⌄")
+            }.font(.caption).foregroundStyle(PUBOTheme.secondary).padding(8)
+            Rectangle().fill(PUBOTheme.divider).frame(height: 0.5)
+        }
+    }
+    private func dateText(_ date: Date) -> String {
+        "\(Calendar.current.component(.month, from: date))/\(Calendar.current.component(.day, from: date))"
+    }
+    private func invalidateRequest() {
+        if loading { needsRefresh = true }
+        requestID = UUID(); loading = false; receivedDuringRequest = []
+    }
+    private func loadVisibleOlder() {
+        guard active, scrolledList, more, !loading, errorMessage == nil, let cursor, autoCursor != cursor else { return }
+        autoCursor = cursor
+        Task { await load(older: true) }
+    }
+    private func receive(_ item: Record) {
+        guard !item.id.isEmpty else { return }
+        guard active else { needsRefresh = true; return }
+        guard tab == .all else { return }
+        session.stream.readVisibleNotifications()
+        guard filter == nil || NotificationKind(record: item) == filter else { return }
+        if loading { receivedDuringRequest.insert(item, at: 0) }
+        guard !items.contains(where: { $0.id == item.id }), !queued.contains(where: { $0.id == item.id }) else { return }
+        queued.insert(item, at: 0)
+        if atTop { releaseQueue() }
+    }
+    private func releaseQueue() {
+        guard active, !queued.isEmpty else { return }
+        let newItems = joined(queued, items)
+        queued = []
+        withAnimation(enterAnimation) { items = newItems }
+    }
+    private func joined(_ first: [Record], _ second: [Record]) -> [Record] {
+        var seen = Set<String>()
+        return (first + second).filter { seen.insert($0.id).inserted }
+    }
+    private func load(older: Bool = false, keepTail: Bool = false) async {
+        guard active, !loading, !older || (more && cursor != nil) else { return }
+        let current = UUID(), key = query, source = tab, requestFilter = filter
+        let oldCursor = older ? cursor : nil
+        requestID = current; loading = true; receivedDuringRequest = []
+        defer { if requestID == current { loading = false; receivedDuringRequest = [] } }
         do {
-            var fields: [String: JSONValue] = ["limit": .number(20)]
-            let types = ["mentions": ["mention", "reply", "quote"], "reactions": ["reaction", "renote"], "following": ["follow", "receiveFollowRequest", "followRequestAccepted"]]
-            if let included = types[category] { fields["includeTypes"] = .strings(included) }
-            else if category == "system" { fields["excludeTypes"] = .strings(types.values.flatMap { $0 }) }
-            if older, let id = items.last?.id { fields["untilId"] = .string(id) }
-            if category == "directNotes" { fields["visibility"] = .string("specified"); fields["following"] = .bool(false) }
-            let result = Record.list(try await session.call(category == "directNotes" ? "notes/mentions" : "i/notifications", fields))
-            guard attempt == request, !Task.isCancelled else { return }
-            items = older ? Records.merge(items, result, limit: 2000) : result; error = nil
-            hasMore = result.count == 20
-            await session.refreshUnread()
-        } catch { if attempt == request && !Task.isCancelled { self.error = error.localizedDescription } }
+            let value = try await session.call(source.endpoint, source.parameters(filter: requestFilter, until: oldCursor,
+                                                   oldestFirst: noteOptions.oldestFirst, date: noteOptions.date))
+            try Task.checkCancellation()
+            guard requestID == current, active, key == query else { return }
+            guard case .array = value else { throw APIError.invalidResponse }
+            let page = Record.list(value)
+            if older {
+                items = joined(items, page)
+            } else {
+                var next = joined(receivedDuringRequest, page)
+                if keepTail, let last = page.last?.id, let overlap = items.firstIndex(where: { $0.id == last }) {
+                    next = joined(next, Array(items.dropFirst(overlap + 1)))
+                }
+                if loadedQuery == key && !items.isEmpty && !keepTail {
+                    withAnimation(enterAnimation) { items = next }
+                } else { items = next }
+                queued = []
+            }
+            // A retained older tail owns its own cursor.
+            if !keepTail || items.last?.id == page.last?.id {
+                cursor = page.last?.id
+                more = source.canLoadOlder(page, previousCursor: oldCursor)
+            }
+            loadedQuery = key; needsRefresh = false; errorMessage = nil
+            if source == .all && !page.isEmpty { await session.refreshUnread() }
+        } catch {
+            if requestID == current && active && key == query && !Task.isCancelled {
+                errorMessage = error.localizedDescription
+                retryOlder = older
+            }
+        }
     }
     private func markRead() async {
-        do { _ = try await session.call("notifications/mark-all-as-read", mutation: true); await load(); await session.refreshUnread() }
-        catch { self.error = error.localizedDescription }
+        guard !markingRead else { return }
+        markingRead = true
+        defer { markingRead = false }
+        do {
+            _ = try await session.call("notifications/mark-all-as-read", mutation: true)
+            await session.refreshUnread()
+        } catch { if !Task.isCancelled { actionMessage = error.localizedDescription } }
     }
+    private func respond(_ item: Record, accept: Bool) async {
+        guard requestStates[item.id] == nil, !item.user.id.isEmpty else { return }
+        requestStates[item.id] = "处理中…"
+        do {
+            _ = try await session.call(accept ? "following/requests/accept" : "following/requests/reject", ["userId": .string(item.user.id)], mutation: true)
+            requestStates[item.id] = accept ? "已接受" : "已拒绝"
+        } catch {
+            if (error as? APIError) == .uncertain {
+                requestStates[item.id] = "结果待核对，请打开关注申请查看。"
+            } else { requestStates[item.id] = nil }
+            actionMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct NotificationScrollTop: PreferenceKey {
+    static var defaultValue: CGFloat? { nil }
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) { value = nextValue() ?? value }
+}
+
+private struct NoteListOptions {
+    var oldestFirst = false
+    var date: Date?
 }

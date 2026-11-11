@@ -8,6 +8,7 @@ import { verifyAdminContracts } from './admin-contract.mjs';
 import { prepareVerificationFixture, verifyExtendedContracts } from './extended-contract.mjs';
 import { verifyChatContracts } from './chat-contract.mjs';
 import { setupAuthChannels, verifyAuthContracts } from './auth-contract.mjs';
+import { prepareNotificationChecks } from './notifications-contract.mjs';
 
 if (process.env.GITHUB_ACTIONS !== 'true' || process.env.NODE_ENV !== 'test') throw new Error('Disposable test runner required');
 let startupPhase='initialization';
@@ -43,6 +44,11 @@ await api('admin/roles/update-default-policies',{policies:{...before.policies,ca
 const announcement=await api('admin/announcements/create',{title:'隔离原生公告',text:'Synthetic announcement',imageUrl:null,display:'marquee'},owner.token);
 const alice=await api('signup',{username:'native_alice',password:randomBytes(24).toString('hex')});
 const bob=await api('signup',{username:'native_bob',password:randomBytes(24).toString('hex')});
+startupPhase='notifications-contract';
+const notificationChecks = process.env.PUBO_CHECK_NOTIFICATIONS === '1'
+  ? await prepareNotificationChecks(api, join(process.env.GITHUB_WORKSPACE, 'build/integration-notifications-contract.json'))
+  : null;
+startupPhase='existing-contracts';
 await verifyAdminContracts(api,owner,alice,join(process.env.GITHUB_WORKSPACE,'build/integration-admin-contract.json'));
 try { await verifyExtendedContracts(api,owner,join(process.env.GITHUB_WORKSPACE,'build/integration-extended-contract.json')); }
 catch(error) { await writeFile(join(process.env.GITHUB_WORKSPACE,'build/integration-extended-failure.json'),JSON.stringify({status:'FAIL',productionAPIRequests:0,error:String(error.message)},null,2)); throw new Error('Isolated extended contract failed; see sanitized evidence'); }
@@ -80,6 +86,12 @@ const context={roomId:parityRoom.id,roomOldId:parityOld.id,roomMessageId:parityM
 // Loopback-only ephemeral credentials; never logged, written to artifacts, or sent to production.
 const control=createServer(async(req,res)=>{
  try {
+  if (notificationChecks && req.method === 'GET' && req.url === '/notifications-context') {
+   res.setHeader('content-type','application/json'); res.end(JSON.stringify(notificationChecks.context)); return;
+  }
+  if (notificationChecks && req.method === 'GET' && req.url === '/notifications-read') {
+   res.setHeader('content-type','application/json'); res.end(JSON.stringify({read: await notificationChecks.isRead()})); return;
+  }
   if(req.method==='POST'&&req.url==='/prepare-test'){
    // Reset only shared synthetic settings: a failed test must not hide the next test's poll.
    const rows=await api('mute/list',{limit:100},alice.token);

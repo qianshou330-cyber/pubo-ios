@@ -15,8 +15,8 @@ settings:
     SWIFT_VERSION: '5.0'
     TARGETED_DEVICE_FAMILY: '1'
     CODE_SIGNING_ALLOWED: NO
-    MARKETING_VERSION: 0.9.3
-    CURRENT_PROJECT_VERSION: 134
+    MARKETING_VERSION: 0.9.4
+    CURRENT_PROJECT_VERSION: 135
 targets:
   PUBO:
     type: application
@@ -29,8 +29,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolubo.native
         TARGETED_DEVICE_FAMILY: '1'
-        MARKETING_VERSION: 0.9.3
-        CURRENT_PROJECT_VERSION: 134
+        MARKETING_VERSION: 0.9.4
+        CURRENT_PROJECT_VERSION: 135
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: App/PUBO.entitlements
       configs:
@@ -38,6 +38,7 @@ targets:
           APNS_ENVIRONMENT: development
         Release:
           APNS_ENVIRONMENT: production
+          EXCLUDED_SOURCE_FILE_NAMES: NotificationVisualCases.json
     info:
       path: App/Info.plist
       properties:

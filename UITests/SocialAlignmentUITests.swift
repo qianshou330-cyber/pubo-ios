@@ -34,11 +34,11 @@ final class SocialAlignmentUITests: XCTestCase {
     func testNotificationDestinationsAndSpecifiedNotes() {
         let app = launch(); app.tabBars.buttons["通知"].tap()
         let achievement = app.buttons["notification.socialnotice2"]; XCTAssertTrue(achievement.waitForExistence(timeout: 6)); capture(app, "social-notifications-light"); achievement.tap()
-        XCTAssertTrue(app.navigationBars["成就详情"].waitForExistence(timeout: 5)); app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["成就"].waitForExistence(timeout: 5)); app.navigationBars.buttons.firstMatch.tap()
         app.buttons["notification.socialnotice3"].tap()
         XCTAssertTrue(app.navigationBars["导出文件"].waitForExistence(timeout: 5)); XCTAssertTrue(app.buttons["查看与保存导出文件"].waitForExistence(timeout: 5)); capture(app, "social-export-destination")
         app.navigationBars.buttons.firstMatch.tap()
-        app.descendants(matching: .any).matching(identifier: "notifications.filter").firstMatch.tap(); app.buttons["指定可见帖子"].tap()
+        app.descendants(matching: .any).matching(identifier: "notifications.tab.directNotes").firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "note.open.socialdirect").firstMatch.waitForExistence(timeout: 5)); capture(app, "social-specified-notes")
     }
     func testRoomBubblesReactionEmojiAndFileMenuInBothThemes() {

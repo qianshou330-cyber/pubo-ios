@@ -29,6 +29,8 @@ visual = ['-only-testing:PUBOUITests/TimelineVisualUITests']
 if not small:
     visual.append('-only-testing:PUBOUITests/TimelineNavigationEvidenceTests')
 groups += [('visual', visual)]
+groups += [('notifications', ['-only-testing:PUBOUITests/NotificationAlignmentUITests']),
+           ('notification-routes', ['-only-testing:PUBOUITests/NotificationRouteUITests'])]
 selected=os.environ.get('PUBO_UI_GROUPS')
 if selected: groups=[item for item in groups if item[0] in selected.split(',')]
 try:
@@ -67,7 +69,7 @@ try:
         video=subprocess.Popen(['xcrun','simctl','io',identifier,'recordVideo','--codec=h264',str(shots/'interactions.mp4')])
         try:
             with SimulatorResources(root/(name+'-resources.json')):
-                result=subprocess.run(['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1600 if name in ('auth-functional', 'chat') else 1100)
+                result=subprocess.run(['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination',f'platform=iOS Simulator,id={identifier}','-destination-timeout','90','-derivedDataPath','build/debug','-resultBundlePath',str(bundle),'-parallel-testing-enabled','NO']+selection+['CODE_SIGNING_ALLOWED=NO','test'],timeout=1600 if name in ('auth-functional', 'chat', 'notification-routes') else 1100)
         finally:
             video.send_signal(signal.SIGINT)
             try:video.wait(timeout=30)

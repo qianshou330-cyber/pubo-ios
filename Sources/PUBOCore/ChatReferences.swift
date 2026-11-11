@@ -50,11 +50,24 @@ public enum ChatReferences {
 }
 
 public struct NotificationBadges: Equatable, Sendable {
-    public var notification = false
+    public private(set) var notification = false
+    public private(set) var notificationCount: Int?
     public var chatCount = 0
     public var otherChat = false
     public init() {}
-    public var notificationLabel: String? { notification ? "•" : nil }
+    public var notificationLabel: String? {
+        guard notification else { return nil }
+        guard let count = notificationCount, count > 0 else { return "•" }
+        return count > 99 ? "99+" : String(count)
+    }
+    public mutating func applyAccount(_ account: JSONValue) {
+        guard case .bool(let unread) = account["hasUnreadNotification"] else { return }
+        notification = unread
+        if unread, case .number(let count) = account["unreadNotificationsCount"], count > 0, count.rounded() == count {
+            notificationCount = Int(min(count, 100))
+        } else { notificationCount = nil }
+    }
+    public mutating func markNotificationsRead() { notification = false; notificationCount = nil }
     public var chatLabel: String? { chatCount > 0 ? (chatCount > 99 ? "99+" : String(chatCount)) : otherChat ? "•" : nil }
     public mutating func applyChat(_ summary: JSONValue) throws {
         guard case .number(let count) = summary["notificationUnreadCount"], count >= 0, count.rounded() == count,

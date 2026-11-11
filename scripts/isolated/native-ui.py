@@ -26,14 +26,17 @@ try:
  subprocess.run(['xcrun','simctl','terminate',device,'com.bolubo.native'],check=True,timeout=30)
  result['simulatorWarmup']='Completed separate setup launch and termination'
  command=['xcodebuild','-quiet','-project','PUBO.xcodeproj','-scheme','PUBO','-configuration','Debug','-destination','platform=iOS Simulator,id='+device,'-derivedDataPath','build/integration-derived','-resultBundlePath','build/integration-ui.xcresult','-parallel-testing-enabled','NO','-only-testing:PUBOUITests/PUBOIntegrationTests','-only-testing:PUBOUITests/ReconnectionUITests','CODE_SIGNING_ALLOWED=NO','test']
+ notification_test = os.environ.get('PUBO_CHECK_NOTIFICATIONS') == '1'
+ if notification_test:
+  command.insert(-1, '-only-testing:PUBOUITests/NotificationBackendTests')
  (root/'integration-screenshots').mkdir(exist_ok=True)
  recording={'startedAt':time.time(),'file':'integration-screenshots/interactions.mp4'}
  (root/'integration-recording.json').write_text(json.dumps(recording))
  video=subprocess.Popen(['xcrun','simctl','io',device,'recordVideo','--codec=h264',str(root/'integration-screenshots/interactions.mp4')])
- subprocess.run(command,check=True,timeout=1500,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1'})
+ subprocess.run(command,check=True,timeout=1500,env={**os.environ,'TEST_RUNNER_PUBO_REQUIRE_ISOLATED_BACKEND':'1','TEST_RUNNER_PUBO_CHECK_NOTIFICATIONS':str(int(notification_test))})
  summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary','--path','build/integration-ui.xcresult']))
  (root/'integration-test-summary.json').write_text(json.dumps(summary,indent=2))
- assert summary.get('passedTests',0)==21 and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'All twenty-one real-backend UI tests must actually run'
+ assert summary.get('passedTests',0)==21+int(notification_test) and summary.get('failedTests',0)==0 and summary.get('skippedTests',0)==0, 'Every selected real-backend UI test must run and pass'
  result['status']='PASS'
 except Exception as error:
  result['status']='FAIL';result['error']=type(error).__name__+': '+str(error)
