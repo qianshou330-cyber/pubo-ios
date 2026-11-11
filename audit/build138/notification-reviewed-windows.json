@@ -1,0 +1,33 @@
+{
+  "notifications-filter-light": {
+    "source": "native-large/screenshots/notifications/CA5D992F-EE71-4F06-B4A9-B9516BAD199C.mp4",
+    "startPTS": 19.7,
+    "durationPTS": 129.833
+  },
+  "notifications-follow-light": {
+    "source": "native-large/screenshots/notifications/CA5D992F-EE71-4F06-B4A9-B9516BAD199C.mp4",
+    "startPTS": 36.8,
+    "durationPTS": 129.833
+  },
+  "notifications-mentions-light": {
+    "source": "native-large/screenshots/notifications/CA5D992F-EE71-4F06-B4A9-B9516BAD199C.mp4",
+    "startPTS": 48.65,
+    "durationPTS": 129.833
+  },
+  "notifications-directNotes-light": {
+    "source": "native-large/screenshots/notifications/CA5D992F-EE71-4F06-B4A9-B9516BAD199C.mp4",
+    "startPTS": 50.78,
+    "durationPTS": 129.833
+  },
+  "notifications-pull-refreshed": {
+    "source": "native-large/screenshots/notifications/B43FC5CA-9094-471F-8102-D1DD9B578F3D.mp4",
+    "startPTS": 29.18,
+    "durationPTS": 36.833,
+    "seconds": 6.5
+  },
+  "notifications-live-arrived": {
+    "source": "native-large/screenshots/notifications/CC3406E4-9C27-4594-8D1D-36BA0CD8A975.mp4",
+    "startPTS": 15.03,
+    "durationPTS": 24.833
+  }
+}

@@ -23,7 +23,7 @@ offsets={'notifications-filter-light':-1.25,'notifications-follow-light':-1.4,
          'notifications-pull-refreshed':-2.8,'notifications-live-arrived':-1.2}
 needs={'notifications-filter-light':2.8,'notifications-follow-light':2.95,
        'notifications-mentions-light':2.5,'notifications-directNotes-light':2.8,
-       'notifications-pull-refreshed':3.7,'notifications-live-arrived':2.3}
+       'notifications-pull-refreshed':6.5,'notifications-live-arrived':2.3}
 windows={}
 for name,delta in offsets.items():
     if name in methods:
@@ -31,7 +31,7 @@ for name,delta in offsets.items():
         stable=item['matchingSpans'][0][0]
     else:
         source=group['recording'];duration=group['presentationSeconds'];stable=group['matches'][name]['stableFrom']
-    windows[name]=dict(source=source, startPTS=round(max(0,min(duration-needs[name],stable+delta)),3),durationPTS=duration,reviewed=False)
+    windows[name]=dict(source=source, startPTS=round(max(0,min(duration-needs[name],stable+delta)),3),durationPTS=duration,seconds=needs[name],reviewed=False)
 write(b/'notification-proposed-windows.json',windows)
 manual=os.environ.get('NOTIFICATION_WINDOWS_JSON','').strip()
 review_file=b/'notification-reviewed-windows.json'
@@ -44,6 +44,10 @@ if reviewed:
             windows[name]['startPTS']=float(entry)
         else:
             for key in ('source','startPTS','durationPTS'):windows[name][key]=entry[key]
+            windows[name]['seconds']=float(entry.get('seconds',needs[name]))
+        start=windows[name]['startPTS'];span=windows[name]['seconds']
+        if not (start>=0 and 0<span and start+span<=windows[name]['durationPTS']):
+            raise ValueError(f'{name}: reviewed range must lie within the real video stream')
         windows[name]['reviewed']=True
 write(b/'notification-pair-windows.json',windows)
 run('pair-notification-evidence.py','--images','--video','--report',*([] if reviewed else ['--suggested-windows']))

@@ -64,9 +64,10 @@ def write_video():
       ('选择关注筛选','switch-and-filter-light',2.3,'notifications-follow-light',-1.4,2.95),
       ('切换提到我的','switch-and-filter-light',4.9,'notifications-mentions-light',-1.15,2.5),
       ('切换指定用户帖子','switch-and-filter-light',7.7,'notifications-directNotes-light',-.9,2.8),
-      ('下拉刷新','refresh-live-note',.35,'notifications-pull-refreshed',-2.8,3.7),
+      ('下拉刷新','refresh-live-note',.35,'notifications-pull-refreshed',-2.8,6.5),
       ('新通知入场','refresh-live-note',3.6,'notifications-live-arrived',-1.2,2.3),
     ]
+    seq=[(title,h,hs,n,delta,float(overrides.get(n,{}).get('seconds',dt))) for title,h,hs,n,delta,dt in seq]
     if args.precheck:
         seq=[case for case in seq if case[3] in alignment['matches'] and case[3] not in ('notifications-pull-refreshed','notifications-live-arrived')]
         index['pending']='初轮对照；下拉刷新与实时新行入场的录像待同产品源的模拟器专验。'
@@ -81,7 +82,7 @@ def write_video():
         if manual:
             src=(B/manual['source'].replace('\\','/')).resolve();start=manual['startPTS']
             assert src.is_relative_to(B) and src.is_file() and src.suffix.lower() in ('.mp4','.mov'),src
-            assert (manual['reviewed'] or args.suggested_windows) and 0<=start<manual['durationPTS']-dt+.04, manual
+            assert (manual['reviewed'] or args.suggested_windows) and dt>0 and 0<=start and start+dt<=manual['durationPTS'], manual
         else:
             src=original;start=max(0,alignment['matches'][n]['stableFrom']+delta)
             assert start+dt<=alignment['presentationSeconds']
@@ -100,8 +101,12 @@ def write_video():
     for i,(title,h,hs,n,delta,dt) in enumerate(seq):
         src,ns=windows[n]
         hv=H/'videos'/sizes[h]['file']
-        assert hs+dt<=sizes[h]['elapsed']+.03
+        assert dt>0 and hs>=0 and hs+dt<=sizes[h]['elapsed']
         nv=OUT/f'.native-{i}.mp4'
+        # Metadata tracks may outlast the last real sample in an XCTest video.
+        # Verify the extracted frames before composing side by side at normal speed.
+        count_bytes=subprocess.check_output([str(FF),'-v','error','-i',str(nv),'-map','0:v:0','-an','-vf','scale=2:2','-fps_mode','passthrough','-pix_fmt','gray','-f','rawvideo','-'])
+        assert len(count_bytes)%4==0 and abs(len(count_bytes)/4-30*dt)<=1.001,(n,len(count_bytes)/4,dt)
         head=Image.new('RGB',(682,64),'#e7ecea');d=ImageDraw.Draw(head)
         label(d,(8,4),'H5 · 内置浏览器',17);label(d,(344,4),'IPA · iPhone 17 Pro Max 模拟器',17)
         label(d,(8,33),title,15,'#465751');label(d,(344,33),f'0.9.4 / build {args.build}',14,'#465751')
@@ -147,7 +152,7 @@ def write_report():
        '## 分类、未读和动画','',
        'H5 分类菜单 20 项；回应与转贴各有单条及多人聚合形态。按菜单逐项点击，返回的类别与预期相符。两端的「提到我的」展示含提及的帖子，「私信」仅展示指定用户可见的帖子，日常聊天仍由底部私信入口进入。','',
        'H5 首页显示 12 条未读，点击铃铛进入有数据的全部页后归零。已读状态再点右上勾，会出现约 96px 的居中成功提示。原生使用服务端未读数，保留四页底部导航。','',
-       'H5 实录包含「松开以刷新」「刷新中」、新通知滑入、展开新帖和返回，保留真实时间戳。H5 下拉由合成浏览器触摸驱动，原生下拉由模拟器拖动触发。两端录制工具独立，短片按同一操作并排剪辑，不据此推算物理设备帧率。','',
+       '两端下拉实录使用同样的播放速度。H5 在 2.390 秒发出刷新请求，稍后通过隔离实时流收到新通知。原生由模拟器拖动，经过「下拉刷新」「松开以刷新」「刷新中」，刷新响应带回新首行后收起提示。两次手势的拖动时长不同。独立的实时入场片段展示原生收到推送时插入首行的效果。','',
        '## 双主题截图','', '| 状态 | 浅色 | 深色 |','|---|---|---|']
     for key,nkey,labeltxt in states:t.append(f'| {labeltxt} | [对照]({key}-light.png) | [对照]({key}-dark.png) |')
     if args.precheck:t+=['','初轮原生刷新手势尚未取得新行，实时入场已有正确截图。两项动作的实录正在同产品源码的模拟器专验中补录。当前并排片收录分类菜单、关注筛选、提及和指定用户帖子。']
