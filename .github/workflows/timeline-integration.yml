@@ -1,7 +1,7 @@
-name: Timeline visual real backend verification
+name: Build 130 isolated administrator announcement receipt
 on:
   push:
-    branches: ['ui-timeline-visual-*']
+    branches: ['ci-build130-admin-receipt-20261111']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +21,16 @@ jobs:
       PUBO_SNAKE_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify exact build 130 app and original assertion
+        run: |
+          git diff --exit-code 9117cdef6026c1e1b8c3e48aba1d55cafbe19605 HEAD -- App Sources Package.swift Package.resolved project.yml UITests
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path('build');p.mkdir(exist_ok=True)
+          (p/'integration-product-source.json').write_text(json.dumps({'productCommit':'9117cdef6026c1e1b8c3e48aba1d55cafbe19605','validationCommit':os.environ['GITHUB_SHA'],'parentRun':41968181703,'scope':'Original administrator announcement test only; unchanged product and original UITest; build 130'}))
+          PY
       - uses: actions/setup-node@v4
         with:
           node-version: 26.4.0
@@ -100,7 +110,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: native-backend-integration-${{ github.sha }}
+          name: build130-admin-receipt-${{ github.sha }}
           path: |
             build/integration-*.json
             build/integration-ui.xcresult
