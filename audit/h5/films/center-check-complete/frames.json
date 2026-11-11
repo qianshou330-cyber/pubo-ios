@@ -1,0 +1,576 @@
+[
+ {
+  "file": "00000.jpg",
+  "t": 1794381433.571438,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749166.519887,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381433.571438
+  }
+ },
+ {
+  "file": "00001.jpg",
+  "t": 1794381434.470591,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.41904,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.470591
+  }
+ },
+ {
+  "file": "00002.jpg",
+  "t": 1794381434.487264,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.435713,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.487264
+  }
+ },
+ {
+  "file": "00003.jpg",
+  "t": 1794381434.503902,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.452351,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.503902
+  }
+ },
+ {
+  "file": "00004.jpg",
+  "t": 1794381434.653706,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.602155,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.653706
+  }
+ },
+ {
+  "file": "00005.jpg",
+  "t": 1794381434.920222,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.868671,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.920222
+  }
+ },
+ {
+  "file": "00006.jpg",
+  "t": 1794381434.953411,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.90186,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.953411
+  }
+ },
+ {
+  "file": "00007.jpg",
+  "t": 1794381434.986756,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.935205,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381434.986756
+  }
+ },
+ {
+  "file": "00008.jpg",
+  "t": 1794381435.020041,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749167.96849,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.020041
+  }
+ },
+ {
+  "file": "00009.jpg",
+  "t": 1794381435.053306,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.001755,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.053306
+  }
+ },
+ {
+  "file": "00010.jpg",
+  "t": 1794381435.103268,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.051717,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.103268
+  }
+ },
+ {
+  "file": "00011.jpg",
+  "t": 1794381435.119932,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.068381,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.119932
+  }
+ },
+ {
+  "file": "00012.jpg",
+  "t": 1794381435.153207,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.101656,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.153207
+  }
+ },
+ {
+  "file": "00013.jpg",
+  "t": 1794381435.186498,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.134947,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.186498
+  }
+ },
+ {
+  "file": "00014.jpg",
+  "t": 1794381435.219822,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.168272,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.219822
+  }
+ },
+ {
+  "file": "00015.jpg",
+  "t": 1794381435.253113,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.201562,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.253113
+  }
+ },
+ {
+  "file": "00016.jpg",
+  "t": 1794381435.286507,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.234956,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.286507
+  }
+ },
+ {
+  "file": "00017.jpg",
+  "t": 1794381435.319718,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.268167,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.319718
+  }
+ },
+ {
+  "file": "00018.jpg",
+  "t": 1794381435.352999,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.301448,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.352999
+  }
+ },
+ {
+  "file": "00019.jpg",
+  "t": 1794381435.386304,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.334753,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.386304
+  }
+ },
+ {
+  "file": "00020.jpg",
+  "t": 1794381435.419615,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.368064,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.419615
+  }
+ },
+ {
+  "file": "00021.jpg",
+  "t": 1794381435.452928,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.401377,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.452928
+  }
+ },
+ {
+  "file": "00022.jpg",
+  "t": 1794381435.486211,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.43466,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.486211
+  }
+ },
+ {
+  "file": "00023.jpg",
+  "t": 1794381435.519529,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.467978,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.519529
+  }
+ },
+ {
+  "file": "00024.jpg",
+  "t": 1794381435.552819,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.501268,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.552819
+  }
+ },
+ {
+  "file": "00025.jpg",
+  "t": 1794381435.58613,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.534579,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.58613
+  }
+ },
+ {
+  "file": "00026.jpg",
+  "t": 1794381435.619415,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.567865,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.619415
+  }
+ },
+ {
+  "file": "00027.jpg",
+  "t": 1794381435.65271,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.601159,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.65271
+  }
+ },
+ {
+  "file": "00028.jpg",
+  "t": 1794381435.686017,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.634466,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.686017
+  }
+ },
+ {
+  "file": "00029.jpg",
+  "t": 1794381435.702675,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.651124,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.702675
+  }
+ },
+ {
+  "file": "00030.jpg",
+  "t": 1794381435.71933,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.667779,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.71933
+  }
+ },
+ {
+  "file": "00031.jpg",
+  "t": 1794381435.752608,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.701057,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.752608
+  }
+ },
+ {
+  "file": "00032.jpg",
+  "t": 1794381435.785907,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.734356,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.785907
+  }
+ },
+ {
+  "file": "00033.jpg",
+  "t": 1794381435.802663,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.751112,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.802663
+  }
+ },
+ {
+  "file": "00034.jpg",
+  "t": 1794381435.852571,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.80102,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.852571
+  }
+ },
+ {
+  "file": "00035.jpg",
+  "t": 1794381435.869235,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.817684,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.869235
+  }
+ },
+ {
+  "file": "00036.jpg",
+  "t": 1794381435.885835,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.834284,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.885835
+  }
+ },
+ {
+  "file": "00037.jpg",
+  "t": 1794381435.935877,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749168.884326,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381435.935877
+  }
+ },
+ {
+  "file": "00038.jpg",
+  "t": 1794381436.468596,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749169.417045,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381436.468596
+  }
+ },
+ {
+  "file": "00039.jpg",
+  "t": 1794381436.618428,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749169.566877,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381436.618428
+  }
+ },
+ {
+  "file": "00040.jpg",
+  "t": 1794381437.500868,
+  "metadata": {
+   "deviceHeight": 956,
+   "deviceWidth": 440,
+   "monotonicTimestamp": 749170.449317,
+   "offsetTop": 0,
+   "pageScaleFactor": 1,
+   "scrollOffsetX": 0,
+   "scrollOffsetY": 0,
+   "timestamp": 1794381437.500868
+  }
+ }
+]

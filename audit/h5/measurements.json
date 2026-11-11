@@ -1,0 +1,299 @@
+{
+  "background": "rgb(249, 249, 249)",
+  "buttons": [],
+  "row": "<div data-scroll-anchor=\"noticetest0032\" class=\"xmufI\"><!----><div class=\"x9Bba xj4lt x7OW7\"><div class=\"xwUec\"><a href=\"/@friend\" class=\"_noSelect x6tH3 xtWgn xlX0H\" title=\"friend\"><div class=\"chromatic-ignore xEFF2 x2pHm xraw1\" title=\"\"><canvas draggable=\"false\" tabindex=\"-1\" class=\"x4Rm8\" style=\"-webkit-user-drag: none;\" width=\"64\" height=\"64\"></canvas><img height=\"42\" width=\"42\" class=\"xkJBF\" alt=\"\" loading=\"eager\" decoding=\"async\" draggable=\"false\" tabindex=\"-1\" style=\"-webkit-user-drag: none; display: none;\"></div><!----><!----></a><div class=\"xAV2R\"><img class=\"xagin\" src=\"/twemoji/2764.svg\" alt=\"❤️\" decoding=\"async\" normal=\"true\" nostyle=\"true\" style=\"width: 100%; height: 100% !important; object-fit: contain;\"></div></div><div class=\"xkPP6\"><header class=\"xEPBi\"><a href=\"/@friend\" class=\"x4ZLV\"><span style=\"white-space: pre; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis;\">测试朋友</span></a><time title=\"2026/11/11",
+  "scalars": [
+    [
+      "DIV",
+      "x9Bba xj4lt x7OW7",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 169,
+        "height": 66,
+        "left": 12,
+        "right": 428,
+        "top": 103,
+        "width": 416,
+        "x": 12,
+        "y": 103
+      }
+    ],
+    [
+      "DIV",
+      "xwUec",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 157,
+        "height": 42,
+        "left": 24,
+        "right": 66,
+        "top": 115,
+        "width": 42,
+        "x": 24,
+        "y": 115
+      }
+    ],
+    [
+      "A",
+      "_noSelect x6tH3 xtWgn xlX0H",
+      "11.9px",
+      "16px",
+      {
+        "bottom": 157,
+        "height": 42,
+        "left": 24,
+        "right": 66,
+        "top": 115,
+        "width": 42,
+        "x": 24,
+        "y": 115
+      }
+    ],
+    [
+      "DIV",
+      "chromatic-ignore xEFF2 x2pHm xraw1",
+      "11.9px",
+      "16px",
+      {
+        "bottom": 157,
+        "height": 42,
+        "left": 24,
+        "right": 66,
+        "top": 115,
+        "width": 42,
+        "x": 24,
+        "y": 115
+      }
+    ],
+    [
+      "CANVAS",
+      "x4Rm8",
+      "11.9px",
+      "16px",
+      {
+        "bottom": 157,
+        "height": 42,
+        "left": 24,
+        "right": 66,
+        "top": 115,
+        "width": 42,
+        "x": 24,
+        "y": 115
+      }
+    ],
+    [
+      "IMG",
+      "xkJBF",
+      "11.9px",
+      "16px",
+      {
+        "bottom": 0,
+        "height": 0,
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "width": 0,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    [
+      "DIV",
+      "xAV2R",
+      "11px",
+      "20px",
+      {
+        "bottom": 159,
+        "height": 20,
+        "left": 48,
+        "right": 68,
+        "top": 139,
+        "width": 20,
+        "x": 48,
+        "y": 139
+      }
+    ],
+    [
+      "IMG",
+      "xagin",
+      "11px",
+      "20px",
+      {
+        "bottom": 159,
+        "height": 20,
+        "left": 48,
+        "right": 68,
+        "top": 139,
+        "width": 20,
+        "x": 48,
+        "y": 139
+      }
+    ],
+    [
+      "DIV",
+      "xkPP6",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 157,
+        "height": 42,
+        "left": 74,
+        "right": 416,
+        "top": 115,
+        "width": 342,
+        "x": 74,
+        "y": 115
+      }
+    ],
+    [
+      "HEADER",
+      "xEPBi",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 131.0625,
+        "height": 16.0625,
+        "left": 74,
+        "right": 416,
+        "top": 115,
+        "width": 342,
+        "x": 74,
+        "y": 115
+      }
+    ],
+    [
+      "A",
+      "x4ZLV",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 131.0625,
+        "height": 16.0625,
+        "left": 74,
+        "right": 121.609375,
+        "top": 115,
+        "width": 47.609375,
+        "x": 74,
+        "y": 115
+      }
+    ],
+    [
+      "SPAN",
+      "",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 130,
+        "height": 14,
+        "left": 74,
+        "right": 121.609375,
+        "top": 116,
+        "width": 47.609375,
+        "x": 74,
+        "y": 116
+      }
+    ],
+    [
+      "TIME",
+      "xtktr",
+      "10.71px",
+      "14.4585px",
+      {
+        "bottom": 130.4375,
+        "height": 14.4375,
+        "left": 377.90625,
+        "right": 416,
+        "top": 116,
+        "width": 38.09375,
+        "x": 377.90625,
+        "y": 116
+      }
+    ],
+    [
+      "DIV",
+      "",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 147.125,
+        "height": 16.0625,
+        "left": 74,
+        "right": 416,
+        "top": 131.0625,
+        "width": 342,
+        "x": 74,
+        "y": 131.0625
+      }
+    ],
+    [
+      "A",
+      "xi4PS",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 147.125,
+        "height": 16.0625,
+        "left": 74,
+        "right": 416,
+        "top": 131.0625,
+        "width": 342,
+        "x": 74,
+        "y": 131.0625
+      }
+    ],
+    [
+      "I",
+      "ti ti-quote x4jMg",
+      "5.95px",
+      "5.95px",
+      {
+        "bottom": 147.125,
+        "height": 16.0625,
+        "left": 74,
+        "right": 81.609375,
+        "top": 131.0625,
+        "width": 7.609375,
+        "x": 74,
+        "y": 131.0625
+      }
+    ],
+    [
+      "SPAN",
+      "",
+      "11.9px",
+      "16.065px",
+      {
+        "bottom": 147.125,
+        "height": 16.0625,
+        "left": 85.609375,
+        "right": 204.609375,
+        "top": 131.0625,
+        "width": 119,
+        "x": 85.609375,
+        "y": 131.0625
+      }
+    ],
+    [
+      "I",
+      "ti ti-quote x4jMg",
+      "5.95px",
+      "5.95px",
+      {
+        "bottom": 147.125,
+        "height": 16.0625,
+        "left": 208.609375,
+        "right": 216.21875,
+        "top": 131.0625,
+        "width": 7.609375,
+        "x": 208.609375,
+        "y": 131.0625
+      }
+    ]
+  ],
+  "viewport": [
+    440,
+    956
+  ]
+}

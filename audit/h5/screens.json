@@ -1,0 +1,132 @@
+{
+  "all-light": {
+    "frame": "films\\switch-and-filter-light\\00001.jpg",
+    "sourceTimestampUTC": 1794380930.873883,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "filter-light": {
+    "frame": "films\\switch-and-filter-light\\00011.jpg",
+    "sourceTimestampUTC": 1794380932.955222,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "follow-light": {
+    "frame": "films\\switch-and-filter-light\\00035.jpg",
+    "sourceTimestampUTC": 1794380934.836618,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "mentions-light": {
+    "frame": "films\\switch-and-filter-light\\00052.jpg",
+    "sourceTimestampUTC": 1794380937.883552,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "specified-light": {
+    "frame": "films\\switch-and-filter-light\\00068.jpg",
+    "sourceTimestampUTC": 1794380940.714125,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "all-dark": {
+    "frame": "films\\switch-and-filter-dark\\00001.jpg",
+    "sourceTimestampUTC": 1794380892.410552,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "filter-dark": {
+    "frame": "films\\switch-and-filter-dark\\00011.jpg",
+    "sourceTimestampUTC": 1794380892.6936,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "follow-dark": {
+    "frame": "films\\switch-and-filter-dark\\00034.jpg",
+    "sourceTimestampUTC": 1794380896.373392,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "mentions-dark": {
+    "frame": "films\\switch-and-filter-dark\\00052.jpg",
+    "sourceTimestampUTC": 1794380899.420401,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  },
+  "specified-dark": {
+    "frame": "films\\switch-and-filter-dark\\00069.jpg",
+    "sourceTimestampUTC": 1794380902.267569,
+    "sourceCSSViewport": [
+      440,
+      956
+    ],
+    "actualCropPixels": [
+      330,
+      717
+    ],
+    "resized": false
+  }
+}

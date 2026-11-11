@@ -1,0 +1,246 @@
+{
+  "files": [
+    {
+      "path": "audit/h5/all-light.png",
+      "bytes": 98875,
+      "sha256": "6b05a0b203c61b097b9a8cb8e7f5fc2a45d1587b24d54c16b27292ae864b33dc"
+    },
+    {
+      "path": "audit/h5/all-dark.png",
+      "bytes": 119548,
+      "sha256": "bd04d40560b3297ad93bd8098314cdddfe3acaaf90989c8b5683ece23c957fc7"
+    },
+    {
+      "path": "audit/h5/filter-light.png",
+      "bytes": 120250,
+      "sha256": "26d1caf7c6e59fb9033a55d5889d892330913a1782974bde7776ecc70b33065c"
+    },
+    {
+      "path": "audit/h5/filter-dark.png",
+      "bytes": 139999,
+      "sha256": "18c27aa1b7bdd1c7937aae51f84a5c194971322b12beca36b50cb15479de8cef"
+    },
+    {
+      "path": "audit/h5/follow-light.png",
+      "bytes": 24668,
+      "sha256": "32e526bbdaf48e33bdbb42a328cf2f5c731f27e97af288950ab42f4f1ce66a29"
+    },
+    {
+      "path": "audit/h5/follow-dark.png",
+      "bytes": 29498,
+      "sha256": "2d7156e5b30a80643a7299d82546ff3e43c0d82c5ec7b1b6218e45518d43466a"
+    },
+    {
+      "path": "audit/h5/mentions-light.png",
+      "bytes": 51525,
+      "sha256": "a6f760128ef26b6ed6894d0b35957edf4a2ba3739b8e6934203f499036770ae8"
+    },
+    {
+      "path": "audit/h5/mentions-dark.png",
+      "bytes": 64723,
+      "sha256": "bc6298e5a2edfdc9ca156393097c6069bd9eb90af95c67a027101a1300ac5608"
+    },
+    {
+      "path": "audit/h5/specified-light.png",
+      "bytes": 38062,
+      "sha256": "f57ed3783cc1d650af8f424c2236c6cee89dceab2848a2f53ab892ae7a0d5ccb"
+    },
+    {
+      "path": "audit/h5/specified-dark.png",
+      "bytes": 46505,
+      "sha256": "c2eaa099af8b38e94e6fac66b72a5d59e1ed08df434aa16ebe348415c571fb8b"
+    },
+    {
+      "path": "audit/h5/mark-read-success.png",
+      "bytes": 58066,
+      "sha256": "8a6dcc275d30aba0f105e85db0032542872b1beb94861e959f7c7c079647162b"
+    },
+    {
+      "path": "audit/h5/unread-before.png",
+      "bytes": 64453,
+      "sha256": "387acc0386f2fdd7c6ba63b12e3adaf2eb5e26f71ac37f2c78c071df259b1fbc"
+    },
+    {
+      "path": "audit/h5/unread-after.png",
+      "bytes": 99079,
+      "sha256": "b3cad8e86e7732e45c21ff989daf206712578c7144ded27c707c7cc2dd01360d"
+    },
+    {
+      "path": "audit/h5/videos/switch-and-filter-light.mp4",
+      "bytes": 100832,
+      "sha256": "1dd2a919eef2f30f56a525b04f33fb1fbc511d7eb8eb4f0e9b82c809c194887f"
+    },
+    {
+      "path": "audit/h5/videos/switch-and-filter-dark.mp4",
+      "bytes": 128054,
+      "sha256": "81b8ef40464ab5b945b8e4988e93f8bf401ad192407702793e48f599dcf63c4f"
+    },
+    {
+      "path": "audit/h5/videos/refresh-live-note.mp4",
+      "bytes": 276577,
+      "sha256": "b753f4063d7f848a8de2b45486fbb5bb735b9b4f6511c76663e2942c2e36e64d"
+    },
+    {
+      "path": "audit/h5/videos/center-check-complete.mp4",
+      "bytes": 111972,
+      "sha256": "d8bbabd4b0ee94f6f9d0120e0057e6ba973a095682b7d1bb85a1faa6d7098f85"
+    },
+    {
+      "path": "audit/h5/videos/unread12-to-zero.mp4",
+      "bytes": 39103,
+      "sha256": "c2163996cfbc028ca097dd065a010fe4f2478b8a3aadc579b03886f8798f7a24"
+    },
+    {
+      "path": "audit/h5/source.json",
+      "bytes": 1210,
+      "sha256": "80e57a8107312915de34911258e0143b8c62f542ea109cc0c53e45c9358006f1"
+    },
+    {
+      "path": "audit/h5/screens.json",
+      "bytes": 2705,
+      "sha256": "fd3f7756f9e93bf7a9ad6b7843124f82dc6af27acd0334147a69e31461db1fdb"
+    },
+    {
+      "path": "audit/h5/categories.json",
+      "bytes": 3647,
+      "sha256": "46c9c1cf0970bca1e4b76516141462e0d15b1603d783e9d3fcdb204dc9f24dce"
+    },
+    {
+      "path": "audit/h5/routes-final.json",
+      "bytes": 19488,
+      "sha256": "1f6c4254b70794a32fddd01c7eb5b266c121363829c59b3cbd225e8d60c22c38"
+    },
+    {
+      "path": "audit/h5/measurements.json",
+      "bytes": 5981,
+      "sha256": "3f96cf8cf52669049862e0bc35d8c3d5fe6927d3565d2cb68b4e5ed250cc272a"
+    },
+    {
+      "path": "audit/h5/rendered-rows.json",
+      "bytes": 7198,
+      "sha256": "782f4049c682f4e3e76083ce10ce64804efd748603e4d564fbaf5c38282a2e62"
+    },
+    {
+      "path": "audit/h5/note-tabs.json",
+      "bytes": 1164,
+      "sha256": "e74d8df627b1e7f86dd124d02d9f446bee65cfa23cb524444f9807308ee5635c"
+    },
+    {
+      "path": "audit/h5/routes.json",
+      "bytes": 22328,
+      "sha256": "e3000714c7808fd43b92b1f100120c94537eb93535a3452d880ce5d79deba4d5"
+    },
+    {
+      "path": "audit/h5/videos/index.json",
+      "bytes": 7510,
+      "sha256": "d69f6da4e51034591b8d3d6f35021f09bf5c1825e22ca5e757a101a046f01658"
+    },
+    {
+      "path": "audit/h5/H5-核对.md",
+      "bytes": 3417,
+      "sha256": "d3ce214c784a696c40433b90f9e72488cba75c7893010daea4501ff8548190f8"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/00001.jpg",
+      "bytes": 35816,
+      "sha256": "4eaa1345509af2a56e7bd0f9e93ae0878654fd415398660dee9680a42b71894c"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/00011.jpg",
+      "bytes": 42802,
+      "sha256": "c381364e66e0e1a150a47d534c6786d246ad642de3f34088da98c745433319f1"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/00035.jpg",
+      "bytes": 10570,
+      "sha256": "08ade2e62a0fa69880e9cb71980db85240329be3732a64ac084fd3e1d19b1204"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/00052.jpg",
+      "bytes": 18272,
+      "sha256": "4876f5ea8bbd2a2981b8a861446044208dc91671e056222e49dbad736a9ed3d3"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/00068.jpg",
+      "bytes": 14470,
+      "sha256": "4b217abb001cc00b455198ad16ca5d38721ce51d476f0ce18b6f8615ee2608ee"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/00001.jpg",
+      "bytes": 39743,
+      "sha256": "83a75e034def8c91efd4ba890caac957d59195150a80c075270c465b6a4beb9b"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/00011.jpg",
+      "bytes": 46707,
+      "sha256": "fd79d7fa32f553eb4ca92f25907254e43918efad4c8b536b39ba11939607a41d"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/00034.jpg",
+      "bytes": 11681,
+      "sha256": "e27da930546d8f3533ee18d77c46404f34a78adb2330c2f2ac93daafdaef1e11"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/00052.jpg",
+      "bytes": 20904,
+      "sha256": "f9ef3ff21ba5304e53928a24e071b0a4f035e03942a0d103262a1f6ca0a85490"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/00069.jpg",
+      "bytes": 16375,
+      "sha256": "a9a612b7173597f557d6c1756af80abd07bbd64b2963b644b0a9a75faecdbc15"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/frames.json",
+      "bytes": 27230,
+      "sha256": "11f259d82537956c7abf67ce4e05c958a990749be13ed280c35981c1b120fe7c"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-light/marks.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/frames.json",
+      "bytes": 27239,
+      "sha256": "db6f99522b4d11b739ad0e9052d795f4514970d63ef006ba36c6e444a1a5e5c1"
+    },
+    {
+      "path": "audit/h5/films/switch-and-filter-dark/marks.json",
+      "bytes": 334,
+      "sha256": "444667620fa1bdb2b183bd677960130634ceb8b39e9eea8bd91dfbf86d7df06f"
+    },
+    {
+      "path": "audit/h5/films/refresh-live-note/frames.json",
+      "bytes": 40120,
+      "sha256": "ae73d6a4148457ce16482bd3a9c3afd10bb8fa9dbd0bc9ac3f36de1abc771e4f"
+    },
+    {
+      "path": "audit/h5/films/refresh-live-note/marks.json",
+      "bytes": 626,
+      "sha256": "1c3ba1567ded693d9a647069ff013cd4f37fcd9d00602826c08f8e3714b62064"
+    },
+    {
+      "path": "audit/h5/films/center-check-complete/frames.json",
+      "bytes": 11758,
+      "sha256": "e14c26de07a5146ec4cced3cbc7bd7d5d7d76b884b3fb5d14390eee290c4a7c4"
+    },
+    {
+      "path": "audit/h5/films/center-check-complete/marks.json",
+      "bytes": 39,
+      "sha256": "ab4a6847a98e2efbb2ef9672f8a9afb29d6f90e2635a2c736aa1d6d294f2fb35"
+    },
+    {
+      "path": "audit/h5/films/unread12-to-zero/frames.json",
+      "bytes": 6886,
+      "sha256": "58e2e63417b4c6f630954e0b5ffc56ade2380236c15730913d74012e035de1b8"
+    },
+    {
+      "path": "audit/h5/films/unread12-to-zero/result.json",
+      "bytes": 405,
+      "sha256": "f9164ea7c52737684a567a6c82ee2035268a01738ea1afe6cd09a0f5eb8f45b2"
+    }
+  ],
+  "bytes": 2058416,
+  "coverage": "Original H5 MP4 recordings, reference frames, screenshots and timestamp indices. Individual JPEG frames outside the selection remain in the original capture directory."
+}

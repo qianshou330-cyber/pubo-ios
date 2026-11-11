@@ -1,0 +1,615 @@
+{
+  "allCategories": 20,
+  "variants": 22,
+  "allPassed": true,
+  "allAttemptsFile": "routes.json",
+  "retests": "四条长列表首次自动定位期间发生列表移位。已按对应类别单独复测，并在全部页将该行滚动至中央、定位稳定后再点。两次复测目标和返回均正确。",
+  "cases": [
+    {
+      "type": "reaction",
+      "id": "noticetest0032",
+      "start": 1794381099726,
+      "hrefs": [
+        [
+          "/@friend",
+          "friend"
+        ],
+        [
+          "/@friend",
+          "测试朋友"
+        ],
+        [
+          "/notes/notifmusic001",
+          "把今晚的歌单留给你。"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifmusic001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试用户\n@fixture\n把今晚的歌单留给你。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifmusic001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "follow",
+      "id": "noticetest0031",
+      "start": 1794381102107,
+      "hrefs": [
+        [
+          "/@violet",
+          "violet"
+        ],
+        [
+          "/@violet",
+          "小紫"
+        ]
+      ],
+      "controls": [],
+      "expected": "/@violet",
+      "observed": {
+        "body": "小紫\n@violet\n概览\n帖子\n文件\n活动\n成就\n便签\n列表\n页面\nPlay\n相册\nRaw",
+        "title": "小紫 (@violet) | PUBO",
+        "url": "/@violet"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "mention",
+      "id": "noticetest0030",
+      "start": 1794381106022,
+      "hrefs": [
+        [
+          "/@violet",
+          "violet"
+        ],
+        [
+          "/@violet",
+          "小紫"
+        ],
+        [
+          "/notes/notifmention01",
+          "5小时前"
+        ],
+        [
+          "/@fixture",
+          "@fixture"
+        ]
+      ],
+      "controls": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "expected": "/notes/notifmention01",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n小紫\n@violet\n@fixture 周末一起听歌吧。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifmention01"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "reaction:grouped",
+      "id": "noticetest0029",
+      "start": 1794381109878,
+      "hrefs": [
+        [
+          "/notes/notifmusic001",
+          "把今晚的歌单留给你。"
+        ],
+        [
+          "/@friend",
+          "friend"
+        ],
+        [
+          "/@violet",
+          "violet"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifmusic001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试用户\n@fixture\n把今晚的歌单留给你。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifmusic001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "achievementEarned",
+      "id": "noticetest0028",
+      "start": 1794381113715,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/my/achievements",
+          "初来乍到"
+        ]
+      ],
+      "controls": [],
+      "expected": "/my/achievements",
+      "observed": {
+        "body": "成就\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n???\n?",
+        "title": "成就 | PUBO",
+        "url": "/my/achievements"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "chatRoomInvitationReceived",
+      "id": "noticetest0027",
+      "start": 1794381117626,
+      "hrefs": [
+        [
+          "/@friend",
+          "friend"
+        ]
+      ],
+      "controls": [],
+      "tapped": "PUBO 音乐交流",
+      "observed": {
+        "body": "通知\n全部\n提到我的\n私信\n新的帖子: 测试朋友\n4小时前\n刚刚更新的演出时间表。\n测试朋友\n4小时前\n把今晚的歌单留给你。\n小紫\n4小时前\n你有新的关注者\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n2 人回应了\n4小时前\n把今晚的歌单留给你。\n获得成就\n4小时前\n初来乍到\n您已被邀请加入群聊",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      },
+      "expected": "/my/notifications",
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "reply",
+      "id": "noticetest0026",
+      "start": 1794381118074,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/@fixture",
+          "测试用户"
+        ],
+        [
+          "/notes/notifmusic001",
+          "5小时前"
+        ],
+        [
+          "/@friend",
+          "friend"
+        ],
+        [
+          "/@friend",
+          "测试朋友"
+        ],
+        [
+          "/notes/notifreply001",
+          "5小时前"
+        ],
+        [
+          "/notes/notifmusic001",
+          ""
+        ]
+      ],
+      "controls": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "expected": "/notes/notifreply001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试用户\n@fixture\n5小时前\n把今晚的歌单留给你。\n测试朋友\n@friend\n我也在听这一首。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifreply001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "renote",
+      "id": "noticetest0025",
+      "start": 1794381121945,
+      "hrefs": [
+        [
+          "/@friend",
+          "friend"
+        ],
+        [
+          "/@friend",
+          "测试朋友"
+        ],
+        [
+          "/notes/notifrenote01",
+          "把今晚的歌单留给你。"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifrenote01",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试朋友 转发了\n5小时前\n测试用户\n@fixture\n把今晚的歌单留给你。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifrenote01"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "renote:grouped",
+      "id": "noticetest0024",
+      "start": 1794381129363,
+      "hrefs": [
+        [
+          "/notes/notifrenote01",
+          "把今晚的歌单留给你。"
+        ],
+        [
+          "/@friend",
+          "friend"
+        ],
+        [
+          "/@violet",
+          "violet"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifrenote01",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试朋友 转发了\n5小时前\n测试用户\n@fixture\n把今晚的歌单留给你。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifrenote01"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "quote",
+      "id": "noticetest0023",
+      "start": 1794381406860,
+      "hrefs": [
+        [
+          "/@violet",
+          "violet"
+        ],
+        [
+          "/@violet",
+          "小紫"
+        ],
+        [
+          "/notes/notifquote001",
+          "5小时前"
+        ],
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/@fixture",
+          "测试用户"
+        ],
+        [
+          "/notes/notifmusic001",
+          "5小时前"
+        ]
+      ],
+      "controls": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "expected": "/notes/notifquote001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n小紫\n@violet\n这段副歌值得再听一次。RN:\n测试用户\n@fixture\n5小时前\n把今晚的歌单留给你。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifquote001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "note",
+      "id": "noticetest0022",
+      "start": 1794381411524,
+      "hrefs": [
+        [
+          "/@violet",
+          "violet"
+        ],
+        [
+          "/notes/notifnote0001",
+          "本周的新歌清单更新了。"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifnote0001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n小紫\n@violet\n本周的新歌清单更新了。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifnote0001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "pollEnded",
+      "id": "noticetest0021",
+      "start": 1794381416189,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/notes/notifpoll0001",
+          "周末想听哪种现场？ (投票)"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifpoll0001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试用户\n@fixture\n周末想听哪种现场？\n不插电(2票)\n乐队(3票)\n\n总计5票 · 已投票\n\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifpoll0001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "scheduledNotePosted",
+      "id": "noticetest0020",
+      "start": 1794381420894,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/notes/notifsched001",
+          "午间音乐推荐已送达。"
+        ]
+      ],
+      "controls": [],
+      "expected": "/notes/notifsched001",
+      "observed": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试用户\n@fixture\n午间音乐推荐已送达。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifsched001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "scheduledNotePostFailed",
+      "id": "noticetest0019",
+      "start": 1794381146430,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ]
+      ],
+      "controls": [],
+      "tapped": "定时帖子发布失败",
+      "observed": {
+        "body": "通知\n全部\n提到我的\n私信\n新的帖子: 测试朋友\n4小时前\n刚刚更新的演出时间表。\n测试朋友\n4小时前\n把今晚的歌单留给你。\n小紫\n4小时前\n你有新的关注者\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n2 人回应了\n4小时前\n把今晚的歌单留给你。\n获得成就\n4小时前\n初来乍到\n您已被邀请加入群聊",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      },
+      "expected": "/my/notifications",
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "receiveFollowRequest",
+      "id": "noticetest0018",
+      "start": 1794381147410,
+      "hrefs": [
+        [
+          "/@friend",
+          "friend"
+        ],
+        [
+          "/@friend",
+          "测试朋友"
+        ]
+      ],
+      "controls": [
+        " 允许",
+        " 拒绝"
+      ],
+      "expected": "/@friend",
+      "observed": {
+        "body": "测试朋友\n@friend\n概览\n帖子\n文件\n活动\n成就\n便签\n列表\n页面\nPlay\n相册\nRaw\n新的帖子: 测试朋友\n刚刚更新的演出时间表。",
+        "title": "测试朋友 (@friend) | PUBO",
+        "url": "/@friend"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "followRequestAccepted",
+      "id": "noticetest0017",
+      "start": 1794381151414,
+      "hrefs": [
+        [
+          "/@violet",
+          "violet"
+        ],
+        [
+          "/@violet",
+          "小紫"
+        ]
+      ],
+      "controls": [],
+      "expected": "/@violet",
+      "observed": {
+        "body": "小紫\n@violet\n概览\n帖子\n文件\n活动\n成就\n便签\n列表\n页面\nPlay\n相册\nRaw",
+        "title": "小紫 (@violet) | PUBO",
+        "url": "/@violet"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "app",
+      "id": "noticetest0016",
+      "start": 1794381163055,
+      "hrefs": [],
+      "controls": [],
+      "tapped": "订阅歌单已更新。",
+      "observed": {
+        "body": "通知\n全部\n提到我的\n私信\n新的帖子: 测试朋友\n4小时前\n刚刚更新的演出时间表。\n测试朋友\n4小时前\n把今晚的歌单留给你。\n小紫\n4小时前\n你有新的关注者\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n2 人回应了\n4小时前\n把今晚的歌单留给你。\n获得成就\n4小时前\n初来乍到\n您已被邀请加入群聊",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      },
+      "expected": "/my/notifications",
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "roleAssigned",
+      "id": "noticetest0015",
+      "start": 1794381163497,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ]
+      ],
+      "controls": [],
+      "tapped": "音乐同好",
+      "observed": {
+        "body": "通知\n全部\n提到我的\n私信\n新的帖子: 测试朋友\n4小时前\n刚刚更新的演出时间表。\n测试朋友\n4小时前\n把今晚的歌单留给你。\n小紫\n4小时前\n你有新的关注者\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n2 人回应了\n4小时前\n把今晚的歌单留给你。\n获得成就\n4小时前\n初来乍到\n您已被邀请加入群聊",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      },
+      "expected": "/my/notifications",
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "exportCompleted",
+      "id": "noticetest0014",
+      "start": 1794381163929,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/my/drive/file/notiffile0001",
+          "显示文件"
+        ]
+      ],
+      "controls": [],
+      "expected": "/my/drive/file/notiffile0001",
+      "observed": {
+        "body": "文件信息\n关于\n附加到的帖子\n此页只能被该文件的上传者查看。\nnotes-export.json\nnotes-export.json\n文件夹\n网盘\n描述\n(无)\n添加日期\n2026/11/11 12:00:00 (4小时前)\n文件类型\napplication/json\n文件大小\n128B\nURL",
+        "title": "文件信息 | PUBO",
+        "url": "/my/drive/file/notiffile0001"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "test",
+      "id": "noticetest0013",
+      "start": 1794381167771,
+      "hrefs": [],
+      "controls": [],
+      "tapped": "通知将会这样表示",
+      "observed": {
+        "body": "通知\n全部\n提到我的\n私信\n新的帖子: 测试朋友\n4小时前\n刚刚更新的演出时间表。\n测试朋友\n4小时前\n把今晚的歌单留给你。\n小紫\n4小时前\n你有新的关注者\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n2 人回应了\n4小时前\n把今晚的歌单留给你。\n获得成就\n4小时前\n初来乍到\n您已被邀请加入群聊",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      },
+      "expected": "/my/notifications",
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "login",
+      "id": "noticetest0012",
+      "start": 1794381168228,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ]
+      ],
+      "controls": [],
+      "tapped": "有新的登录",
+      "observed": {
+        "body": "通知\n全部\n提到我的\n私信\n新的帖子: 测试朋友\n4小时前\n刚刚更新的演出时间表。\n测试朋友\n4小时前\n把今晚的歌单留给你。\n小紫\n4小时前\n你有新的关注者\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n2 人回应了\n4小时前\n把今晚的歌单留给你。\n获得成就\n4小时前\n初来乍到\n您已被邀请加入群聊",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      },
+      "expected": "/my/notifications",
+      "back": "/my/notifications",
+      "ok": true
+    },
+    {
+      "type": "createToken",
+      "id": "noticetest0011",
+      "start": 1794381168661,
+      "hrefs": [
+        [
+          "/@fixture",
+          "fixture"
+        ],
+        [
+          "/settings/apps",
+          "如果不明白其用途，请遵循 “管理访问令牌” 的指示删除访问令牌。"
+        ]
+      ],
+      "controls": [],
+      "expected": "/settings/apps",
+      "observed": {
+        "body": "设置\n无",
+        "title": "设置 | PUBO",
+        "url": "/settings/apps"
+      },
+      "back": "/my/notifications",
+      "ok": true
+    }
+  ],
+  "noteTabs": [
+    {
+      "label": "提到我的",
+      "target": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n小紫\n@violet\n@fixture 周末一起听歌吧。\n2026/11/11 11:30:00 (5小时前)公开\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifmention01"
+      },
+      "back": {
+        "body": "通知\n全部\n提到我的\n私信\n从新到旧\n小紫\n@violet\n5小时前\n@fixture 周末一起听歌吧。\n测试朋友\n@friend\n5小时前\n@fixture 这份歌单仅分享给你。",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      }
+    },
+    {
+      "label": "私信",
+      "target": {
+        "body": "发帖\n2026/11/11 11:30:00\n \n测试朋友\n@friend\n@fixture 这份歌单仅分享给你。\n2026/11/11 11:30:00 (5小时前)指定用户\n 回复\n 转贴\n 回应\n查看回复\n ",
+        "title": "发帖 | PUBO",
+        "url": "/notes/notifdirect001"
+      },
+      "back": {
+        "body": "通知\n全部\n提到我的\n私信\n从新到旧\n测试朋友\n@friend\n5小时前\n@fixture 这份歌单仅分享给你。",
+        "title": "通知 | PUBO",
+        "url": "/my/notifications"
+      }
+    }
+  ]
+}

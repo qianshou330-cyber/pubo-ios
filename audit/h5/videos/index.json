@@ -1,0 +1,290 @@
+{
+  "browser": "Codex in-app browser",
+  "fixture": "NotificationVisualCases.json",
+  "cssViewport": [
+    440,
+    956
+  ],
+  "relativeOrigin": "h5",
+  "export": "原始 JPEG 帧保留浏览器时间戳，按原时间导出。内容 330×717，末行补 1 黑像素适配 H.264，未拉伸。",
+  "files": [
+    {
+      "name": "switch-and-filter-light",
+      "description": "浅色。全部通知、20 类菜单、关注筛选、提到我的、指定用户帖子、返回全部。",
+      "file": "switch-and-filter-light.mp4",
+      "relativeFrames": "films/switch-and-filter-light/frames.json",
+      "firstUTC": "2026-11-11T07:08:49.818985+00:00",
+      "elapsed": 11.461,
+      "uniqueCapturedFrames": 95,
+      "sourcePixels": [
+        440,
+        802
+      ],
+      "contentPixels": [
+        330,
+        717
+      ],
+      "encodedSize": [
+        330,
+        718
+      ],
+      "sha256": "1dd2a919eef2f30f56a525b04f33fb1fbc511d7eb8eb4f0e9b82c809c194887f",
+      "localTestAPI": [
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 3.163
+        },
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 3.431
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 5.072
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 5.27
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 8.116
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 8.298
+        },
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 10.933
+        },
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 11.202
+        }
+      ],
+      "localStream": [],
+      "timecodes": []
+    },
+    {
+      "name": "switch-and-filter-dark",
+      "description": "深色。同组数据和相同分页顺序。",
+      "file": "switch-and-filter-dark.mp4",
+      "relativeFrames": "films/switch-and-filter-dark/frames.json",
+      "firstUTC": "2026-11-11T07:08:11.356615+00:00",
+      "elapsed": 11.494,
+      "uniqueCapturedFrames": 95,
+      "sourcePixels": [
+        440,
+        802
+      ],
+      "contentPixels": [
+        330,
+        717
+      ],
+      "encodedSize": [
+        330,
+        718
+      ],
+      "sha256": "81b8ef40464ab5b945b8e4988e93f8bf401ad192407702793e48f599dcf63c4f",
+      "localTestAPI": [
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 3.163
+        },
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 3.431
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 5.06
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 5.272
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 8.122
+        },
+        {
+          "endpoint": "notes/mentions",
+          "atSeconds": 8.304
+        },
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 10.956
+        },
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 11.221
+        }
+      ],
+      "localStream": [],
+      "timecodes": [
+        {
+          "s": 0.0,
+          "action": "全部"
+        },
+        {
+          "s": 1.274,
+          "action": "筛选菜单"
+        },
+        {
+          "s": 3.356,
+          "action": "关注中"
+        },
+        {
+          "s": 6.103,
+          "action": "提到我的"
+        },
+        {
+          "s": 9.142,
+          "action": "私信"
+        },
+        {
+          "s": 11.976,
+          "action": "返回全部"
+        }
+      ]
+    },
+    {
+      "name": "refresh-live-note",
+      "description": "合成触摸驱动 H5 下拉刷新，收到一条隔离流的新通知，打开新帖并返回。",
+      "file": "refresh-live-note.mp4",
+      "relativeFrames": "films/refresh-live-note/frames.json",
+      "firstUTC": "2026-11-11T07:10:44.963609+00:00",
+      "elapsed": 10.873,
+      "uniqueCapturedFrames": 140,
+      "sourcePixels": [
+        440,
+        802
+      ],
+      "contentPixels": [
+        330,
+        717
+      ],
+      "encodedSize": [
+        330,
+        718
+      ],
+      "sha256": "b753f4063d7f848a8de2b45486fbb5bb735b9b4f6511c76663e2942c2e36e64d",
+      "localTestAPI": [
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 2.39
+        },
+        {
+          "endpoint": "notes/show",
+          "atSeconds": 7.009
+        }
+      ],
+      "localStream": [
+        {
+          "type": "unreadNotification",
+          "atSeconds": 4.317
+        },
+        {
+          "type": "notification",
+          "atSeconds": 4.317
+        },
+        {
+          "type": "readAllNotifications",
+          "atSeconds": 4.356
+        }
+      ],
+      "timecodes": [
+        {
+          "s": 0.9,
+          "action": "开始合成下拉触摸"
+        },
+        {
+          "s": 2.39,
+          "action": "刷新抵达本地 grouped API"
+        },
+        {
+          "s": 4.317,
+          "action": "隔离实时通知发送"
+        },
+        {
+          "s": 5.112,
+          "action": "完成 0.7 秒位移和淡入的大致时点"
+        },
+        {
+          "s": 7.009,
+          "action": "读取 notiflive0001 帖子详情"
+        },
+        {
+          "s": 10.87,
+          "action": "返回通知列表，保留新行"
+        }
+      ]
+    },
+    {
+      "name": "center-check-complete",
+      "description": "已读状态点右上勾，中心成功提示随成功回执显示后自动消失。",
+      "file": "center-check-complete.mp4",
+      "relativeFrames": "films/center-check-complete/frames.json",
+      "firstUTC": "2026-11-11T07:17:13.571438+00:00",
+      "elapsed": 3.929,
+      "uniqueCapturedFrames": 41,
+      "sourcePixels": [
+        440,
+        802
+      ],
+      "contentPixels": [
+        330,
+        717
+      ],
+      "encodedSize": [
+        330,
+        718
+      ],
+      "sha256": "d8bbabd4b0ee94f6f9d0120e0057e6ba973a095682b7d1bb85a1faa6d7098f85",
+      "localTestAPI": [
+        {
+          "endpoint": "notifications/mark-all-as-read",
+          "atSeconds": 1.063
+        }
+      ],
+      "localStream": [],
+      "successAtSeconds": 1.063,
+      "screenshotFrame": "00011.jpg"
+    },
+    {
+      "name": "unread12-to-zero",
+      "description": "首页显示 12，点铃铛进入非空全部通知，角标归零。",
+      "file": "unread12-to-zero.mp4",
+      "relativeFrames": "films/unread12-to-zero/frames.json",
+      "firstUTC": "2026-11-11T07:16:30.988352+00:00",
+      "elapsed": 1.49,
+      "uniqueCapturedFrames": 24,
+      "sourcePixels": [
+        440,
+        802
+      ],
+      "contentPixels": [
+        330,
+        717
+      ],
+      "encodedSize": [
+        330,
+        718
+      ],
+      "sha256": "c2163996cfbc028ca097dd065a010fe4f2478b8a3aadc579b03886f8798f7a24",
+      "localTestAPI": [
+        {
+          "endpoint": "i/notifications-grouped",
+          "atSeconds": 1.058
+        }
+      ],
+      "localStream": [
+        {
+          "type": "readAllNotifications",
+          "atSeconds": 1.311
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "status": "PASS",
+  "commit": "68aee1cadedae645a5f5823a5c062fdb296db56f",
+  "metadata": {
+    "CFBundleIdentifier": "com.bolubo.native",
+    "CFBundleShortVersionString": "0.9.4",
+    "CFBundleVersion": "138",
+    "MinimumOSVersion": "17.0",
+    "UIDeviceFamily": [
+      1
+    ],
+    "CFBundleSupportedPlatforms": [
+      "iPhoneOS"
+    ],
+    "DTPlatformName": "iphoneos"
+  },
+  "binaries": {
+    "PUBO": {
+      "architecture": "arm64",
+      "platform": "iOS",
+      "platformID": 2,
+      "signed": false
+    }
+  },
+  "codesign": "UNSIGNED",
+  "ipa": "PUBO-0.9.4-138-iphoneos-arm64-unsigned.ipa",
+  "bytes": 5021992,
+  "sha256": "da531c479d65d9a83dbf9e5f9fecc7d4e272cbab6af0b1441d953556525e10ff",
+  "requiresSigningBeforeInstallation": true,
+  "physicalDeviceTested": false,
+  "loginBackground": "STATIC_NO_VIDEO_OR_POSTER",
+  "localBinaryCheck": {
+    "architecture": "arm64",
+    "platform": "iOS",
+    "platformID": 2,
+    "signed": false,
+    "versions": [
+      {
+        "minimumHex": "0x110000",
+        "sdkHex": "0x1a0000"
+      }
+    ]
+  },
+  "locallyInspectedMachOs": {
+    "Payload/PUBO.app/PUBO": {
+      "architecture": "arm64",
+      "platform": "iOS",
+      "platformID": 2,
+      "signed": false,
+      "versions": [
+        {
+          "minimumHex": "0x110000",
+          "sdkHex": "0x1a0000"
+        }
+      ]
+    }
+  },
+  "sourceCommit": "68aee1cadedae645a5f5823a5c062fdb296db56f",
+  "sourceArchiveSHA256": "8360fbad5feeaa25d00cc66ddee5153cc85ee302f730bb8a95290b15594dd7f4",
+  "build134SHA256": "18ef4e429338953513f79612ea2a956aa39310ddc009aee00c6d9acf2e2b511b",
+  "privacyUsageDescriptions": {
+    "NSCameraUsageDescription": "拍摄照片或视频，用于发帖和私信。",
+    "NSMicrophoneUsageDescription": "录制你主动发送的私信语音。",
+    "NSPhotoLibraryAddUsageDescription": "将你选择的图片保存到相册。"
+  },
+  "privacyUsageDescriptionsUnchangedSince134": true,
+  "privacyManifestsUnchangedSince134": [
+    "Payload/PUBO.app/PrivacyInfo.xcprivacy",
+    "Payload/PUBO.app/SDWebImage_SDWebImage.bundle/PrivacyInfo.xcprivacy"
+  ],
+  "permissionAndCapabilityPlistKeysCompared": [
+    "CFBundleURLTypes",
+    "NSCameraUsageDescription",
+    "NSMicrophoneUsageDescription",
+    "NSPhotoLibraryAddUsageDescription",
+    "PUBOAPNSEnvironment",
+    "UIRequiredDeviceCapabilities"
+  ],
+  "apnsEnvironmentMatchesBuild134": true,
+  "oldBundleResourceComparison": {
+    "added": [],
+    "removed": [],
+    "byteChanged": [
+      "Payload/PUBO.app/Info.plist",
+      "Payload/PUBO.app/PUBO"
+    ],
+    "unchangedCount": 15,
+    "totalFiles": 17,
+    "oldTotalFiles": 17
+  },
+  "tablerAssetCatalogNames": [
+    "FeedIcon-arrow-back-up",
+    "FeedIcon-repeat",
+    "FeedIcon-plus",
+    "FeedIcon-minus",
+    "FeedIcon-dots",
+    "FeedIcon-heart",
+    "FeedIcon-heart-filled",
+    "FeedIcon-rocket-off",
+    "FeedIcon-home",
+    "FeedIcon-lock",
+    "FeedIcon-mail",
+    "FeedIcon-device-tv",
+    "FeedIcon-list",
+    "FeedIcon-antenna",
+    "FeedIcon-planet",
+    "FeedIcon-universe",
+    "FeedIcon-whirl",
+    "FeedIcon-pencil",
+    "FeedIcon-arrow-up-circle",
+    "FeedIcon-eye",
+    "FeedIcon-eye-off",
+    "FeedIcon-paperclip"
+  ],
+  "tablerAssetNamesConfirmedInCompiledCatalog": true,
+  "tablerLicenseSHA256": "5a3b65e1ad6a081759fde376fe14e2cd88552a9ebea89a8168f34eab1e96109f",
+  "localMetadataVerified": true,
+  "ipaRelativePath": "package/unsigned/PUBO-0.9.4-138-iphoneos-arm64-unsigned.ipa",
+  "oldPackageUntouched": true,
+  "signedInstallOrUpgradeTested": false
+}

@@ -1,0 +1,28 @@
+{
+  "source": "https://bolubo.com/my/notifications",
+  "capturedAt": "2026-11-11T07:00:16.305665+00:00",
+  "htmlSHA256": "8ea6a4a1e69fd094a798b350f13c5ccb9adb49bf99ab911367c4f4b73d248c0d",
+  "version": "2026.9.0",
+  "sourceBytes": 20855,
+  "modifiedProductJSOrCSS": false,
+  "isolatedAPI": true,
+  "productionWrites": 0,
+  "fixtureSHA256": "ccc93f0012bb387eeb8bef97dc85aee74c5569cc50a8be5b6a0397708104b875",
+  "cssViewport": [
+    440,
+    956
+  ],
+  "fixture": "App/Resources/NotificationVisualCases.json",
+  "rowCount": 22,
+  "singleCategoryCount": 20,
+  "prodRead": "仅静态页面和公开静态资源 GET，所有页面 API 调用均由本地端点处理",
+  "pageSourcePath": "packages/frontend/src/pages/notifications.vue",
+  "build136FixtureBytesSHA256": "02c140c8c3ab9c08232a8f74f46f424224fe6d3ff0b0e91c4df1e17ba260b33c",
+  "identicalAfterNormalizingLineEndings": true,
+  "identicalJSONObject": true,
+  "comparedFixtureArchives": {
+    "136": "02c140c8c3ab9c08232a8f74f46f424224fe6d3ff0b0e91c4df1e17ba260b33c",
+    "137": "02c140c8c3ab9c08232a8f74f46f424224fe6d3ff0b0e91c4df1e17ba260b33c",
+    "138": "02c140c8c3ab9c08232a8f74f46f424224fe6d3ff0b0e91c4df1e17ba260b33c"
+  }
+}

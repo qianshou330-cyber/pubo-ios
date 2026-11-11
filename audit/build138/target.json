@@ -1,0 +1,17 @@
+{
+  "sha": "68aee1cadedae645a5f5823a5c062fdb296db56f",
+  "tree": "570e01bda2102546547ca24da310191fbca70f92",
+  "parent": "39810e7faeb0f06589937f8b04d9058f499a46af",
+  "branch": "ui-notifications-138-20261111",
+  "build": 138,
+  "version": "0.9.4",
+  "base": "aea6b15710c95e4a9278270860f3ebe4481471c7",
+  "files": [
+    ".github/workflows/notification-alignment.yml",
+    "App/Features/NotificationsView.swift",
+    "App/Infrastructure/NotificationFixtureState.swift",
+    "UITests/NotificationAlignmentUITests.swift",
+    "project.yml",
+    "scripts/local-timeline-tests.py"
+  ]
+}

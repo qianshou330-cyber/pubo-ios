@@ -1,0 +1,227 @@
+[
+  {
+    "kind": "note",
+    "label": "用户的新帖子",
+    "expected": [
+      "noticetest0022"
+    ],
+    "actual": [
+      "noticetest0033",
+      "noticetest0022"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "follow",
+    "label": "关注中",
+    "expected": [
+      "noticetest0031"
+    ],
+    "actual": [
+      "noticetest0031"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "mention",
+    "label": "提及",
+    "expected": [
+      "noticetest0030"
+    ],
+    "actual": [
+      "noticetest0030"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "reply",
+    "label": "回复",
+    "expected": [
+      "noticetest0026"
+    ],
+    "actual": [
+      "noticetest0026"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "renote",
+    "label": "转贴",
+    "expected": [
+      "noticetest0025",
+      "noticetest0024"
+    ],
+    "actual": [
+      "noticetest0025",
+      "noticetest0024"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "quote",
+    "label": "引用",
+    "expected": [
+      "noticetest0023"
+    ],
+    "actual": [
+      "noticetest0023"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "reaction",
+    "label": "回应",
+    "expected": [
+      "noticetest0032",
+      "noticetest0029"
+    ],
+    "actual": [
+      "noticetest0032",
+      "noticetest0029"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "pollEnded",
+    "label": "问卷调查结束",
+    "expected": [
+      "noticetest0021"
+    ],
+    "actual": [
+      "noticetest0021"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "scheduledNotePosted",
+    "label": "定时发送成功",
+    "expected": [
+      "noticetest0020"
+    ],
+    "actual": [
+      "noticetest0020"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "scheduledNotePostFailed",
+    "label": "定时发送失败",
+    "expected": [
+      "noticetest0019"
+    ],
+    "actual": [
+      "noticetest0019"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "receiveFollowRequest",
+    "label": "收到关注请求",
+    "expected": [
+      "noticetest0018"
+    ],
+    "actual": [
+      "noticetest0018"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "followRequestAccepted",
+    "label": "关注请求已通过",
+    "expected": [
+      "noticetest0017"
+    ],
+    "actual": [
+      "noticetest0017"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "app",
+    "label": "关联应用的通知",
+    "expected": [
+      "noticetest0016"
+    ],
+    "actual": [
+      "noticetest0016"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "roleAssigned",
+    "label": "授予的角色",
+    "expected": [
+      "noticetest0015"
+    ],
+    "actual": [
+      "noticetest0015"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "chatRoomInvitationReceived",
+    "label": "您已被邀请加入群聊",
+    "expected": [
+      "noticetest0027"
+    ],
+    "actual": [
+      "noticetest0027"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "achievementEarned",
+    "label": "取得的成就",
+    "expected": [
+      "noticetest0028"
+    ],
+    "actual": [
+      "noticetest0028"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "exportCompleted",
+    "label": "已完成导出",
+    "expected": [
+      "noticetest0014"
+    ],
+    "actual": [
+      "noticetest0014"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "test",
+    "label": "测试通知",
+    "expected": [
+      "noticetest0013"
+    ],
+    "actual": [
+      "noticetest0013"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "login",
+    "label": "登录",
+    "expected": [
+      "noticetest0012"
+    ],
+    "actual": [
+      "noticetest0012"
+    ],
+    "ok": true
+  },
+  {
+    "kind": "createToken",
+    "label": "创建访问令牌",
+    "expected": [
+      "noticetest0011"
+    ],
+    "actual": [
+      "noticetest0011"
+    ],
+    "ok": true
+  }
+]

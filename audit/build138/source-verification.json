@@ -1,0 +1,1773 @@
+{
+  "status": "PASS",
+  "commit": "68aee1cadedae645a5f5823a5c062fdb296db56f",
+  "tree": "570e01bda2102546547ca24da310191fbca70f92",
+  "build": "138",
+  "version": "0.9.4",
+  "archive": "source.zip",
+  "archiveBytes": 1138231,
+  "archiveSHA256": "8360fbad5feeaa25d00cc66ddee5153cc85ee302f730bb8a95290b15594dd7f4",
+  "files": [
+    {
+      "path": ".github/workflows/auth-static.yml",
+      "bytes": 5483,
+      "sha256": "0891780442b6a79605b1e6301924cc922716c23aa78fd5912ffc7b542c40d34e",
+      "gitBlob": "34a412962a72eaf201cc53d05775fdb24a53ad66"
+    },
+    {
+      "path": ".github/workflows/brand-appearance.yml",
+      "bytes": 2433,
+      "sha256": "5aa72619c06b3e43ed689e59c744a623fff1584b2d59480a257c3eb76859266b",
+      "gitBlob": "aa8265a38c04e71c696be21af4f3c6bd62a8c47d"
+    },
+    {
+      "path": ".github/workflows/chat-alignment.yml",
+      "bytes": 3007,
+      "sha256": "08da911446f212eaff9600353b3a49a21127ba608a0b9066d7245bbd7101c269",
+      "gitBlob": "0d7b137c2a40b29d9f10f0e6a8bb171b18ceeb0d"
+    },
+    {
+      "path": ".github/workflows/device-recovery.yml",
+      "bytes": 1935,
+      "sha256": "3f911d31de6da5dfd4cc5a3554796d154f929696d7557c0705654c7f730746c9",
+      "gitBlob": "3168a635ec166caf570ab294df04536846064e57"
+    },
+    {
+      "path": ".github/workflows/home-motion.yml",
+      "bytes": 2597,
+      "sha256": "079b82fc9a1e76e1e22f19e7cf60b315e5ef065f3945fecc46556b31b83ddd5d",
+      "gitBlob": "b312218ddf37ccf4b83fc6e9289f82b48bb60c3c"
+    },
+    {
+      "path": ".github/workflows/home-package.yml",
+      "bytes": 4193,
+      "sha256": "81eb9d79d73f15f9f066ea49d3f41b4d6138a6b176d3c156d08a1779076a96e7",
+      "gitBlob": "194a336c172b79898d23d391634c91f609c2a4e8"
+    },
+    {
+      "path": ".github/workflows/ios.yml",
+      "bytes": 4100,
+      "sha256": "763833fd7948cd7003816413d3d257bb07fc8a4360e8ca4a7df570e569c1b9c4",
+      "gitBlob": "ebb816a0b632426ffdf352ad9488161e94f52bf3"
+    },
+    {
+      "path": ".github/workflows/local-timeline.yml",
+      "bytes": 5231,
+      "sha256": "07e8e5033dcde57aa4ffdf15cf468d8020dad7e68534bff96a5af7660877cee9",
+      "gitBlob": "5f5c8f5882314b455522d39e8964e43852631d71"
+    },
+    {
+      "path": ".github/workflows/login-video.yml",
+      "bytes": 2587,
+      "sha256": "61931846ef7b7c336d4407ea872783e88567c0ba53d5f1672cecfcfe3549dad6",
+      "gitBlob": "c35eb7319585ac0dfe0ecd6e6f5c9c858f4a9b56"
+    },
+    {
+      "path": ".github/workflows/native-integration.yml",
+      "bytes": 4126,
+      "sha256": "e34106edd1db4d47ba6ad155421f8e2688a4f4dfca62c4bcee493c2c022397d6",
+      "gitBlob": "86a7a6b875a3a66df132ee8db149f252865c100b"
+    },
+    {
+      "path": ".github/workflows/notification-alignment.yml",
+      "bytes": 4057,
+      "sha256": "6534f8bb08214aead2ebf52ea68f041b3ca28d2a9a61df3d03ac574d3bed3f26",
+      "gitBlob": "f0e470c3323ea3d8c15ab0b8889600429e02ebf0"
+    },
+    {
+      "path": ".github/workflows/private-gif.yml",
+      "bytes": 2627,
+      "sha256": "414517bf5582d2d2e3a6a635d28c00f59f61bd73865555530024b2b0a5ce494d",
+      "gitBlob": "a1a48fdc90fff53ea298b913725ce65669e272f1"
+    },
+    {
+      "path": ".github/workflows/social-alignment.yml",
+      "bytes": 2571,
+      "sha256": "66847bd924e433aac0a2576dada25f0aee960741fc2214d5cb18dbaf27617f6e",
+      "gitBlob": "267e42a57affde1170c6ead2630f8ccd68a83cb2"
+    },
+    {
+      "path": ".github/workflows/timeline-integration.yml",
+      "bytes": 5400,
+      "sha256": "235d6b392a06c22ec9bd200e8ec9bec4e162f9a5019050b17a4efc7b37045645",
+      "gitBlob": "39aa0a7873ca1038d814e60531232d8275239c34"
+    },
+    {
+      "path": ".github/workflows/timeline-visual.yml",
+      "bytes": 12627,
+      "sha256": "60f926a81c2aaff8cf37062982d733e675922d6e538f155a87333860c12b7677",
+      "gitBlob": "28f85305c8b2df4ec09371649c3006b494092fa7"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 216,
+      "sha256": "3d2955bb1a6731b63695d8a588117780e9b2029bbaed44ce6263ee53d0436aaa",
+      "gitBlob": "01ef2034388ae640e0dd22ee46c62b5a7734545d"
+    },
+    {
+      "path": "App/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "bytes": 134,
+      "sha256": "6ad2c5c3bbcf972c7f02d217d6afcac3f24a10e30510c7e2d06c582371ed9d22",
+      "gitBlob": "0a42994e64c8f97044997f4c636d6fb5ce5316ce"
+    },
+    {
+      "path": "App/Assets.xcassets/Brand.imageset/Contents.json",
+      "bytes": 100,
+      "sha256": "78001473ec766168ee2f3992051b3ae56d1e7f29128adf2f211432f55a001a44",
+      "gitBlob": "662f9ebdbcacb3459a682183582da8700d0fceb7"
+    },
+    {
+      "path": "App/Assets.xcassets/Brand.imageset/pubo-logo.png",
+      "bytes": 473037,
+      "sha256": "18cb7c627b6c85f3645f2788443e3acd1dcfcd65b74e55e73b23c553c978110e",
+      "gitBlob": "e441c6e81f715dd365e4aeee9533be973d31c846"
+    },
+    {
+      "path": "App/Assets.xcassets/ChartCover.imageset/Contents.json",
+      "bytes": 96,
+      "sha256": "9826bc3f34183d31f49d6f3b894ab32352bd71b6c692dd39ceb176190f541ff8",
+      "gitBlob": "0e6dc79061b6415d8ee745c2da9c386465c0e45f"
+    },
+    {
+      "path": "App/Assets.xcassets/ChartCover.imageset/cover.png",
+      "bytes": 19485,
+      "sha256": "da8453e270838b8c3c7d04f748ded2d469df0b71f901f8da5559e30bdfd0bf92",
+      "gitBlob": "b82d15129002d9f3d1bd37574f927c292a73b4cc"
+    },
+    {
+      "path": "App/Assets.xcassets/Contents.json",
+      "bytes": 40,
+      "sha256": "10e3b5dc202f1cd9fad1f688c8fc9fe9e9669bf3f8295e67d216b10fd99b6f49",
+      "gitBlob": "f223229d3bb31f7cb8bd5ca05dec684d49f13a18"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-antenna.imageset/Contents.json",
+      "bytes": 262,
+      "sha256": "c65668e7b9e7a55d018160d740a29f4ed67e4e954d91c183067cbb9e6f76ab6d",
+      "gitBlob": "eb2c11ac22403244742b801fa5bcb9b3983872e1"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-antenna.imageset/antenna.svg",
+      "bytes": 466,
+      "sha256": "ce7a97c9b919e77601f50135227949cad9b5107127dd8f7975f334b9b9d01493",
+      "gitBlob": "141ce5b0c5d085aef37207f36da2676bc586cd1d"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-arrow-back-up.imageset/Contents.json",
+      "bytes": 268,
+      "sha256": "ad4e955e754b1a60ca18d1c6e5d533e0b2ec8f2e1b788d051249c587d4aa2be9",
+      "gitBlob": "68f3b030072cce715e257ddbedc25979b0f3f626"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-arrow-back-up.imageset/arrow-back-up.svg",
+      "bytes": 386,
+      "sha256": "9d96c7bae0711670cc06b28d0b7bd5f45a88fe2d0c7abdd1f16a07e8ee92df25",
+      "gitBlob": "37270c66e39ee2bda8dba06dfa1a889ec8db3f10"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-arrow-up-circle.imageset/Contents.json",
+      "bytes": 270,
+      "sha256": "4130e500d6f7fb4cddea33e9faf85ff1c562a24c9bd0d73ba5c933cf6ea83596",
+      "gitBlob": "804bdc77c1f4a8ff5e50706bfc2aabda48117602"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-arrow-up-circle.imageset/arrow-up-circle.svg",
+      "bytes": 388,
+      "sha256": "8ef1281d59c52921a33430500211f848a4a9f8e0e6993106fa4923b252b3c0d7",
+      "gitBlob": "cff304d81cee8d355b57da85260fc13c29f7fa49"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-device-tv.imageset/Contents.json",
+      "bytes": 264,
+      "sha256": "39517a209fd02d851c969ff49e748e4f6d5b1528da688ca56592bcd2d73263d8",
+      "gitBlob": "ec9503d552ae5da06f6bf26fc6d328683d9703b9"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-device-tv.imageset/device-tv.svg",
+      "bytes": 452,
+      "sha256": "a2ddb867031d18ac74aaf40ab5a9914be3ece46ef994d3a0bce3ea824f05d34d",
+      "gitBlob": "decf487baf8417da53436430e7e5a35744a08f67"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-dots.imageset/Contents.json",
+      "bytes": 259,
+      "sha256": "93236aab2a898d824975f05b1df4d943158ef3a12ff11e958f2d6f775bab6819",
+      "gitBlob": "ad00156de7fcce95c3c25cd9b5a0dc3f4709c5ec"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-dots.imageset/dots.svg",
+      "bytes": 471,
+      "sha256": "c465dde6bd499e17edc71770d1da71dfc1929238e88236282e502d665725dfe4",
+      "gitBlob": "69b0115d574e42bd141b1644d2b0a7c7a0f2a302"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-eye-off.imageset/Contents.json",
+      "bytes": 262,
+      "sha256": "242f5be3af55ddacc0f96b4e611fd7b813f94e2fd779714d47b5e13c2b6fe203",
+      "gitBlob": "ff81c5832e08f92e915b36ab0cb6041263c053d2"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-eye-off.imageset/eye-off.svg",
+      "bytes": 570,
+      "sha256": "c864aaba15c42c2a8d6064f5124d523c0b52aa171b7e4bc961584ee143e0233b",
+      "gitBlob": "cbfb110c414ab6bd08723cc7d0be51bf2137c77c"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-eye.imageset/Contents.json",
+      "bytes": 258,
+      "sha256": "fe594d77091f3304361fe6c47a20c2b232c9bbda1c46a05031e8868292d1e1c1",
+      "gitBlob": "f1f1011a0c4531841e3a4bdb1bd7e0b588069485"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-eye.imageset/eye.svg",
+      "bytes": 428,
+      "sha256": "14bbb0ef33d24cd7bd86fd99b83237421e205b079b7debcaaaa3bc42d6dec0b1",
+      "gitBlob": "c0125a750be3fe9526cc8dc32d188ef125ff526e"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-heart-filled.imageset/Contents.json",
+      "bytes": 267,
+      "sha256": "5effcddc425ab74ef65d59dbe4e469e6e8fabf216807ba48ffb65c94ca580490",
+      "gitBlob": "4a982bc098fb0486cac337d8789c0e5866568d8a"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-heart-filled.imageset/heart-filled.svg",
+      "bytes": 388,
+      "sha256": "d77b08ca998c39fc99b681a8a4abcd14f180ddd313875538edb6fa5e0574b8f9",
+      "gitBlob": "33c8cf192a8720e13858da9b4d6f6f220c26c6ea"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-heart.imageset/Contents.json",
+      "bytes": 260,
+      "sha256": "6eac2c011a85e7298da5a0ffc1ee88ca7a84e90946b083bcb2a2ccfbf5dbd915",
+      "gitBlob": "b52cec4d3c5ab18866ce7bb39c7ab4952ef54b0c"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-heart.imageset/heart.svg",
+      "bytes": 404,
+      "sha256": "7380f86d7f10c49585c213d31d83dc19c1f9b9f931e22e96987cb9e37c03f2e8",
+      "gitBlob": "aa929f61e98e3a0d37521c1aa1c1e6552b5f0533"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-home.imageset/Contents.json",
+      "bytes": 259,
+      "sha256": "f32dd895e2654c3b0d0d0633296b1dedda6eaea67108a2b542a57951cb2cc195",
+      "gitBlob": "d2894d11c231a07ae782f2953de82169dcaec3a5"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-home.imageset/home.svg",
+      "bytes": 461,
+      "sha256": "bf6456828bc660cde18bd4495e1996f3ac21e77a43e1cf8cad855bcc86847727",
+      "gitBlob": "7d0aa040fdeee1434d485682d8d09409e3c48b02"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-list.imageset/Contents.json",
+      "bytes": 259,
+      "sha256": "b9bb52111131bf76e853973e737f2b6a8dbd44cb56f5cf6de2c2ab0e268a38c9",
+      "gitBlob": "497e1dfbbc014c8952b21186392ceaadd3e55b84"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-list.imageset/list.svg",
+      "bytes": 466,
+      "sha256": "4c61a25e58b1d85301273ee28fd9446c1b2586dd0552d0bea2695847b6dfb17b",
+      "gitBlob": "00c1deb5fea957dbee29707a77273b2b80598971"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-lock.imageset/Contents.json",
+      "bytes": 259,
+      "sha256": "cb4fe0147f0ba5d1f9694bb1c31771abb299be04bfeda0fc67bf89d2c8869611",
+      "gitBlob": "6fc4b7697b45c75e8370c83c5df5c25f4071962f"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-lock.imageset/lock.svg",
+      "bytes": 480,
+      "sha256": "4eec54986fdb0cdf8890ce44fdb3c7a9f03096447964fee00f59594cfcb46923",
+      "gitBlob": "e75288fe9ed391ecad6e9be91c4cd9c5bb0746c6"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-mail.imageset/Contents.json",
+      "bytes": 259,
+      "sha256": "d9b4b92696a3756c204a4b72ecd49bae6965c7c4e89127d4c16901d932ea271f",
+      "gitBlob": "fccdf159c5781fce96669546783b49eb84f5900e"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-mail.imageset/mail.svg",
+      "bytes": 438,
+      "sha256": "5602951884e2e1913120ade15a208d49508ba71bc9807e5797890b8d3f1beeec",
+      "gitBlob": "e333198b62b30c08f8bbb659226e085eeac9bfb7"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-minus.imageset/Contents.json",
+      "bytes": 260,
+      "sha256": "4aabe21301d3063569d4abd54350a09705fb0e41141b8926304f543c9f3096ca",
+      "gitBlob": "272df0c29bac396c1f5879ddff5c816ec405fd14"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-minus.imageset/minus.svg",
+      "bytes": 307,
+      "sha256": "35f1c766b5eb9de5ac2228ebc837b08369beebafb83ad60f9dc9dbddf097b7d7",
+      "gitBlob": "d134c5a24557785853c8dc392d055b35a5349c44"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-paperclip.imageset/Contents.json",
+      "bytes": 264,
+      "sha256": "e5c28615e5150d971cc014d2ab26670f7dd89172ac00f1c97f539f488b8afaed",
+      "gitBlob": "804efc9a9f408b3e2af7362d85e2a4419d24b8b5"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-paperclip.imageset/paperclip.svg",
+      "bytes": 384,
+      "sha256": "074a9ed25d07b8e13dc500f2e9605c2cf24a76ff238b922a0ef57f53ac960fb1",
+      "gitBlob": "a9a7456248f6285c82fef92ce38782ec6250aecd"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-pencil.imageset/Contents.json",
+      "bytes": 261,
+      "sha256": "207dfde30f281ff9fcce95aace9360a176a8eceeed62e370bc946a2aadeff3f3",
+      "gitBlob": "9d8126587c9c6042777a1d43186b60aa72adaf3f"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-pencil.imageset/pencil.svg",
+      "bytes": 393,
+      "sha256": "e037f56afef0f194eb5d3bff9cc3f7d6fc92305b4f604cc87e5ce0eb0c0a2d14",
+      "gitBlob": "c82757ad8116d657a2c2b5b49bed5756cb94fdc6"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-planet.imageset/Contents.json",
+      "bytes": 261,
+      "sha256": "79c9f183ee5480a09a4fbdd75486937c25b3c3eeb4db6c85e7d23410b3a872ac",
+      "gitBlob": "8714f50853bb8eecca35f06081a381b0ff40bf28"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-planet.imageset/planet.svg",
+      "bytes": 552,
+      "sha256": "17e40431dd915abb0c0f5c8b8b66ca58b59ba0a5ac6727aba36965938f9167c4",
+      "gitBlob": "314b1a908f98014adb5a8f386a92251b3cac833e"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-plus.imageset/Contents.json",
+      "bytes": 259,
+      "sha256": "2765279c6126855d3a668e21943bf1cf859a0eaad8cbdf1b613ff1edc9830b94",
+      "gitBlob": "06e79abb236622a932ad511cbca5bad28de150f9"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-plus.imageset/plus.svg",
+      "bytes": 340,
+      "sha256": "712a6758acf8267fabc1dc5dff4a3c79e9c31c9eba3d0bdbc26adf523035976f",
+      "gitBlob": "4ce5880aa768b1971a24d40456ff963430ed9d81"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-repeat.imageset/Contents.json",
+      "bytes": 261,
+      "sha256": "67deadd7418423e0569787a7ad358e65f88b2f5b7d2ca392f3d5c4e73f3c0b8b",
+      "gitBlob": "3cffc49bb68419dad09c2144cde68bf6d9d64efc"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-repeat.imageset/repeat.svg",
+      "bytes": 422,
+      "sha256": "0c49a8b58fdad50c4c526bf1836c11749937fe7ad06b4d40fd6487c6a12f386a",
+      "gitBlob": "673f8593de6c529627b6ad1af266f2f79fa6e252"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-rocket-off.imageset/Contents.json",
+      "bytes": 265,
+      "sha256": "99e48b4ba3c786636c3303312b5030f1a07fa4dee6ae122e93fb49d8be758e72",
+      "gitBlob": "be20a189dc41fed4315cf0c3336effc829add585"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-rocket-off.imageset/rocket-off.svg",
+      "bytes": 673,
+      "sha256": "2f535b99124deeb723c83d4f57900d68684dedbd2334eb1ae37e566e0da59818",
+      "gitBlob": "928931721d932b3b62a02b7852dfc922d0aba509"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-universe.imageset/Contents.json",
+      "bytes": 263,
+      "sha256": "a1274e1a6bd44d37a4f5988d4de7eedd996c5e82365bf1dd9178ebc0c4f8ea26",
+      "gitBlob": "28a1ef25f7a65d316184dc33e7f762b3da42792b"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-universe.imageset/universe.svg",
+      "bytes": 632,
+      "sha256": "a24488c1e9ba54598a16ca1cd224e9c9df0259219d6fe8949d9586bb02207682",
+      "gitBlob": "b41b7aceb50368640c3ae6ed457cae8b3e3f725c"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-whirl.imageset/Contents.json",
+      "bytes": 260,
+      "sha256": "0dd33215f69d406d67b9cd187a0f302e739484ae14ee38c0bdb3a2ae97a12fa1",
+      "gitBlob": "913336f26b93de2fcbad573a5b3088c23fc28f06"
+    },
+    {
+      "path": "App/Assets.xcassets/FeedIcon-whirl.imageset/whirl.svg",
+      "bytes": 635,
+      "sha256": "a6c5e1ef9fc33d8077dea298bb5dcb30cc5977bcb06e1d433bd8cde661b83b69",
+      "gitBlob": "a602426eb1f8e6b81707e3e690d9336f625a156a"
+    },
+    {
+      "path": "App/Components/AttachmentPreview.swift",
+      "bytes": 8664,
+      "sha256": "dc5f2c99c173d46a1db02b27c522937890817346e6141ece95420385c87593b0",
+      "gitBlob": "178ea7f1ab88697f555a86c73aac3520624558a8"
+    },
+    {
+      "path": "App/Components/ChatInteractionComponents.swift",
+      "bytes": 5502,
+      "sha256": "7e920c7bf4a18fe0f5cb7ed02a341e044615ec069b2c634dddecbf0a56f27cc0",
+      "gitBlob": "c2269f551f0ad7526b8ca940d9c7c039dbe21143"
+    },
+    {
+      "path": "App/Components/ChatTabs.swift",
+      "bytes": 4284,
+      "sha256": "357530621897043fd209ee4d18bc929e397374b936bd944f3325b406d6cbfa1d",
+      "gitBlob": "7fedca7589f7b8f9f4472bc1e113d6a4df733054"
+    },
+    {
+      "path": "App/Components/CommonViews.swift",
+      "bytes": 12133,
+      "sha256": "dbb4cd25a0eb72d542ac4e135793953796ba694e0354a511bce9c25fa3b113d5",
+      "gitBlob": "48782c3c1f2965bb96de71604c0036387324d82b"
+    },
+    {
+      "path": "App/Components/CursorTextEditor.swift",
+      "bytes": 3125,
+      "sha256": "cfa299f2ed44b71d2a28d76959c50ef7748d4eced3c21d6bd255b94848714211",
+      "gitBlob": "5b0100be80cddf66f702fb8fa6f1290b1c5c2bc6"
+    },
+    {
+      "path": "App/Components/FeedAppearance.swift",
+      "bytes": 2783,
+      "sha256": "22ff00f38cebbd9d9dde01fb658afd1f3d22f452f468865f2fb48cb7e2e4414d",
+      "gitBlob": "268cd3c7cd27d0080619ba264549d8faa11c98c8"
+    },
+    {
+      "path": "App/Components/LoadingSkeleton.swift",
+      "bytes": 4714,
+      "sha256": "e886e99190bcc24e6a76eca16de39f63a35ee5a884e41a40030c8fddf633b823",
+      "gitBlob": "887cb13d3858dd3e57e7dd700e658d0a2882f78b"
+    },
+    {
+      "path": "App/Components/NativeLinkDestination.swift",
+      "bytes": 2813,
+      "sha256": "767df317b7df0a9610ec623d6317ce3ed515c81d4a68f56a601e462d1b12d1ca",
+      "gitBlob": "b10ff9e37cbf51c10f32dc0c347135b0c343aa15"
+    },
+    {
+      "path": "App/Components/NoteCardNavigation.swift",
+      "bytes": 915,
+      "sha256": "caaaa20276e143d982735cc2089b4ea0b623f2afc85264ec36bb3ebca0b1a953",
+      "gitBlob": "be6cee801766a2e3fb6c6f223bedd06d59dfa9cc"
+    },
+    {
+      "path": "App/Components/NoteContextCard.swift",
+      "bytes": 2101,
+      "sha256": "72f014c403b3d7ee4a437f2c310e4c64cd3f8024eb058d6ea2d88426d1562c09",
+      "gitBlob": "38b03617e84507f38b69adc6ba9575fd42444b53"
+    },
+    {
+      "path": "App/Components/NotificationRow.swift",
+      "bytes": 11143,
+      "sha256": "c4ae201bbd9e799103b75bc4d01c69dfc5144b2d447521d6bdda90bc7f5cdc82",
+      "gitBlob": "9fe22ef5c35dad02f9927ecac0bdb61b9b0d94ec"
+    },
+    {
+      "path": "App/Components/PUBOAccountFields.swift",
+      "bytes": 2933,
+      "sha256": "e9ef6dfe43d7cdb4379e339fb1fe3fa65d9872a81d4c6060b8cf03d94ea61894",
+      "gitBlob": "dec51923275d75f11f6d9b8b399d1cc57eecb908"
+    },
+    {
+      "path": "App/Components/PUBOTheme.swift",
+      "bytes": 7994,
+      "sha256": "c69857baf6517f023cdf8d062343ce440b6e38c0759cfff2401bcb33a07ae26e",
+      "gitBlob": "c56232f9dccdabeede16060dcbebc94b770465dd"
+    },
+    {
+      "path": "App/Components/PrivateAnimatedImage.swift",
+      "bytes": 11897,
+      "sha256": "912cf6cae7bcc5f6b0049b9eb2f42aa2096be40b69051462a2129fbb2f6ecb77",
+      "gitBlob": "56edce4b293daab4ae8ae78f6bd5a616ad95020e"
+    },
+    {
+      "path": "App/Components/RichNoteText.swift",
+      "bytes": 10002,
+      "sha256": "7ffe79c733e863f3aa8167b0b19223e71470482fd68b99a106f1b2c12600272a",
+      "gitBlob": "45620668fac0bc8ed2fe2c8be3a74220cde04465"
+    },
+    {
+      "path": "App/Components/RollingAnnouncementTitles.swift",
+      "bytes": 3566,
+      "sha256": "c1de61ad088aed9bc7619a54bfb1d699c88836c7296a9138a2b444b1386ac86c",
+      "gitBlob": "c2dea5f1a372c91ea10c98dc9b2adabd97dd2c4a"
+    },
+    {
+      "path": "App/Components/TimelineMedia.swift",
+      "bytes": 18151,
+      "sha256": "2050404cac32cb894d2c5e0fb8095ea956914f4e3ef092967cbf2261894e14ed",
+      "gitBlob": "8d1ba63f2daff081903e7224f0d879fa6b40d8be"
+    },
+    {
+      "path": "App/Components/TimelineRows.swift",
+      "bytes": 5934,
+      "sha256": "4ac2c3af890a9159dc29d4aede3ef8831ba0580a50bf5b01002ea829187636be",
+      "gitBlob": "4d524b58e8ba6d50d9f9bca04c6e730ddec23a9c"
+    },
+    {
+      "path": "App/Features/AccountDataView.swift",
+      "bytes": 7506,
+      "sha256": "0857f914a9a2da6600ea0ef4d98343c26a367b68c9e34411a12290980984beab",
+      "gitBlob": "01a29b0ee919b8fb9a790296fb117ac10c722bf5"
+    },
+    {
+      "path": "App/Features/AccountSecurityView.swift",
+      "bytes": 10637,
+      "sha256": "c8e035f2484bf3d7d80201c16d3eae22c616ae346bb67aa2555bfbd69c3f8381",
+      "gitBlob": "35ad2d8b05ba799a8e731a971cf94ad690a1c2f1"
+    },
+    {
+      "path": "App/Features/AccountSettingsView.swift",
+      "bytes": 9968,
+      "sha256": "49c05438eb60a3dd81fe64360c224f24d316490e98c0278c045335e791b7e741",
+      "gitBlob": "99ac5202a90f8abb051dac7d2fb3dba275b140cb"
+    },
+    {
+      "path": "App/Features/AdminFields.swift",
+      "bytes": 10271,
+      "sha256": "33dd6dfd62b660f23863e3225c37192ba2fe512367a02aec39214e21f2b80064",
+      "gitBlob": "97664679f3530b7607605f8734b617f789c0f9ec"
+    },
+    {
+      "path": "App/Features/AdminRoleCondition.swift",
+      "bytes": 3820,
+      "sha256": "537d0e925ddc5b58f40fa232608576c46b4788dc34f82581cf7357afa8f8b4bb",
+      "gitBlob": "974022f0601807f46608cc563d2ac7ade0bca357"
+    },
+    {
+      "path": "App/Features/AdminVerificationDetail.swift",
+      "bytes": 5455,
+      "sha256": "fb6c93a97a48423bcbb223d91f40266e3ec554a17800f0e899ba93cc9c5b6b43",
+      "gitBlob": "33d91dcb97de2db678a08dda33518f28f7ea44e8"
+    },
+    {
+      "path": "App/Features/AnnouncementEditor.swift",
+      "bytes": 4686,
+      "sha256": "639779d57f3f0c83b10cfe31badb31747fb5064b7315e238d649f876e5de03a0",
+      "gitBlob": "2d83c854f40d851ff3e17f4e2a8fb04ad7904196"
+    },
+    {
+      "path": "App/Features/AnnouncementsView.swift",
+      "bytes": 4524,
+      "sha256": "6abf59644cb9d08207eda47d1818042a8ce3c82786e1c9e58ce5eac9c04dd56f",
+      "gitBlob": "9352612e3471dce11912fe5766880561c90dab20"
+    },
+    {
+      "path": "App/Features/AuthDialog.swift",
+      "bytes": 10264,
+      "sha256": "d463db3ea912217c6203aa64cabd47165a4261946a0fd34f0ccfae477905f9be",
+      "gitBlob": "c6f408b3c4fb50a9e63dc5772d19493c74d974f0"
+    },
+    {
+      "path": "App/Features/AuthFlow.swift",
+      "bytes": 10455,
+      "sha256": "b013d0c2357540f492da51aac1f36f1c251492b05b119b64075b421b95680098",
+      "gitBlob": "0770d5148b72f6ffd8da111421bf3a9cc5f3afec"
+    },
+    {
+      "path": "App/Features/AuthRegistration.swift",
+      "bytes": 11019,
+      "sha256": "1fc4cbb1084a423dd6b20757ab5244e8c69a35664cf6f88de3be660b078412c2",
+      "gitBlob": "70d4a765949559dc75a25e71e53062ebf594a205"
+    },
+    {
+      "path": "App/Features/AuthReset.swift",
+      "bytes": 2049,
+      "sha256": "10e38e59866bb2f1d4b11638904d70f05a0d245a3a27be4717b66dd17a7d5689",
+      "gitBlob": "92d352972bb3affb2dbf877bc676a99ade81dbe7"
+    },
+    {
+      "path": "App/Features/AuthView.swift",
+      "bytes": 4169,
+      "sha256": "5ee836f1885ce233413bba4c805dc32add7152bb998fe5fa5b43cbb8c2c9618d",
+      "gitBlob": "86ed80c1af973cfbc55e2a2198b95ca7e11555fa"
+    },
+    {
+      "path": "App/Features/AvatarDecorationsView.swift",
+      "bytes": 4382,
+      "sha256": "17ff06431770b423eb620595e489de6be50b51ae1051d06c861e889c3d3d6206",
+      "gitBlob": "a2cc4dd273584ab80e5275aff4497ca702990277"
+    },
+    {
+      "path": "App/Features/ChartViews.swift",
+      "bytes": 22300,
+      "sha256": "50153e02b4962970d0703fbed9b54fb8ba95d5780b01ef3fe87d7deec43db888",
+      "gitBlob": "9207bdea13d0ede8d7538d39d7f778937bf17bad"
+    },
+    {
+      "path": "App/Features/ChatHomeState.swift",
+      "bytes": 4055,
+      "sha256": "38ef6c60dd66877fcb35bf570f495a8e9df4a006d14e26e9366d84cd5fab51fe",
+      "gitBlob": "885c84c7f1aee99e0f456bee3e01a87d88f67bc7"
+    },
+    {
+      "path": "App/Features/ChatListView.swift",
+      "bytes": 9350,
+      "sha256": "6ad358d3f5ed863d6546001ee8f7d540ee44827263e24e5303c60716f831c61d",
+      "gitBlob": "3ddb7bc39f43db7b3909e1d500ff501d85a34c75"
+    },
+    {
+      "path": "App/Features/ChatMessageActions.swift",
+      "bytes": 10128,
+      "sha256": "571b0c6069a15de769847ef11117383b76dca8ad1452716f336adf3fa49bed18",
+      "gitBlob": "00b94c34d5ce0f85f37fba30787322b064ccefb6"
+    },
+    {
+      "path": "App/Features/ChatSearchView.swift",
+      "bytes": 4165,
+      "sha256": "72a9dadcc9f463e409b505fff9b615a903075444efdda8cc4c137f58b73c0bd4",
+      "gitBlob": "dfcfabf2fba6aa6793b216720270f4dafe098d3d"
+    },
+    {
+      "path": "App/Features/ChatView.swift",
+      "bytes": 42129,
+      "sha256": "0d96d2fabdb768ca3444887dbdbfc625af82e924a69b7fac0f5aecc508082eac",
+      "gitBlob": "4f0693c09195d5d44284c0600f8488f4ffd06b6b"
+    },
+    {
+      "path": "App/Features/CollectionEditor.swift",
+      "bytes": 12843,
+      "sha256": "e391be54d0450f6382b8b598cd47ba9ad75215d517aa2972439a3b36b7befdef",
+      "gitBlob": "fc97704049addb712c17da635a75c3a89793714b"
+    },
+    {
+      "path": "App/Features/CollectionsView.swift",
+      "bytes": 9253,
+      "sha256": "d9cdcbade2323a893f016293f26f1688ce906e7e06e7dfcb67dde5b959aef038",
+      "gitBlob": "ed4ffde329b7349e5f146e3d5fcbed52b39b6fef"
+    },
+    {
+      "path": "App/Features/ComposeExtras.swift",
+      "bytes": 7216,
+      "sha256": "005cd122625bbfff92fd9607e1d649692c8924deafb022cc5b6f8e15d15cc48d",
+      "gitBlob": "2a77b266f72dc57f3f3c02592178c2e733d0c9ec"
+    },
+    {
+      "path": "App/Features/ComposeView.swift",
+      "bytes": 21575,
+      "sha256": "8d28b95793d1392b24570e7b96a64e2b5bd5d69887818983b30a2fe72f639208",
+      "gitBlob": "6ff07770319cd03d82c914a28c92a1c06e0ce2f7"
+    },
+    {
+      "path": "App/Features/ContactsView.swift",
+      "bytes": 6684,
+      "sha256": "b4b8b43b17199d90f798498b1278d3965706fdd368ad80ecb5433d6085744e08",
+      "gitBlob": "686109c294bfa20083d41b1782e2e791fff06db7"
+    },
+    {
+      "path": "App/Features/DriveManagerView.swift",
+      "bytes": 12089,
+      "sha256": "e2a8abff4fc5f1b8ad06a2389366d0661bc629813e8d7806b9031d6852804255",
+      "gitBlob": "48be6603b17cba93dbc8e138bf1933e1c3907969"
+    },
+    {
+      "path": "App/Features/DrivePicker.swift",
+      "bytes": 3730,
+      "sha256": "596a70c1417a1752c432e6bb3b390bd6074b1547aab41f7a9a08f94757d8e7c0",
+      "gitBlob": "a21cdb93c7da2bee099f75986a7f846feb1d0c33"
+    },
+    {
+      "path": "App/Features/FollowRequestsView.swift",
+      "bytes": 2547,
+      "sha256": "cf935a61fa548f4f4d0c5eb76d5b36722bebcaa42017b709a3eb89f212f133db",
+      "gitBlob": "bdde80e21584603360591fe315070498d44a4b84"
+    },
+    {
+      "path": "App/Features/GuestFeed.swift",
+      "bytes": 3501,
+      "sha256": "7e6db79446adaf1b6cb45b0eba74bfff2f25999403652ccd2bd1cd5cdfd2d090",
+      "gitBlob": "113156cc0bd657aebde3b93103f82d71ad1fa20a"
+    },
+    {
+      "path": "App/Features/HomePanels.swift",
+      "bytes": 13229,
+      "sha256": "3780e14024d8a16e06eff1fd286160dbb37b5cc49d3b6648398a6d5f18483cdf",
+      "gitBlob": "7332bc9323aff2dff45af3db5132be67429b09ef"
+    },
+    {
+      "path": "App/Features/MoreSocialView.swift",
+      "bytes": 7059,
+      "sha256": "d6cc92e42ce65a3c89d34f7d2d53ea6352920c667670a896f0e4bfdf7f662e1d",
+      "gitBlob": "d28d06b3209d8e933fb9c023e015d6a10507802b"
+    },
+    {
+      "path": "App/Features/NativeAdminView.swift",
+      "bytes": 17577,
+      "sha256": "a58712322939a4713f99de235085a1914eaf60e55367a4f954b2312152dcb10a",
+      "gitBlob": "587357d803d3f493cbbfab8708ceb05e74f0a9ab"
+    },
+    {
+      "path": "App/Features/NotificationDestinationView.swift",
+      "bytes": 2503,
+      "sha256": "0385ac9960319dfb6fa727883e550630e07c7936bb5f20087beeb71685455efd",
+      "gitBlob": "9f94b66f9b2a0720ee95f263f00bf5b9db6e2568"
+    },
+    {
+      "path": "App/Features/NotificationPreferencesView.swift",
+      "bytes": 9097,
+      "sha256": "2a6622d0e5d1e6a77e042e58c2cedc43a9d4471d33e056f34886450700a741a1",
+      "gitBlob": "350a70784b162d1f9c043a72f0c855d087635537"
+    },
+    {
+      "path": "App/Features/NotificationsView.swift",
+      "bytes": 27466,
+      "sha256": "b09fae0ed8a6c3926eac9f46aea3f39bd72711e55c45b6f62cc92a1bd27c47bf",
+      "gitBlob": "c0cf8fbef6f66b8b4614e50aed4d0f258cfd12e9"
+    },
+    {
+      "path": "App/Features/PersonalGIFView.swift",
+      "bytes": 9449,
+      "sha256": "e10300b2f9c64e2c860de0b05e44f13058ad36e2bb614f270782aee667dfc74d",
+      "gitBlob": "36bd39839f4b2b164df2ab6f4634fa6f58c4ffc3"
+    },
+    {
+      "path": "App/Features/ProfileView.swift",
+      "bytes": 20526,
+      "sha256": "566cecec5a93b87bad5c92281d9550e9c58f4d59fc7a1725d66ab3b26222d7ec",
+      "gitBlob": "2fe21535b42b326faaaad0adf29ea9a2403557b4"
+    },
+    {
+      "path": "App/Features/RelationshipSettingsView.swift",
+      "bytes": 9719,
+      "sha256": "152997a9c7e48db95a2e3259a575687590c91a92facd8789c13042b5abee8a22",
+      "gitBlob": "92929c0d64744d1cc29d8451b194fd76a6887c79"
+    },
+    {
+      "path": "App/Features/RoomChatView.swift",
+      "bytes": 30153,
+      "sha256": "2e3a10756f8392869ce1e2b68426e60f03945e4bc8ece0e3d1239a31971f92ae",
+      "gitBlob": "daab49058f7eae08fe92ee313a2f46af0a30b0a9"
+    },
+    {
+      "path": "App/Features/RoomsView.swift",
+      "bytes": 8716,
+      "sha256": "14c646543890caa17a15276e5a4201158eb189b7426e9db67017cba2ce8422cc",
+      "gitBlob": "6fccd8bbb770e5857b17b18fa9ae67772db52600"
+    },
+    {
+      "path": "App/Features/ScheduledNotesView.swift",
+      "bytes": 3096,
+      "sha256": "4fc28ef48ea197ef54fd39e3ed4bc906cb45fb36a3819f0033bc19928102ee3a",
+      "gitBlob": "dae5590e6a9bb28d1f0590f95a5fb01a34b77552"
+    },
+    {
+      "path": "App/Features/ServiceConnectionsView.swift",
+      "bytes": 11241,
+      "sha256": "fd238ef05f1e51cde2e5fc47d8bb201c0e563c696ecdf2140b995e1ce2fc8f3d",
+      "gitBlob": "4701459069129d2d5ca7ede9b3d0cee09fcdb9d3"
+    },
+    {
+      "path": "App/Features/SocialViews.swift",
+      "bytes": 11898,
+      "sha256": "33371a07b2d2ad7cda9002018f26f57fe755c7f940f3ab9a9037c9c1e5e4a806",
+      "gitBlob": "e04d3d8ae7403af1cc832e34afb2857d2a68153a"
+    },
+    {
+      "path": "App/Features/TimelineView.swift",
+      "bytes": 41433,
+      "sha256": "49811728223f7c5c4f17fdb79a4ce6c790313ab9f0043197bcd85c355b4cdb24",
+      "gitBlob": "eb1bbca541baa55a36532d9ff2cca59788ac7d80"
+    },
+    {
+      "path": "App/Features/VerificationApplicationView.swift",
+      "bytes": 8163,
+      "sha256": "3965ad98c4adc2868747170a52f959c9ce9f388407b32fb72eed862f86c86ae4",
+      "gitBlob": "0cf1d26dc8a7951a4a67703bae4b3f1696d31ac0"
+    },
+    {
+      "path": "App/Infrastructure/AdminAuthorization.swift",
+      "bytes": 6050,
+      "sha256": "8a21539de8a78effdb54c27e31485c961c584cdaa3e5cbee52b4ab0f7887f36d",
+      "gitBlob": "bd142512b554c8b1075f7a54eac24f2f242277b4"
+    },
+    {
+      "path": "App/Infrastructure/AdminCatalog.swift",
+      "bytes": 5647,
+      "sha256": "115fe946fd0ad4f7f10d677f84986c79715ade50c897b4eea58dc917656c33dc",
+      "gitBlob": "3ecdd220439c92ef83f2fe87541e805e2b1c8680"
+    },
+    {
+      "path": "App/Infrastructure/AdminOperations.swift",
+      "bytes": 10481,
+      "sha256": "3117fbed5abc52837e7b9e079f3f8c673d90450f2645cdb0dba0f27a1eb428e2",
+      "gitBlob": "668655cbdb6bc95431072d0190c34bdf897083b5"
+    },
+    {
+      "path": "App/Infrastructure/AppSession.swift",
+      "bytes": 17832,
+      "sha256": "c4c779a66a7e676d5b8d821fc6289e40d21c0d312ff140600f3964de5e463a67",
+      "gitBlob": "389ab732d2fbdb1682894af10f65a91a1d08dcda"
+    },
+    {
+      "path": "App/Infrastructure/AuthTestFixtures.swift",
+      "bytes": 3067,
+      "sha256": "5f5e47fb568e9b33805c9e8363eccdf945a573c48fe713d0e81c5b135c759d3f",
+      "gitBlob": "7d37781a3aa9415c27b01d78405682e58b211726"
+    },
+    {
+      "path": "App/Infrastructure/FixtureTransport.swift",
+      "bytes": 46653,
+      "sha256": "fec3948b00a5fce5b5a667087a22fc9afb01b4a5687331e6f303a1b99c1b7e16",
+      "gitBlob": "e0e9be6abc5c8504c402877c78ca7c8a8a0da8ca"
+    },
+    {
+      "path": "App/Infrastructure/GIFStickerTestFixtures.swift",
+      "bytes": 1542,
+      "sha256": "13681c65d52bda79216e4d7155c22046a3c7e049ff189c783661666cf7878539",
+      "gitBlob": "2652212459e22d094324f74fdda13ffa3aab2373"
+    },
+    {
+      "path": "App/Infrastructure/GIFTestFixtures.swift",
+      "bytes": 33286,
+      "sha256": "999296588d24da16e80d4bedb14c84a3f46a1d50a82eb49531a3991234db0b18",
+      "gitBlob": "8d1febfd4775810fd8b8badf03a5e82217440956"
+    },
+    {
+      "path": "App/Infrastructure/IsolatedTransport.swift",
+      "bytes": 741,
+      "sha256": "1f606fd59335b908b616dccedddab5d0fb569c6536cc7020c266d0ed503a5838",
+      "gitBlob": "86dc0f5111af01883185c801594857d4acf3a755"
+    },
+    {
+      "path": "App/Infrastructure/KeychainStore.swift",
+      "bytes": 2572,
+      "sha256": "1fdcb53637f0b74b2b3dd1eade086892f4bf086c2530832a9c4f995dc9e33591",
+      "gitBlob": "4b2a43a2e6edbe972bdc950b2658eb25976270de"
+    },
+    {
+      "path": "App/Infrastructure/NativePushController.swift",
+      "bytes": 12519,
+      "sha256": "885e39052583c1108382893c10ac827eb1c0443309301d3d8f81fa65c5f9177e",
+      "gitBlob": "b858d53c729d47064425c2413831f55f0bdcf490"
+    },
+    {
+      "path": "App/Infrastructure/NativeStrings.swift",
+      "bytes": 522,
+      "sha256": "f5f9cee1af31c0fc38ca168f9d942aaf87dd3809eabeef8d9ad38fcbf883d372",
+      "gitBlob": "5f619ff1c3fcf7033f4ab7e1725d9d8ff98360b1"
+    },
+    {
+      "path": "App/Infrastructure/NotificationFixtureState.swift",
+      "bytes": 5908,
+      "sha256": "367522c5b25259d10f10ceb3a807a331c34d2b7300b2f53338b61d39aead8d1c",
+      "gitBlob": "e42e9ca5cf4618371a8d0dda4fa81a8d048a38d7"
+    },
+    {
+      "path": "App/Infrastructure/PrivateFiles.swift",
+      "bytes": 682,
+      "sha256": "6983f19cdd2f87fbf56155e910b2416d4a2a6d27f35bcb5dcee5d144fbe2a4d4",
+      "gitBlob": "0f97dfc73ab0dc3e0d718a5b71b5dfedbb575a7b"
+    },
+    {
+      "path": "App/Infrastructure/ProfileTabAvatar.swift",
+      "bytes": 2997,
+      "sha256": "2caa6ffd9d1be8fb322bc0d9df7a2fc9f551b407a3e23204b975e8ac489550b8",
+      "gitBlob": "f0090bf7429cd36c461a27186bde8286bdd69a8c"
+    },
+    {
+      "path": "App/Infrastructure/ProtectedStore.swift",
+      "bytes": 2172,
+      "sha256": "ef66ce5228f760c6504c48206b9a0cb1124cf3e25cae7fdfa6a0be85c20d429a",
+      "gitBlob": "12e467542bb1ac29c6e6e0f305eb8f1601b13032"
+    },
+    {
+      "path": "App/Infrastructure/PublicAnimationFixtures.swift",
+      "bytes": 3241,
+      "sha256": "5dd1ec451bb87769f216b446773124a9476d27c4df0624d320b4d95b211a6f63",
+      "gitBlob": "a0df8aff20896698f1a133d50747dc327828f11a"
+    },
+    {
+      "path": "App/Infrastructure/PublicHomeSnapshot.swift",
+      "bytes": 31998,
+      "sha256": "225fb125c6c46bb4a54952e63ef93ea4995e183e565ba1ea0a189b5822f89893",
+      "gitBlob": "230ed814fb6b8af56ce1e4ee911449358384427d"
+    },
+    {
+      "path": "App/Infrastructure/StreamClient.swift",
+      "bytes": 9786,
+      "sha256": "14452423412c8d52f74350d12f54f23a1abed23b0233286550d96988a7b30b0a",
+      "gitBlob": "bb99b0ff835abd53f72cd8f496de450ceec65d4c"
+    },
+    {
+      "path": "App/Infrastructure/TimelineTestFixtures.swift",
+      "bytes": 2907,
+      "sha256": "0e8d4ab64101304ccb3ae03d5142137b01acc1997b1d28ecc291c86d4df941da",
+      "gitBlob": "0725359455d20c2c2a89b7fe7803779d55c18e3e"
+    },
+    {
+      "path": "App/Infrastructure/VoiceRecorder.swift",
+      "bytes": 1996,
+      "sha256": "224c607dbb164dfbbca85ef9e50e10f96b84b3441b99ecb5ae1cf12fc54254be",
+      "gitBlob": "9850565789cf10638f6d9a98f08254ead961062b"
+    },
+    {
+      "path": "App/Infrastructure/WebAuthorization.swift",
+      "bytes": 3657,
+      "sha256": "38dcfd7436aa2c45f9b93c63e6bf484265f357f4e7113314d40d75cff310ef95",
+      "gitBlob": "add3a102359d10fafaeb514d22a6a0fe31c25944"
+    },
+    {
+      "path": "App/PUBO.entitlements",
+      "bytes": 247,
+      "sha256": "505831bc300da485d0abacaf41be3c2d62a878b8d892b1fd21149078683e786f",
+      "gitBlob": "b1b8afd2aedde7c973eaf4e60e54437ffc88d16a"
+    },
+    {
+      "path": "App/PUBOApp.swift",
+      "bytes": 4319,
+      "sha256": "ea50c85d965f206f39d0d38c5dc9ba7410b3b462522a74a6a846e8a33da1148f",
+      "gitBlob": "c1d13987e18cc815ba344a60c74a25fa6ee78c5a"
+    },
+    {
+      "path": "App/PrivacyInfo.xcprivacy",
+      "bytes": 4412,
+      "sha256": "3623cf0adb63e2a218cb7bb1c23cbd05a9e5c89da1df7be8648ca5ccfc01f621",
+      "gitBlob": "480e368944a2467d34111e29c4ba420588f85cb9"
+    },
+    {
+      "path": "App/Resources/Achievements.zh-CN.json",
+      "bytes": 8904,
+      "sha256": "45c4bc42e9da67a6985920f902d7cc7472d9fd64d67df3cd7dd0d9d6f8fe8f69",
+      "gitBlob": "345ed5438e7f86d5cd6201dfdce9c534279447d8"
+    },
+    {
+      "path": "App/Resources/AdminCatalog.json",
+      "bytes": 182603,
+      "sha256": "09d7a5e6dc2a86311a8c98492a17067e54ade34ba5c7fe72d5ed398b1004b00c",
+      "gitBlob": "03e4895a8c181f2c6706889dc988a087eff4cdb4"
+    },
+    {
+      "path": "App/Resources/ChatParity.json",
+      "bytes": 8785,
+      "sha256": "49a6772db3b6ae323010492ad21f68dfbf0c607613c24eb6b5cac12f2b0c99d8",
+      "gitBlob": "73bb873eb5d01efa38e532dfda9b240e69b3a027"
+    },
+    {
+      "path": "App/Resources/NotificationVisualCases.json",
+      "bytes": 42722,
+      "sha256": "02c140c8c3ab9c08232a8f74f46f424224fe6d3ff0b0e91c4df1e17ba260b33c",
+      "gitBlob": "3810ec98e16ae270e56da1291f96963bd8225a58"
+    },
+    {
+      "path": "App/Resources/SDWebImage-LICENSE.txt",
+      "bytes": 1086,
+      "sha256": "d87f2529134b3e5e36b2e1e36efa8db76b14e0ff0ab5195c01f42b87432b9223",
+      "gitBlob": "447dc07d11f964327e127dc37e8fbf1f95334b54"
+    },
+    {
+      "path": "App/Resources/Tabler-LICENSE.txt",
+      "bytes": 1073,
+      "sha256": "5a3b65e1ad6a081759fde376fe14e2cd88552a9ebea89a8168f34eab1e96109f",
+      "gitBlob": "73cfc6be67ecb4ef7a4b279ca1aece65760ff5cd"
+    },
+    {
+      "path": "App/Resources/TimelineParity.json",
+      "bytes": 31105,
+      "sha256": "709410cf5618e60986c9703df8d61ea9c68e4d4b103895fb68f13b9a5d78060b",
+      "gitBlob": "767c7ae45fa7895528ba7327f9c20d72e10f537e"
+    },
+    {
+      "path": "App/Resources/TimelineVisualCases.json",
+      "bytes": 322,
+      "sha256": "fdcfc5ecdd4b478b86da3806c9fdde01309ce012fb8fe20e221562d743b35843",
+      "gitBlob": "c9fe5edb3750fddb9809a3636a93110dcc3a6d54"
+    },
+    {
+      "path": "App/Resources/TokenPermissions.json",
+      "bytes": 2055,
+      "sha256": "c1211f91ed32c13dba6598b87c9efdd82f4eac48ac826a05b51ae9c0519c3872",
+      "gitBlob": "26b946dfc04073af68a36a1573798a09893ec83e"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 34520,
+      "sha256": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6",
+      "gitBlob": "dba13ed2ddf783ee8118c6a581dbf75305f816a3"
+    },
+    {
+      "path": "NOTICE.md",
+      "bytes": 1120,
+      "sha256": "e75d52cf0b11db44664b6db92ee27d3fa24c91871d2cfc9da94827e6cde5c6c9",
+      "gitBlob": "e17ae21318cb5423e6f3ccec95f0cc49664a94b5"
+    },
+    {
+      "path": "Package.swift",
+      "bytes": 339,
+      "sha256": "c679ed8c143f760b114b9a92776b8a51a1a91c704d4b243c12e4356f2841c942",
+      "gitBlob": "bf7a9c5937c5e3b57bc1729aa53d86b13ed5cf22"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4751,
+      "sha256": "fe6033d7b8c3ab26e91c63835ce287385966d6e3dc9f6e6c6d7958399d1835b3",
+      "gitBlob": "3a3a0f99b1b795ceb34b37668692551496362aa2"
+    },
+    {
+      "path": "Sources/PUBOCore/APIClient.swift",
+      "bytes": 10768,
+      "sha256": "935caeabf4b614d9801ebac2ef5aa1b3128cc750b5054d3be68f39816bfbb17e",
+      "gitBlob": "303de0bd53ae99e30e0041676d97b3e627e8a21e"
+    },
+    {
+      "path": "Sources/PUBOCore/AccountVault.swift",
+      "bytes": 1167,
+      "sha256": "f035a5fd9d276096326054534e605cb9146099b6c33c2edb7965c271cb13551e",
+      "gitBlob": "801e097308277d281d0cddb70d27a3826a9a2002"
+    },
+    {
+      "path": "Sources/PUBOCore/AdminSchema.swift",
+      "bytes": 8746,
+      "sha256": "8ed4d41af127d7df45cef51351c530e46e0a96079d3fcacd5c696646ab3f7b0f",
+      "gitBlob": "43bfae576fbe793f4f4af834adf81f2676c0f80b"
+    },
+    {
+      "path": "Sources/PUBOCore/Authentication.swift",
+      "bytes": 3283,
+      "sha256": "921034cb3ef7f4644c694a5e89d3c7dbddbbf9ae763650cce92ebd3bacc727c6",
+      "gitBlob": "448c110f661eb834f73df92dbdd42245ab72bc23"
+    },
+    {
+      "path": "Sources/PUBOCore/ChartPresentation.swift",
+      "bytes": 4534,
+      "sha256": "763079e9e92472e746d5bd02c7d78a47300e0872dc8246235dba96de98d5aab3",
+      "gitBlob": "f2b3407bd9ee1770e7b77a8a7c0da9f815426de8"
+    },
+    {
+      "path": "Sources/PUBOCore/ChartRefresh.swift",
+      "bytes": 1836,
+      "sha256": "e040c29cb6fe00d3db012d1e12b01b979a0c3d4986bab005f7e4b7c8d3499798",
+      "gitBlob": "b193d90737d4b6b9f476536e6b812ea13619f7bc"
+    },
+    {
+      "path": "Sources/PUBOCore/ChatPresentation.swift",
+      "bytes": 5231,
+      "sha256": "2ffb57b722196f3d81ffc9d8a098b87b26804d1de68e2bb208954516eea11e28",
+      "gitBlob": "491fb6ac6b6e7ea60c491f411fcb51220abb8a3d"
+    },
+    {
+      "path": "Sources/PUBOCore/ChatReferences.swift",
+      "bytes": 4374,
+      "sha256": "1141f0ba78a185b0f4873105b6f6dea19e17d91ecb564b0cdcb09a5519eff2d4",
+      "gitBlob": "bbe35260e65af02a5eba9f9f9281d1f24cd5b73f"
+    },
+    {
+      "path": "Sources/PUBOCore/Collections.swift",
+      "bytes": 2259,
+      "sha256": "f17a4ad1bd0a9a08dfc165a688e77ce933fa109059d597e7fca99f5415e4afbb",
+      "gitBlob": "71d7ddd8d79ee2dbb78b96cfd705bd15d7f7b37d"
+    },
+    {
+      "path": "Sources/PUBOCore/Endpoint.swift",
+      "bytes": 1017,
+      "sha256": "9789732526749747110505abff43579ed30606c07e796501357adc8b7b450dc3",
+      "gitBlob": "27c54e602647c2d26d271d090639cc9a268d6526"
+    },
+    {
+      "path": "Sources/PUBOCore/GIFSticker.swift",
+      "bytes": 10463,
+      "sha256": "a7912eb18cf616b3e9461850ce1f77ef00cc07d8240f79e3140d2bc7aa2032ee",
+      "gitBlob": "c03f70dc14157fa2f18fcdbdc958d61ec3d2b6e8"
+    },
+    {
+      "path": "Sources/PUBOCore/HomeContent.swift",
+      "bytes": 1857,
+      "sha256": "d4b0742ad692ef648988b408e8ec23fe9b127c30d6c02d47017889c3f4d77c69",
+      "gitBlob": "c0387ad1cb36c2d81bb3fa2f51fa527a6f7b7a6a"
+    },
+    {
+      "path": "Sources/PUBOCore/JSONValue.swift",
+      "bytes": 3039,
+      "sha256": "30c9466e1129780a554528eee469925d31a54a7407bda182c6c92b6140fc7e87",
+      "gitBlob": "3db70244d9f404407066d01333163870f2489559"
+    },
+    {
+      "path": "Sources/PUBOCore/NativeLinks.swift",
+      "bytes": 2965,
+      "sha256": "f7d9a44b60a0cfa2d70e4b05688158f9e0a211784c1fc04f842433c0d693cdfd",
+      "gitBlob": "3cceb588f26ca569aba2ef69a6f73fb6d5bd3d42"
+    },
+    {
+      "path": "Sources/PUBOCore/NativePush.swift",
+      "bytes": 781,
+      "sha256": "1303a5e8799a3b7dd6b1e32a4d827264032bdb1d0a2d89370a18fce7619b4a2f",
+      "gitBlob": "286e4b88847f601cc3eb3387eadac5af60faaa31"
+    },
+    {
+      "path": "Sources/PUBOCore/NoteReceipt.swift",
+      "bytes": 1248,
+      "sha256": "12ed4cb0dc6ae78ae500c76915884d4d0c7a146d9df3f9ba635a702a269575ac",
+      "gitBlob": "8c5e162809aa2d49fc54226485fb623f0e36b319"
+    },
+    {
+      "path": "Sources/PUBOCore/NotificationFeed.swift",
+      "bytes": 3684,
+      "sha256": "0b3b84c85bc407c6e99f72208fd1ee78851db43392331588d30a901e1640f02e",
+      "gitBlob": "9616fd237c697afe327558ad071b005bfb26451c"
+    },
+    {
+      "path": "Sources/PUBOCore/Outbox.swift",
+      "bytes": 1915,
+      "sha256": "1b8e17c316ef80f12a5e53d2ac1e983ed677accd2d807e2bea340db75a4be687",
+      "gitBlob": "cae473e7f12f282a4664fffe287d1726b5b7a560"
+    },
+    {
+      "path": "Sources/PUBOCore/SocialContent.swift",
+      "bytes": 3617,
+      "sha256": "d701bb312b0b1ec39788b39616ada868660ae89b738c092d902ca5dc0ae616ad",
+      "gitBlob": "6e6b76d4becf3db92ff8cb0af03822996803de0c"
+    },
+    {
+      "path": "Sources/PUBOCore/SocialParity.swift",
+      "bytes": 4104,
+      "sha256": "767bc9eb566671be5241035cb4c4b6f4a6238fcf0e079a21fb0fa9ab777fc1b6",
+      "gitBlob": "dbd644cede8a3996ea0b47eb83dbaa6727155fad"
+    },
+    {
+      "path": "Sources/PUBOCore/TimelineState.swift",
+      "bytes": 8015,
+      "sha256": "f8bd7e05cfbe006e9492a71a7255ab7cdd53ec110f212e472b1edc25c96227dc",
+      "gitBlob": "d947940cf38a920dc725336501634828fb46b1bc"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/APIClientTests.swift",
+      "bytes": 7945,
+      "sha256": "d1d6207abf37cde4652f6fba7c1c4b615fbfebea40b545b3b1b14e19f87a1d4a",
+      "gitBlob": "c396160286ee90dde69e90ade9265d19d0195b26"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/AccountVaultTests.swift",
+      "bytes": 1810,
+      "sha256": "7b1b0e50a36fc1b2d286aca6a1c554db02637ca33ec4c7fd851a73fa3fe67f74",
+      "gitBlob": "5ec8a0ae944b248eb652e5179d6eaa1eea279134"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/AdminSchemaTests.swift",
+      "bytes": 5002,
+      "sha256": "f521e9abfbab1f4f97b6589a40ba7eb0143bc980be9db3f7adf561a45455b6c7",
+      "gitBlob": "8210a50d6c829678bc740bfda64c76313c0fdf5e"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/AuthenticationTests.swift",
+      "bytes": 3830,
+      "sha256": "b57b5869b800f4d5c8a94ece7e51d184526ad7f3c401cfd0bbccd9d5c0557277",
+      "gitBlob": "e6ee0921207be36aa2fabdd36c4c3471c5d73864"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/ChartRefreshTests.swift",
+      "bytes": 1802,
+      "sha256": "410cccb673fdd041bf893ed0b36af3fa574bfdc16108329b6630a3615dc490a1",
+      "gitBlob": "e64c1effd41a899d4c8229d90fe25074a14363d8"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/ChatPresentationTests.swift",
+      "bytes": 3919,
+      "sha256": "679b9639686e6c411c4b78d0cf34e6692cdbc0c0c65ae0229902857d651e17b6",
+      "gitBlob": "a95bd6ca02a5c3651d83dc09be13cdf89163cf5e"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/CollectionsTests.swift",
+      "bytes": 2648,
+      "sha256": "84b0997cad88112824a1055b76494f5307fb7ec21d5ce8a47996ad5310da35e4",
+      "gitBlob": "7781612d6a2c97078594f30fa889cf9f4645f212"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/EndpointTests.swift",
+      "bytes": 652,
+      "sha256": "21acc4720bdfcf0ca9dc1c54f25b7d0c3050bc44b2aa7590c60ac96badf04f16",
+      "gitBlob": "b328c860ec99322dd64f51d52f83585cef1c1677"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/GIFStickerTests.swift",
+      "bytes": 6223,
+      "sha256": "d178a55846b2b89ebd40c28fd48a8d4997e3fc0b76784c9cdbc6c0aed49d4954",
+      "gitBlob": "03d95914295d283e868a9f4abdc75bbb975dae84"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/HomeContentTests.swift",
+      "bytes": 1487,
+      "sha256": "682b9c9d47d9bec7330d115c55d3bc2e65eb084edfff93c33ff465472d11846c",
+      "gitBlob": "82d259f9f0b52955fcef3f965a1be30e6f1468cc"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/NativeLinksTests.swift",
+      "bytes": 1290,
+      "sha256": "aa5781371ed04d0bb0df43c0590ec137a2b9a58e29de1aa13b22ba1c21fe238e",
+      "gitBlob": "538f7a4a159649bf635f80913a5154ecd9a5c96a"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/NativePushTests.swift",
+      "bytes": 880,
+      "sha256": "4f52f4e87f26d5a644752c1b975a1ee4bc75490499d14e9a3ed69b1fa03f86bd",
+      "gitBlob": "2606fd11245bf532aae2ea127591475c9cdb73f2"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/NotificationFeedTests.swift",
+      "bytes": 4903,
+      "sha256": "bf89d9a7bd4ae068e6b850c84506ad7e6302b7d5f314be15027f55e4d56417e1",
+      "gitBlob": "8354b84c419d1a4fca85c7fe1f6b9c3a4fd929b0"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/ParityCoreTests.swift",
+      "bytes": 5912,
+      "sha256": "8008ba14804c320410d625c13e9ab8bb2143611e940cb39cec50d068bdc678c8",
+      "gitBlob": "9c35b8fcfe3918a6be92d149feab86ac002f328f"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/SocialContentTests.swift",
+      "bytes": 3697,
+      "sha256": "a33ec63ace4e542432bd37d79c1bf83f5e02e8325c99b46401f67a20f2b36bd5",
+      "gitBlob": "d51776ab7b8a8d8722fa5594e55362709bf36ce5"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/SocialParityTests.swift",
+      "bytes": 4105,
+      "sha256": "e381903b0946ef03cc473e1f99eaa9505b59789a5c265284d5d319482f708411",
+      "gitBlob": "b8c755b2d66daab78d5126646f4d2971612399c3"
+    },
+    {
+      "path": "Tests/PUBOCoreTests/TimelineStateTests.swift",
+      "bytes": 5819,
+      "sha256": "2d5c17158baad35d469985dfd5080833c93295d47ef6a00f9026c243a18881ef",
+      "gitBlob": "26c0e49f720d7dd38b16264d2597103f732166f5"
+    },
+    {
+      "path": "UITests/AuthStaticUITests.swift",
+      "bytes": 12597,
+      "sha256": "08350c1f929b23a5dc709715495d78967c1edb66925aacdc6da8ed1135aaea54",
+      "gitBlob": "f56e2b9ccf12b9f5d20e0364c7b5fd4bb09bfe22"
+    },
+    {
+      "path": "UITests/ChatAlignmentUITests.swift",
+      "bytes": 9809,
+      "sha256": "8693bc0c51bf0eaed2c79bdb6f7b1f0e533a2d5d61ddd12730f860138d9e462c",
+      "gitBlob": "82c372e79a2c193282270e48439a060b61531209"
+    },
+    {
+      "path": "UITests/HomeMotionUITests.swift",
+      "bytes": 5280,
+      "sha256": "2d269ded2100ff02e9f2046bf3bd2e6243dec57eec840e32bb348ddee1125976",
+      "gitBlob": "97475a5005e4445a49aa541ee8f059dd25840f82"
+    },
+    {
+      "path": "UITests/LocalTimelineUITests.swift",
+      "bytes": 12915,
+      "sha256": "f5d16f7f80fe3d5c05c69e8abc0c0403a5b010a66f703025c4dfd9853d25f76c",
+      "gitBlob": "388aed9d2f833aac89dbb1f3248a0d316b6ca8a9"
+    },
+    {
+      "path": "UITests/NotificationAlignmentUITests.swift",
+      "bytes": 24201,
+      "sha256": "35c12029f09b84ebeda09f6e4a150e2479d351bdd377c71e5900837a067fecd1",
+      "gitBlob": "590cf3dda82a9f8be6a6c1c0acd4811630852b1b"
+    },
+    {
+      "path": "UITests/NotificationBackendTests.swift",
+      "bytes": 2767,
+      "sha256": "0a9ee02c57b034917288a0a3fa27a17bc0664a5dd03081d641ceb3dd6b8390df",
+      "gitBlob": "35faf39825ea41573582f6c9d03ac5abc033ecef"
+    },
+    {
+      "path": "UITests/PUBOIntegrationTests.swift",
+      "bytes": 26176,
+      "sha256": "e3795fd3f0b9e5020fc11698db226f65680b6e86d04ad7e7c835736ef5c76c3d",
+      "gitBlob": "78b5bfbd7ff94f8f033711b758d382b2bbe96587"
+    },
+    {
+      "path": "UITests/PUBOUITests.swift",
+      "bytes": 54770,
+      "sha256": "73b179b2c4ecb10c5bc18b4ac03572a587f2c195ee5caf045e8fd446c4b3ee34",
+      "gitBlob": "b4fa8a82418ff5983dcd94b2fe65a3c47b7ee928"
+    },
+    {
+      "path": "UITests/PersonalGIFUITests.swift",
+      "bytes": 5605,
+      "sha256": "6249ecb6470c4d546bb5f13f51302c324c7b56e5a22679e6c43c8ae1626a54bd",
+      "gitBlob": "12dafaa1625aa9b98a6e6414bbd03631a1e27895"
+    },
+    {
+      "path": "UITests/PrivateGIFUITests.swift",
+      "bytes": 8930,
+      "sha256": "8c4a3032581d5fa3bb661dfd78e8a5bb6bb42f09dcde755a315323da4303cce3",
+      "gitBlob": "aba4dadda6e2d0507068809a4245982d315876b3"
+    },
+    {
+      "path": "UITests/ReconnectionUITests.swift",
+      "bytes": 2809,
+      "sha256": "d9f241ad1b2fedeef39f9b209f24661091ee3690820904fe48c80f738c9fafe2",
+      "gitBlob": "8feff73ad5cd6fcdbf876726d312bdd59ba11548"
+    },
+    {
+      "path": "UITests/SocialAlignmentUITests.swift",
+      "bytes": 7627,
+      "sha256": "daedda7bcf55b604a0ce94585330364c791bd1197c75919805553e82cc978d46",
+      "gitBlob": "67fab384952476878ab3c27f296373330a3f7eb7"
+    },
+    {
+      "path": "UITests/TimelineNavigationEvidenceTests.swift",
+      "bytes": 2163,
+      "sha256": "2bbcfde05aaf88df4e2048d491ae59ba43479aa340aa7798092dbc455d27c211",
+      "gitBlob": "12be9f88a7d8e7afa60fa48f45b5f485fd989ac9"
+    },
+    {
+      "path": "UITests/TimelineVisualUITests.swift",
+      "bytes": 6728,
+      "sha256": "899a21f3288205f10ef9ea415b2c9c0b54554dcd017220106ffd2845fd566df8",
+      "gitBlob": "43edcdea5bcbcd4d3548926cb29a64ec4226cc0e"
+    },
+    {
+      "path": "docs/ADMIN_COVERAGE.md",
+      "bytes": 19321,
+      "sha256": "cb0a331ab75cdee82b5b3210881f1173044c1da6ff7fabbcd89400fdeb384c4f",
+      "gitBlob": "17806aa7bb65c52db7d0f1656c5bbf1bbfebf185"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 3955,
+      "sha256": "c6a82140d2b9aef22af9df2cbeda1bb1db5ccf8dab5c40af1423234806860990",
+      "gitBlob": "d5c7a890abc7e3db36ce8415d103d49fb95a6714"
+    },
+    {
+      "path": "docs/AUTHENTICATION.md",
+      "bytes": 3471,
+      "sha256": "cccf514c7d3e9708ab1260e77c76347b34251a802282d35a7f17c0e045288218",
+      "gitBlob": "0144dd7e7b9cd86f8ba5a812e0dd5c0b9d17f850"
+    },
+    {
+      "path": "docs/BUILD.md",
+      "bytes": 8044,
+      "sha256": "bdff46499712d8da7add6aa4f23e2793d85ecf23c3a8de1cd370a29d9089658d",
+      "gitBlob": "eaa0974c13bbf0c2423bcf8a3e42410196eaced5"
+    },
+    {
+      "path": "docs/CHAT_ALIGNMENT.md",
+      "bytes": 8199,
+      "sha256": "9fc25a2075d525faf5b6aa3aa5978660cbc594462016c1f535330c25eb082951",
+      "gitBlob": "65ae49682f582d9aae49b7ad715721bea22125cc"
+    },
+    {
+      "path": "docs/FEATURES.md",
+      "bytes": 2557,
+      "sha256": "9e7b79b88ee3a3bfdddd03ac84b466e6dcc233ba63e0aca0f44218520ae45b92",
+      "gitBlob": "5415585a72fe1c25253dcf75ddd7eb65299eda62"
+    },
+    {
+      "path": "docs/H5_PARITY.md",
+      "bytes": 10354,
+      "sha256": "d9de67c86d384b8cef0530e0a7f3c0a6cf67eaedfced375affd9bf5c71fe28ec",
+      "gitBlob": "5a74b7918067d0e39f651fcacaa77a499698eab8"
+    },
+    {
+      "path": "docs/LOCAL_TIMELINE.md",
+      "bytes": 5188,
+      "sha256": "d6b23897107f497cf002477356f400186e372ec880e767a9a49d46ca8fbfd1ad",
+      "gitBlob": "44ff74dc3e25cc775398bc8ec1637a8531d929bf"
+    },
+    {
+      "path": "docs/NATIVE_PUSH.md",
+      "bytes": 2635,
+      "sha256": "9bda2328e86a2f26fdf6a2fe846aaa83f893e972585dbb97ecd5708631db847d",
+      "gitBlob": "eba36d6c4f9b10f114dbb0f4ed7e504bd5a75916"
+    },
+    {
+      "path": "docs/PARITY_ROADMAP.md",
+      "bytes": 8827,
+      "sha256": "097719315c02f9d6181348d340f6ad943c7cdf436921a46ab6fb1ff5a5963fb9",
+      "gitBlob": "3ec56f3cbf7d3ac12a5532c3a90bd4027cb62a4b"
+    },
+    {
+      "path": "docs/PRIVATE_GIF.md",
+      "bytes": 5036,
+      "sha256": "b22d7e0f7430423082b5c959bc0500603b1071f11bb4352ceed939af625787b9",
+      "gitBlob": "6e7946006102b5602589fcfeaed34790e22fb8fc"
+    },
+    {
+      "path": "docs/SDWebImage-LICENSE.txt",
+      "bytes": 1086,
+      "sha256": "d87f2529134b3e5e36b2e1e36efa8db76b14e0ff0ab5195c01f42b87432b9223",
+      "gitBlob": "447dc07d11f964327e127dc37e8fbf1f95334b54"
+    },
+    {
+      "path": "docs/SOCIAL_ALIGNMENT.md",
+      "bytes": 2456,
+      "sha256": "5653050e5670902cee8d55d2d9e64796dc9134e8795fc81d93481316cbc90c08",
+      "gitBlob": "bc0010ae9404f826780fda85328906243cedb58e"
+    },
+    {
+      "path": "docs/STATUS.md",
+      "bytes": 17433,
+      "sha256": "4c95e01a235bffa80eb4da93a5fdd7b8bd596c95d94c43cb28cd3b13e78474ee",
+      "gitBlob": "0e033b5f8e13bdc6d3316857e4de284194616493"
+    },
+    {
+      "path": "docs/TIMELINE_VISUAL.md",
+      "bytes": 4100,
+      "sha256": "58a9e6c2ff874d9faa5303ff3015fb179b5bf0d80371f67b350871c8cb8acc29",
+      "gitBlob": "e8997da4126d18351690daf27446654bc7611e8e"
+    },
+    {
+      "path": "docs/Tabler-LICENSE.txt",
+      "bytes": 1073,
+      "sha256": "5a3b65e1ad6a081759fde376fe14e2cd88552a9ebea89a8168f34eab1e96109f",
+      "gitBlob": "73cfc6be67ecb4ef7a4b279ca1aece65760ff5cd"
+    },
+    {
+      "path": "docs/Tabler-icons.json",
+      "bytes": 5186,
+      "sha256": "8b86e0c682078ecf6632eb320bee0d6a2b451b96d9fcd0440741165fb64a0cb6",
+      "gitBlob": "6d6fcaa49af6b182ca144801620ec678266d4067"
+    },
+    {
+      "path": "docs/WEB_STYLE.md",
+      "bytes": 4750,
+      "sha256": "d812359cfed976ae9a4c6fe2f1b8944724595d51b9798df1429c894c176505f4",
+      "gitBlob": "00905c7a96582f36ec815e9e0b1f596c0185673a"
+    },
+    {
+      "path": "docs/evidence/cloud-validation.json",
+      "bytes": 1328,
+      "sha256": "ecd160feded30b5a108a8d844f63173c18446173d49e2a968640900b10255c15",
+      "gitBlob": "29017e434cc8c94350ec619cd7ed0b049c5e9b58"
+    },
+    {
+      "path": "docs/evidence/composer-validation.json",
+      "bytes": 4111,
+      "sha256": "80f66a6f5c50028bfa4a535e8575244939a062611abcfd474b35570f8196266d",
+      "gitBlob": "be7303795b192c540cbed6e29e4aa1d2b79d0ec4"
+    },
+    {
+      "path": "docs/evidence/device-package.json",
+      "bytes": 781,
+      "sha256": "9b7232e9fc8a1481dced188a0fb63d6de675d1f44fc58743d57439a741487c2c",
+      "gitBlob": "9ee9cbda39d54bd0be428d9a3f95d6780a5ba154"
+    },
+    {
+      "path": "docs/evidence/home-validation.json",
+      "bytes": 1946,
+      "sha256": "1aa5c084f0be2a08f27d1cae13128bffeb5f86c29ac99e6a399672360ad85f72",
+      "gitBlob": "f39e02b08fc12dce2bd78cf0fb09c6e5c99339e5"
+    },
+    {
+      "path": "docs/evidence/http-contract.json",
+      "bytes": 375,
+      "sha256": "b6acc693d7be0e764328a24b0f82dce6d2b6dfb16f0b9a0df5cd4cdf8b1b7809",
+      "gitBlob": "f7e51d2572d026838cbb8da6a5055aef8743557f"
+    },
+    {
+      "path": "docs/evidence/social-validation.json",
+      "bytes": 1204,
+      "sha256": "ca84ea6c85b40aae70b87c4fdac01d4bf4073a7cde76079177a9f1883c6e9db1",
+      "gitBlob": "5723f7799812b5b95dfac0efeb4614aa72a47530"
+    },
+    {
+      "path": "docs/evidence/static-contract.json",
+      "bytes": 647,
+      "sha256": "3d05002e6b165ce04c96412a4874eaf939a5a05e63cc1d88d100ae6a0ebd8f45",
+      "gitBlob": "699c184c9f85a89961007c85e1073e9cd4a8097e"
+    },
+    {
+      "path": "docs/evidence/swift-core-linux.log",
+      "bytes": 5613,
+      "sha256": "796fc262e1e4c458137ce6f0cdd2fc912980b49d079faae24f16ba9a4c17b649",
+      "gitBlob": "ca121c284f43f9c8de068896abe23821d1652c74"
+    },
+    {
+      "path": "docs/evidence/web-style-validation.json",
+      "bytes": 3703,
+      "sha256": "0712b004da3fd304d06172a691739ce366545f11a68645926c9902c8888de142",
+      "gitBlob": "9eccd0a09e56bd19ffb64e5850a8ca3fbae868c7"
+    },
+    {
+      "path": "project.yml",
+      "bytes": 2155,
+      "sha256": "539ca84703c9a16821d34614ac9b56f59a43f50d8b62403b4549eb1b6a63849a",
+      "gitBlob": "8230e4faf66f1318b92d427f3242d2e3e4c0c2f4"
+    },
+    {
+      "path": "scripts/brand-assets.swift",
+      "bytes": 1393,
+      "sha256": "8770b6eaf414e0d5191104db5b9ffd1d6e88a4bc2c70c4613cc5bcba3e602681",
+      "gitBlob": "d269df2ff106d3de4bc12960fd84d474cd11e0c1"
+    },
+    {
+      "path": "scripts/check-contracts.py",
+      "bytes": 2766,
+      "sha256": "2da9a4100c5d83d491d165de529dcd2416935a9e873ffeae99fc97c339fbde90",
+      "gitBlob": "33287879740b7d07b99a05c5a352fbdc34f0ecdc"
+    },
+    {
+      "path": "scripts/check-notification-badge.swift",
+      "bytes": 5465,
+      "sha256": "f41cc6b0d9d54820831324f1fccfeec39ee08129b83795d19267c5e487d2a278",
+      "gitBlob": "003086c9a7d49c5d613a3b1694c67de9b2140629"
+    },
+    {
+      "path": "scripts/generate-admin-catalog.mjs",
+      "bytes": 5437,
+      "sha256": "d3c700af20d84b4a487417fe9a45ede76f384350a295ed233e5c194b7aa245dc",
+      "gitBlob": "1e473b2ab4a2fbcd2e0b461db0213c35d8ac4210"
+    },
+    {
+      "path": "scripts/isolated/admin-contract.mjs",
+      "bytes": 3117,
+      "sha256": "333c95dff49eca3007ec67ea53f8c57ec6db1655bd70d11a559e076e44c56c11",
+      "gitBlob": "6e295ee1a108c9347c9b4766458f5dacc83c4cad"
+    },
+    {
+      "path": "scripts/isolated/auth-contract.mjs",
+      "bytes": 11941,
+      "sha256": "ce12c93c7f8934b21722f241ab358f5f6b65dbe0a36a57365448a6d5ade2e88b",
+      "gitBlob": "a79e94b4ec98f041b07e17b086738e69b0516ee5"
+    },
+    {
+      "path": "scripts/isolated/backend-overlay.json",
+      "bytes": 244333,
+      "sha256": "fdf012b81d86bb91e4327316bb2c5f6a26aee5501d850937dd9b2338da8e8eb8",
+      "gitBlob": "9db05acf4d51e4ebe842994e6b7bb33ed1ee3306"
+    },
+    {
+      "path": "scripts/isolated/chat-contract.mjs",
+      "bytes": 3804,
+      "sha256": "874b74bd84d0a2256ba49bf18abdeb20465cec692b4f2562f22fd2cd6a29a88e",
+      "gitBlob": "50791c95fa7bd06ab69a58e7df421f791f2bebf6"
+    },
+    {
+      "path": "scripts/isolated/extended-contract.mjs",
+      "bytes": 11273,
+      "sha256": "5dc71be6b1b04b45451b0e1e18a1f97a99ac141453527343296f8a2eaf7e93d9",
+      "gitBlob": "10c1756abb1d85376c64f529acf37cd04b451294"
+    },
+    {
+      "path": "scripts/isolated/http-contract.mjs",
+      "bytes": 9452,
+      "sha256": "72ee9686149f0455d5bc717128c216d7dbd5adbda2c29842f5aed94b97d1a36f",
+      "gitBlob": "9b6c011bb7befa304fcf695ec41cbe25e3ec160a"
+    },
+    {
+      "path": "scripts/isolated/mock-sms.mjs",
+      "bytes": 500,
+      "sha256": "f342bdd193dd66e069b979ceb6ee14af08b1585c3869c2103e8ddd5b8d99f94b",
+      "gitBlob": "6cee91e9ffe61f9eb8b7dae02d0beec949aa85c7"
+    },
+    {
+      "path": "scripts/isolated/native-ui.py",
+      "bytes": 5120,
+      "sha256": "9c03c7e8e3d57fed79cc1874b330ba3705c7f363d91bdff234cae3ca3b74dea9",
+      "gitBlob": "af443e6a1e171fcb0274ffe3aeafb48c5928e59a"
+    },
+    {
+      "path": "scripts/isolated/notifications-contract.mjs",
+      "bytes": 4412,
+      "sha256": "4ab7ddbdbd190d40185a070f2685fbe92190c577301dfbbf4cc8e4889d199539",
+      "gitBlob": "02d7b176548c8a25f60ae66f35bfce3a3d047582"
+    },
+    {
+      "path": "scripts/isolated/prepare-backend.py",
+      "bytes": 3215,
+      "sha256": "aa9025e3119dda717a4e063c32b7ebf7da8bfcfc95ab6ed1700140595b699f9a",
+      "gitBlob": "e275f4f269661a7d4ae43d83f589ec668ae8195c"
+    },
+    {
+      "path": "scripts/isolated/start-backend.mjs",
+      "bytes": 14107,
+      "sha256": "b8d947b46f7f313994b27a9b64f354833217e5a1aff8ea9720345e3c887a638d",
+      "gitBlob": "172d9ef20c60755b4525f2e09e430c84bcaccb16"
+    },
+    {
+      "path": "scripts/local-timeline-tests.py",
+      "bytes": 13538,
+      "sha256": "dea68f51d9010c998a55f8c5055d0dabd67c113a389b704e22a2262a4c0832ad",
+      "gitBlob": "b8ca11aa8c5ef54aabe04453217352f7c30f5bc1"
+    },
+    {
+      "path": "scripts/notification-simulator-runtime.py",
+      "bytes": 2895,
+      "sha256": "5172d78bf758a7322c0331fd1476f6f9d59737d2abe4960cef9f2df5e2198672",
+      "gitBlob": "6f66d47b1bbae87ce0b357af1a78e13af6addf64"
+    },
+    {
+      "path": "scripts/package-device.py",
+      "bytes": 6406,
+      "sha256": "53cfa715656d6072891983728c4b9726c5fcc2121915649dc5010ab64b3ff152",
+      "gitBlob": "9301ae272d04bc8c5c560b26675e56951983f5d1"
+    },
+    {
+      "path": "scripts/private-gif-tests.py",
+      "bytes": 3162,
+      "sha256": "31a75c3732c4562a3fd505240721b1ad51b605270a02bc627b80fb363fb9e2b7",
+      "gitBlob": "3ad2cf9866e73ed52bc92652b65f9e65df2ffd8f"
+    },
+    {
+      "path": "scripts/simulator-tests.py",
+      "bytes": 13260,
+      "sha256": "3fec161fbcd079d2d75566061579390bb67965542c72d3574c448eaca2fd54ca",
+      "gitBlob": "3b203ef248cba3d6b44568c4b038010ffaf32dee"
+    },
+    {
+      "path": "scripts/simulator_boot.py",
+      "bytes": 1561,
+      "sha256": "6c1359d4a2472bdec9534520450d709dd133d486fa830a82ad17ed6bd62f739a",
+      "gitBlob": "91217d8078b5510597ac25f1e6efe49e50cc70da"
+    },
+    {
+      "path": "scripts/simulator_resources.py",
+      "bytes": 1450,
+      "sha256": "e316b47663381973413e0f746cdf35c5a9cbdac4b2480594698800f8720820ae",
+      "gitBlob": "edf37cf17313fb19b07391ba108d43242dbbef48"
+    },
+    {
+      "path": "scripts/test_device_package.py",
+      "bytes": 2165,
+      "sha256": "024c7146e72f3bc4aa0bafe56ec558a47dfd04904ccbab9819807f7576111812",
+      "gitBlob": "6180a59621cc0e2d272420bf6d1f0ed637a1c273"
+    },
+    {
+      "path": "scripts/verify-image-dependency.py",
+      "bytes": 651,
+      "sha256": "bcb1188214d37f95333832d4ffb8dccd52decb64680694232051c9ea76062f08",
+      "gitBlob": "45684e9aa9ff5f1833250c72099f9ee36e75c987"
+    }
+  ],
+  "lineEndingOrTrailingWhitespaceOnly": [
+    ".github/workflows/chat-alignment.yml",
+    ".github/workflows/home-motion.yml",
+    ".github/workflows/ios.yml",
+    ".github/workflows/local-timeline.yml",
+    ".github/workflows/native-integration.yml",
+    ".github/workflows/timeline-integration.yml",
+    ".github/workflows/timeline-visual.yml",
+    "App/Assets.xcassets/FeedIcon-antenna.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-antenna.imageset/antenna.svg",
+    "App/Assets.xcassets/FeedIcon-arrow-back-up.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-arrow-back-up.imageset/arrow-back-up.svg",
+    "App/Assets.xcassets/FeedIcon-arrow-up-circle.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-arrow-up-circle.imageset/arrow-up-circle.svg",
+    "App/Assets.xcassets/FeedIcon-device-tv.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-device-tv.imageset/device-tv.svg",
+    "App/Assets.xcassets/FeedIcon-dots.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-dots.imageset/dots.svg",
+    "App/Assets.xcassets/FeedIcon-eye-off.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-eye-off.imageset/eye-off.svg",
+    "App/Assets.xcassets/FeedIcon-eye.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-eye.imageset/eye.svg",
+    "App/Assets.xcassets/FeedIcon-heart-filled.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-heart-filled.imageset/heart-filled.svg",
+    "App/Assets.xcassets/FeedIcon-heart.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-heart.imageset/heart.svg",
+    "App/Assets.xcassets/FeedIcon-home.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-home.imageset/home.svg",
+    "App/Assets.xcassets/FeedIcon-list.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-list.imageset/list.svg",
+    "App/Assets.xcassets/FeedIcon-lock.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-lock.imageset/lock.svg",
+    "App/Assets.xcassets/FeedIcon-mail.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-mail.imageset/mail.svg",
+    "App/Assets.xcassets/FeedIcon-minus.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-minus.imageset/minus.svg",
+    "App/Assets.xcassets/FeedIcon-paperclip.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-paperclip.imageset/paperclip.svg",
+    "App/Assets.xcassets/FeedIcon-pencil.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-pencil.imageset/pencil.svg",
+    "App/Assets.xcassets/FeedIcon-planet.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-planet.imageset/planet.svg",
+    "App/Assets.xcassets/FeedIcon-plus.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-plus.imageset/plus.svg",
+    "App/Assets.xcassets/FeedIcon-repeat.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-repeat.imageset/repeat.svg",
+    "App/Assets.xcassets/FeedIcon-rocket-off.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-rocket-off.imageset/rocket-off.svg",
+    "App/Assets.xcassets/FeedIcon-universe.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-universe.imageset/universe.svg",
+    "App/Assets.xcassets/FeedIcon-whirl.imageset/Contents.json",
+    "App/Assets.xcassets/FeedIcon-whirl.imageset/whirl.svg",
+    "App/Components/AttachmentPreview.swift",
+    "App/Components/ChatInteractionComponents.swift",
+    "App/Components/ChatTabs.swift",
+    "App/Components/CommonViews.swift",
+    "App/Components/FeedAppearance.swift",
+    "App/Components/NoteContextCard.swift",
+    "App/Components/NotificationRow.swift",
+    "App/Components/PUBOTheme.swift",
+    "App/Components/RichNoteText.swift",
+    "App/Components/RollingAnnouncementTitles.swift",
+    "App/Components/TimelineMedia.swift",
+    "App/Components/TimelineRows.swift",
+    "App/Features/AccountSettingsView.swift",
+    "App/Features/AnnouncementEditor.swift",
+    "App/Features/ChartViews.swift",
+    "App/Features/ChatListView.swift",
+    "App/Features/ChatSearchView.swift",
+    "App/Features/ChatView.swift",
+    "App/Features/ComposeView.swift",
+    "App/Features/GuestFeed.swift",
+    "App/Features/HomePanels.swift",
+    "App/Features/NativeAdminView.swift",
+    "App/Features/NotificationPreferencesView.swift",
+    "App/Features/NotificationsView.swift",
+    "App/Features/ProfileView.swift",
+    "App/Features/RoomChatView.swift",
+    "App/Features/RoomsView.swift",
+    "App/Features/TimelineView.swift",
+    "App/Features/VerificationApplicationView.swift",
+    "App/Infrastructure/AdminAuthorization.swift",
+    "App/Infrastructure/AppSession.swift",
+    "App/Infrastructure/FixtureTransport.swift",
+    "App/Infrastructure/GIFTestFixtures.swift",
+    "App/Infrastructure/KeychainStore.swift",
+    "App/Infrastructure/PublicAnimationFixtures.swift",
+    "App/Infrastructure/PublicHomeSnapshot.swift",
+    "App/Infrastructure/StreamClient.swift",
+    "App/Infrastructure/TimelineTestFixtures.swift",
+    "App/PUBOApp.swift",
+    "App/Resources/Achievements.zh-CN.json",
+    "App/Resources/ChatParity.json",
+    "App/Resources/NotificationVisualCases.json",
+    "App/Resources/TimelineParity.json",
+    "App/Resources/TokenPermissions.json",
+    "NOTICE.md",
+    "README.md",
+    "Sources/PUBOCore/NotificationFeed.swift",
+    "Tests/PUBOCoreTests/NotificationFeedTests.swift",
+    "UITests/PUBOIntegrationTests.swift",
+    "UITests/PUBOUITests.swift",
+    "UITests/SocialAlignmentUITests.swift",
+    "UITests/TimelineVisualUITests.swift",
+    "docs/ADMIN_COVERAGE.md",
+    "docs/BUILD.md",
+    "docs/CHAT_ALIGNMENT.md",
+    "docs/FEATURES.md",
+    "docs/H5_PARITY.md",
+    "docs/NATIVE_PUSH.md",
+    "docs/PARITY_ROADMAP.md",
+    "docs/PRIVATE_GIF.md",
+    "docs/STATUS.md",
+    "docs/TIMELINE_VISUAL.md",
+    "docs/Tabler-icons.json",
+    "docs/evidence/cloud-validation.json",
+    "docs/evidence/composer-validation.json",
+    "docs/evidence/device-package.json",
+    "docs/evidence/home-validation.json",
+    "docs/evidence/social-validation.json",
+    "docs/evidence/web-style-validation.json",
+    "project.yml",
+    "scripts/brand-assets.swift",
+    "scripts/generate-admin-catalog.mjs",
+    "scripts/isolated/backend-overlay.json",
+    "scripts/isolated/extended-contract.mjs",
+    "scripts/isolated/native-ui.py",
+    "scripts/isolated/prepare-backend.py",
+    "scripts/isolated/start-backend.mjs",
+    "scripts/local-timeline-tests.py"
+  ],
+  "contentDifferences": [],
+  "missingLocal": [],
+  "allGitBlobsVerified": true,
+  "untrackedLocalFilesPreserved": true
+}

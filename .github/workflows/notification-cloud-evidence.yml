@@ -1,0 +1,112 @@
+name: PUBO notification evidence in the cloud
+on:
+  push:
+    branches: ['audit-notifications-*']
+  workflow_dispatch:
+    inputs:
+      reviewed_windows:
+        description: Reviewed start PTS values for the six original simulator actions
+        required: false
+        type: string
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: pubo-notification-evidence-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 130
+    defaults:
+      run:
+        working-directory: audit
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact product commit for the two original source runs
+        run: git fetch --no-tags --depth=1 origin 68aee1cadedae645a5f5823a5c062fdb296db56f
+      - name: Index available source artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 cloud-inputs.py discover
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notification-cloud-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: audit/build138/source-artifacts.json
+          retention-days: 14
+      - name: Collect and verify all inputs on the runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 cloud-inputs.py collect
+      - name: Collect small diagnostic receipts even if a test or runner failed
+        if: always()
+        run: python3 cloud-inputs.py summary
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notification-cloud-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: audit/build138/cloud-summary/
+          retention-days: 14
+      - name: Validate simulator test outcomes and both actual unread numerals
+        run: python3 cloud-inputs.py gate
+      - name: Prepare Linux media tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk python3-numpy python3-pil
+      - name: Match original simulator frames, cut clips and index exact route evidence
+        run: |
+          /usr/bin/python3 index-native-ui.py 138 --clips
+          /usr/bin/python3 index-native-routes.py 138
+          /usr/bin/python3 inspect-route-motion.py 138
+          /usr/bin/python3 check-clip-matches.py 138
+      - name: Match actual website recordings and render the comparison
+        env:
+          NOTIFICATION_WINDOWS_JSON: ${{ inputs.reviewed_windows }}
+        run: /usr/bin/python3 notification-comparison-cloud.py 138
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notification-cloud-visual-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            audit/build138/native-*.json
+            audit/build138/native-clips/
+            audit/build138/notifications-visual-pts.json
+            audit/build138/notification-*-visual-pts.json
+            audit/build138/native-originals/
+            audit/build138/*检查表.md
+            audit/build138/route-film-review/
+            audit/build138/*-method-near.jpg
+            audit/build138/*-method-whole.jpg
+            audit/build138/notification-proposed-windows.json
+            audit/build138/notification-pair-windows.json
+            audit/build138/comparison/
+          retention-days: 14
+      - name: Verify whether the six recorded transitions have been visually reviewed
+        id: review
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          state = json.loads(Path('build138/comparison/index.json').read_bytes())['windowsReview']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('confirmed=' + ('true' if state == 'confirmed' else 'false'), file=output)
+          print(state)
+          PY
+      - name: Assemble portable release and lightweight visual report
+        if: steps.review.outputs.confirmed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: /usr/bin/python3 assemble-cloud-release.py 138
+      - uses: actions/upload-artifact@v4
+        if: steps.review.outputs.confirmed == 'true'
+        with:
+          name: notification-cloud-light-${{ github.run_id }}-${{ github.run_attempt }}
+          path: audit/build138/delivery-output/light/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: steps.review.outputs.confirmed == 'true'
+        with:
+          name: notification-cloud-full-${{ github.run_id }}-${{ github.run_attempt }}
+          path: audit/build138/delivery-output/whole/
+          compression-level: 0
+          retention-days: 14
