@@ -161,6 +161,10 @@ final class PUBOUITests: XCTestCase {
         for title in ["通知", "私信", "我的", "动态"] {
             app.tabBars.buttons[title].tap()
             if title == "动态" { XCTAssertTrue(app.buttons["timeline.home"].exists) }
+            else if title == "通知" {
+                XCTAssertTrue(app.buttons["notifications.tab.all"].waitForExistence(timeout: 5))
+                XCTAssertTrue(app.buttons["notification.notice1"].waitForExistence(timeout: 5))
+            }
             else { XCTAssertTrue(app.navigationBars[title].exists) }
         }
         capture(app, "light-timeline")
@@ -715,3 +719,5 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))
     }
 }
+
+

@@ -27,9 +27,9 @@ struct NotificationRow: View {
     }
     private var header: String {
         if grouped {
+            if kind == .renote { return "\(participants.count) 人转发了" }
             let count = Set(participants.map { $0.user.id }).count
-            if kind == .renote { return "\(count) 位用户转贴了你的帖子" }
-            return note["reactionAcceptance"].string == "likeOnly" ? "\(count) 位用户喜欢了你的帖子" : "\(count) 位用户回应了你的帖子"
+            return note["reactionAcceptance"].string == "likeOnly" ? "\(count)人赞了你的帖子" : "\(count) 人回应了"
         }
         switch kind {
         case .note: return "新帖子 · " + note.user.displayName
@@ -50,7 +50,7 @@ struct NotificationRow: View {
         case .exportCompleted: return "查看文件"
         case .createToken: return "管理访问令牌"
         case .follow: return "你有新的关注者"
-        case .followRequestAccepted: return "关注请求已通过" + (item["message"].string.map { " · " + $0 } ?? "")
+        case .followRequestAccepted: return "关注请求已通过"
         case .receiveFollowRequest: return "请求关注你"
         case .test: return "通知会像这样显示"
         case .app: return item["body"].string ?? ""
@@ -138,8 +138,26 @@ struct NotificationRow: View {
             }
         }
     }
-    private var summaryLabel: some View {
-        Text(summary).lineLimit(kind == .app ? nil : 2).foregroundStyle(PUBOTheme.secondary)
+    @ViewBuilder private var summaryLabel: some View {
+        if !summary.isEmpty && (kind == .reaction || kind == .renote || kind == .pollEnded || kind == .scheduledNotePosted) {
+            quoted(summary)
+        } else {
+            Text(summary).lineLimit(kind == .app ? nil : 2).foregroundStyle(PUBOTheme.secondary)
+            if kind == .followRequestAccepted, let message = item["message"].string, !message.isEmpty {
+                quoted(message).italic()
+            }
+        }
+    }
+    private func quoted(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 4) {
+            quoteMark("quote.opening")
+            Text(text).lineLimit(2).foregroundStyle(PUBOTheme.secondary)
+            quoteMark("quote.closing")
+        }
+    }
+    private func quoteMark(_ name: String) -> some View {
+        Image(systemName: name).font(.system(size: textSize * 0.5))
+            .foregroundStyle(PUBOTheme.secondary.opacity(0.5)).accessibilityHidden(true)
     }
     @ViewBuilder private func primaryLink<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         if NotificationTarget.resolve(item) == .none {

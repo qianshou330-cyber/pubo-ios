@@ -19,6 +19,7 @@ struct NotificationsView: View {
     @State private var retryOlder = false
     @State private var actionMessage: String?
     @State private var markingRead = false
+    @State private var readConfirmation: UUID?
     @State private var requestStates: [String: String] = [:]
     @State private var requestID = UUID()
     @State private var visible = false
@@ -48,10 +49,27 @@ struct NotificationsView: View {
                 feed.id(query)
             }
             .puboScreen().navigationTitle("通知").toolbar(.hidden, for: .navigationBar)
+            .overlay {
+                if active && tab == .all && (markingRead || readConfirmation != nil) {
+                    Group {
+                        if readConfirmation != nil {
+                            Image(systemName: "checkmark").font(.system(size: 32, weight: .semibold))
+                                .foregroundStyle(PUBOTheme.accent).accessibilityLabel("全部通知已读")
+                        } else { ProgressView().accessibilityLabel("正在标记已读") }
+                    }.frame(width: 96, height: 96)
+                        .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: PUBOTheme.radius))
+                        .shadow(color: .black.opacity(0.14), radius: 8).allowsHitTesting(false)
+                }
+            }
+            .task(id: readConfirmation) {
+                guard let confirmation = readConfirmation else { return }
+                try? await Task.sleep(for: .seconds(1))
+                if !Task.isCancelled && readConfirmation == confirmation { readConfirmation = nil }
+            }
             .environment(\.dynamicTypeSize, typeSize)
             .navigationDestination(isPresented: $showRequests) { FollowRequestsView() }
             .onAppear { visible = true }
-            .onDisappear { visible = false; invalidateRequest() }
+            .onDisappear { visible = false; readConfirmation = nil; invalidateRequest() }
             .task(id: query + (active ? "/visible" : "/hidden")) {
                 guard active else { invalidateRequest(); return }
                 if refreshState.loadedQuery != query {
@@ -326,10 +344,12 @@ struct NotificationsView: View {
     private func markRead() async {
         guard !markingRead else { return }
         markingRead = true
+        readConfirmation = nil
         defer { markingRead = false }
         do {
             _ = try await session.call("notifications/mark-all-as-read", mutation: true)
-            await session.refreshUnread()
+            if active && tab == .all { readConfirmation = UUID() }
+            Task { await session.refreshUnread() }
         } catch { if !Task.isCancelled { actionMessage = error.localizedDescription } }
     }
     private func respond(_ item: Record, accept: Bool) async {

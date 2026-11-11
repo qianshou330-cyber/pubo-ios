@@ -1,4 +1,6 @@
 import XCTest
+import UIKit
+import Vision
 
 private extension XCTestCase {
     func notificationsApp(_ flags: [String] = []) -> XCUIApplication {
@@ -41,14 +43,26 @@ private extension XCTestCase {
         opener.tap()
         let entry = element("notifications.filter." + category, in: app)
         let label = app.buttons[title].firstMatch
-        let anchor = app.buttons["用户的新帖子"].firstMatch
+        let options = ["用户的新帖子", "关注中", "提及", "回复", "转贴", "引用", "回应", "问卷调查结束",
+                       "定时发送成功", "定时发送失败", "收到关注请求", "关注请求已通过", "关联应用的通知", "授予的角色",
+                       "您已被邀请加入群聊", "取得的成就", "已完成导出", "测试通知", "登录", "创建访问令牌"]
         _ = entry.waitForExistence(timeout: 1)
-        // On some iOS releases system menus expose the label but omit the SwiftUI ID.
-        for _ in 0..<10 where !entry.isHittable && !label.isHittable {
-            let x = anchor.isHittable ? anchor.frame.midX : app.frame.maxX * 0.64
-            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: app.frame.height * 0.72))
-            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: app.frame.height * 0.31))
-            start.press(forDuration: 0.08, thenDragTo: end)
+        // A system Menu only occupies part of the screen. Drag between the visible menu rows
+        // so the gesture cannot dismiss it or scroll the notification feed underneath.
+        for _ in 0..<7 where !entry.isHittable && !label.isHittable {
+            let matches = app.buttons.matching(NSPredicate(format: "label IN %@", options)).allElementsBoundByIndex
+            let visible = matches.filter { $0.isHittable }.sorted { $0.frame.midY < $1.frame.midY }
+            guard let first = visible.first, let last = visible.last, last.frame.midY - first.frame.midY > 55,
+                  let firstIndex = options.firstIndex(of: first.label), let targetIndex = options.firstIndex(of: title) else {
+                return XCTFail("System filter menu has no scrollable visible rows: " + category)
+            }
+            let span = last.frame.midY - first.frame.midY
+            let low = first.frame.midY + span * 0.18, high = last.frame.midY - span * 0.18
+            let up = targetIndex >= firstIndex
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: first.frame.midX, dy: up ? high : low))
+            let end = origin.withOffset(CGVector(dx: first.frame.midX, dy: up ? low : high))
+            start.press(forDuration: 0.12, thenDragTo: end)
         }
         let option = entry.isHittable ? entry : label
         XCTAssertTrue(option.isHittable, "Filter is unreachable: \(category)")
@@ -110,12 +124,36 @@ final class NotificationAlignmentUITests: XCTestCase {
     func testUnreadAndPullToRefresh() {
         let app = notificationsApp(["--notifications-refresh"])
         let tab = app.tabBars.buttons["通知"]
-        let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", "12", "12"), object: tab)
-        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 6), .completed)
+        // UIKit's stock tab bar can draw the number without exposing it in XCUI's label/value.
+        // Read the visible badge at the actual tab's location, including on the smaller screen.
+        var before: CGImage?
+        for _ in 0..<6 where before == nil {
+            before = notificationBadgeDigits(app: app, tab: tab)
+            if before == nil { RunLoop.current.run(until: Date().addingTimeInterval(0.25)) }
+        }
+        guard let before else { return XCTFail("No visible unread badge") }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        request.recognitionLanguages = ["en-US"]
+        do { try VNImageRequestHandler(cgImage: before).perform([request]) }
+        catch { return XCTFail("Visible number recognition failed: " + error.localizedDescription) }
+        let observed = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined()
+        let digits = observed.filter(\.isNumber)
         capture(app, "notifications-unread-twelve")
+        let reading = XCTAttachment(image: UIImage(cgImage: before))
+        reading.name = "notification-badge-digits"
+        reading.lifetime = .keepAlways
+        add(reading)
+        XCTAssertEqual(digits, "12", "Number in the red badge")
         enterNotifications(app)
-        let cleared = XCTNSPredicateExpectation(predicate: NSPredicate(format: "NOT (value CONTAINS %@ OR label CONTAINS %@)", "12", "12"), object: tab)
-        XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 6), .completed)
+        var remaining = notificationBadgeDigits(app: app, tab: tab)
+        for _ in 0..<6 where remaining != nil {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            remaining = notificationBadgeDigits(app: app, tab: tab)
+        }
+        XCTAssertNil(remaining, "The red badge must disappear after the server acknowledges reading")
+        capture(app, "notifications-unread-cleared")
         let newRow = element("notification.noticetest0033", in: app)
         XCTAssertFalse(newRow.exists)
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.51, dy: 0.29))
@@ -131,11 +169,14 @@ final class NotificationAlignmentUITests: XCTestCase {
     func testSecondPageAndTerminalCursor() {
         let app = notificationsApp()
         enterNotifications(app)
-        tapVisible("notifications.more", in: app)
         let last = element("notification.noticetest0011", in: app)
-        XCTAssertTrue(last.waitForExistence(timeout: 5))
-        tapVisible("notifications.more", in: app)
-        XCTAssertTrue(element("notifications.more", in: app).waitForNonExistence(timeout: 5))
+        let more = element("notifications.more", in: app)
+        for _ in 0..<15 where !last.isHittable {
+            if more.isHittable { more.tap() } else { app.swipeUp() }
+        }
+        XCTAssertTrue(last.isHittable)
+        if more.isHittable { more.tap() }
+        XCTAssertTrue(more.waitForNonExistence(timeout: 6))
         capture(app, "notifications-page-two")
         XCTAssertEqual(app.buttons.matching(identifier: "notification.noticetest0011").count, 1)
     }
@@ -203,6 +244,55 @@ final class NotificationAlignmentUITests: XCTestCase {
         XCTAssertTrue(grouped.isHittable)
         capture(app, "notifications-restored-after-tab-switch")
     }
+}
+
+/// Isolates the digits displayed by the system tab bar. Input is a live simulator screenshot.
+/// Red run bounds on each line exclude the page and the rounded badge corners.
+private func notificationBadgeDigits(app: XCUIApplication, tab: XCUIElement) -> CGImage? {
+    guard let screen = app.screenshot().image.cgImage else { return nil }
+    let scale = CGFloat(screen.width) / app.frame.width
+    let box = tab.frame.insetBy(dx: 0, dy: -8)
+    let region = CGRect(x: box.minX * scale, y: box.minY * scale, width: box.width * scale,
+                        height: box.height * scale).integral
+    guard let crop = screen.cropping(to: region) else { return nil }
+    let w = crop.width, h = crop.height
+    var pixels = [UInt8](repeating: 0, count: w * h * 4)
+    let drawn: Bool = pixels.withUnsafeMutableBytes { bytes in
+        guard let context = CGContext(data: bytes.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+        context.draw(crop, in: CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h)))
+        return true
+    }
+    guard drawn else { return nil }
+    var left = w, right = -1, top = h, bottom = -1
+    var minX = [Int](repeating: w, count: h), maxX = [Int](repeating: -1, count: h)
+    for y in 0..<h {
+        for x in 0..<w {
+            let i = (y * w + x) * 4
+            if pixels[i] > 155 && pixels[i + 1] < 140 && pixels[i + 2] < 150 && Int(pixels[i]) - Int(pixels[i + 1]) > 75 {
+                minX[y] = min(x, minX[y]); maxX[y] = max(x, maxX[y])
+                left = min(left, x); right = max(right, x); top = min(top, y); bottom = max(bottom, y)
+            }
+        }
+    }
+    guard right - left >= 6, bottom - top >= 6 else { return nil }
+    let margin = 8, zoom = 4
+    let outW = (right - left + 1 + 2 * margin) * zoom, outH = (bottom - top + 1 + 2 * margin) * zoom
+    var output = [UInt8](repeating: 255, count: outW * outH)
+    for y in top...bottom where minX[y] < maxX[y] {
+        for x in minX[y]...maxX[y] {
+            let i = (y * w + x) * 4
+            guard pixels[i + 1] >= 145 && pixels[i + 2] >= 150 else { continue }
+            for dy in 0..<zoom {
+                let start = ((y - top + margin) * zoom + dy) * outW + (x - left + margin) * zoom
+                for dx in 0..<zoom { output[start + dx] = 0 }
+            }
+        }
+    }
+    guard let provider = CGDataProvider(data: Data(output) as CFData) else { return nil }
+    return CGImage(width: outW, height: outH, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: outW,
+                   space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
 }
 
 final class NotificationRouteUITests: XCTestCase {
