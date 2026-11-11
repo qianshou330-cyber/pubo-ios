@@ -21,7 +21,9 @@ jobs:
 
         '
     - name: Check diagnostic isolation and counters
-      run: 'sh scripts/test-refresh-diagnostics.sh
+      run: 'swift test --filter RefreshTaskOwnerTests
+
+        sh scripts/test-refresh-diagnostics.sh
 
         python3 -m unittest discover -s scripts/isolated -p ''test_backend_diagnostics.py'' -v'
     - name: Compile before simulator boot

@@ -8,7 +8,7 @@ import os
 final class RefreshDiagnostics {
     enum Event: String, CaseIterable {
         case pullStarted, pullEnded, loadAttempt, skippedError, skippedBusy, skippedEnd
-        case requestStarted, requestReturned, rowsApplied, rowsPending, loadFailed
+        case requestStarted, requestReturned, rowsApplied, rowsPending, loadFailed, cancelledResult, staleResult
         case fixtureGeneration, captureStarted
     }
     static let shared = RefreshDiagnostics(arguments: ProcessInfo.processInfo.arguments)

@@ -23,6 +23,7 @@ struct TimelineView: View {
     @State private var requestContext = ""
     @State private var cached = false
     @State private var homeRefresh = 0
+    @State private var refreshOwner = RefreshTaskOwner()
     @State private var firstLoadFinished = false
     @State private var firstPageLoaded = false
     @State private var homePath: [HomeDestination] = []
@@ -50,7 +51,7 @@ struct TimelineView: View {
     private var lifecycleContent: some View {
         presentedContent.task(id: context) { await prepareTimeline() }
 
-                .onDisappear { pageVisible = false; requestID = UUID(); loading = false; reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
+                .onDisappear { refreshOwner.cancel(); pageVisible = false; requestID = UUID(); loading = false; reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID(); session.stream.showTimeline(nil); session.stream.captureNotes([]) }
                 .onAppear { pageVisible = true; session.stream.showTimeline(preferences.selected, parameters: preferences.parameters) }
                 .onReceive(session.timelineNotes) { note in
                     guard active else { return }
@@ -102,7 +103,13 @@ struct TimelineView: View {
                         RefreshDiagnostics.shared.record(.pullStarted)
                         defer { RefreshDiagnostics.shared.record(.pullEnded) }
                         #endif
-                        homeRefresh += 1; await load()
+                        // Keep the explicit user refresh alive if SwiftUI cancels its
+                        // transient refresh callback during panel invalidation. Screen
+                        // disappearance and feed/account changes still cancel it.
+                        await refreshOwner.run {
+                            homeRefresh += 1
+                            await load()
+                        }
                     }
                     .simultaneousGesture(DragGesture(minimumDistance: 60).onEnded(switchTimeline))
             }
@@ -166,6 +173,7 @@ struct TimelineView: View {
     }
     private func prepareTimeline() async {
                     guard !firstLoadFinished || requestContext != context else { return }
+                    refreshOwner.cancel()
                     reconnectTask?.cancel(); reconnectTask = nil; reconnectingContext = nil; reconnectAttempt = UUID()
                     requestID = UUID(); feed.reset(); visibleIDs = []; hasMore = true; cached = false; firstLoadFinished = false; firstPageLoaded = false; error = nil; failedOlderRequest = false; loading = false
                     anchor = "timeline-top"; atTop = true
@@ -302,7 +310,18 @@ struct TimelineView: View {
             #if DEBUG
             RefreshDiagnostics.shared.record(.requestReturned)
             #endif
-            try Task.checkCancellation(); guard requestID == attempt, context == currentContext else { return }
+            if Task.isCancelled {
+                #if DEBUG
+                RefreshDiagnostics.shared.record(.cancelledResult)
+                #endif
+                throw CancellationError()
+            }
+            guard requestID == attempt, context == currentContext else {
+                #if DEBUG
+                RefreshDiagnostics.shared.record(.staleResult)
+                #endif
+                return
+            }
             if older || atTop || feed.notes.isEmpty {
             #if DEBUG
             RefreshDiagnostics.shared.record(.rowsApplied)
