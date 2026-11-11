@@ -10,6 +10,7 @@ private struct TimelineOffset: PreferenceKey {
 struct TimelineView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.timelineWindowTypeSize) private var feedTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var feed = TimelineState()
@@ -132,6 +133,7 @@ struct TimelineView: View {
                                 last: index == feed.notes.count - 1,
                                 dateBreak: index > 0 && day(note) != day(feed.notes[index - 1]) ? day(note) : nil,
                                 hideSensitive: !preferences.withSensitive)
+                                .environment(\.dynamicTypeSize, feedTypeSize)
                                 .id(note.id)
                                 .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity))
                                 .onAppear { appeared(note, index: index) }
@@ -176,7 +178,8 @@ struct TimelineView: View {
                 }.accessibilityLabel("我的主页")
             }
             ScrollView(.horizontal) { HStack(spacing: 0) {
-                PUBOTimelineSelector(selection: selection, available: choices, compact: true, appearance: .timeline).frame(minWidth: 210)
+                PUBOTimelineSelector(selection: selection, available: choices, compact: true, appearance: .timeline)
+                    .environment(\.dynamicTypeSize, feedTypeSize).frame(minWidth: 210)
                 NavigationLink { CollectionsView(kind: .list) } label: { FeedIcon(name: "list").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("列表")
                 NavigationLink { CollectionsView(kind: .antenna) } label: { FeedIcon(name: "antenna").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("天线")
                 NavigationLink { CollectionsView(kind: .channel) } label: { FeedIcon(name: "device-tv").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("频道")

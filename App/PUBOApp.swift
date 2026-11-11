@@ -9,6 +9,7 @@ struct PUBOApp: App {
     @Environment(\.dynamicTypeSize) private var systemTypeSize
     var body: some Scene {
         WindowGroup {
+            let largeTestText = session.testMode && ProcessInfo.processInfo.arguments.contains("--large-text")
             Group {
                 if session.restoring { AppLaunchSkeleton() }
                 else if session.user == nil { AuthView() }
@@ -25,7 +26,8 @@ struct PUBOApp: App {
                 }
             }.environment(session).tint(PUBOTheme.accent).foregroundStyle(PUBOTheme.text)
                 .environment(\.locale, Locale(identifier: "zh_CN"))
-                .environment(\.dynamicTypeSize, session.testMode && ProcessInfo.processInfo.arguments.contains("--large-text") ? .accessibility3 : systemTypeSize)
+                .environment(\.dynamicTypeSize, largeTestText ? .accessibility3 : systemTypeSize)
+                .modifier(TimelineWindowTypeSize(largeTestText: largeTestText))
                 .preferredColorScheme(session.testMode && !ProcessInfo.processInfo.arguments.contains("--system-appearance") ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
                 .task { await session.start() }
                 .task(id: "\(session.generation)-\(session.user?.id ?? "guest")-\(session.streamRevision)-\(scenePhase == .active)") {
@@ -49,6 +51,20 @@ struct PUBOApp: App {
                 }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream(); Task { await session.nativePush.resume() } } else { session.stream.stop(); session.admin.clear(); session.security.clear() } }
         }
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var timelineWindowTypeSize: DynamicTypeSize = .large
+}
+
+/// The window view receives the device's text size, including changes while the app is open.
+private struct TimelineWindowTypeSize: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var windowSize
+    let largeTestText: Bool
+
+    func body(content: Content) -> some View {
+        content.environment(\.timelineWindowTypeSize, largeTestText ? .accessibility3 : windowSize)
     }
 }
 

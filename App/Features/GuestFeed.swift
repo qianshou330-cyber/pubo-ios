@@ -3,6 +3,7 @@ import PUBOCore
 
 struct GuestFeed: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.timelineWindowTypeSize) private var feedTypeSize
     @State private var feed = TimelineState()
     @State private var error: String?
     @State private var busy = false
@@ -29,7 +30,8 @@ struct GuestFeed: View {
             }
             if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
             if busy { ProgressView() }
-        }.task(id: context) { requestID = UUID(); busy = false; feed.reset(); more = true; error = nil; await load(reset: true) }
+        }.environment(\.dynamicTypeSize, feedTypeSize)
+            .task(id: context) { requestID = UUID(); busy = false; feed.reset(); more = true; error = nil; await load(reset: true) }
             .onDisappear { requestID = UUID() }
             .onChange(of: preferences) { _, _ in session.saveTimelinePreferences() }
     }
