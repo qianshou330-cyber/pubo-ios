@@ -12,11 +12,19 @@ final class AccountSettingsParityUITests: XCTestCase {
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
-    private func setSwitch(_ control: XCUIElement, to value: Bool) {
+    private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
         XCTAssertTrue(control.isHittable)
-        // Tap the actual trailing switch, not a SwiftUI row's label/center.
+        // SwiftUI exposes the whole row as a Switch as well as the actual
+        // UIKit switch. Select the smaller switch within this exact row.
         if (control.value as? String) != (value ? "1" : "0") {
-            control.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            let row = control.frame
+            let actual = app.switches.allElementsBoundByIndex.first { candidate in
+                candidate.identifier.isEmpty && candidate.frame.width < row.width * 0.5 &&
+                row.contains(CGPoint(x: candidate.frame.midX, y: candidate.frame.midY))
+            }
+            XCTAssertNotNil(actual, "Expected the concrete switch inside the identified row")
+            guard let actual else { return }
+            XCTAssertTrue(actual.isHittable); actual.tap()
         }
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
         XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 8), .completed)
@@ -34,12 +42,12 @@ final class AccountSettingsParityUITests: XCTestCase {
             let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: locked)
             XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
             XCTAssertTrue(autoAccept.exists); XCTAssertFalse(autoAccept.isEnabled)
-            setSwitch(locked, to: true); expectEnabled(autoAccept, true)
-            setSwitch(autoAccept, to: true)
-            setSwitch(locked, to: false); expectEnabled(autoAccept, false)
+            setSwitch(locked, to: true, in: app); expectEnabled(autoAccept, true)
+            setSwitch(autoAccept, to: true, in: app)
+            setSwitch(locked, to: false, in: app); expectEnabled(autoAccept, false)
             XCTAssertEqual(autoAccept.value as? String, "1", "Disabling the dependent control must not erase its value")
             capture(app, dark ? "privacy-dependent-disabled-dark" : "privacy-dependent-disabled-light")
-            setSwitch(locked, to: true); expectEnabled(autoAccept, true); XCTAssertEqual(autoAccept.value as? String, "1")
+            setSwitch(locked, to: true, in: app); expectEnabled(autoAccept, true); XCTAssertEqual(autoAccept.value as? String, "1")
             // No save: this test exercises local draft controls only.
             app.terminate()
         }

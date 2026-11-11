@@ -117,26 +117,46 @@ struct FollowListView: View {
     @Environment(AppSession.self) private var session
     let userID: String
     let followers: Bool
-    @State private var rows: [JSONValue] = []
+    @State private var page = FollowListPage()
     @State private var error: String?
-    @State private var hasMore = true
+    @State private var busy = false
+    @State private var loaded = false
+    @State private var failedReset = true
+    @State private var visible = true
+    @State private var requestID = UUID()
+    private var context: String { session.generation.uuidString + "|" + userID + "|" + String(followers) }
     var body: some View {
         List {
-            ForEach(rows, id: \.selfID) { row in
+            ForEach(page.rows) { row in
                 let user = Record(row[followers ? "follower" : "followee"])
-                NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); Text(user.displayName) } }
+                NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } } }
             }
-            if let error { ErrorBanner(message: error) }
-            if hasMore { Button("加载更多") { Task { await load() } } }
-        }.puboForm().navigationTitle(followers ? "关注者" : "关注").task { await load() }
+            if busy { ProgressView().accessibilityIdentifier("followList.loading") }
+            if loaded && !busy && page.rows.isEmpty && !page.hasMore && error == nil { Text(followers ? "暂无关注者" : "暂无关注").accessibilityIdentifier("followList.empty") }
+            if let error { ErrorBanner(message: error, retryIdentifier: "followList.retry") { Task { await load(reset: failedReset) } } }
+            if loaded && page.hasMore { Button("加载更多") { Task { await load() } }.disabled(busy).accessibilityIdentifier("followList.more") }
+        }.puboList().navigationTitle(followers ? "关注者" : "关注")
+            .onAppear { visible = true }
+            .onDisappear { visible = false; requestID = UUID(); busy = false }
+            .task(id: context) { page = FollowListPage(); loaded = false; error = nil; await load(reset: true) }
+            .refreshable { await load(reset: true) }
     }
-    private func load() async {
+    private func load(reset: Bool = false) async {
+        guard visible, !userID.isEmpty, reset || (!busy && page.hasMore) else { return }
+        let attempt = UUID(), source = context
+        requestID = attempt; busy = true
+        defer { if requestID == attempt { busy = false } }
         do {
             var fields: [String: JSONValue] = ["userId": .string(userID), "limit": .number(30)]
-            if let id = rows.last?["id"].string { fields["untilId"] = .string(id) }
+            if !reset, let cursor = page.cursor { fields["untilId"] = .string(cursor) }
             let result = try await session.call(followers ? "users/followers" : "users/following", fields)
-            rows += result.array.filter { incoming in !rows.contains { $0["id"] == incoming["id"] } }; hasMore = result.array.count == 30
-        } catch { self.error = error.localizedDescription }
+            try Task.checkCancellation()
+            guard visible, requestID == attempt, source == context else { return }
+            try page.apply(result, reset: reset, followers: followers, limit: 30)
+            loaded = true; error = nil
+        } catch {
+            if !Task.isCancelled && visible && requestID == attempt && source == context { failedReset = reset; self.error = error.localizedDescription }
+        }
     }
 }
 
@@ -202,10 +222,13 @@ struct EditProfileView: View {
     }
     private func mediaRow(_ title: String, field: String, file: Record?) -> some View {
         VStack(alignment: .leading) {
-            Menu(title) {
+            Menu {
                 Button("从相册上传") { mediaTarget = field; showPhotos = true }
-                Button("从网盘选择") { mediaTarget = field; selectingMedia = true }
-            }.frame(minHeight: 44)
+                Button("从网盘选择") { mediaTarget = field; selectingMedia = true }.accessibilityIdentifier("profile.media.chooseDrive")
+            } label: {
+                HStack { Text(title); Spacer(); Image(systemName: "chevron.down").font(.caption) }
+                    .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+            }.buttonStyle(.borderless).accessibilityIdentifier("profile.media." + field)
             if let file { Text(file["name"].string ?? "已选择图片").font(.caption) }
         }
     }

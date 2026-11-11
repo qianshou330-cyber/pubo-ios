@@ -34,6 +34,11 @@ actor FixtureTransport: HTTPTransport {
     private var roomMessages: [JSONValue] = []
     private var releasedStaleRoomReaction = false
     private var collections: [String: [JSONValue]] = [:]
+    private var receivedFollowRequests: [JSONValue] = []
+    private var sentFollowRequests: [JSONValue] = []
+    private var receivedRequestReads = 0
+    private var followListReads = 0
+
     private var invitations: [JSONValue] = []
     private var conversationPreference: JSONValue = .object(["pinnedAt": .null, "isMuted": .bool(false)])
     private var mutedUsers: [JSONValue] = []
@@ -48,6 +53,14 @@ actor FixtureTransport: HTTPTransport {
         var user = profile.object; var policies = user["policies"]!.object
         policies["scheduledNoteLimit"] = .number(10); policies["avatarDecorationLimit"] = .number(2)
         policies["canCreateChannel"] = .bool(!ProcessInfo.processInfo.arguments.contains("--channel-create-denied"))
+        if ProcessInfo.processInfo.arguments.contains("--follow-requests-preview") {
+            user["isLocked"] = .bool(!ProcessInfo.processInfo.arguments.contains("--follow-requests-unlocked"))
+            receivedFollowRequests = (1...31).reversed().map { number in
+                let suffix = String(format: "%03d", number)
+                return .object(["id": .string("received-" + suffix), "follower": .object(["id": .string("applicant-" + suffix), "username": .string("applicant" + suffix), "name": .string("申请人 " + suffix), "host": .null])])
+            }
+            sentFollowRequests = [.object(["id": .string("sent-001"), "followee": .object(["id": .string("recipient-001"), "username": .string("recipient"), "name": .string("已申请对象"), "host": .null])])]
+        }
         user["policies"] = .object(policies); user["isAdmin"] = .bool(ProcessInfo.processInfo.arguments.contains("--admin-preview")); profile = .object(user)
         if ProcessInfo.processInfo.arguments.contains("--moderator-preview") { var values = profile.object; values["isModerator"] = .bool(true); profile = .object(values) }
         if ProcessInfo.processInfo.arguments.contains("--empty-announcements") { announcements = [] }
@@ -131,6 +144,40 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if args.contains("--follow-list-preview"), path == "users/following" || path == "users/followers" {
+            followListReads += 1
+            if args.contains("--follow-list-failure-once") && followListReads == 1 { throw URLError(.timedOut) }
+            let key = path == "users/followers" ? "follower" : "followee"
+            let relations: [JSONValue] = (1...31).reversed().map { number in
+                let suffix = String(format: "%03d", number)
+                return .object(["id": .string("relation-" + suffix), key: .object(["id": .string("relationuser-" + suffix), "username": .string("relation" + suffix), "name": .string("关系用户 " + suffix), "host": .null])])
+            }
+            let after = body["untilId"].string
+            let rows = relations.filter { after == nil || ($0["id"].string ?? "") < after! }
+            let value: JSONValue = args.contains("--follow-list-empty") ? .array([]) : .array(Array(rows.prefix(max(1, body["limit"].int))))
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
+        if args.contains("--follow-requests-preview"), path.hasPrefix("following/requests/") {
+            var value: JSONValue = .null
+            if path == "following/requests/list" || path == "following/requests/sent" {
+                let sent = path.hasSuffix("/sent")
+                let source = sent ? sentFollowRequests : receivedFollowRequests
+                let after = body["untilId"].string
+                let rows = source.filter { after == nil || ($0["id"].string ?? "") < after! }
+                value = .array(Array(rows.prefix(max(1, body["limit"].int))))
+                if !sent { receivedRequestReads += 1 }
+                // Deliberately return the captured old snapshot after cancellation:
+                // consumers must reject stale generations, not trust transport timing.
+                if (sent && args.contains("--follow-requests-slow-sent")) || (!sent && receivedRequestReads > 1 && args.contains("--follow-requests-slow-refresh")) {
+                    try? await Task.sleep(for: .milliseconds(sent ? 1_500 : 5_000))
+                }
+            } else if path == "following/requests/cancel" {
+                sentFollowRequests.removeAll { $0["followee"]["id"] == body["userId"] }
+            } else if path == "following/requests/accept" || path == "following/requests/reject" {
+                receivedFollowRequests.removeAll { $0["follower"]["id"] == body["userId"] }
+            } else { throw APIError(code: "UNEXPECTED_FIXTURE_ENDPOINT", message: "Unexpected follow-request fixture endpoint") }
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
         if args.contains("--notifications-align") {
             if path == "notes/mentions" && args.contains("--notifications-slow-mentions") {
                 try await Task.sleep(for: .milliseconds(1_200))

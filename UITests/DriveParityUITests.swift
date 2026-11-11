@@ -21,12 +21,12 @@ final class DriveParityUITests: XCTestCase {
             let app = launch(["--drive-sensitive-preview"] + (dark ? ["--dark"] : [])); openFile(app)
             let request = app.buttons["drive.preview.request"]
             XCTAssertTrue(request.isEnabled); request.tap()
-            let cancel = app.alerts.buttons["drive.preview.cancel"]
+            let cancel = app.alerts.firstMatch.buttons.matching(identifier: "drive.preview.cancel").firstMatch
             XCTAssertTrue(cancel.waitForExistence(timeout: 5)); capture(app, dark ? "drive-sensitive-confirm-dark" : "drive-sensitive-confirm-light")
             XCTAssertFalse(app.buttons["attachment.saveFile"].exists); cancel.tap()
             XCTAssertTrue(app.alerts.firstMatch.waitForNonExistence(timeout: 5))
             XCTAssertFalse(app.navigationBars["查看附件"].exists)
-            request.tap(); let confirm = app.alerts.buttons["drive.preview.confirm"]
+            request.tap(); let confirm = app.alerts.firstMatch.buttons.matching(identifier: "drive.preview.confirm").firstMatch
             XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
             XCTAssertTrue(app.buttons["attachment.saveFile"].waitForExistence(timeout: 10)); capture(app, dark ? "drive-sensitive-revealed-dark" : "drive-sensitive-revealed-light")
             app.navigationBars["查看附件"].buttons["关闭"].tap()
@@ -38,10 +38,10 @@ final class DriveParityUITests: XCTestCase {
     func testPreviewRechecksSensitivityInsteadOfTrustingOldList() {
         let app = launch(["--drive-sensitive-late"]); openFile(app)
         app.buttons["drive.preview.request"].tap()
-        XCTAssertTrue(app.alerts.buttons["drive.preview.confirm"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.alerts.firstMatch.buttons.matching(identifier: "drive.preview.confirm").firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["attachment.saveFile"].exists)
         capture(app, "drive-new-sensitive-flag-confirmed")
-        app.alerts.buttons["drive.preview.cancel"].tap(); app.terminate()
+        app.alerts.firstMatch.buttons.matching(identifier: "drive.preview.cancel").firstMatch.tap(); app.terminate()
     }
     func testImagePickerAllowsSensitiveImageOnlyAfterExplicitChoice() {
         checkImagePicker(flag: "--drive-sensitive-preview", suffix: "sensitive-list")
@@ -54,12 +54,26 @@ final class DriveParityUITests: XCTestCase {
         let home = app.buttons["我的主页"]; XCTAssertTrue(home.waitForExistence(timeout: 15)); home.tap()
         let edit = app.buttons["编辑个人资料"]; XCTAssertTrue(edit.waitForExistence(timeout: 10))
         for _ in 0..<8 where !edit.isHittable { app.swipeUp() }; XCTAssertTrue(edit.isHittable); edit.tap()
-        let avatar = app.buttons["头像"]; XCTAssertTrue(avatar.waitForExistence(timeout: 5))
-        for _ in 0..<8 where !avatar.isHittable { app.swipeUp() }; XCTAssertTrue(avatar.isHittable); avatar.tap()
-        app.buttons["从网盘选择"].tap()
+        XCTAssertTrue(app.navigationBars["编辑资料"].waitForExistence(timeout: 8))
+        let avatar = app.buttons.matching(identifier: "profile.media.avatarId").firstMatch
+        // Form lazily exposes the media row below the profile fields. Reveal it
+        // before requiring existence, dragging the form margin rather than the
+        // nested multiline description editor which consumes center swipes.
+        for _ in 0..<8 where !avatar.isHittable {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.82))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.28))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        if !avatar.isHittable {
+            let tree = XCTAttachment(string: app.debugDescription); tree.name = "drive-picker-profile-media-row"; tree.lifetime = .keepAlways; add(tree)
+            capture(app, "drive-picker-media-row-unreachable")
+        }
+        XCTAssertTrue(avatar.waitForExistence(timeout: 5)); XCTAssertTrue(avatar.isHittable); avatar.tap()
+        let chooseDrive = app.buttons.matching(identifier: "profile.media.chooseDrive").firstMatch
+        XCTAssertTrue(chooseDrive.waitForExistence(timeout: 8)); chooseDrive.tap()
         let file = app.buttons["drive.select.fixturefile"]; XCTAssertTrue(file.waitForExistence(timeout: 8)); XCTAssertTrue(file.isEnabled); file.tap()
-        let cancel = app.alerts.buttons["drive.select.cancel"]; XCTAssertTrue(cancel.waitForExistence(timeout: 5)); cancel.tap()
-        XCTAssertTrue(file.isHittable); file.tap(); let confirm = app.alerts.buttons["drive.select.confirm"]
+        let cancel = app.alerts.firstMatch.buttons.matching(identifier: "drive.select.cancel").firstMatch; XCTAssertTrue(cancel.waitForExistence(timeout: 5)); cancel.tap()
+        XCTAssertTrue(file.isHittable); file.tap(); let confirm = app.alerts.firstMatch.buttons.matching(identifier: "drive.select.confirm").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); capture(app, "drive-image-picker-warning-" + suffix); confirm.tap()
         XCTAssertTrue(app.navigationBars["编辑资料"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["敏感测试图片.png"].waitForExistence(timeout: 5))

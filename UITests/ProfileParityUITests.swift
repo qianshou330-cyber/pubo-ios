@@ -29,17 +29,21 @@ final class ProfileParityUITests: XCTestCase {
         XCTAssertTrue(element.isHittable)
     }
 
-    private func replace(_ field: XCUIElement, with text: String) {
+    private func replace(_ field: XCUIElement, with text: String, in app: XCUIApplication) {
         XCTAssertTrue(field.isHittable)
-        field.tap()
-        // Short single-line fields: tapping the trailing edge positions the caret
-        // after the current content. Subsequent edits preserve that end position.
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
         let existing = field.value as? String ?? ""
         let count = existing == field.placeholderValue ? 0 : existing.count
-        if count > 0 { field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count)) }
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 8))
+        // A second tap in an empty field opens the system AutoFill menu and
+        // steals input. Only reposition the caret when there is content to clear.
+        if count > 0 {
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count))
+        }
         field.typeText(text)
-        XCTAssertEqual(field.value as? String, text)
+        let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 8), .completed)
     }
 
     private func expectSave(_ save: XCUIElement, enabled: Bool) {
@@ -65,19 +69,19 @@ final class ProfileParityUITests: XCTestCase {
             XCTAssertTrue(name.waitForExistence(timeout: 10))
             XCTAssertTrue(app.textViews["profile.edit.description"].exists)
             XCTAssertTrue(save.exists); expectSave(save, enabled: true)
-            reveal(location, in: app); replace(location, with: "Tokyo")
-            reveal(birthday, in: app); replace(birthday, with: "2023-02-29")
+            reveal(location, in: app); replace(location, with: "Tokyo", in: app)
+            reveal(birthday, in: app); replace(birthday, with: "2023-02-29", in: app)
             expectSave(save, enabled: false)
             capture(app, "profile-invalid-birthday-" + theme)
-            replace(birthday, with: "2024-02-29")
+            replace(birthday, with: "2024-02-29", in: app)
             expectSave(save, enabled: true)
             capture(app, "profile-valid-birthday-" + theme)
 
             reveal(name, in: app, upwards: false)
-            replace(name, with: String(repeating: "a", count: 31))
+            replace(name, with: String(repeating: "a", count: 31), in: app)
             expectSave(save, enabled: false)
             capture(app, "profile-name-over-limit-" + theme)
-            replace(name, with: String(repeating: "a", count: 30))
+            replace(name, with: String(repeating: "a", count: 30), in: app)
             expectSave(save, enabled: true)
             capture(app, "profile-name-at-limit-" + theme)
 
