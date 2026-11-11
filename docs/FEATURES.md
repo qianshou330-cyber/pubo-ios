@@ -1,3 +1,7 @@
+## 0.9.3／build134 动态页
+
+本地、关注、社交、全球时间线及游客公开动态采用紧凑的帖子外观。底部保留动态、通知、私信、我的。当前验收、残余差异和构建校验见 [动态页记录](TIMELINE_VISUAL.md)。
+
 > 历史记录：本文件保留0.2.0/build22原验收。最新实现与证据请看PARITY_ROADMAP.md、ADMIN_COVERAGE.md及对应构建DELIVERY.md。
 
 # 0.2.0/build22 本轮交付清单
@@ -22,5 +26,3 @@
 验证：27核心＋6包检查＋28UI×2＝89项；真实隔离后端3个联合场景；后端18单测和26API场景。全部为本次精确候选的实际结果，不使用旧版本通过记录替代。
 
 未纳入：群聊、小游戏、管理员后台、多账号、完整MFM及完整H5高级配置。正式分发仍需签名、实体机／最低系统、真实APNs、服务条款、隐私披露、审核与发行资料。无生产测试帖子或私信。
-
-0.9.3 candidate: timeline-only typography, Tabler icons, compact actions and reaction appearance. See TIMELINE_VISUAL.md; validation pending.

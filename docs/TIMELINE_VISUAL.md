@@ -1,17 +1,32 @@
-# Dynamic timeline visual calibration — 0.9.3 candidate
+# PUBO 0.9.3／build134 动态页
 
-Baseline: 0.9.2/build128. Scope: signed-in timelines and guest public feed only. Explicit `NoteAppearance.timeline` is independent of subscription ownership. Other consumers default to `.standard`; the four bottom destinations and existing interactions are retained.
+登录时间线和游客公开动态使用 Tabler 3.35.0 的 21 个轮廓图标与 1 个选中态实心爱心。回复、转发、反应、更多排在同一组，反应和时间标记适配深浅主题。动态页外观与实时订阅分别控制。
 
-2026-11-05 live H5 assets were measured in the in-app browser at a 440×956 CSS viewport with synthetic timeline data. Body/name/account: 12.6px; body line-height 17.01px; time 11.34px; avatar 46px with 10px content gap; post padding 14×16px. Actions use 16.3px outline icons, 28px gaps; reactions have 42px visual height, 6px horizontal padding and 13.23px counts. Native actions retain discrete 44pt hit boxes and dynamic type, so this is not a pixel-identical web rendering.
+## 视觉与点击
 
-Selected Tabler 3.35.0 vectors and MIT license are bundled without a runtime framework. Reactions, quote previews and text receive the explicit appearance value. Original streaming, GIF, reference, pagination and motion behavior is unchanged.
+- iPhone 17 Pro Max 模拟器为 440×956pt，iOS 26.0.1（23A8464）。H5 来自 PUBO 2026.9.0 公开资源，内置浏览器使用同组隔离帖子。2026-11-11 的 22 张完整 H5 原图为 440×956，补齐了早期参考图裁掉的底部导航。
+- 默认字号下，正文和作者字号为 12.6，时间为 11.34；头像宽 46，头像和正文间隔 10。作者、时间、四个操作按钮和顶部入口保留独立的 44pt 触区。入口边缘点击检查覆盖我的主页、列表、天线和频道。
+- 正文和反应中的动态表情保留原图比例与透明帧。首页公告、榜单、引用、敏感媒体、GIF、新帖进入与删除、分页和四页导航有各自的检查或实际录像。
+- 对同一条一周前的旧帖，H5 默认浏览时在接收删除事件后仍保留原行。打开并收起转发菜单后，该帖开始接收更新并在删除时收起。原生跟踪当前列表中的帖子。浅色并排录像保留同一新帖及同一旧帖的这一过程。
+- 同一条“欢迎加入 PUBO”隔离测试帖，浅色、默认字号。首帖高度由 build128 的 241.33pt 调整为 238.33pt，H5 为 221px。更多图标横坐标从 389.83pt 变为 311.5pt，H5 为 311px。
+- 游客可阅读公开帖子。网页在点击写操作时提示登录，App 使用统一登录入口。系统菜单、字体、安全区、键盘、大字体换行及部分转发选项的权限提示时机仍有区别。复杂 MFM 提供原帖网页入口。
 
-Current status: implementation and local packaging-unit checks complete; Mac builds, actual UI evidence, isolated mutation receipts and release verification pending. No new IPA is accepted yet. Main is unchanged; build128 backup branch is `backup-main-20261105-before-timeline-093`.
+## 验证
 
-Physical iPhone, minimum iOS17 and signed installation/upgrade remain unverified. Evidence is generated using simulator UI and the in-app browser; production writes are prohibited in validation.
+- **核心与打包**　91/91 项核心测试、6/6 项包检查，模拟器与真机平台 Release 编译通过
+- **iPhone 17 Pro Max 动态、首页与触区**　22/22 项通过，0 跳过
+- **iPhone SE 三代与大字体**　6/6 项通过，0 跳过
+- **通知、单聊、群聊、受保护附件与 GIF 回归**　36/36 项通过，0 跳过
+- **真实隔离后端**　21/21 项原生操作通过，0 跳过。回复、转发、添加和撤销反应均由服务端核对。
+- **隔离接口兼容性**　共 69 项检查通过，含 10 项聊天、23 项扩展功能、28 项认证及 8 项管理操作。
+- **资源与权限**　22 个 Tabler 3.35.0 图标及 MIT 许可已入包。真机平台、三项用途说明、两份隐私清单及签名状态经过独立核对。
+- **真实系统辅助字号**　iPhone SE 3 的辅助特大字号下，登录长昵称可直接读出「这是一个需要…」，游客昵称完整显示「测试朋友」。作者和时间分两行，点击分别进入个人主页和帖子；普通字号继续并排显示。顶部选择器随系统字号改为纵排，正文由 88pt 增至 219pt。四个操作按钮仍可独立点击。
 
-Calibration follow-up: resolved fixture emoji gives a 23.625px reaction image and 25.2px inline emoji; restored aspect ratio for role badges and matched the compact link preview. Transparent animated inline attachments now leave a transparent underlying glyph, avoiding a static first-frame ghost. All changes remain conditional on timeline appearance. Build130 validation pending.
+[模拟器与 Release 构建](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/42966671681) 与 [真实隔离后端测试](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/42966672338)
 
-Build131 gives the timeline author and timestamp independent 44 × 44pt minimum hit areas. The surrounding row padding absorbs the extra header height. Timeline action identifiers distinguish a repost row from its original. The screenshot calibration reduces the horizontal spacing between the four 44pt targets by 3.5pt. Inline links still follow TextKit glyph bounds. The unchanged standard appearance is used in other screens.
+## 构建与备份
 
-Build132 expands the personal avatar target on the timeline toolbar from 40 to 44pt. The profile, collection shortcuts and menu respond throughout their padded labels. Tests tap the corners of the four navigation targets and verify the actual destination and return path.
+- 构建源码为 `cee0d81798adbc45c11acb3998a82ab3fc6d5b70`，源归档的 260 个文件已逐项与 Git 对象核对。后续交付记录单独提交。
+- 真机包 `PUBO-0.9.3-134-iphoneos-arm64-unsigned.ipa` 为 iPhoneOS arm64 未签名包，4,841,330 字节，SHA-256 `18ef4e429338953513f79612ea2a956aa39310ddc009aee00c6d9acf2e2b511b`。源码 ZIP 的 SHA-256 为 `4522e8a53114e48db5f891318054b0f61dd6381a2b92a82007bb2697d8fcbdee`。
+- 上一版 0.9.2/build128 源码保存在 `backup-main-20261105-before-timeline-093`。旧 IPA 的 SHA-256 为 `25ec00e826a3ea6c0658f5f82c17561fb4b85f73656135d79e5c86f9023020d1`。中间候选及原始失败结果保留。
+- 本地交付目录含 REPORT.html、buttons.csv、measurements.csv、成对截图、两端实际录像、校验文件及完整源码。实体 iPhone、最低 iOS 17、真实系统权限及签名安装和升级仍待单独验收。

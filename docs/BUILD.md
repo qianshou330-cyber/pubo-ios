@@ -74,3 +74,7 @@ TestFlight/App Store 前须完成真机安装、相机/相册与麦克风授权�
 固定Xcode26.0.1和iOS26.0.1/23A8464。标准macos-26 ARM承担主机型与隔离测试；macos-15-intel承担设备Release及小屏补验。两类机器均显式检出产品提交3bb946e5226500526181a320123921d070a1fb2f，CI控制分支不进入产品主分支。
 
 先生成工程并构建Debug模拟器，再用PUBO_SIM_SIZE=large或small、PUBO_UI_GROUPS=chat,gif,favorites,social,regression执行scripts/local-timeline-tests.py。脚本只操作本任务创建的模拟器；指定运行时缺失必须先通过Xcode官方安装并核对版本，不静默换系统。真机Release按既有打包检查，不能将模拟器程序改包。详见CHAT_ALIGNMENT.md及交付原始检查记录。
+
+## 0.9.3／build134 对应构建
+
+Xcode 26.0.1 编译模拟器 Release 和 iPhoneOS arm64 Release。按 timeline-visual.yml 检查 22 个 Tabler 图标及许可、包名、最低系统和未签名状态。见 [本版记录与哈希](TIMELINE_VISUAL.md)。
