@@ -1,8 +1,10 @@
 """Index the original XCUI screenshots and derive navigation clip boundaries from attachment times."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import shutil
@@ -104,6 +106,17 @@ def get_duration(path):
     h, m, s = re.search(r"Duration: (\d+):(\d+):([\d.]+)", details).groups()
     return int(h) * 3600 + int(m) * 60 + float(s)
 
+@lru_cache(maxsize=None)
+def renderable_frames(path):
+    # XCT recordings also have metadata tracks that may outlive the last video
+    # sample. Count the real decoded video under the same 30 Hz presentation
+    # sampling as the excerpt and never extend it to match container duration.
+    pixels = subprocess.check_output([str(ff), "-v", "error", "-nostdin", "-threads", "2",
+             "-i", str(path), "-map", "0:v:0", "-an", "-vf", "scale=2:2,fps=30",
+             "-threads", "1", "-pix_fmt", "gray", "-f", "rawvideo", "-"])
+    assert pixels and len(pixels) % 4 == 0
+    return len(pixels) // 4
+
 # simctl records variable frame rate. The XCTest wall clock includes simulator setup,
 # end-of-run waits, and holds with no new pixels. Index actual MP4 presentation times.
 for group_id in ["large/notifications", "large/notification-routes"]:
@@ -152,9 +165,14 @@ for r in records:
         continue
     rel = Path("native-clips") / (r["name"] + ".mp4")
     before, after = chosen[r["name"]]
-    start = max(0, r["matchingFrom"] - before)
-    end = min(r.get('rawMediaSeconds', groups[r["group"]]["rawMediaSeconds"]), r["matchingUntil"] + after)
-    clips.append(dict(name=r["name"], path=rel.as_posix(), source=r.get('rawVideoSource', groups[r["group"]]["source"]),
+    source_path = r.get('rawVideoSource', groups[r["group"]]["source"])
+    total_frames = renderable_frames(root / source_path)
+    first_frame = max(0, math.floor((r["matchingFrom"] - before) * 30))
+    last_frame = min(total_frames, math.ceil((r["matchingUntil"] + after) * 30))
+    assert 0 <= first_frame < last_frame <= total_frames, (r["name"], first_frame, last_frame, total_frames)
+    start, end = first_frame / 30, last_frame / 30
+    clips.append(dict(name=r["name"], path=rel.as_posix(), source=source_path,
+                      decodedSourceFramesAt30=total_frames, firstFrameAt30=first_frame, endFrameExclusiveAt30=last_frame,
                       rawStartSeconds=round(start, 3), rawEndSeconds=round(end, 3),
                       screenshotStamp=round(r["rawVideoSeconds"] - start, 3), screenshot=r["namedOriginal"],
                       matchingFrom=r["matchingFrom"], matchingUntil=r["matchingUntil"], originalFrameError=r["frameMeanErrorOf255"]))
@@ -163,7 +181,7 @@ def encode(c):
     output = root / c["path"]
     output.parent.mkdir(exist_ok=True)
     span = c["rawEndSeconds"] - c["rawStartSeconds"]
-    filters = f"fps=30,trim=start={c['rawStartSeconds']}:duration={span},setpts=PTS-STARTPTS,scale=440:956:flags=lanczos,setsar=1"
+    filters = f"fps=30,trim=start_frame={c['firstFrameAt30']}:end_frame={c['endFrameExclusiveAt30']},setpts=PTS-STARTPTS,scale=440:956:flags=lanczos,setsar=1"
     # Decode the original stream from its start. Seeking to a keyframe in sparse simctl
     # recordings can pick a different state despite matching container timestamps.
     subprocess.run([str(ff), "-v", "error", "-nostdin", "-y", "-threads", "2", "-i", str(root / c["source"]),
@@ -172,7 +190,11 @@ def encode(c):
     assert output.stat().st_size > 1000
     c["sha256"] = digest(output)
     c["durationSeconds"] = get_duration(output)
-    assert abs(c["durationSeconds"] - span) < 0.16, (c["name"], c["durationSeconds"], span)
+    count = int(subprocess.check_output(["ffprobe","-v","error","-count_frames","-select_streams","v:0",
+                "-show_entries","stream=nb_read_frames","-of","default=nw=1:nk=1",str(output)], text=True).strip())
+    assert count == c['endFrameExclusiveAt30']-c['firstFrameAt30'], (c['name'], count)
+    assert abs(c["durationSeconds"] - span) < .04, (c["name"], c["durationSeconds"], span)
+    c['encodedFrames'] = count
 with ThreadPoolExecutor(max_workers=2) as workers:
     list(workers.map(encode, clips))
 write(root / "native-clips.json", clips)
