@@ -109,6 +109,34 @@ try {
       c.blocked.push({ url: u.origin + u.pathname, method: r.request().method() }); await r.abort('blockedbyclient');
     });
     const page = await ctx.newPage();
+    // MkUserSetupDialog.vue may appear after the initial readiness delay. Handle
+    // it at actionability checks, using its real Later -> specific confirmation
+    // flow. Never remove overlays, mutate DOM/CSS, or force the blocked action.
+    const setupDialog = page.getByTestId('user-setup-dialog');
+    c.onboardingDismissals = [];
+    const dismissSetup = async () => {
+      if (await setupDialog.count() !== 1) throw Error('Ambiguous initial setup dialog');
+      const later = setupDialog.getByRole('button', { name: '一会再说', exact: true });
+      await later.click({ timeout: 15000 });
+      const question = page.getByText('要稍后再进行初始设定吗？', { exact: true });
+      await requireVisible(question);
+      // MkDialog.vue puts text and modal-dialog-ok under the same root.
+      const confirmation = question.locator('xpath=ancestor::div[.//*[@data-testid="modal-dialog-ok"]][1]');
+      const ok = confirmation.getByTestId('modal-dialog-ok');
+      if (await ok.count() !== 1) throw Error('Ambiguous postpone-setup confirmation');
+      await ok.click({ timeout: 15000 });
+      await setupDialog.waitFor({ state: 'hidden', timeout: 15000 });
+      await question.waitFor({ state: 'hidden', timeout: 15000 });
+      c.onboardingDismissals.push({ at: new Date().toISOString(), action: 'Later and specific postpone confirmation clicked' });
+    };
+    await page.addLocatorHandler(setupDialog, dismissSetup, { times: 2 });
+    const dismissVisibleSetup = async () => {
+      if (!(await setupDialog.isVisible())) return;
+      // Outside the handler, suspend it so Later's own click cannot re-enter it.
+      await page.removeLocatorHandler(setupDialog);
+      try { await dismissSetup(); }
+      finally { await page.addLocatorHandler(setupDialog, dismissSetup, { times: 2 }); }
+    };
     page.on('pageerror', e => c.errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error') c.consoleErrors.push(m.text()); });
     page.on('response', r => {
@@ -120,9 +148,13 @@ try {
     try {
       await page.goto(origin + c.path, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.waitForTimeout(12000); await page.evaluate(() => document.fonts.ready);
-      const later = page.getByRole('button', { name: '一会再说', exact: true });
-      if (await later.isVisible()) { await later.click(); await page.getByRole('button', { name: 'OK', exact: true }).click(); await later.waitFor({ state: 'hidden' }); }
+      await dismissVisibleSetup();
       clean(c); await provePage(page, c); await page.waitForTimeout(500); clean(c);
+      // Screenshot itself does not run actionability handlers. Dismiss only the
+      // known setup flow if it became visible after the last interaction.
+      await dismissVisibleSetup();
+      if (await setupDialog.isVisible()) throw Error('Initial setup still covers page');
+      clean(c);
       await page.screenshot({ path: `${out}/h5-${c.name}-large-light.png` });
       c.passed = true; c.capturedAt = new Date().toISOString();
     } catch (e) {
