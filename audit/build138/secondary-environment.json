@@ -1,0 +1,30 @@
+{
+  "productCommit": "68aee1cadedae645a5f5823a5c062fdb296db56f",
+  "suite": "small",
+  "device": "iPhone SE (3rd generation)",
+  "runtime": "26.0.1",
+  "status": "infrastructure-only-unverified",
+  "primaryRun": 42990563590,
+  "attempts": [
+    {
+      "jobId": 130422140507,
+      "runAttempt": 1,
+      "artifactId": 13842682227,
+      "verifiedProductAssertions": 0,
+      "executionCountKnown": true,
+      "stage": "simulator startup",
+      "error": "bootstatus timed out after 300 seconds. The recovery shutdown timed out after 60 seconds, before the test group started.",
+      "logSHA256": "0443b1a6ad81237f2e0e455f56a7e518e21e8ec6d2725930931db55085f1dc47"
+    },
+    {
+      "jobId": 130447590796,
+      "runAttempt": 2,
+      "artifactId": 13847088905,
+      "verifiedProductAssertions": 0,
+      "executionCountKnown": false,
+      "stage": "XCTest execution and result-bundle export",
+      "error": "xcodebuild test-without-building timed out after 1100 seconds. The unfinalized result bundle lacks readable metadata. xcresulttool export exited 64. No final pass/fail receipts could be verified for this secondary device.",
+      "logSHA256": "2435b172281a1ffb64f9800703eaac29c14dc9d66ac74ad60cda9cb1c6baa66d"
+    }
+  ]
+}

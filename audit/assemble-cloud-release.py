@@ -10,6 +10,7 @@ import html
 import io
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import runpy
 import shutil
@@ -24,6 +25,7 @@ escape = html.escape
 REPO = "qianshou330-cyber/pubo-ios"
 BASE_ZIP = "c17974495c659dcabffbc852dd6d3ef31225f65cfa7b1efed52e4bb1f7fcaa98"
 BASE_IPA = "18ef4e429338953513f79612ea2a956aa39310ddc009aee00c6d9acf2e2b511b"
+REVIEWED_FILM = "88c6b507ac6fe614cedf2624e3461f74cf942256cc7f44b5f8115fb11f0d4911"
 
 def write_json(path,value):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -71,6 +73,37 @@ def verify_source(b,t):
                     hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest()==item["gitBlob"],
                     "Source differs from audited Git tree: "+item["path"])
 
+def verify_secondary_environment(b,t):
+    filename=b/"secondary-environment.json"
+    if not filename.is_file():
+        return None
+    evidence=read(filename)
+    require(evidence["productCommit"]==t["sha"] and evidence["suite"]=="small" and
+            evidence["status"]=="infrastructure-only-unverified","Unexpected secondary audit")
+    attempts=evidence["attempts"]
+    require(len(attempts)>=2 and len({a["jobId"] for a in attempts})==len(attempts) and
+            len({a["runAttempt"] for a in attempts})==len(attempts),"Two distinct attempts are required")
+    for a in attempts:
+        job_id=int(a["jobId"])
+        job=gh(f"actions/jobs/{job_id}")
+        verified=a.get("productAssertionsVerified",a.get("verifiedProductAssertions",a.get("productAssertionsExecuted")))
+        require(job["run_id"]==read(b/"runs.json")["visual"] and job["name"]=="simulator-small" and
+                job["conclusion"]=="failure" and verified==0 and a["stage"] and a["error"],
+                "Secondary evidence contains a product result or a different job")
+        log=subprocess.check_output(["gh","api",f"repos/{REPO}/actions/jobs/{job_id}/logs"])
+        texts=[log,log.removeprefix(b"\xef\xbb\xbf")]
+        require(a["logSHA256"] in {hashlib.sha256(x).hexdigest() for raw in texts for x in (raw,raw.replace(b"\r\n",b"\n"))},
+                "Secondary runner log digest mismatch")
+        text=log.decode("utf8",errors="replace")
+        require(not re.search(r"XCTAssert[^\n]*failed|Test Case '[^'\n]+' failed",text,re.I),
+                "Product test failure cannot use the infrastructure exception")
+        require(("bootstatus" in text and "TimeoutExpired" in text) or
+                ("test-without-building" in text and "TimeoutExpired" in text and "failed to read metadata" in text),
+                "Logs did not establish the recorded runner or toolchain failure")
+    groups=read(b/"native-simulator-groups.json")
+    require(not any(k.startswith("small/") for k in groups),"Partial or failed test groups require separate review")
+    return evidence
+
 def verify_baseline(b):
     destination=ROOT.parent/"ios-timeline-visual-20261105/build134/delivery/PUBO-0.9.3-134-iphoneos-arm64-unsigned.ipa"
     if not destination.is_file():
@@ -87,6 +120,44 @@ def verify_baseline(b):
             destination.parent.mkdir(parents=True,exist_ok=True)
             destination.write_bytes(data)
     require(digest(destination)==read(b/"package-verification.json")["build134SHA256"]==BASE_IPA,"Unverified baseline")
+
+def reviewed_film(b):
+    comparison=b/"comparison"
+    index=read(comparison/"index.json")
+    require(index["windowsReview"]=="confirmed","Footage awaits visual review")
+    name="paired-interactions.mp4"
+    movie=comparison/name
+    current=digest(movie)
+    entry,=[v for v in index["videos"] if v["file"]==name]
+    require(entry["sha256"]==current,"Unverified comparison render")
+    result=dict(reviewRun=42997477425,reviewArtifact=13845705017,reviewedSHA256=REVIEWED_FILM,
+                currentRenderSHA256=current,packagedSHA256=REVIEWED_FILM,identicalToReviewed=True)
+    if current==REVIEWED_FILM:
+        result["selection"]="byte-identical render"
+        return result
+    metadata=gh("actions/artifacts/13845705017")
+    require(metadata["workflow_run"]["id"]==42997477425 and not metadata["expired"],"Wrong review artifact")
+    archive=b/"confirmed-review-reference.zip"
+    gh("actions/artifacts/13845705017/zip",archive)
+    require(metadata["digest"]=="sha256:"+digest(archive) and archive.stat().st_size==metadata["size_in_bytes"],
+            "Corrupt review artifact")
+    with zipfile.ZipFile(archive) as z:
+        key,=[n for n in z.namelist() if n.endswith("/"+name) or n==name]
+        source_index=json.loads(z.read(str(PurePosixPath(key).parent/"index.json")))
+        approved,=[v for v in source_index["videos"] if v["file"]==name]
+        require(source_index["windowsReview"]=="confirmed" and approved["segments"]==entry["segments"] and
+                int(source_index["build"])==int(index["build"])==138,"Review differs in frames or source timing")
+        data=z.read(key)
+        require(hashlib.sha256(data).hexdigest()==approved["sha256"]==REVIEWED_FILM,"Unverified prior motion evidence")
+    movie.replace(b/"comparison-rerender.mp4")
+    movie.write_bytes(data)
+    entry["sha256"]=REVIEWED_FILM
+    write_json(comparison/"index.json",index)
+    report=comparison/"NOTIFICATION-COMPARISON.md"
+    report.write_text(report.read_text("utf8").replace(current,REVIEWED_FILM),encoding="utf8")
+    result["selection"]="signed-off original from reviewed run; equivalent timing and sources"
+    result["reviewArtifactDigest"]=metadata["digest"]
+    return result
 
 def original(artifacts,b,relative):
     parts=PurePosixPath(str(relative).replace("\\","/")).parts
@@ -163,6 +234,11 @@ def write_light(light,b,t,artifacts,classification,archive,archive_sha,release):
     images=" ".join(lib["link"](Path(r["file"]).name,
                lib["STATES"][r["state"]]+(" · 浅色" if r["theme"]=="light" else " · 深色")) for r in comparisons["pairs"])
     counts=sum(g["passed"] for g in groups.values())
+    devices="iPhone 17 Pro Max 已验证" if release.secondary_pending else "两台设备均验证"
+    secondary=""
+    if release.secondary_pending:
+        write_json(light/"secondary-environment.json",release.secondary_pending)
+        secondary='<p>iPhone SE（第3代）首次启动超时。第二次 XCTest 超时且结果包元数据缺失，无法核实实际执行了多少用例。小屏仍待补验。'+lib["link"]("secondary-environment.json","查看两次作业及依据")+'</p>'
     visuals=(b/"comparison/NOTIFICATION-COMPARISON.md").read_text("utf8")
     # Keep the paired report's precise visual limitations visible in the card.
     detail_section=visuals.partition("### 画面仍可见的差异")[2].split("\n## ",1)[0]
@@ -179,7 +255,7 @@ def write_light(light,b,t,artifacts,classification,archive,archive_sha,release):
 <img src="overview-light.png" alt="浅色对照"><img src="overview-dark.png" alt="深色对照"><div class="links">{images}</div>
 <video controls preload="none" src="paired-interactions.mp4"></video><ul>{details}</ul></section>
 <section><h2>分类、跳转与返回</h2><p>20类，含聚合变体及行内操作。{lib['link']('按钮检查表.csv','下载逐项检查表')} · {lib['link']('原件索引.json','查看原始截图、录像路径及秒数')}</p><div class="table"><table><thead>{lib['cells'](['操作','H5','IPA','返回','差异','来源'],'th')}</thead><tbody>{''.join(rows)}</tbody></table></div></section>
-<section><h2>验证范围</h2><p>{real['core']} 项核心测试、{real['packageTests']} 项打包测试、{counts} 项模拟器界面测试和 {real['realUITests']} 项隔离后端界面测试通过。137 首轮发现下拉刷新没有显示新通知，138 两台设备均验证短拉后没有新增请求，超过 200pt 松手取得新通知。</p>
+<section><h2>验证范围</h2><p>{real['core']} 项核心测试、{real['packageTests']} 项打包测试、{counts} 项模拟器界面测试和 {real['realUITests']} 项隔离后端界面测试通过。137 首轮发现下拉刷新没有显示新通知，138 {devices}短拉后没有新增请求，超过 200pt 松手取得新通知。</p>{secondary}
 <p>{lib['link']('VALIDATION.json','验收与完整 ZIP 的大小及校验值')} · {lib['link']('real-and-core-results.json','隔离后端与核心回执')} · {lib['link']('native-routes.json','按钮与返回记录')} · {lib['link']('comparison/index.json','配对媒体索引')} · {lib['link']('prior-notification-results.json','137 首轮与复验记录')}</p>
 <p>原片保存在 GitHub Actions，保留 14 天。打开原片链接后下载对应制品，按索引里的 ZIP 内路径和时间点定位。完整验收 ZIP 另含可离线查看的原件。</p>
 <p>实体手机、最低 iOS 17、真机签名安装和覆盖升级、真实锁屏推送尚未验收。</p></section></html>"""
@@ -201,14 +277,20 @@ def main():
     verify_baseline(b)
     subprocess.run([sys.executable,str(ROOT/"verify-real-and-core.py"),str(b)],check=True)
     if args.prepare: return
-    require(read(b/"comparison/index.json").get("windowsReview")=="confirmed","Footage awaits visual review")
+    media=reviewed_film(b)
     d=lib["Delivery"](b,t)
+    d.secondary_pending=verify_secondary_environment(b,t)
+    if d.secondary_pending:
+        d.remaining.append("iPhone SE（第3代）首次启动超时，第二次 XCTest 超时且结果包元数据缺失；实际执行数量未知，仍待补验。")
+        d.from_b("secondary-environment.json","evidence/secondary-environment.json")
     d.collect(None)
     d.from_b("source-artifacts.json","evidence/github-artifacts.json")
     d.copy(ROOT/"prior-notification-results.json","evidence/prior-notification-results.json")
     validation=json.loads(d.generated["VALIDATION.json"])
+    validation["reviewedComparison"]=media
     validation["changeFrom137"]=dict(previous=read(ROOT/"prior-notification-results.json"),
-                current={s:read(b/("native-"+s)/"notification-refresh-count.json") for s in ("large","small")})
+                current={s:read(b/("native-"+s)/"notification-refresh-count.json")
+                         for s in (("large",) if d.secondary_pending else ("large","small"))})
     d.generated["VALIDATION.json"]=lib["json_text"](validation)
     d.generated["H5-原件说明.txt"]="内置浏览器的原始 MP4、成对截图、样本帧及完整采帧时间索引均随附。逐帧 JPEG 序列的其余文件保留在原采集目录。\n"
     output=b/"delivery-output"

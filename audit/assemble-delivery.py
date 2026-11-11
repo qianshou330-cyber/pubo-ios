@@ -80,6 +80,8 @@ class Delivery:
         self.generated = {}
         self.supplement = None
         self.refresh_receipts = []
+        self.secondary_pending = None
+        self.remaining = list(LIMITS)
 
     def copy(self, src, relative, expected=None):
         relative = PurePosixPath(str(relative).replace("\\", "/")).as_posix()
@@ -184,9 +186,9 @@ class Delivery:
             require(g["sourceCommit"] == expected_sha and not g["failed"] and not g["skipped"] and g["passed"] > 0, f"Unverified simulator group {key}")
             self.from_b(g["source"], expected=g["rawVideoSHA256"])
         needed = {"large/notifications", "large/notification-routes"}
-        require(needed <= groups.keys() and any(k.startswith("small/") for k in groups)
+        require(needed <= groups.keys() and (self.secondary_pending or "small/notifications" in groups)
                 and any(k.startswith("preserved/") for k in groups), "Missing simulator or regression group")
-        for group_id in needed | {"small/notifications"}:
+        for group_id in needed | (set() if self.secondary_pending else {"small/notifications"}):
             g = groups[group_id]
             require(g["runtime"]["modelName"] == ("iPhone 17 Pro Max" if group_id.startswith("large/") else "iPhone SE (3rd generation)")
                     and g["runtime"]["osVersion"] == "26.0.1", group_id)
@@ -195,6 +197,8 @@ class Delivery:
             self.collect_supplement(groups,expected_sha,source["archiveSHA256"])
         if int(t["build"]) >= 138:
             for key,title in (("large","iPhone 17 Pro Max"),("small","iPhone SE（第 3 代）")):
+                if key == "small" and self.secondary_pending:
+                    continue
                 directory = PurePosixPath(groups[key + "/notifications"]["source"].replace("\\","/")).parts[0]
                 receipt = self.from_b(directory + "/notification-refresh-count.json")
                 result = read(self.b / receipt)
@@ -257,7 +261,7 @@ class Delivery:
         validation = dict(productCommit=expected_sha, build=t["build"], version=t["version"], sourceSHA256=source["archiveSHA256"],
                           ipaSHA256=pkg["sha256"], ipaBytes=pkg["bytes"], signed=False, preservedBuild134SHA256=pkg["build134SHA256"],
                           realAndCore=real, simulatorGroups=groups, sites=hinfo, mainCommit=main_commit or None, githubRuns=runs,
-                          remaining=LIMITS)
+                          remaining=self.remaining,secondaryEnvironment=self.secondary_pending)
         self.generated["VALIDATION.json"] = json_text(validation)
         self.report(ipa, src, pkg, real, routes, groups, clips, h_movies, main_commit)
 
@@ -368,7 +372,9 @@ class Delivery:
                 link("verification-source-proof.json","两份产品源码的逐文件比对")]) + "</p>"
         refresh_info = ""
         if self.refresh_receipts:
-            refresh_info = "<p>短距离下拉没有刷新。下拉越过 200pt 后松手，列表取得了一次带新通知的响应。加上首次进入，两台设备分别发出两次首屏请求。" + " · ".join(link(path, title + " 刷新计数") for title,path in self.refresh_receipts) + "</p>"
+            refresh_info = "<p>短距离下拉没有刷新。下拉越过 200pt 后松手，列表取得了一次带新通知的响应。通过实测的每台设备各发出两次首屏请求（含首次进入）。" + " · ".join(link(path, title + " 刷新计数") for title,path in self.refresh_receipts) + "</p>"
+        secondary_link = (link("evidence/secondary-environment.json","小屏两次环境故障与未验记录") if self.secondary_pending
+                          else link(groups["small/notifications"]["source"],"小屏通知原片"))
         pair_links = []
         for pair in read(self.b / "comparison/index.json")["pairs"]:
             pair_path = "comparison/" + Path(pair["file"]).name
@@ -393,7 +399,7 @@ figure{{margin:14px 0}}figure img,video{{display:block;max-width:100%;height:aut
 <div class="links">{' '.join(pair_links)}</div>
 <video controls preload="none" src="comparison/paired-interactions.mp4"></video><p>{link("comparison/paired-interactions.mp4","打开操作对照录像")} · {link("comparison/NOTIFICATION-COMPARISON.md","页面和动效的逐项差异")} · {link("comparison/index.json","对照图与录屏时间点")}</p>
 <details><summary>查看两端原始证据</summary><ul>
-<li>{link(groups['large/notifications']['source'],"模拟器页面与刷新原片")} · {link(groups['large/notification-routes']['source'],"逐类跳转及返回原片")} · {link(groups['small/notifications']['source'],"小屏通知原片")}</li>
+<li>{link(groups['large/notifications']['source'],"模拟器页面与刷新原片")} · {link(groups['large/notification-routes']['source'],"逐类跳转及返回原片")} · {secondary_link}</li>
 {browser_movie_links}
 <li>{link("h5/videos/index.json","浏览器实录及采帧时间")}</li>
 </ul></details></section>
@@ -405,7 +411,7 @@ figure{{margin:14px 0}}figure img,video{{display:block;max-width:100%;height:aut
 {refresh_info}
 <p>{link("evidence/real-and-core-results.json","联调与核心测试结果")} · {link("integration/integration-notifications-contract.json","通知接口回执检查")} · {link("evidence/package-verification.json","真机包、资源及权限检查")} · {gh_links}</p>
 <details><summary>查看设备与回归项目</summary><div class="scroll"><table><thead>{cells(["项目","模拟器","通过数"],"th")}</thead><tbody>{''.join(test_rows)}</tbody></table></div></details>
-<h3>待验证</h3><ul>{''.join('<li>'+html.escape(s)+'</li>' for s in LIMITS)}</ul><p>{link("VALIDATION.json","完整验收索引")}</p></section></main></html>'''
+<h3>待验证</h3><ul>{''.join('<li>'+html.escape(s)+'</li>' for s in self.remaining)}</ul><p>{link("VALIDATION.json","完整验收索引")}</p></section></main></html>'''
         self.generated["REPORT.html"] = block + "\n"
 
     def write(self, dest):

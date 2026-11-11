@@ -116,6 +116,11 @@ def acquire(item):
             summaries[file.stem] = {k:data.get(k) for k in ('passedTests','failedTests','skippedTests','expectedFailures','result')}
         item.update(sourceVerified=True, testsObserved=bool(summaries), interfacePassed=bool(summaries) and all(
                     s['result']=='Passed' and not s['failedTests'] and not s['skippedTests'] for s in summaries.values()))
+        startup=dest/('timeline-environment-'+suite+'.json')
+        if not summaries and startup.is_file():
+            environment=json.loads(startup.read_bytes())
+            reason=str(environment.get('error',''))
+            item['awaitingInfrastructureRetry']=('boot' in reason or 'shutdown' in reason) and ('TimeoutExpired' in reason)
         save(dest/'artifact-audit.json',{'source':source,'suite':suite,'testResults':summaries,'sha256':checksum,'bytes':path.stat().st_size})
     else:
         save(build/(suite+'.github.json'), {**item,'run':item['run_id'],'commit':commit})
@@ -158,6 +163,18 @@ def ensure_results(primary=False):
     for suite in (('large',) if primary else ('large','small','preserved')):
         base=build/destinations[suite]
         audit=json.loads((base/'artifact-audit.json').read_bytes())
+        secondary=build/'secondary-environment.json'
+        if suite=='small' and secondary.is_file():
+            info=json.loads(secondary.read_bytes())
+            evidence=json.loads((build/'source-artifacts.json').read_bytes())
+            artifact,=[a for a in evidence['artifacts'] if a['suite']=='small']
+            ids={artifact['id'],*(a['id'] for a in artifact.get('otherAttempts',[]))}
+            assert info['productCommit']==commit and info['status']=='infrastructure-only-unverified'
+            assert info['primaryRun']==runs['ui'] and set(a['runAttempt'] for a in info['attempts'])=={1,2}
+            assert {a['artifactId'] for a in info['attempts']}==ids
+            assert artifact.get('sourceVerified') and not audit['testResults'] and all(a['verifiedProductAssertions']==0 for a in info['attempts'])
+            print('iPhone SE remains unverified. Assemble step independently checks both original cloud job logs.',flush=True)
+            continue
         if suite=='large' and (audit['testResults'].get('notifications-summary',{}).get('passedTests') != 7
              or audit['testResults'].get('notification-routes-summary',{}).get('passedTests') != 5):
             shortfalls.append('large exact 7 notification and 5 route cases')
@@ -198,8 +215,9 @@ if __name__=='__main__':
                         items[key]=old
             write_index(items,states)
             if mode=='discover' or (mode=='primary' and 'large' in done): break
-            if mode=='collect' and len(done)==len(names) and (all(s['status']=='completed' for s in states.values()) or
+            awaiting=any(a.get('awaitingInfrastructureRetry') for a in done.values()) and not (build/'secondary-environment.json').is_file()
+            if mode=='collect' and len(done)==len(names) and ((not awaiting and all(s['status']=='completed' for s in states.values())) or
                     all(a.get('jobConclusion')=='success' for a in done.values())): break
-            if all(s['status']=='completed' for s in states.values()) or time.monotonic()>deadline:
+            if (not awaiting and all(s['status']=='completed' for s in states.values())) or time.monotonic()>deadline:
                 raise RuntimeError('Missing source artifacts: '+', '.join(sorted(set(names)-set(done))))
             time.sleep(40)
