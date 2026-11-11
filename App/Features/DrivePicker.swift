@@ -47,7 +47,8 @@ private struct DriveFolderView: View {
                         guard selectionTask == nil else { return }
                         selectionTask = Task { await requestSelection(file); selectionTask = nil }
                     } label: {
-                        HStack { Image(systemName: file["type"].string?.hasPrefix("image/") == true ? "photo" : "doc"); VStack(alignment: .leading) { Text(file["name"].string ?? "文件").lineLimit(2); Text(file["isSensitive"].bool ? "敏感媒体，选择前需确认" : ByteCountFormatter.string(fromByteCount: Int64(max(0, file["size"].int)), countStyle: .file)).font(.caption).foregroundStyle(.secondary) } }.frame(minHeight: 44)
+                        HStack { Image(systemName: file["type"].string?.hasPrefix("image/") == true ? "photo" : "doc"); VStack(alignment: .leading) { Text(file["name"].string ?? "文件").lineLimit(2); Text(file["isSensitive"].bool ? "敏感媒体，选择前需确认" : ByteCountFormatter.string(fromByteCount: Int64(max(0, file["size"].int)), countStyle: .file)).font(.caption).foregroundStyle(.secondary) } }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(busy || selected || !DriveMediaPolicy.canSelect(mime: file["type"].string ?? "", imagesOnly: imagesOnly)).accessibilityIdentifier("drive.select." + file.id)
                 }
                 if filesMore && loaded { Button("更多文件") { Task { await load(filesOnly: true) } }.disabled(busy) }

@@ -13,7 +13,7 @@ const pages = [
   { name: 'privacy', path: '/settings/privacy' },
 ];
 // Clear only known outputs so an unsuccessful attempt cannot leave an older success image.
-for (const name of [...pages.flatMap(p => [`h5-${p.name}-large-light.png`, `DIAGNOSTIC-NOT-PARITY-${p.name}.png`]), 'report.json', 'server.log', 'fixture-requests.log']) await rm(`${out}/${name}`, { force: true });
+for (const name of [...pages.flatMap(p => [`h5-${p.name}-large-light.png`, `DIAGNOSTIC-NOT-PARITY-${p.name}.png`]), 'report.json', 'server.log', 'fixture-requests.log', ...pages.map(p => `DIAGNOSTIC-DOM-${p.name}.json`)]) await rm(`${out}/${name}`, { force: true });
 const port = process.env.PORT || '8767';
 if (!/^\d+$/.test(port) || Number(port) < 1024 || Number(port) > 65535) throw Error('Invalid fixture port');
 const origin = `http://127.0.0.1:${port}`;
@@ -36,9 +36,18 @@ async function provePage(page, c) {
   if (c.name === 'channels') {
     if (!apis.has('/api/channels/featured')) throw Error('Featured channel API was not observed');
     await requireVisible(page.getByText('音乐交流（测试频道）', { exact: true }));
-    // Header tabs in actual H5 are buttons, not ARIA tabs. Open the real search tab.
-    const searchTab = page.getByRole('button', { name: '搜索', exact: true });
-    if (await searchTab.count() !== 1) throw Error('Ambiguous channel search tab');
+    // Source contract: channels.vue headerTabs uses search/comet/star/eye/edit icons;
+    // MkPageHeader.tabs.vue renders five sibling buttons. Scope by that structure,
+    // not accessible name (which may include tooltip content), CSS hashes or index.
+    const tabRows = page.locator('div').filter({ has: page.locator(':scope > button i.ti-comet') })
+      .filter({ has: page.locator(':scope > button i.ti-star') })
+      .filter({ has: page.locator(':scope > button i.ti-eye') })
+      .filter({ has: page.locator(':scope > button i.ti-edit') });
+    if (await tabRows.count() !== 1) throw Error(`Channel header structure count=${await tabRows.count()}`);
+    const searchTab = tabRows.locator(':scope > button').filter({ has: page.locator('i.ti-search') })
+      .filter({ hasText: /^\s*搜索\s*$/ });
+    if (await searchTab.count() !== 1) throw Error(`Channel search tab count=${await searchTab.count()}`);
+    await requireVisible(searchTab);
     await searchTab.click();
     const input = page.locator('input[type="search"]');
     await requireVisible(input);
@@ -120,6 +129,15 @@ try {
       c.failure = String(e);
       await page.screenshot({ path: `${out}/DIAGNOSTIC-NOT-PARITY-${c.name}.png` }).catch(() => {});
       c.bodyText = await page.locator('body').innerText().catch(() => 'unavailable');
+      // Synthetic page only. Record structure, not input values or request bodies.
+      const diagnostic = await page.locator('button, [role=tab], input[type=search]').evaluateAll(nodes =>
+        nodes.slice(0, 120).map(n => ({ tag: n.tagName, role: n.getAttribute('role'),
+          text: (n.textContent || '').trim().slice(0, 180), ariaLabel: n.getAttribute('aria-label'),
+          visible: !!(n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden'),
+          icons: [...n.querySelectorAll('i')].map(i => i.className),
+          parentTag: n.parentElement?.tagName, siblingButtons: n.parentElement?.querySelectorAll(':scope > button').length
+        }))).catch(() => []);
+      await writeFile(`${out}/DIAGNOSTIC-DOM-${c.name}.json`, JSON.stringify(diagnostic, null, 2));
     } finally { await ctx.close(); }
   }
   report.success = report.cases.length === pages.length && report.cases.every(c => c.passed);

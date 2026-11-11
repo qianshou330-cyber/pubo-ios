@@ -139,6 +139,10 @@ struct NotificationsView: View {
     }
     private var headerFilter: some View {
                 Menu {
+                    // Keep this navigation action visible above the long filter list.
+                    Button("关注申请") { showRequests = true }
+                        .accessibilityIdentifier("notifications.followRequests")
+                    Divider()
                     if filter != nil {
                         Button { filter = nil } label: { Label("清除", systemImage: "xmark") }
                             .accessibilityIdentifier("notifications.filter.clear")
@@ -150,8 +154,6 @@ struct NotificationsView: View {
                             else { Text(type.title) }
                         }.accessibilityIdentifier("notifications.filter." + type.rawValue)
                     }
-                    Divider()
-                    Button("关注申请") { showRequests = true }
                 } label: { headerIcon("line.3.horizontal.decrease") }
                     .foregroundStyle(filter == nil ? PUBOTheme.text : PUBOTheme.accent)
                     .accessibilityLabel("筛选").accessibilityValue(filter?.title ?? "全部")

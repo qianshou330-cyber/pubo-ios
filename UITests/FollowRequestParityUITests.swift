@@ -7,12 +7,8 @@ final class FollowRequestParityUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--follow-requests-preview"] + flags; app.launch()
         XCTAssertTrue(app.tabBars.buttons["通知"].waitForExistence(timeout: 15)); app.tabBars.buttons["通知"].tap()
         let menu = app.buttons["notifications.filter"]; XCTAssertTrue(menu.waitForExistence(timeout: 10)); menu.tap()
-        let requests = app.buttons["关注申请"]
-        for _ in 0..<8 where !requests.isHittable {
-            let menuTop = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.32))
-            let menuBottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.82))
-            menuBottom.press(forDuration: 0.05, thenDragTo: menuTop)
-        }
+        let requests = app.buttons["notifications.followRequests"]
+        XCTAssertTrue(requests.waitForExistence(timeout: 5))
         XCTAssertTrue(requests.isHittable); requests.tap()
         XCTAssertTrue(app.segmentedControls["followRequests.direction"].waitForExistence(timeout: 5)); return app
     }

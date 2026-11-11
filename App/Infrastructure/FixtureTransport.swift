@@ -30,6 +30,9 @@ actor FixtureTransport: HTTPTransport {
     private var announcements: [JSONValue] = [.object(["id": .string("fixtureannouncement"), "display": .string("marquee"), "forYou": .bool(false), "isActive": .bool(true), "title": .string("欢迎加入 PUBO"), "text": .string("这是隔离测试公告，不会发布到生产。"), "updatedAt": .string("2026-11-02T00:00:00Z")])]
     private var drafts: [JSONValue] = []
     private var contacts: [JSONValue] = []
+    private var contactListReads = 0
+    private var contactMemberReads = 0
+    private var contactOlderFailed = false
     private var rooms: [JSONValue] = []
     private var roomMessages: [JSONValue] = []
     private var releasedStaleRoomReaction = false
@@ -44,6 +47,9 @@ actor FixtureTransport: HTTPTransport {
     private var mutedUsers: [JSONValue] = []
     private var driveFolders: [JSONValue] = [.object(["id": .string("fixturefolder"), "name": .string("测试文件夹"), "parentId": .null])]
     init() {
+        if ProcessInfo.processInfo.arguments.contains("--contacts-preview") {
+            contacts = [.object(["id": .string("contactgroup145"), "name": .string("合成联系人分组"), "userIds": .strings((1...51).map { String(format: "member-%03d", $0) })])]
+        }
         // Build143 synthetic-only drive disclosure scenarios. No production media.
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--drive-sensitive-preview") || ProcessInfo.processInfo.arguments.contains("--drive-sensitive-late") {
@@ -144,6 +150,27 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if args.contains("--contacts-preview"), path == "chat/contact-groups/list" || (path == "users/show" && !body["userIds"].isNull) {
+            let value: JSONValue
+            if path == "chat/contact-groups/list" {
+                contactListReads += 1
+                if args.contains("--contacts-failure-once") && contactListReads == 1 { throw URLError(.timedOut) }
+                value = .array(contacts)
+            } else {
+                contactMemberReads += 1
+                if args.contains("--contacts-member-failure-once") && contactMemberReads == 1 { throw URLError(.timedOut) }
+                let requested = body["userIds"].array.compactMap(\.string)
+                if args.contains("--contacts-older-failure-once"), requested == ["member-051"], !contactOlderFailed {
+                    contactOlderFailed = true; throw URLError(.timedOut)
+                }
+                let old = args.contains("--contacts-slow-first") && contactMemberReads == 1
+                value = .array(requested.reversed().map { id in
+                    .object(["id": .string(id), "username": .string(id), "name": .string((old ? "旧成员 " : "成员 ") + String(id.suffix(3))), "host": .null])
+                })
+                if old { try? await Task.sleep(for: .seconds(5)) }
+            }
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
         if args.contains("--follow-list-preview"), path == "users/following" || path == "users/followers" {
             followListReads += 1
             if args.contains("--follow-list-failure-once") && followListReads == 1 { throw URLError(.timedOut) }
