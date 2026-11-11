@@ -69,3 +69,12 @@ confirmation. It never removes the overlay or forces clicks through it. All exis
 route, bundle, theme, network and page-specific proof checks remain mandatory.
 Local syntax/diff checks passed; Chromium could not launch because socket creation
 is restricted in this executor. Real browser validation must run in the isolated CI.
+
+The build 146 run observed the featured API but the delayed setup dialog still
+intercepted the search-tab click; no locator-handler dismissal was recorded. Recovery
+now checks the setup's real visible Later button explicitly and retries the normal
+search click at most three times (3-second timeout per attempt). Only a timeout with
+that known setup button visible permits a retry, after normal Later and confirmation
+clicks. Other errors/overlays fail immediately. This replaces the ineffective automatic
+locator handler; search API success and result checks are unchanged. CI validation is
+still required before reporting successful channel capture.
