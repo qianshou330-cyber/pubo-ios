@@ -39,7 +39,7 @@ final class FourTabNavigationUITests: XCTestCase {
 
     func testFourRootsAndExclusiveComposerInBothThemes() {
         for dark in [false, true] {
-            let app = launch(["--social-align"] + (dark ? ["--dark"] : []))
+            let app = launch(["--social-align", "--timeline-align", "--gif-preview"] + (dark ? ["--dark"] : []))
             XCTAssertEqual(app.tabBars.buttons.count, 4)
             XCTAssertTrue(app.tabBars.buttons["消息"].isSelected)
             for title in ["消息", "好友", "世界圈", "我的"] {
@@ -298,6 +298,11 @@ final class FourTabNavigationUITests: XCTestCase {
             XCTAssertTrue(destination.waitForExistence(timeout: 8))
             app.terminate()
         }
+        let cold = launch(["--four-tabs-push-chat", "--four-tabs-push-cold"])
+        XCTAssertTrue(cold.textViews["chat.input"].waitForExistence(timeout: 12))
+        XCTAssertTrue(cold.tabBars.buttons["消息"].isSelected)
+        XCTAssertEqual(cold.sheets.count, 0)
+        capture(cold, "synthetic-cold-launch-notice-retained"); cold.terminate()
         let mismatch = launch(["--four-tabs-push-note", "--four-tabs-push-mismatch"])
         XCTAssertTrue(mismatch.buttons["messages.add"].waitForExistence(timeout: 10))
         XCTAssertTrue(mismatch.tabBars.buttons["消息"].isSelected)

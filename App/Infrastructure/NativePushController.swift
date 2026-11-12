@@ -59,10 +59,12 @@ import PUBOCore
     }
 
     func resume() async {
-        guard let session, !session.testMode, let owner = session.user?.id else { return }
+        guard let session, let owner = session.user?.id else { return }
         let generation = epoch
-        enabled = UserDefaults.standard.bool(forKey: preference(owner))
         if let pending { self.pending = nil; await open(pending) }
+        guard generation == epoch, session.user?.id == owner, !Task.isCancelled else { return }
+        guard !session.testMode else { return }
+        enabled = UserDefaults.standard.bool(forKey: preference(owner))
         guard session.meta["nativePushAvailable"].bool else { status = "本站锁屏推送通道尚未开放，App 内通知继续正常更新。"; return }
         guard enabled else { status = "未开启锁屏推送。"; return }
         let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -126,7 +128,8 @@ import PUBOCore
     }
 
     /// Clear local delivery immediately; a bounded best-effort request uses the old authorization only.
-    func logout(preservePreference: Bool = false) {
+    func logout(preservePreference: Bool = false, preservePendingNotice: Bool = false) {
+        let retainedNotice = preservePendingNotice ? pending : nil
         openAttempt = UUID()
         epoch = UUID(); let inFlight = registrationTask; registrationTask?.cancel(); registrationTask = nil
         if let session, !session.testMode {
@@ -139,7 +142,7 @@ import PUBOCore
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
             UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         }
-        enabled = false; deviceToken = nil; registeredOwner = nil; registeredToken = nil; registeredDeviceToken = nil; lastRegistration = nil; pending = nil
+        enabled = false; deviceToken = nil; registeredOwner = nil; registeredToken = nil; registeredDeviceToken = nil; lastRegistration = nil; pending = retainedNotice
     }
 
     func foregroundUpdate() { session?.streamRevision += 1 }

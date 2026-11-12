@@ -154,6 +154,16 @@ final class AppSession {
                 #endif
             }
         }
+        #if DEBUG
+        if testMode, !isolatedBackend, ProcessInfo.processInfo.arguments.contains("--four-tabs-push-cold") {
+            // Exercise a notification arriving before Keychain/session restoration.
+            let payload: JSONValue = .object(["pubo": .object([
+                "version": .number(1), "kind": .string("chat"), "eventId": .string("fourtabchat"),
+                "accountId": .string("syntheticself")
+            ])])
+            if let notice = NativePushNotice(payload) { await nativePush.open(notice) }
+        }
+        #endif
         do {
             if testMode {
                 if isolatedBackend {
@@ -177,6 +187,7 @@ final class AppSession {
     private func applyFourTabTestNotice() async {
         guard testMode, !isolatedBackend, let owner = user?.id else { return }
         let args = ProcessInfo.processInfo.arguments
+        guard !args.contains("--four-tabs-push-cold") else { return }
         let kind: String, event: String
         if args.contains("--four-tabs-push-chat") { kind = "chat"; event = "fourtabchat" }
         else if args.contains("--four-tabs-push-note") || args.contains("--four-tabs-push-mismatch") { kind = "notification"; event = "fourtabnote" }
@@ -217,7 +228,7 @@ final class AppSession {
         if !testMode { try KeychainStore.save(secret) }
         if user?.id != account.id {
             generation = UUID(); stream.stop(); admin.clear(); security.clear()
-            await api.cancelAll(); nativePush.logout(preservePreference: true)
+            await api.cancelAll(); nativePush.logout(preservePreference: true, preservePendingNotice: restoring && user == nil)
             clearAccountMemory()
         }
         self.token = token; user = account; error = nil; authorizationRequired = false
