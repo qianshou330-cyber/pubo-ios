@@ -1,6 +1,7 @@
 """Fresh task-owned iOS simulators, Debug synthetic transport only, exact result gate."""
 import json
 import os
+import platform
 from pathlib import Path
 import signal
 import subprocess
@@ -27,6 +28,9 @@ template = small if size == 'small' else large
 identifier = subprocess.check_output(['xcrun', 'simctl', 'create', 'PUBO four tabs ' + size,
     template['deviceTypeIdentifier'], template['runtime']], text=True, timeout=60).strip()
 record = dict(size=size, device=template['name'], runtime=template['runtime'], udid=identifier,
+              commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True, timeout=15).strip(),
+              hostArchitecture=platform.machine(),
+              xcode=subprocess.check_output(['xcodebuild', '-version'], text=True, timeout=30).strip(),
               suite=SUITE, expectedTests=EXPECTED_TESTS, tests='NOT_RUN', scope='four-tab-first-batch-only',
               realDeviceCamera='NOT_RUN', realAPNs='NOT_RUN', signedUpgrade='NOT_RUN', legacyFullUI='NOT_RUN')
 receipt = root / 'four-tabs-environment.json'
