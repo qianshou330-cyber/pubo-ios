@@ -28,7 +28,16 @@ struct FollowRequestsView: View {
             Picker("申请类型", selection: $direction) {
                 ForEach(FollowRequestDirection.allCases) { Text($0.title).tag($0) }
             }.pickerStyle(.segmented).disabled(acting != nil).accessibilityIdentifier("followRequests.direction")
-            if busy { ProgressView().accessibilityIdentifier("followRequests.loading") }
+            if busy {
+                HStack(spacing: 12) {
+                    ProgressView().accessibilityHidden(true)
+                    Text("正在加载关注申请…").font(.callout)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("正在加载关注申请…")
+                .accessibilityIdentifier("followRequests.loading")
+            }
             ForEach(page.rows) { row in
                 let user = Record(row[direction.userKey])
                 VStack(alignment: .leading, spacing: 10) {

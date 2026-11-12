@@ -12,6 +12,10 @@ struct FriendsView: View {
     @State private var initializedGeneration: UUID?
     var body: some View {
         @Bindable var session = session
+        // Capture the identity used to create this task. A cancelled hidden task
+        // must not observe a later visible=true and consume the first read.
+        let taskVisible = visible
+        let taskGeneration = session.generation
         NavigationStack(path: $session.friendsPath) {
             List {
                 Section {
@@ -47,7 +51,16 @@ struct FriendsView: View {
                             }
                         }
                     }
-                    if busy { ProgressView().accessibilityIdentifier("friends.loading") }
+                    if busy {
+                        HStack(spacing: 12) {
+                            ProgressView().accessibilityHidden(true)
+                            Text("正在加载关注列表…").font(.callout)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("正在加载关注列表…")
+                        .accessibilityIdentifier("friends.loading")
+                    }
                     if loaded && page.rows.isEmpty && error == nil { Text("还没有关注的人").foregroundStyle(.secondary).accessibilityIdentifier("friends.empty") }
                     if let error { ErrorBanner(message: error, retryIdentifier: "friends.retry") { Task { await load(reset: true) } } }
                     if loaded && page.hasMore { Button("加载更多关注") { Task { await load(reset: false) } }.disabled(busy) }
@@ -55,8 +68,8 @@ struct FriendsView: View {
             }.puboList().navigationTitle("好友")
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
                 .toolbar { NavigationLink { AddFriendView() } label: { Label("添加好友", systemImage: "plus") }.accessibilityIdentifier("friends.add") }
-                .task(id: session.generation.uuidString + String(visible)) {
-                    guard visible else { return }
+                .task(id: taskGeneration.uuidString + String(taskVisible)) {
+                    guard taskVisible, visible, !Task.isCancelled, taskGeneration == session.generation else { return }
                     if initializedGeneration != session.generation {
                         initializedGeneration = session.generation
                         page = FollowListPage(); loaded = false; error = nil
@@ -69,7 +82,7 @@ struct FriendsView: View {
         }
     }
     private func load(reset: Bool) async {
-        guard visible, let user = session.user, reset || (!busy && page.hasMore) else { return }
+        guard visible, !Task.isCancelled, let user = session.user, reset || (!busy && page.hasMore) else { return }
         let ticket = UUID(), generation = session.generation
         requestID = ticket; busy = true
         defer { if requestID == ticket { busy = false } }

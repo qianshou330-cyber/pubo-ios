@@ -16,6 +16,27 @@ final class FourTabNavigationUITests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "four-tabs-" + name; shot.lifetime = .keepAlways; add(shot)
     }
+    private func waitForText(_ field: XCUIElement, _ expected: String) {
+        // UIKit may still be committing the one synthesized input sequence when
+        // typeText returns. Never retype, truncate or accept a partial draft.
+        let complete = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [complete], timeout: 10), .completed)
+    }
+    private func assertChatBadge(_ app: XCUIApplication, count: String) {
+        let messages = app.tabBars.buttons["消息"]
+        let expected = "(?<![0-9])" + NSRegularExpression.escapedPattern(for: count) + "(?![0-9])"
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            // UIKit can put the badge in the item label or a child instead of
+            // value, which may describe selection. Still require the real 2.
+            messages.label.range(of: expected, options: .regularExpression) != nil ||
+                messages.staticTexts[count].exists || (messages.value as? String) == count
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [ready], timeout: 10)
+        let tree = XCTAttachment(string: "label=\(messages.label)\nvalue=\(String(describing: messages.value))\n\(app.debugDescription)")
+        tree.name = "four-tabs-chat-badge-accessibility"; tree.lifetime = .keepAlways; add(tree)
+        capture(app, "chat-badge-expected-" + count)
+        XCTAssertEqual(result, .completed)
+    }
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
@@ -133,7 +154,7 @@ final class FourTabNavigationUITests: XCTestCase {
         tab(app, "世界圈"); tap(app, "home.compose")
         let editor = app.textViews["compose.text"]
         XCTAssertTrue(editor.waitForExistence(timeout: 8)); editor.tap(); editor.typeText("Unsent four tab draft")
-        XCTAssertEqual(editor.value as? String, "Unsent four tab draft")
+        waitForText(editor, "Unsent four tab draft")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         capture(app, "compose-keyboard")
         tap(app, "compose.close")
@@ -171,7 +192,7 @@ final class FourTabNavigationUITests: XCTestCase {
     }
 
     func testFollowRequestPendingCancelAndLoadingStayTruthful() {
-        let app = launch(["--follow-requests-preview", "--follow-requests-slow-sent"])
+        let app = launch(["--follow-requests-preview", "--four-tabs-follow-hold"])
         openRequests(app)
         let reject = app.buttons["followRequests.reject.received-031"]
         XCTAssertTrue(reject.waitForExistence(timeout: 10))
@@ -240,17 +261,12 @@ final class FourTabNavigationUITests: XCTestCase {
 
     func testOpeningNotificationsDoesNotClearChatBadge() {
         let app = launch(["--parity-preview"])
-        let messages = app.tabBars.buttons["消息"]
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            (messages.value as? String)?.contains("2") == true
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
-        let original = messages.value as? String
+        assertChatBadge(app, count: "2")
         tab(app, "我的"); tap(app, "me.notifications")
         XCTAssertTrue(app.buttons["notifications.filter"].waitForExistence(timeout: 10))
-        XCTAssertEqual(messages.value as? String, original)
+        assertChatBadge(app, count: "2")
         capture(app, "notification-chat-badge-isolation")
-        tab(app, "消息"); XCTAssertEqual(messages.value as? String, original)
+        tab(app, "消息"); assertChatBadge(app, count: "2")
         app.terminate()
     }
 
@@ -263,6 +279,7 @@ final class FourTabNavigationUITests: XCTestCase {
         tab(app, "世界圈"); tap(app, "home.compose")
         let editor = app.textViews["compose.text"]
         XCTAssertTrue(editor.waitForExistence(timeout: 8)); editor.tap(); editor.typeText("Account A private draft")
+        waitForText(editor, "Account A private draft")
         tap(app, "compose.close"); tap(app, "world.more")
         tab(app, "我的"); tap(app, "me.accounts"); tap(app, "accounts.select.syntheticsecond")
         tab(app, "我的")

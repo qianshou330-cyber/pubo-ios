@@ -239,12 +239,19 @@ actor FixtureTransport: HTTPTransport {
                 let after = body["untilId"].string
                 let rows = source.filter { after == nil || ($0["id"].string ?? "") < after! }
                 value = .array(Array(rows.prefix(max(1, body["limit"].int))))
-                if !sent { receivedRequestReads += 1 }
+                if !sent {
+                    receivedRequestReads += 1
+                    // The four-tab race test releases the old sent snapshot only
+                    // after the real user action has requested received rows again.
+                    if args.contains("--four-tabs-follow-hold") { releaseRaceResponse("four-tabs-sent") }
+                }
                 // Deliberately return the captured old snapshot after cancellation:
                 // consumers must reject stale generations, not trust transport timing.
                 if !sent && receivedRequestReads == 2 && args.contains("--follow-requests-slow-refresh") {
                     // Snapshot stays stale until the real reject/accept mutation has happened.
                     try await holdRaceResponse("follow-requests-refresh")
+                } else if sent && args.contains("--four-tabs-follow-hold") {
+                    try await holdRaceResponse("four-tabs-sent")
                 } else if sent && args.contains("--follow-requests-slow-sent") {
                     try? await Task.sleep(for: .milliseconds(1_500))
                 }
