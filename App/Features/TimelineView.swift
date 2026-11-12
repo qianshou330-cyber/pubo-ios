@@ -189,7 +189,7 @@ struct TimelineView: View {
                 Button { composer = true } label: {
                     Label("发帖", systemImage: "square.and.pencil").font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 14).frame(minHeight: 44)
-                        .foregroundStyle(.white).background(PUBOTheme.accent, in: RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(Color(red: 25/255, green: 35/255, blue: 32/255)).background(PUBOTheme.accent, in: RoundedRectangle(cornerRadius: 12))
                 }.accessibilityIdentifier("home.compose")
             }.padding(.horizontal, 16).padding(.top, 8)
             HStack(spacing: 4) {

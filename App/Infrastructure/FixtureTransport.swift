@@ -191,7 +191,7 @@ actor FixtureTransport: HTTPTransport {
         }
         if path == "i/notifications", args.contains("--four-tabs-push-note") || args.contains("--four-tabs-push-follow") {
             let value: JSONValue = .array([
-                .object(["id": .string("fourtabnote"), "type": .string("reaction"), "note": .object(["id": .string("fixturepost")])]),
+                .object(["id": .string("fourtabnote"), "type": .string("reaction"), "note": .object(["id": .string("fixturepost002")])]),
                 .object(["id": .string("fourtabfollow"), "type": .string("receiveFollowRequest"), "user": Self.peer])
             ])
             return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)

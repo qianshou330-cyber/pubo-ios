@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 SUITE = 'FourTabNavigationUITests'
-EXPECTED_TESTS = 12
+EXPECTED_TESTS = 13
 
 
 def declared_tests(path=Path('UITests/FourTabNavigationUITests.swift')):

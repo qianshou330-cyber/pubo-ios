@@ -56,6 +56,20 @@ final class FourTabNavigationUITests: XCTestCase {
         }
     }
 
+    func testGuestLandingStillLoadsPublicPanels() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--logged-out", "--reduce-motion"]
+        app.launch()
+        XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.tabBars.firstMatch.exists)
+        let chart = app.buttons["home.chartDetail"]
+        for _ in 0..<8 where !chart.isHittable { app.swipeUp() }
+        XCTAssertTrue(chart.waitForExistence(timeout: 10))
+        XCTAssertTrue(chart.isHittable)
+        capture(app, "guest-public-panels-preserved")
+        app.terminate()
+    }
+
     func testMessageMenuSearchAndKeyboardReturn() {
         let app = launch()
         tap(app, "messages.add")

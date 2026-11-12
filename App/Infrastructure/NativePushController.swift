@@ -166,7 +166,8 @@ import PUBOCore
                 }
                 let route = AppNavigationPolicy.notificationRoute(notification.raw)
                 if case .note(let noteID) = route {
-                    _ = try await session.call("notes/show", ["noteId": .string(noteID)])
+                    let note = try await session.call("notes/show", ["noteId": .string(noteID)])
+                    guard note["id"].string == noteID else { throw APIError.invalidResponse }
                 }
                 guard openAttempt == attempt else { return }
                 session.open(route, owner: notice.accountID, generation: generation)

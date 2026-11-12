@@ -21,7 +21,7 @@ struct FriendsView: View {
                             Label("关注申请", systemImage: "person.badge.clock")
                             Spacer()
                             if session.pendingFollowRequestBadge != nil {
-                                Text("待处理").font(.caption).foregroundStyle(PUBOTheme.accent)
+                                Text("待处理").font(.caption).foregroundStyle(PUBOTheme.text)
                             }
                         }
                     }.accessibilityIdentifier("friends.requests")
