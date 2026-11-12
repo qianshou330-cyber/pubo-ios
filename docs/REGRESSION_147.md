@@ -29,3 +29,9 @@ Run `43136609974`, commit `3b86b2c`, both focused sizes passed 4/5, zero skipped
 - Small auto-accept completed the light-theme sequence. In dark mode, the concrete descendant query never became hittable after the parent was enabled; no auto-accept setter was invoked. Product data loss is not established.
 
 Full shards, H5 capture, and packaging were skipped by the failed focused gate. No build 147 IPA exists yet.
+
+## Candidate 4 full-shard evidence (not acceptance)
+
+Run `43141468857`, commit `4d75f39`: both focused sizes passed 5/5 and both H5 captures passed. Large baseline passed 46/46. Small social-settings passed 8/9; the dark-theme first lock toggle stayed off and no setter was emitted for that process, despite a computed point inside its visible bounds. This does not establish a binding/business-logic defect. Other full shards were still running at inspection and packaging remained blocked.
+
+The next test-only candidate waits for the concrete UIKit switch to be enabled/hittable before one semantic tap and records its frame/state. It preserves the exact final value, dependent-control and retained-value assertions. It neither toggles a model binding nor retries a failed input until green. All UI semantics still require fresh Mac verification.

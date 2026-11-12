@@ -14,38 +14,43 @@ final class AccountSettingsParityUITests: XCTestCase {
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
         XCTAssertTrue(control.isHittable)
-        // The recorded AX tree places one concrete UISwitch beneath the
-        // identified SwiftUI row. Resolve that descendant, not an anonymous
-        // switch from the entire Form (which can be lazily materialized).
+        // Scope native control discovery to the stable identified row.
         if (control.value as? String) != (value ? "1" : "0") {
-            let actual = control.descendants(matching: .switch).firstMatch
-            XCTAssertTrue(actual.waitForExistence(timeout: 8))
-            // iOS 26 can expose a non-hittable synthetic descendant while
-            // the identified row remains enabled/hittable (candidate 3's
-            // dark-theme AX evidence). Use its measured switch bounds for
-            // one physical tap, anchored to the stable row. Do not toggle
-            // the binding, retry the tap, or accept a mismatched value.
-            XCTAssertTrue(control.isEnabled)
-            let row = control.frame
-            let knob = actual.frame
-            let center = CGPoint(x: knob.midX, y: knob.midY)
-            let validTarget = knob.width > 0 && knob.height > 0 &&
-                knob.width < row.width * 0.5 && row.contains(center)
-            let before = XCTAttachment(string: control.debugDescription)
-            before.name = "privacy-switch-before-" + control.identifier
-            before.lifetime = .keepAlways; add(before)
-            let enabled = control.isEnabled
-            let hittable = control.isHittable
-            if !validTarget || !enabled || !hittable {
-                capture(app, "privacy-switch-invalid-target-" + control.identifier)
-                let tree = XCTAttachment(string: app.debugDescription)
-                tree.name = "privacy-switch-invalid-target-tree"; tree.lifetime = .keepAlways; add(tree)
+            // Resolve the concrete, hittable UISwitch within this exact row.
+            // Candidate 4's failing dark-theme video stayed unchanged, with no
+            // setter event after a coordinate tap. That does not establish a
+            // product binding failure. Wait for an actionable native control
+            // and perform one ordinary tap; do not retry or bypass the UI.
+            var concrete: XCUIElement?
+            let actionable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let row = control.frame
+                concrete = app.switches.allElementsBoundByIndex.first { candidate in
+                    let bounds = candidate.frame
+                    return candidate.identifier.isEmpty && bounds.width > 0 &&
+                        bounds.height > 0 && bounds.width < row.width * 0.5 &&
+                        row.contains(CGPoint(x: bounds.midX, y: bounds.midY)) &&
+                        candidate.isEnabled && candidate.isHittable
+                }
+                return control.isEnabled && control.isHittable && concrete != nil
+            }, object: app)
+            let ready = XCTWaiter.wait(for: [actionable], timeout: 8)
+            let rowState = XCTAttachment(string: control.debugDescription)
+            rowState.name = "privacy-switch-before-" + control.identifier
+            rowState.lifetime = .keepAlways; add(rowState)
+            if let actual = concrete {
+                let target = XCTAttachment(string: "enabled=\(actual.isEnabled) hittable=\(actual.isHittable) frame=\(actual.frame)\n" + actual.debugDescription)
+                target.name = "privacy-native-switch-target-" + control.identifier
+                target.lifetime = .keepAlways; add(target)
             }
-            XCTAssertTrue(validTarget, "Expected concrete switch bounds inside the identified row")
-            XCTAssertTrue(enabled); XCTAssertTrue(hittable)
-            guard validTarget, enabled, hittable else { return }
-            control.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-                .withOffset(CGVector(dx: center.x - row.minX, dy: center.y - row.minY)).tap()
+            capture(app, "privacy-switch-before-tap-" + control.identifier)
+            if ready != .completed {
+                let tree = XCTAttachment(string: app.debugDescription)
+                tree.name = "privacy-native-switch-not-ready-tree"
+                tree.lifetime = .keepAlways; add(tree)
+            }
+            XCTAssertEqual(ready, .completed, "Expected one enabled, hittable native switch inside the identified row")
+            guard ready == .completed, let actual = concrete else { return }
+            actual.tap()
         }
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
         let outcome = XCTWaiter.wait(for: [changed], timeout: 8)
