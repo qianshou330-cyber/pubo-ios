@@ -218,6 +218,7 @@ struct ChatView: View {
                             }
                         }
                         Button(own ? "编辑／撤回消息" : "消息反应／举报") { actionMessage = message }
+                            .accessibilityIdentifier("chat.actions." + message.id)
                     
     }
     private func receive(_ event: ChatStreamEvent) {

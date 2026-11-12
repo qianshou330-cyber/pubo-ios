@@ -14,21 +14,30 @@ final class AccountSettingsParityUITests: XCTestCase {
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
         XCTAssertTrue(control.isHittable)
-        // SwiftUI exposes the whole row as a Switch as well as the actual
-        // UIKit switch. Select the smaller switch within this exact row.
+        // The recorded AX tree places one concrete UISwitch beneath the
+        // identified SwiftUI row. Resolve that descendant, not an anonymous
+        // switch from the entire Form (which can be lazily materialized).
         if (control.value as? String) != (value ? "1" : "0") {
-            let row = control.frame
-            let actual = app.switches.allElementsBoundByIndex.first { candidate in
-                candidate.identifier.isEmpty && candidate.frame.width < row.width * 0.5 &&
-                row.contains(CGPoint(x: candidate.frame.midX, y: candidate.frame.midY))
-            }
-            XCTAssertNotNil(actual, "Expected the concrete switch inside the identified row")
-            guard let actual else { return }
-            XCTAssertTrue(actual.isHittable); actual.tap()
+            let actual = control.descendants(matching: .switch).firstMatch
+            XCTAssertTrue(actual.waitForExistence(timeout: 8))
+            let ready = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "enabled == true AND hittable == true"), object: actual)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+            let before = XCTAttachment(string: control.debugDescription)
+            before.name = "privacy-switch-before-" + control.identifier
+            before.lifetime = .keepAlways; add(before)
+            actual.tap()
         }
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
-        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 8), .completed)
+        let outcome = XCTWaiter.wait(for: [changed], timeout: 8)
+        if outcome != .completed {
+            capture(app, "privacy-switch-failure-" + control.identifier)
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "privacy-switch-failure-tree"; tree.lifetime = .keepAlways; add(tree)
+        }
+        XCTAssertEqual(outcome, .completed)
     }
+
     private func expectEnabled(_ control: XCUIElement, _ enabled: Bool) {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == %@", NSNumber(value: enabled)), object: control)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)

@@ -25,11 +25,13 @@ jobs:
 
         sh scripts/test-refresh-diagnostics.sh
 
-        python3 -m unittest discover -s scripts/isolated -p ''test_backend_diagnostics.py'' -v'
+        python3 -m unittest discover -s scripts/isolated -p ''test_backend_diagnostics.py'' -v
+
+        python3 -m unittest discover -s scripts -p "test_ui_selection.py" -v'
     - name: Compile before simulator boot
       run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS
         Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-    - name: Only the three build 147 regressions
+    - name: Five targeted regressions with exact-count gate
       env:
         PUBO_SIM_SIZE: ${{ matrix.size }}
         PUBO_REGRESSION_147_ONLY: '1'
@@ -185,7 +187,7 @@ jobs:
         size:
         - large
         - small
-    timeout-minutes: 35
+    timeout-minutes: 45
   full-ui:
     strategy:
       fail-fast: false
@@ -193,8 +195,13 @@ jobs:
         size:
         - large
         - small
+        shard:
+        - social-actions
+        - social-settings
+        - authentication
+        - baseline
     runs-on: macos-15
-    timeout-minutes: 75
+    timeout-minutes: 50
     steps:
     - uses: actions/checkout@v4
     - name: Prepare fixed tools
@@ -210,11 +217,10 @@ jobs:
     - name: Compile before simulator boot
       run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS
         Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
-    - name: Social interactions and existing regressions
+    - name: Disjoint full-coverage shard (no skipped tests)
       env:
         PUBO_SIM_SIZE: ${{ matrix.size }}
-        PUBO_SOCIAL_ALIGNMENT: '1'
-        PUBO_AUTH_VIDEO: '1'
+        PUBO_UI_SHARD: ${{ matrix.shard }}
       run: python3 scripts/simulator-tests.py
     - name: Prepare lossless raw evidence parts
       if: always()
@@ -222,7 +228,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: full147-screens-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-screens-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: 'build/*.json
 
           build/screenshots/
@@ -234,112 +240,112 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-000') != ''
       with:
-        name: full147-raw-000-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-000-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-000
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-001') != ''
       with:
-        name: full147-raw-001-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-001-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-001
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-002') != ''
       with:
-        name: full147-raw-002-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-002-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-002
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-003') != ''
       with:
-        name: full147-raw-003-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-003-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-003
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-004') != ''
       with:
-        name: full147-raw-004-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-004-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-004
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-005') != ''
       with:
-        name: full147-raw-005-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-005-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-005
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-006') != ''
       with:
-        name: full147-raw-006-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-006-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-006
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-007') != ''
       with:
-        name: full147-raw-007-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-007-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-007
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-008') != ''
       with:
-        name: full147-raw-008-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-008-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-008
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-009') != ''
       with:
-        name: full147-raw-009-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-009-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-009
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-010') != ''
       with:
-        name: full147-raw-010-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-010-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-010
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-011') != ''
       with:
-        name: full147-raw-011-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-011-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-011
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-012') != ''
       with:
-        name: full147-raw-012-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-012-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-012
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-013') != ''
       with:
-        name: full147-raw-013-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-013-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-013
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-014') != ''
       with:
-        name: full147-raw-014-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-014-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-014
         compression-level: 0
         retention-days: 14
     - uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-015') != ''
       with:
-        name: full147-raw-015-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-raw-015-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/evidence.tar.gz.part-015
         compression-level: 0
         retention-days: 14
@@ -347,7 +353,7 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/evidence.tar.gz.part-016') != ''
       with:
-        name: full147-overflow-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-overflow-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: build/evidence-parts/
         compression-level: 0
         retention-days: 14
@@ -355,7 +361,8 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always() && hashFiles('build/evidence-parts/manifest.json') == ''
       with:
-        name: full147-archive-failure-${{ matrix.size }}-${{ github.sha }}-attempt-${{ github.run_attempt }}
+        name: full147-archive-failure-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-attempt-${{ github.run_attempt
+          }}
         path: 'build/*.xcresult
 
           build/screenshots/'

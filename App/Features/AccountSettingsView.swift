@@ -1,5 +1,8 @@
 import SwiftUI
 import PUBOCore
+#if DEBUG
+import os
+#endif
 
 struct AccountManagerView: View {
     @Environment(AppSession.self) private var session
@@ -65,7 +68,7 @@ struct PrivacySettingsView: View {
             if original.isNull { ProgressView("读取当前设置…") }
             ForEach(switches, id: \.0) { key, title in
                 let editable = AccountSettingsPolicy.canEditPrivacyOption(key, values: values, loaded: !original.isNull, busy: busy)
-                Toggle(title, isOn: Binding(get: { values[key]?.bool ?? false }, set: { values[key] = .bool($0) }))
+                Toggle(title, isOn: Binding(get: { values[key]?.bool ?? false }, set: { updateDraft(key, to: $0) }))
                     .tint(editable ? PUBOTheme.accent : .gray)
                     .foregroundStyle(editable ? PUBOTheme.text : PUBOTheme.secondary)
                     .disabled(!editable)
@@ -79,6 +82,17 @@ struct PrivacySettingsView: View {
             Button("保存修改") { Task { await save() } }.disabled(busy || original.isNull)
         }.puboForm().navigationTitle("隐私与内容偏好").task { if original.isNull { await load() } }
             .safeAreaInset(edge: .top) { if let error { Text(error).font(.footnote).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel).accessibilityIdentifier("privacy.status") } }
+    }
+    private func updateDraft(_ key: String, to value: Bool) {
+        #if DEBUG
+        // Synthetic UI runs only: log fixed setting keys/booleans, never user
+        // identity, credentials, content, or production account preferences.
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            let message = "PUBO_PRIVACY_TEST setter key=\(key) value=\(value)"
+            Logger(subsystem: "com.pubo.privacy.diagnostics", category: "fixture-draft").notice("\(message, privacy: .public)")
+        }
+        #endif
+        values[key] = .bool(value)
     }
     private func load() async {
         do { original = try await session.call("i"); for key in switches.map(\.0) + ["followingVisibility", "followersVisibility"] { values[key] = original[key] }; error = nil } catch { self.error = error.localizedDescription }

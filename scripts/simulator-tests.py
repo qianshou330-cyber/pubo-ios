@@ -7,6 +7,7 @@ import signal
 import subprocess
 import time
 from simulator_boot import boot
+from ui_selection import FOCUSED, selection, complete
 
 root = pathlib.Path('build')
 root.mkdir(exist_ok=True)
@@ -25,6 +26,10 @@ focused = os.environ.get('PUBO_REGRESSION_147_ONLY') == '1'
 if focused and any(os.environ.get(key) == '1' for key in (
     'PUBO_SOCIAL_ALIGNMENT', 'PUBO_AUTH_VIDEO', 'PUBO_HOME_MOTION', 'PUBO_AUTH_APPEARANCE')):
     raise SystemExit('Focused regression cannot be combined with other suites')
+shard = os.environ.get("PUBO_UI_SHARD", "")
+if shard and (focused or any(os.environ.get(key) == "1" for key in ("PUBO_SOCIAL_ALIGNMENT", "PUBO_AUTH_VIDEO", "PUBO_HOME_MOTION", "PUBO_AUTH_APPEARANCE"))):
+    raise SystemExit("UI shard cannot combine with another selection")
+shard_selection = selection(shard) if shard else None
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -118,11 +123,14 @@ for index, template in enumerate(selected):
                    '-parallel-testing-enabled', 'NO', '-only-testing:PUBOUITests/PUBOUITests', 'CODE_SIGNING_ALLOWED=NO', 'test']
         if focused:
             command.remove('-only-testing:PUBOUITests/PUBOUITests')
-            command[-1:-1] = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
-                'testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons',
-                'testHomePanelsAndChartNavigation',
-                'testNativePrivacyAndVerificationStatus']]
-            record['selection'] = 'regression-147-three-tests'
+            command[-1:-1] = ['-only-testing:PUBOUITests/' + name for name in FOCUSED]
+            record['selection'] = 'regression-147-five-tests'
+        if shard_selection:
+            expected, selectors = shard_selection
+            command.remove('-only-testing:PUBOUITests/PUBOUITests')
+            command[-1:-1] = selectors
+            record['selection'] = shard
+            record['expectedTests'] = expected
         if os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
             command.remove('-only-testing:PUBOUITests/PUBOUITests')
             command[-1:-1] = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
@@ -142,15 +150,15 @@ for index, template in enumerate(selected):
                     record['tests'] = 'TIMEOUT'
                     raise TimeoutError('UI runner exceeded 30 minutes')
         test_exit = process.returncode
-        if focused and test_exit == 0:
+        if (focused or shard_selection) and test_exit == 0:
             gate_result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary',
                 '--path', str(bundle)], capture_output=True, text=True, timeout=60, check=True)
             gate = json.loads(gate_result.stdout)
             (root / f'ui-{index}-summary.json').write_text(gate_result.stdout)
-            if not (gate.get('passedTests') == 3 and gate.get('failedTests') == 0
-                    and gate.get('skippedTests') == 0 and gate.get('expectedFailures') == 0):
+            expected = len(FOCUSED) if focused else shard_selection[0]
+            if not complete(gate, expected):
                 test_exit = 1
-                record['gateError'] = 'Exactly three passing tests, zero failures/skips/expected failures required'
+                record['gateError'] = f'Exactly {expected} passing tests, zero failures/skips/expected failures required'
         record['tests'] = 'PASS' if test_exit == 0 else 'FAIL'
         if test_exit == 0 and os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
             subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', identifier,
@@ -218,6 +226,14 @@ for index, template in enumerate(selected):
             except (subprocess.TimeoutExpired, OSError) as error:
                 capture['error'] = type(error).__name__
             (root / f'refresh-capture-{index}.json').write_text(json.dumps(capture, indent=2))
+        if focused or shard_selection:
+            try:
+                privacy_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '30m', '--predicate',
+                    'subsystem == "com.pubo.privacy.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'privacy-diagnostics-{index}.json').write_text(privacy_logs.stdout)
+            except (subprocess.TimeoutExpired, OSError) as error:
+                print('Privacy diagnostic unavailable: ' + type(error).__name__, flush=True)
         diagnostic(['xcrun', 'simctl', 'shutdown', identifier], timeout=60)
         (root / 'test-environment.json').write_text(json.dumps(environment, indent=2))
     if test_exit: raise SystemExit(test_exit)

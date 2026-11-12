@@ -658,7 +658,31 @@ final class PUBOUITests: XCTestCase {
             app.staticTexts["测试朋友"].firstMatch.tap()
             let sent = app.staticTexts["收到，我们在这里聊天。"]
             XCTAssertTrue(sent.waitForExistence(timeout: 5)); sent.press(forDuration: 1)
-            app.buttons["编辑／撤回消息"].tap(); XCTAssertTrue(app.buttons["编辑文字"].waitForExistence(timeout: 5)); app.buttons["编辑文字"].tap()
+            // A context menu is exposed to accessibility before its presentation
+            // has settled. Wait for its real, stable hit target before one tap;
+            // do not retry edits or weaken the conflict/uncertain-write checks.
+            let action = app.buttons["chat.actions.chatpreview002"].firstMatch
+            XCTAssertTrue(action.waitForExistence(timeout: 5))
+            var previousFrame = CGRect.null
+            var stableSince = Date()
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                guard action.exists, action.isEnabled, action.isHittable else {
+                    previousFrame = .null; stableSince = Date(); return false
+                }
+                let frame = action.frame
+                guard !frame.isEmpty, frame == previousFrame else {
+                    previousFrame = frame; stableSince = Date(); return false
+                }
+                return Date().timeIntervalSince(stableSince) >= 0.3
+            }, object: action)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+            action.tap()
+            XCTAssertTrue(app.navigationBars["消息操作"].waitForExistence(timeout: 5))
+            let beginEdit = app.buttons["编辑文字"]
+            XCTAssertTrue(beginEdit.waitForExistence(timeout: 5))
+            let editReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true AND hittable == true"), object: beginEdit)
+            XCTAssertEqual(XCTWaiter.wait(for: [editReady], timeout: 5), .completed)
+            beginEdit.tap()
             let editor = app.textViews["chat.edit.text"]; editor.tap(); editor.typeText(" Draft")
             let save = app.buttons["chat.edit.save"]; for _ in 0..<4 where !save.isHittable { app.swipeUp() }; save.tap()
             let error = app.staticTexts["chat.action.error"]; XCTAssertTrue(error.waitForExistence(timeout: 5))
