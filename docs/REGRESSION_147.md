@@ -20,3 +20,12 @@ Commit `718d5b7`, run `43119742693`, attempt 2:
 - Raw evidence is still retained in bounded, lossless parts. Reference images use isolated synthetic APIs, never production writes.
 
 No main, PR, release, production state, or local-computer files changed. Swift/XCTest must run on macOS CI. Simulator results do not replace physical-device installation or upgrade validation.
+
+## Candidate 3 evidence and next bounded correction
+
+Run `43136609974`, commit `3b86b2c`, both focused sizes passed 4/5, zero skipped.
+- Chat edit, home menu, and basic privacy cases passed both sizes.
+- Large refresh successfully applied generation 2 (`rowsApplied=2`, `pullEnded=1`), then failed at the Home transition assertion, not data refresh. The test now accepts either legitimate iOS background state (running or suspended) before activation and still requires generation 3 afterwards.
+- Small auto-accept completed the light-theme sequence. In dark mode, the concrete descendant query never became hittable after the parent was enabled; no auto-accept setter was invoked. Product data loss is not established.
+
+Full shards, H5 capture, and packaging were skipped by the failed focused gate. No build 147 IPA exists yet.

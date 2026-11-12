@@ -20,13 +20,32 @@ final class AccountSettingsParityUITests: XCTestCase {
         if (control.value as? String) != (value ? "1" : "0") {
             let actual = control.descendants(matching: .switch).firstMatch
             XCTAssertTrue(actual.waitForExistence(timeout: 8))
-            let ready = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "enabled == true AND hittable == true"), object: actual)
-            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+            // iOS 26 can expose a non-hittable synthetic descendant while
+            // the identified row remains enabled/hittable (candidate 3's
+            // dark-theme AX evidence). Use its measured switch bounds for
+            // one physical tap, anchored to the stable row. Do not toggle
+            // the binding, retry the tap, or accept a mismatched value.
+            XCTAssertTrue(control.isEnabled)
+            let row = control.frame
+            let knob = actual.frame
+            let center = CGPoint(x: knob.midX, y: knob.midY)
+            let validTarget = knob.width > 0 && knob.height > 0 &&
+                knob.width < row.width * 0.5 && row.contains(center)
             let before = XCTAttachment(string: control.debugDescription)
             before.name = "privacy-switch-before-" + control.identifier
             before.lifetime = .keepAlways; add(before)
-            actual.tap()
+            let enabled = control.isEnabled
+            let hittable = control.isHittable
+            if !validTarget || !enabled || !hittable {
+                capture(app, "privacy-switch-invalid-target-" + control.identifier)
+                let tree = XCTAttachment(string: app.debugDescription)
+                tree.name = "privacy-switch-invalid-target-tree"; tree.lifetime = .keepAlways; add(tree)
+            }
+            XCTAssertTrue(validTarget, "Expected concrete switch bounds inside the identified row")
+            XCTAssertTrue(enabled); XCTAssertTrue(hittable)
+            guard validTarget, enabled, hittable else { return }
+            control.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+                .withOffset(CGVector(dx: center.x - row.minX, dy: center.y - row.minY)).tap()
         }
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
         let outcome = XCTWaiter.wait(for: [changed], timeout: 8)
