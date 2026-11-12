@@ -8,6 +8,7 @@ import subprocess
 import time
 from simulator_boot import boot
 from ui_selection import FOCUSED, selection, complete
+from refresh_lifecycle import complete_lifecycle
 
 root = pathlib.Path('build')
 root.mkdir(exist_ok=True)
@@ -223,9 +224,13 @@ for index, template in enumerate(selected):
                 capture['captureStarted'] = bool(re.search(r'captureStarted=[1-9][0-9]*', logs.stdout))
                 capture['status'] = 'CAPTURED' if logs.returncode == 0 and capture['captureStarted'] else 'INCOMPLETE'
                 capture['interpretation'] = 'No callback inference permitted without captureStarted marker'
+                capture['lifecycleVerified'] = logs.returncode == 0 and complete_lifecycle(logs.stdout)
             except (subprocess.TimeoutExpired, OSError) as error:
                 capture['error'] = type(error).__name__
             (root / f'refresh-capture-{index}.json').write_text(json.dumps(capture, indent=2))
+            if test_exit == 0 and not capture.get('lifecycleVerified', False):
+                print('Refresh lifecycle proof missing: require same-process background, resume and third applied generation', flush=True)
+                test_exit = 1
         if focused or shard_selection:
             try:
                 privacy_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',

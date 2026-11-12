@@ -27,7 +27,9 @@ jobs:
 
         python3 -m unittest discover -s scripts/isolated -p ''test_backend_diagnostics.py'' -v
 
-        python3 -m unittest discover -s scripts -p "test_ui_selection.py" -v'
+        python3 -m unittest discover -s scripts -p "test_ui_selection.py" -v
+
+        python3 -m unittest discover -s scripts -p "test_refresh_lifecycle.py" -v'
     - name: Compile before simulator boot
       run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS
         Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build

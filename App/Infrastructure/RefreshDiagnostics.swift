@@ -9,7 +9,7 @@ final class RefreshDiagnostics {
     enum Event: String, CaseIterable {
         case pullStarted, pullEnded, loadAttempt, skippedError, skippedBusy, skippedEnd
         case requestStarted, requestReturned, rowsApplied, rowsPending, loadFailed, cancelledResult, staleResult
-        case fixtureGeneration, captureStarted
+        case fixtureGeneration, captureStarted, sceneBackground, sceneActive
     }
     static let shared = RefreshDiagnostics(arguments: ProcessInfo.processInfo.arguments)
     #if canImport(os)

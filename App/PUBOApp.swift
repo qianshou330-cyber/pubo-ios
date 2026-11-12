@@ -49,7 +49,12 @@ struct PUBOApp: App {
                     let image = await ProfileTabAvatar.load(url)
                     if !Task.isCancelled { profileTabAvatar = image }
                 }
-                .onChange(of: scenePhase) { _, phase in if phase == .active { session.resumeStream(); Task { await session.nativePush.resume() } } else { session.stream.stop(); session.admin.clear(); session.security.clear() } }
+                .onChange(of: scenePhase) { _, phase in
+                    #if DEBUG
+                    if phase == .background { RefreshDiagnostics.shared.record(.sceneBackground) }
+                    if phase == .active { RefreshDiagnostics.shared.record(.sceneActive) }
+                    #endif
+                    if phase == .active { session.resumeStream(); Task { await session.nativePush.resume() } } else { session.stream.stop(); session.admin.clear(); session.security.clear() } }
         }
     }
 }

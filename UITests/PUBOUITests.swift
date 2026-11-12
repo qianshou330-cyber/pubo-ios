@@ -366,13 +366,14 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
         capture(app, "home-pull-to-refresh")
         XCUIDevice.shared.press(.home)
-        // iOS can suspend immediately after Home. Both background states prove
-        // the app left foreground; requiring only the transient active-background
-        // state flakes on the Pro Max runner and never exercises reactivation.
-        let backgrounded = NSPredicate { _, _ in
-            app.state == .runningBackground || app.state == .runningBackgroundSuspended
-        }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: backgrounded, object: nil)], timeout: 10), .completed)
+        // XCUIApplication.state is asynchronously updated (Apple documentation).
+        // The candidate-5 SE failure screenshot shows SpringBoard while the cached
+        // PUBO state never left foreground. Verify the system home process instead;
+        // the runner separately requires app lifecycle logs and the same-process
+        // third fixture generation below, so a restart cannot masquerade as resume.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        XCTAssertTrue(springboard.wait(for: .runningForeground, timeout: 15))
+        capture(springboard, "home-background-transition")
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 2)")).firstMatch.waitForExistence(timeout: 10))
