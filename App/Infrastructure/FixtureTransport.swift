@@ -173,6 +173,29 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if path == "users/following", args.contains("--four-tabs-friends-slow") {
+            try await Task.sleep(for: .seconds(5))
+        }
+        if (path == "users/search" && args.contains("--four-tabs-search-empty")) ||
+           (["chat/conversations", "chat/history"].contains(path) && args.contains("--four-tabs-messages-empty")) {
+            return (try JSONEncoder().encode(JSONValue.array([])), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
+        if path == "users/search", args.contains("--four-tabs-search-denied") {
+            let value: JSONValue = .object(["error": .object(["code": .string("PERMISSION_DENIED"), "message": .string("当前账号没有用户搜索权限。")])])
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
+        if ["chat/conversations", "chat/history"].contains(path), args.contains("--four-tabs-messages-error") { throw URLError(.timedOut) }
+        if args.contains("--four-tabs-push-chat"), path == "chat/messages/show", body["messageId"].string == "fourtabchat" {
+            let value: JSONValue = .object(["id": .string("fourtabchat"), "fromUserId": .string("syntheticpeer"), "toUserId": .string("syntheticself"), "text": .string("隔离推送跳转样例")])
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
+        if path == "i/notifications", args.contains("--four-tabs-push-note") || args.contains("--four-tabs-push-follow") {
+            let value: JSONValue = .array([
+                .object(["id": .string("fourtabnote"), "type": .string("reaction"), "note": .object(["id": .string("fixturepost")])]),
+                .object(["id": .string("fourtabfollow"), "type": .string("receiveFollowRequest"), "user": Self.peer])
+            ])
+            return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }
         if args.contains("--contacts-preview"), path == "chat/contact-groups/list" || (path == "users/show" && !body["userIds"].isNull) {
             let value: JSONValue
             if path == "chat/contact-groups/list" {
@@ -320,7 +343,11 @@ actor FixtureTransport: HTTPTransport {
                 var second: [String: JSONValue] = ["id": .string("syntheticsecond"), "username": .string("second"), "name": .string("第二个测试账号"), "chatScope": .string("mutual")]
                 if args.contains("--timeline-align") { second["policies"] = profile["policies"] }
                 response = .object(second)
-            } else { response = profile }
+            } else {
+                var account = profile.object
+                if args.contains("--follow-requests-preview") { account["hasPendingReceivedFollowRequest"] = .bool(!receivedFollowRequests.isEmpty) }
+                response = .object(account)
+            }
         case "verification/show": response = .null
         case "admin/verification/list": response = .array([])
         case "admin/show-users": response = .array([profile, Self.peer])

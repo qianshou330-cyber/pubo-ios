@@ -31,7 +31,7 @@ struct NotificationsView: View {
     @State private var autoCursor: String?
     @ScaledMetric(relativeTo: .caption) private var tabSize = 11.2
 
-    private var active: Bool { visible && session.selectedTab == 1 && phase == .active }
+    private var active: Bool { visible && (session.selectedTab == .me || session.selectedTab == .world) && phase == .active }
     private var noteOptions: NoteListOptions { options[tab] ?? NoteListOptions() }
     private var query: String {
         if tab == .all { return "all/" + (filter?.rawValue ?? "*") }
@@ -44,12 +44,12 @@ struct NotificationsView: View {
         .init(id: "directNotes", title: "私信", icon: "envelope")
     ] }
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 header
                 feed.id(query)
             }
-            .puboScreen().navigationTitle("通知").toolbar(.hidden, for: .navigationBar)
+            .puboScreen().navigationTitle("通知").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
             .overlay {
                 if active && tab == .all && (markingRead || readConfirmation != nil) {
                     Group {

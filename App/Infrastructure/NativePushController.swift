@@ -27,16 +27,10 @@ import PUBOCore
     }
 }
 
-enum NativePushDestination: Identifiable {
-    case chat(Record), note(String)
-    var id: String { switch self { case .chat(let peer): return "chat-" + peer.id; case .note(let id): return "note-" + id } }
-}
-
 @Observable @MainActor final class NativePushController {
     static let shared = NativePushController()
     weak var session: AppSession?
     var status = "锁屏推送尚未开放。"
-    var destination: NativePushDestination?
     private(set) var enabled = false
     private(set) var busy = false
     private var deviceToken: String?
@@ -45,6 +39,7 @@ enum NativePushDestination: Identifiable {
     private var registeredDeviceToken: String?
     private var lastRegistration: Date?
     private var pending: NativePushNotice?
+    private var openAttempt = UUID()
     private var epoch = UUID()
     private var registrationTask: Task<Void, Never>?
     private var installationID: String {
@@ -132,6 +127,7 @@ enum NativePushDestination: Identifiable {
 
     /// Clear local delivery immediately; a bounded best-effort request uses the old authorization only.
     func logout(preservePreference: Bool = false) {
+        openAttempt = UUID()
         epoch = UUID(); let inFlight = registrationTask; registrationTask?.cancel(); registrationTask = nil
         if let session, !session.testMode {
             if !preservePreference, let owner = session.user?.id { UserDefaults.standard.removeObject(forKey: preference(owner)) }
@@ -143,7 +139,7 @@ enum NativePushDestination: Identifiable {
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
             UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         }
-        enabled = false; deviceToken = nil; registeredOwner = nil; registeredToken = nil; registeredDeviceToken = nil; lastRegistration = nil; pending = nil; destination = nil
+        enabled = false; deviceToken = nil; registeredOwner = nil; registeredToken = nil; registeredDeviceToken = nil; lastRegistration = nil; pending = nil
     }
 
     func foregroundUpdate() { session?.streamRevision += 1 }
@@ -151,25 +147,31 @@ enum NativePushDestination: Identifiable {
         guard let session else { pending = notice; return }
         if session.restoring { pending = notice; return }
         guard notice.belongs(to: session.user?.id) else { return }
-        let generation = session.generation
+        let generation = session.generation, attempt = UUID()
+        openAttempt = attempt
         do {
             if notice.kind == .chat {
                 let message = Record(try await session.call("chat/messages/show", ["messageId": .string(notice.eventID)]))
-                guard message.id == notice.eventID, message["recalledAt"].isNull, message["toUserId"].string == session.user?.id else { return }
+                guard openAttempt == attempt, generation == session.generation, message.id == notice.eventID, message["recalledAt"].isNull, message["toUserId"].string == session.user?.id else { return }
                 let peerID = message["fromUserId"].string ?? ""
                 let peer = Record(try await session.call("users/show", ["userId": .string(peerID)]))
-                guard generation == session.generation, notice.belongs(to: session.user?.id), peer.id == peerID else { return }
-                session.selectedTab = 2; destination = .chat(peer)
+                guard openAttempt == attempt, generation == session.generation, notice.belongs(to: session.user?.id), peer.id == peerID else { return }
+                session.open(.chat(userID: peer.id), owner: notice.accountID, generation: generation)
             } else {
                 let values = Record.list(try await session.call("i/notifications", ["limit": .number(100)]))
-                guard generation == session.generation, notice.belongs(to: session.user?.id) else { return }
-                session.selectedTab = 1
-                if let noteID = values.first(where: { $0.id == notice.eventID })?["note"]["id"].string {
-                    _ = try await session.call("notes/show", ["noteId": .string(noteID)])
-                    guard generation == session.generation else { return }; destination = .note(noteID)
+                guard openAttempt == attempt, generation == session.generation, notice.belongs(to: session.user?.id) else { return }
+                guard let notification = values.first(where: { $0.id == notice.eventID }) else {
+                    session.open(.notifications, owner: notice.accountID, generation: generation)
+                    return
                 }
+                let route = AppNavigationPolicy.notificationRoute(notification.raw)
+                if case .note(let noteID) = route {
+                    _ = try await session.call("notes/show", ["noteId": .string(noteID)])
+                }
+                guard openAttempt == attempt else { return }
+                session.open(route, owner: notice.accountID, generation: generation)
             }
-        } catch { status = "通知内容不可读取，请在 App 内重新核对账号与权限。" }
+        } catch { if openAttempt == attempt, generation == session.generation { status = "通知内容不可读取，请在 App 内重新核对账号与权限。" } }
     }
 }
 

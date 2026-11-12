@@ -18,7 +18,11 @@ final class AppSession {
     var recentEmojis: [String] = []
     var error: String?
     var restoring = true
-    var selectedTab = 0
+    var selectedTab = AppTab.messages
+    var messagesPath = NavigationPath()
+    var friendsPath = NavigationPath()
+    var worldPath = NavigationPath()
+    var mePath = NavigationPath()
     var activeVoiceAttachmentID: String?
     var streamRevision = 0
     var connectionRevision = 0
@@ -39,10 +43,12 @@ final class AppSession {
     var newestTimelineNote: Record? { didSet { if let newestTimelineNote { timelineNotes.send(newestTimelineNote) } } }
     var latestNoteEvent: NoteStreamEvent? { didSet { if let latestNoteEvent { noteEvents.send(latestNoteEvent) } } }
     var badges = NotificationBadges()
+    private(set) var pendingFollowRequestBadge: String?
     var chartPreferences = KpopPreferences()
     private var unreadAttempt: UUID?
     private var unreadRefreshQueued = false
     private var notificationRevision = 0
+    private var followRequestRevision = 0
     #if DEBUG
     private var notificationFixtureSubscription: AnyCancellable?
     #endif
@@ -71,7 +77,17 @@ final class AppSession {
         api = APIClient()
         #endif
         #if DEBUG
-        if testing && ProcessInfo.processInfo.arguments.contains("--timeline-persistence") {
+        if testing && !isolated && ProcessInfo.processInfo.arguments.contains("--four-tabs-drafts") {
+            // Only synthetic UI tests use this directory. Start every app launch
+            // clean while preserving real per-account save/read during that run.
+            let fixtureDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("PUBO-FourTabs-Drafts-UITests", isDirectory: true)
+            do {
+                if FileManager.default.fileExists(atPath: fixtureDirectory.path) {
+                    try FileManager.default.removeItem(at: fixtureDirectory)
+                }
+                store = try ProtectedStore(directory: fixtureDirectory)
+            } catch { store = nil }
+        } else if testing && ProcessInfo.processInfo.arguments.contains("--timeline-persistence") {
             store = try? ProtectedStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("PUBO-TimelinePreferences-UITests", isDirectory: true))
             if ProcessInfo.processInfo.arguments.contains("--reset-timeline-preferences") {
                 for id in ["syntheticself", "syntheticsecond", "guest", "public-syntheticself", "public-syntheticsecond"] { try? store?.clear(account: id) }
@@ -129,7 +145,15 @@ final class AppSession {
 
     func start() async {
         guard !started else { return }; started = true
-        defer { restoring = false; Task { await nativePush.resume() } }
+        defer {
+            restoring = false
+            Task {
+                await nativePush.resume()
+                #if DEBUG
+                await applyFourTabTestNotice()
+                #endif
+            }
+        }
         do {
             if testMode {
                 if isolatedBackend {
@@ -149,6 +173,22 @@ final class AppSession {
         restoreChartPreferences()
         restoreTimelinePreferences()
     }
+    #if DEBUG
+    private func applyFourTabTestNotice() async {
+        guard testMode, !isolatedBackend, let owner = user?.id else { return }
+        let args = ProcessInfo.processInfo.arguments
+        let kind: String, event: String
+        if args.contains("--four-tabs-push-chat") { kind = "chat"; event = "fourtabchat" }
+        else if args.contains("--four-tabs-push-note") || args.contains("--four-tabs-push-mismatch") { kind = "notification"; event = "fourtabnote" }
+        else if args.contains("--four-tabs-push-follow") { kind = "notification"; event = "fourtabfollow" }
+        else { return }
+        let payload: JSONValue = .object(["pubo": .object([
+            "version": .number(1), "kind": .string(kind), "eventId": .string(event),
+            "accountId": .string(args.contains("--four-tabs-push-mismatch") ? "anotheraccount" : owner)
+        ])])
+        if let notice = NativePushNotice(payload) { await nativePush.open(notice) }
+    }
+    #endif
     func refreshMeta() async {
         do { meta = try await api.call("meta", body: ["detail": .bool(true)]); await nativePush.resume() }
         catch { if meta.isNull { self.error = "站点信息加载失败，请重试。" } }
@@ -182,6 +222,7 @@ final class AppSession {
         }
         self.token = token; user = account; error = nil; authorizationRequired = false
         badges.applyAccount(account.raw)
+        pendingFollowRequestBadge = account["hasPendingReceivedFollowRequest"].bool ? "•" : nil
         if testMode { savedAccounts.removeAll { $0.userID == account.id }; savedAccounts.append(secret) } else { reloadAccounts() }
         recentEmojis = ((try? store?.read([String].self, account: account.id, key: "recent-emojis")) ?? []).prefix(32).map { $0 }
         restoreChartPreferences()
@@ -224,11 +265,24 @@ final class AppSession {
         do { try clearLocalAccountData(owner) } catch { self.error = "账号已退出，但该账号本机数据清理失败，请重新打开 App 后检查。"; throw error }
     }
     private func clearAccountMemory() {
-        token = nil; user = nil; selectedTab = 0; authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
+        token = nil; user = nil; selectedTab = .messages;
+        messagesPath = NavigationPath(); friendsPath = NavigationPath(); worldPath = NavigationPath(); mePath = NavigationPath(); authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
+        pendingFollowRequestBadge = nil; followRequestRevision += 1
         badges = NotificationBadges(); unreadAttempt = nil; unreadRefreshQueued = false; notificationRevision = 0; chartPreferences = KpopPreferences(); recentEmojis = []
         timelinePreferences = TimelinePreferences(); timelineNotice = nil; newestTimelineNote = nil; latestNoteEvent = nil
         stream.clearAllCaptures(); stream.showTimeline(nil)
         InlineEmojiStore.shared.clear(); try? PrivateFiles.clear(); URLCache.shared.removeAllCachedResponses()
+    }
+    func open(_ route: AppRoute, owner: String, generation expected: UUID) {
+        guard AppNavigationPolicy.canRoute(owner: owner, generation: expected, currentOwner: user?.id, currentGeneration: generation) else { return }
+        selectedTab = route.tab
+        // An external route replaces only its destination tab's stack. Other tabs retain their history.
+        switch route.tab {
+        case .messages: messagesPath = NavigationPath([route])
+        case .friends: friendsPath = NavigationPath([route])
+        case .world: worldPath = NavigationPath([route])
+        case .me: mePath = NavigationPath([route])
+        }
     }
     func reloadAccounts() { if !testMode { do { savedAccounts = try KeychainStore.vault().accounts } catch { self.error = error.localizedDescription } } }
     func switchAccount(_ id: String) async throws {
@@ -259,10 +313,10 @@ final class AppSession {
         var value = (try? store?.read(TimelinePreferences.self, account: owner, key: "timeline-preferences-v1")) ?? TimelinePreferences()
         if let legacy = try? store?.read(String.self, account: owner, key: "selected-timeline"),
            (try? store?.read(TimelinePreferences.self, account: owner, key: "timeline-preferences-v1")) == nil { value.selected = legacy }
-        let choices = user == nil ? ["local"] : HomeContent.timelines(user: user?.raw ?? .null)
+        let choices = user == nil ? ["local"] : WorldTimelinePolicy.choices(user: user?.raw ?? .null)
         let unavailable = value.selected == "local" && !choices.contains("local")
-        value.normalize(available: choices); timelinePreferences = value
-        timelineNotice = unavailable ? "本地时间线暂不可用，已切换到关注。" : nil
+        if user == nil { value.normalize(available: choices) } else { WorldTimelinePolicy.normalize(&value, user: user?.raw ?? .null) }; timelinePreferences = value
+        timelineNotice = unavailable ? "公开内容暂不可用，已切换到关注。" : nil
     }
     func saveTimelinePreferences() {
         try? store?.save(timelinePreferences, account: user?.id ?? "guest", key: "timeline-preferences-v1")
@@ -278,11 +332,20 @@ final class AppSession {
         notificationRevision += 1
         badges.markNotificationsRead()
     }
+    func refreshFollowRequestBadge() async {
+        followRequestRevision += 1
+        let revision = followRequestRevision, epoch = generation
+        do {
+            let account = try await call("i")
+            guard epoch == generation, revision == followRequestRevision else { return }
+            pendingFollowRequestBadge = account["hasPendingReceivedFollowRequest"].bool ? "•" : nil
+        } catch { /* Keep the last server-confirmed state while offline. */ }
+    }
     func refreshUnread() async {
         guard user != nil else { return }
         guard unreadAttempt == nil else { unreadRefreshQueued = true; return }
         let attempt = UUID(); unreadAttempt = attempt
-        let revision = notificationRevision
+        let revision = notificationRevision, followRevision = followRequestRevision
         defer {
             if unreadAttempt == attempt {
                 unreadAttempt = nil
@@ -296,6 +359,7 @@ final class AppSession {
             let account = try await call("i")
             guard unreadAttempt == attempt else { return }
             if revision == notificationRevision { badges.applyAccount(account) }
+            if followRevision == followRequestRevision { pendingFollowRequestBadge = account["hasPendingReceivedFollowRequest"].bool ? "•" : nil }
             if account["policies"]["chatAvailability"].string != "unavailable" {
                 let summary = try await call("chat/unread-summary")
                 guard unreadAttempt == attempt else { return }

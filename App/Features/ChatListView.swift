@@ -5,24 +5,39 @@ struct ChatListView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
     @State private var state = ChatHomeState()
-    @State private var section = "home"
     @State private var active = false
     @State private var search = false
-    @State private var creating = false
+    @State private var scanner = false
+    @State private var scannedUserID: String?
+    @State private var showScannedProfile = false
     @State private var settingBusy = false
     @State private var error: String?
     private var chatProblem: String? { ChatEligibility.problem(account: session.user) }
-    private var visible: Bool { active && session.selectedTab == 2 && scenePhase == .active && section == "home" }
-    private let tabs = [ChatTab(id: "home", title: "首页", icon: "house"), ChatTab(id: "invited", title: "邀请", icon: "envelope"), ChatTab(id: "joining", title: "已加入的群聊", icon: "person.2"), ChatTab(id: "owned", title: "已创建的群聊", icon: "person.2.badge.gearshape")]
+    private var visible: Bool { active && session.selectedTab == .messages && scenePhase == .active }
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                ChatTabs(selection: $section, items: tabs, prefix: "chat.home.")
-                if section == "home" { home }
-                else { RoomsView(fixedSection: section, embedded: true).id(section) }
-            }.puboScreen().navigationTitle("私信")
-                .sheet(isPresented: $search) { UserSearchView() }
-                .sheet(isPresented: $creating, onDismiss: { section = "owned" }) { RoomEditor() }
+        @Bindable var session = session
+        NavigationStack(path: $session.messagesPath) {
+            home.puboScreen().navigationTitle("消息")
+                .toolbar { ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button { scannedUserID = nil; scanner = true } label: { Label("扫一扫加好友", systemImage: "qrcode.viewfinder") }.accessibilityIdentifier("messages.scan")
+                        Button { search = true } label: { Label("输入用户名添加好友", systemImage: "person.badge.plus") }.accessibilityIdentifier("messages.addUsername")
+                    } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+                        .accessibilityLabel("添加好友").accessibilityIdentifier("messages.add")
+                } }
+                .sheet(isPresented: $search) {
+                    NavigationStack {
+                        AddFriendView().toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { search = false }.accessibilityIdentifier("addFriend.close") } }
+                    }
+                }
+                .sheet(isPresented: $scanner, onDismiss: { showScannedProfile = scannedUserID != nil }) {
+                    NavigationStack {
+                        FriendQRScannerView { id in scannedUserID = id; scanner = false }
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { scanner = false }.accessibilityIdentifier("scanner.close") } }
+                    }
+                }
+                .navigationDestination(isPresented: $showScannedProfile) { if let scannedUserID { ProfileView(userID: scannedUserID) } }
+                .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
                 .onAppear { active = true }.onDisappear { active = false; state.invalidate() }
                 .task(id: "\(visible)-\(session.generation)") {
                     guard !Task.isCancelled else { return }
@@ -39,23 +54,15 @@ struct ChatListView: View {
                     guard visible else { return }
                     do { try await Task.sleep(for: .milliseconds(500)); await state.load(session) } catch { }
                 }
-                .onChange(of: session.generation) { _, _ in state.clear(); section = "home"; search = false; creating = false }
+                .onChange(of: session.generation) { _, _ in state.clear(); search = false; scanner = false; scannedUserID = nil; showScannedProfile = false }
         }
     }
     private var home: some View {
         List {
-            VStack(alignment: .leading, spacing: 16) {
-                if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat.availability") }
-                Menu {
-                    Button("一对一聊天") { search = true }
-                    Button("创建群聊") { creating = true }
-                } label: { Label("开始聊天", systemImage: "plus").frame(minHeight: 44).padding(.horizontal, 22).background(PUBOTheme.accent, in: Capsule()).foregroundStyle(PUBOTheme.background) }
-                    .frame(maxWidth: .infinity).disabled(chatProblem != nil).accessibilityIdentifier("chat.start")
-                NavigationLink { ContactsView() } label: { Label("联系人", systemImage: "person.2").frame(minHeight: 44) }
-            }.puboListRow()
+            if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat.availability").puboListRow() }
             ChatSearchView(embedded: true)
             Section {
-                if let issue = error ?? state.error { ErrorBanner(message: issue) { Task { await state.load(session) } }.puboListRow() }
+                if let issue = error ?? state.error { ErrorBanner(message: issue, retryIdentifier: "messages.retry") { Task { await state.load(session) } }.puboListRow() }
                 ForEach(state.rows) { row in
                     if row.id == state.rows.first?.id && row.pinnedAt != nil { Text("置顶").font(.caption).foregroundStyle(.secondary).puboListRow() }
                     if row.pinnedAt == nil && state.rows.contains(where: { $0.pinnedAt != nil }) && row.id == state.rows.first(where: { $0.pinnedAt == nil })?.id { Text("最近会话").font(.caption).foregroundStyle(.secondary).puboListRow() }
@@ -72,8 +79,8 @@ struct ChatListView: View {
                         .swipeActions(edge: .leading) { if row.kind == .user { Button(row.muted ? "恢复提醒" : "免打扰") { Task { await settings(row, "isMuted", !row.muted) } }.tint(.gray) } }
                         .swipeActions { if row.kind == .user { Button(row.pinnedAt == nil ? "置顶" : "取消置顶") { Task { await settings(row, "pinned", row.pinnedAt == nil) } }.tint(PUBOTheme.accent) } }
                 }
-                if state.rows.isEmpty && !state.busy { Text("暂无最近会话").foregroundStyle(.secondary).puboListRow() }
-                if state.busy { ProgressView().puboListRow() }
+                if state.rows.isEmpty && !state.busy && state.error == nil && error == nil { Text("暂无最近会话").foregroundStyle(.secondary).accessibilityIdentifier("messages.empty").puboListRow() }
+                if state.busy { ProgressView().accessibilityIdentifier("messages.loading").puboListRow() }
                 if state.hasMore && !state.rows.isEmpty { Button("加载更多会话") { Task { await state.load(session, older: true) } }.disabled(state.busy).frame(minHeight: 44).puboListRow() }
             } header: { Text("最近会话").font(.subheadline) }
         }.puboList().refreshable { await state.load(session) }

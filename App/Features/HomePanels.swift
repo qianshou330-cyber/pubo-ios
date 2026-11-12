@@ -33,7 +33,7 @@ struct HomeAnnouncements: View {
     @State private var visible = false
     var refreshID: Int
     var open: (HomeDestination) -> Void
-    private var active: Bool { visible && session.selectedTab == 0 && scenePhase == .active }
+    private var active: Bool { visible && session.selectedTab == .world && scenePhase == .active }
 
     var body: some View {
         Group {
@@ -127,7 +127,7 @@ struct HomeChartPanel: View {
     var open: (HomeDestination) -> Void
     private var chart: JSONValue { data["selected"] }
     private var rows: [JSONValue] { HomeContent.chartRows(data, limit: 2) }
-    private var active: Bool { visible && session.selectedTab == 0 && scenePhase == .active }
+    private var active: Bool { visible && session.selectedTab == .world && scenePhase == .active }
     var body: some View {
         Group {
         if data.isNull && error == nil {

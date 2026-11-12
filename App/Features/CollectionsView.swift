@@ -100,7 +100,7 @@ struct CollectionDetail: View {
                         if let url = safeMediaURL(item["bannerUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.frame(maxHeight: 200) }
                         Button(item["isFollowing"].bool ? "取消关注频道" : "关注频道") { Task { await action(item["isFollowing"].bool ? "unfollow" : "follow") } }
                         Button(item["isFavorited"].bool ? "取消收藏频道" : "收藏频道") { Task { await action(item["isFavorited"].bool ? "unfavorite" : "favorite") } }
-                        if !item["isArchived"].bool { Button("在此频道发帖") { composing = true } }
+                        if !item["isArchived"].bool && session.selectedTab == .world { Button("在此频道发帖") { composing = true } }
                     }
                     if kind == .list { NavigationLink("列表成员") { CollectionMembersView(listID: itemID) } }
                     if kind == .gallery {

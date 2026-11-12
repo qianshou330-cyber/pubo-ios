@@ -117,6 +117,7 @@ struct FollowRequestsView: View {
             guard visible, mutationID == attempt, direction == source, session.user?.id == accountID, session.generation == epoch else { return }
             page.handled(row.id); error = nil; succeeded = true
             await session.refreshUnread()
+            await session.refreshFollowRequestBadge()
         } catch {
             if visible && mutationID == attempt && direction == source && session.user?.id == accountID && session.generation == epoch {
                 uncertainIDs.insert(row.id)

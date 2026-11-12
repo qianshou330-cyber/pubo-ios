@@ -5,6 +5,7 @@ struct RoomsView: View {
     @Environment(AppSession.self) private var session
     var fixedSection: String? = nil
     var embedded = false
+    var allowsCreation = false
     @State private var selectedSection = "joining"
     private var section: String { fixedSection ?? selectedSection }
     @State private var rows: [Record] = []
@@ -24,7 +25,7 @@ struct RoomsView: View {
             if rows.isEmpty && !busy { Text("暂无群聊") }
             if hasMore { Button("加载更多") { Task { await load(older: true) } }.disabled(busy) }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
-        }.puboList().chatNavigationTitle("群聊", embedded: embedded).toolbar { if !embedded { Button("创建群聊") { creating = true } } }
+        }.puboList().chatNavigationTitle("群聊", embedded: embedded).toolbar { if !embedded && allowsCreation { Button("创建群聊") { creating = true } } }
             .task(id: section) { rows = []; hasMore = false; await load() }.refreshable { await load() }
             .sheet(isPresented: $creating, onDismiss: { if section != "owned" { selectedSection = "owned" } else { Task { await load() } } }) { RoomEditor() }
     }

@@ -240,7 +240,13 @@ struct ComposeView: View {
     }
     @discardableResult private func save() -> Bool {
         guard restored, let account = session.user?.id, account == ownerID else { return false }
-        if session.testMode { return true }
+        if session.testMode {
+            #if DEBUG
+            guard !session.isolatedBackend && ProcessInfo.processInfo.arguments.contains("--four-tabs-drafts") else { return true }
+            #else
+            return true
+            #endif
+        }
         guard let store = session.store else { error = "本机存储不可用，暂时不能安全发送。"; return false }
         do { try store.save(draft, account: account, key: key); return true } catch { self.error = "草稿保存失败，请暂时不要关闭页面。"; return false }
     }

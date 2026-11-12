@@ -26,7 +26,6 @@ struct TimelineView: View {
     @State private var refreshOwner = RefreshTaskOwner()
     @State private var firstLoadFinished = false
     @State private var firstPageLoaded = false
-    @State private var homePath: [HomeDestination] = []
     @State private var songSelection: ChartSongSelection?
     @State private var atTop = true
     @State private var anchor: String?
@@ -37,14 +36,15 @@ struct TimelineView: View {
     @State private var pageVisible = false
     @State private var detailCollection: CollectionKind?
     private var preferences: TimelinePreferences { session.timelinePreferences }
-    private var choices: [String] { HomeContent.timelines(user: session.user?.raw ?? .null) }
-    private var active: Bool { pageVisible && session.selectedTab == 0 && scenePhase == .active }
+    private var choices: [String] { WorldTimelinePolicy.choices(user: session.user?.raw ?? .null) }
+    private var active: Bool { pageVisible && session.selectedTab == .world && scenePhase == .active }
     private var context: String { session.generation.uuidString + preferences.requestKey }
     private var motion: Bool { !reduceMotion && !ProcessInfo.processInfo.arguments.contains("--reduce-motion") }
     private var selection: Binding<String> { Binding(get: { preferences.selected }, set: { session.timelinePreferences.selected = $0; session.saveTimelinePreferences() }) }
 
     var body: some View {
-        NavigationStack(path: $homePath) {
+        @Bindable var session = session
+        NavigationStack(path: $session.worldPath) {
             lifecycleContent
         }
     }
@@ -62,8 +62,8 @@ struct TimelineView: View {
                 }
                 .onChange(of: choices) { _, available in
                     let lostLocal = preferences.selected == "local" && !available.contains("local")
-                    session.timelinePreferences.normalize(available: available)
-                    if lostLocal { session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
+                    WorldTimelinePolicy.normalize(&session.timelinePreferences, user: session.user?.raw ?? .null)
+                    if lostLocal { session.timelineNotice = "公开内容暂不可用，已切换到关注。" }
                 }
                 .onChange(of: session.connectionRevision) { _, _ in startReconnect() }
                 .onChange(of: active) { _, value in
@@ -75,11 +75,8 @@ struct TimelineView: View {
     private var presentedContent: some View {
         timelineScroll.puboScreen().toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeDestination.self) { $0.view }
+                .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
                 .safeAreaInset(edge: .top, spacing: 0) { header }
-                .overlay(alignment: .bottomTrailing) {
-                    Button { composer = true } label: { FeedIcon(name: "pencil").font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48).background(PUBOTheme.accent, in: Circle()).shadow(color: .black.opacity(0.12), radius: 4, y: 2) }
-                        .buttonStyle(.plain).padding(16).accessibilityLabel("发帖").accessibilityIdentifier("home.compose")
-                }
                 .sheet(isPresented: $composer) { ComposeView { Task { await load() } }.environment(\.dynamicTypeSize, typeSize) }
                 .sheet(item: $songSelection) { ChartSongSheet(selection: $0) }
 
@@ -132,13 +129,6 @@ struct TimelineView: View {
     private var timelineHeading: some View {
         Group {
                         Color.clear.frame(height: 1).id("timeline-top")
-                        VStack(spacing: 6) {
-                            HomeAnnouncements(refreshID: homeRefresh) { homePath.append($0) }
-                            HomeChartPanel(refreshID: homeRefresh) { destination in
-                                if case .history(let key, let song, let chart) = destination { songSelection = ChartSongSelection(key: key, song: song, chart: chart) }
-                                else { homePath.append(destination) }
-                            }
-                        }.padding(.horizontal, 12).padding(.vertical, 8).id("timeline-panels")
                         if preferences.fixedComposer && !composer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
                         if let notice = session.timelineNotice { Text(notice).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10) }
                         if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
@@ -191,19 +181,32 @@ struct TimelineView: View {
         }
     }
     private var header: some View {
-        HStack(spacing: 0) {
-            if let user = session.user {
-                NavigationLink { ProfileView(userID: user.id) } label: {
-                    Avatar(user: user, size: 28).frame(width: 44, height: 44).contentShape(Rectangle())
-                }.accessibilityLabel("我的主页")
-            }
-            ScrollView(.horizontal) { HStack(spacing: 0) {
-                PUBOTimelineSelector(selection: selection, available: choices, compact: true, appearance: .timeline)
-                    .environment(\.dynamicTypeSize, feedTypeSize).frame(minWidth: 210)
-                NavigationLink { CollectionsView(kind: .list) } label: { FeedIcon(name: "list").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("列表")
-                NavigationLink { CollectionsView(kind: .antenna) } label: { FeedIcon(name: "antenna").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("天线")
-                NavigationLink { CollectionsView(kind: .channel) } label: { FeedIcon(name: "device-tv").frame(width: 44, height: 44).contentShape(Rectangle()) }.accessibilityLabel("频道")
-            } }.scrollIndicators(.hidden)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Text("世界圈").font(.title2.bold()).foregroundStyle(PUBOTheme.text)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                Button { composer = true } label: {
+                    Label("发帖", systemImage: "square.and.pencil").font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14).frame(minHeight: 44)
+                        .foregroundStyle(.white).background(PUBOTheme.accent, in: RoundedRectangle(cornerRadius: 12))
+                }.accessibilityIdentifier("home.compose")
+            }.padding(.horizontal, 16).padding(.top, 8)
+            HStack(spacing: 4) {
+                ForEach(choices, id: \.self) { choice in
+                    Button { selection.wrappedValue = choice } label: {
+                        VStack(spacing: 4) {
+                            Text(WorldTimelinePolicy.title(for: choice)).font(.subheadline.weight(preferences.selected == choice ? .semibold : .regular))
+                            Capsule().fill(preferences.selected == choice ? PUBOTheme.accent : .clear).frame(width: 20, height: 3)
+                        }.frame(minWidth: 56, minHeight: 44)
+                    }.foregroundStyle(preferences.selected == choice ? PUBOTheme.accent : PUBOTheme.secondary)
+                        .accessibilityAddTraits(preferences.selected == choice ? .isSelected : [])
+                        .accessibilityIdentifier(choice == "local" ? "world.recommended" : "world.following")
+                }
+                Spacer(minLength: 0)
+                NavigationLink { WorldDiscoveryView() } label: {
+                    Label("发现", systemImage: "square.grid.2x2").font(.subheadline).frame(minHeight: 44)
+                }.accessibilityIdentifier("world.more")
             Menu {
                 Toggle("显示转帖", isOn: Binding(get: { preferences.withRenotes }, set: { session.timelinePreferences.withRenotes = $0 }))
                 if ["local", "hybrid"].contains(preferences.selected) { Toggle("在时间线中显示对他人的回复", isOn: Binding(get: { preferences.withReplies }, set: { session.timelinePreferences.setReplies($0) })).disabled(preferences.onlyFiles) }
@@ -222,7 +225,8 @@ struct TimelineView: View {
                 }
                 #endif
             } label: { FeedIcon(name: "dots").frame(width: 44, height: 44).contentShape(Rectangle()) }
-                .accessibilityLabel("首页更多").accessibilityIdentifier("home.more")
+                .accessibilityLabel("世界圈筛选").accessibilityIdentifier("home.more")
+            }.padding(.horizontal, 12)
         }.font(.caption).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary).background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
     private func day(_ note: Record) -> String { guard let date = puboDate(note["createdAt"].string) else { return "" }; return date.formatted(.dateTime.month().day()) }
@@ -342,7 +346,7 @@ struct TimelineView: View {
             #endif
 
             guard requestID == attempt, context == currentContext else { return }
-            if (error as? APIError)?.code == "LTL_DISABLED" { session.timelinePreferences.selected = "home"; session.timelineNotice = "本地时间线暂不可用，已切换到关注。" }
+            if (error as? APIError)?.code == "LTL_DISABLED" { session.timelinePreferences.selected = "home"; session.timelineNotice = "公开内容暂不可用，已切换到关注。" }
             else { failedOlderRequest = older; self.error = error.localizedDescription; firstLoadFinished = true }
         }
     }

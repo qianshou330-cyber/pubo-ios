@@ -1,4 +1,5 @@
 import SwiftUI
+import PUBOCore
 
 @main
 struct PUBOApp: App {
@@ -15,13 +16,13 @@ struct PUBOApp: App {
                 else if session.user == nil { AuthView() }
                 else {
                     TabView(selection: $session.selectedTab) {
-                        TimelineView().tabItem { Label("动态", systemImage: "house") }.tag(0)
-                        NotificationsView().tabItem { Label("通知", systemImage: "bell") }.badge(session.badges.notificationLabel).tag(1)
-                        ChatListView().tabItem { Label("私信", systemImage: "bubble.left.and.bubble.right") }.badge(session.badges.chatLabel).tag(2)
+                        ChatListView().tabItem { Label("消息", systemImage: "bubble.left.and.bubble.right") }.badge(session.badges.chatLabel).tag(AppTab.messages)
+                        FriendsView().tabItem { Label("好友", systemImage: "person.2") }.badge(session.pendingFollowRequestBadge).tag(AppTab.friends)
+                        TimelineView().tabItem { Label("世界圈", systemImage: "globe") }.tag(AppTab.world)
                         MyAccountView().tabItem {
                             if let profileTabAvatar { Image(uiImage: profileTabAvatar).renderingMode(.original); Text("我的") }
                             else { Label("我的", systemImage: "person.crop.circle") }
-                        }.tag(3)
+                        }.badge(session.badges.notificationLabel).tag(AppTab.me)
                     }.id(session.generation).toolbarBackground(PUBOTheme.panel, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
                 }
             }.environment(session).tint(PUBOTheme.accent).foregroundStyle(PUBOTheme.text)
@@ -32,12 +33,6 @@ struct PUBOApp: App {
                 .task { await session.start() }
                 .task(id: "\(session.generation)-\(session.user?.id ?? "guest")-\(session.streamRevision)-\(scenePhase == .active)") {
                     if scenePhase == .active { await session.refreshUnread() }
-                }
-                .sheet(item: Binding(get: { session.nativePush.destination }, set: { session.nativePush.destination = $0 })) { destination in
-                    NavigationStack {
-                        Group { switch destination { case .chat(let peer): ChatView(peer: peer); case .note(let id): NoteDetailView(noteID: id) } }
-                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { session.nativePush.destination = nil } } }
-                    }
                 }
                 .task(id: "\(session.generation)-\(session.user?["avatarUrl"].string ?? "")") {
                     profileTabAvatar = nil

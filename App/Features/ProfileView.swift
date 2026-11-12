@@ -285,6 +285,78 @@ struct ReportView: View {
 
 struct MyAccountView: View {
     @Environment(AppSession.self) private var session
+    var body: some View {
+        @Bindable var session = session
+        NavigationStack(path: $session.mePath) {
+            List {
+                if let user = session.user {
+                    Section {
+                        NavigationLink { ProfileView(userID: user.id) } label: {
+                            HStack(spacing: 16) {
+                                Avatar(user: user, size: 64)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(user.displayName).font(.title2.bold())
+                                    Text("@" + (user["username"].string ?? "")).font(.subheadline).foregroundStyle(.secondary)
+                                    Text("个人主页与资料").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }.padding(.vertical, 10)
+                        }.accessibilityIdentifier("me.profile")
+                        HStack {
+                            accountCount("动态", count: user["notesCount"].int)
+                            Spacer()
+                            accountCount("关注", count: user["followingCount"].int)
+                            Spacer()
+                            accountCount("关注者", count: user["followersCount"].int)
+                        }.padding(.vertical, 4)
+                    }
+                    Section {
+                        NavigationLink { ProfileView(userID: user.id) } label: { Label("我的动态", systemImage: "text.bubble") }
+                            .accessibilityIdentifier("me.posts")
+                        NavigationLink { FavoritesView() } label: { Label("我的收藏", systemImage: "star") }
+                            .accessibilityIdentifier("me.favorites")
+                        NavigationLink { DriveManagerView() } label: { Label("网盘", systemImage: "folder") }
+                            .accessibilityIdentifier("me.drive")
+                        NavigationLink { ScheduledNotesView() } label: { Label("定时帖子", systemImage: "clock") }
+                    }
+                }
+                Section {
+                    NavigationLink { NotificationsView() } label: {
+                        HStack {
+                            Label("通知", systemImage: "bell")
+                            Spacer()
+                            if session.badges.notification {
+                                Text("未读").font(.caption.weight(.semibold)).foregroundStyle(.white)
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(PUBOTheme.accent, in: Capsule())
+                            }
+                        }
+                    }.accessibilityIdentifier("me.notifications")
+                    NavigationLink { AccountManagerView() } label: { Label("多账号管理", systemImage: "person.2") }
+                        .accessibilityIdentifier("me.accounts")
+                    NavigationLink { MyAccountSettingsView() } label: { Label("设置", systemImage: "gearshape") }
+                        .accessibilityIdentifier("me.settings")
+                    NavigationLink { MoreSocialView() } label: { Label("更多功能", systemImage: "square.grid.2x2") }
+                }
+            }.puboList().navigationTitle("我的")
+                .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink { AccountSettingsView() } label: { Image(systemName: "gearshape").frame(minWidth: 44, minHeight: 44) }
+                            .accessibilityLabel("账号与隐私设置")
+                    }
+                }
+        }
+    }
+    private func accountCount(_ title: String, count: Int) -> some View {
+        VStack(spacing: 3) {
+            Text(count.formatted()).font(.headline)
+            Text(title).font(.caption).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity).accessibilityElement(children: .combine)
+    }
+}
+
+struct MyAccountSettingsView: View {
+    @Environment(AppSession.self) private var session
     @State private var error: String?
     @State private var chatScope = "mutual"
     @State private var confirmLogout = false
@@ -292,10 +364,7 @@ struct MyAccountView: View {
     @State private var authorizing = false
     private var version: String { (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") + " (" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—") + ")" }
     var body: some View {
-        NavigationStack {
-            Form {
-                if let user = session.user { Section { NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user, size: 56); Text(user.displayName).font(.title2.bold()) } } }.listRowBackground(PUBOTheme.panel) }
-                Section { NavigationLink("搜索") { SearchView() }; NavigationLink("我的收藏") { FavoritesView() }; NavigationLink("定时帖子") { ScheduledNotesView() }; NavigationLink("网盘") { DriveManagerView() }; NavigationLink("更多功能") { MoreSocialView() } }.listRowBackground(PUBOTheme.panel)
+        Form {
                 Section("私信隐私") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("谁可以发起聊天").font(.subheadline)
@@ -328,9 +397,8 @@ struct MyAccountView: View {
                 }
                 .listRowBackground(PUBOTheme.panel)
                 if let error { Text(error).foregroundStyle(.secondary) }
-            }.puboForm().navigationTitle("我的").task { chatScope = session.user?["chatScope"].string ?? "mutual" }
+            }.puboForm().navigationTitle("设置").task { chatScope = session.user?["chatScope"].string ?? "mutual" }
                 .confirmationDialog("只清除当前账号的登录信息、草稿与待发记录；其他账号保留。", isPresented: $confirmLogout) { Button("退出登录", role: .destructive) { Task { do { try await session.logout() } catch { self.error = error.localizedDescription } } } }
-        }
     }
 }
 
