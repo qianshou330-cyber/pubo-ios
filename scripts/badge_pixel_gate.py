@@ -19,6 +19,14 @@ MIN_CONFIDENCE = 80.0
 ENGINE_VERSION = 'tesseract 5.5.3'
 MODEL_SHA256 = '7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2'
 MODEL_DIR = Path(__file__).resolve().parents[1] / 'build' / 'badge-tessdata'
+TSV_COLUMNS = ('level', 'page_num', 'block_num', 'par_num', 'line_num', 'word_num',
+               'left', 'top', 'width', 'height', 'conf', 'text')
+
+
+class OCRReadingError(ValueError):
+    def __init__(self, message, diagnostics):
+        super().__init__(message)
+        self.diagnostics = diagnostics
 
 
 def engine_identity():
@@ -32,7 +40,12 @@ def engine_identity():
 
 def decode_tsv(raw):
     """One complete, confident numeric token. Never whitelist or repair text."""
-    rows = list(csv.DictReader(io.StringIO(raw), delimiter='\t'))
+    reader = csv.DictReader(io.StringIO(raw), delimiter='\t')
+    if tuple(reader.fieldnames or ()) != TSV_COLUMNS:
+        raise ValueError('OCR output is not the required TSV format')
+    rows = list(reader)
+    if any(None in row or any(value is None for value in row.values()) for row in rows):
+        raise ValueError('OCR TSV row is malformed')
     words = [r for r in rows if r.get('level') == '5']
     if len(words) != 1:
         raise ValueError('OCR requires exactly one observed word')
@@ -48,12 +61,27 @@ def decode_tsv(raw):
 
 def read_pixels(path):
     """Fixed single-line recognition covers one or several badge digits."""
-    result = subprocess.run(['tesseract', str(path), 'stdout', '-l', 'eng',
-                             '--tessdata-dir', str(MODEL_DIR), '--psm', '7', 'tsv'],
-                            capture_output=True, text=True, timeout=30, check=True)
-    value = decode_tsv(result.stdout)
-    value['rawTSV'] = result.stdout
-    return value
+    # A custom tessdata directory intentionally contains only the pinned model.
+    # A trailing "tsv" is a config filename relative to that directory, not an
+    # output-format flag; missing configs can silently emit plain text with rc0.
+    command = ['tesseract', str(path), 'stdout', '-l', 'eng',
+               '--tessdata-dir', str(MODEL_DIR), '--psm', '7',
+               '-c', 'tessedit_create_tsv=1', '-c', 'tessedit_create_txt=0']
+    diagnostics = dict(file=Path(path).name, format='TSV', stdout='', stderr='')
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False)
+        diagnostics.update(returnCode=result.returncode, stdout=result.stdout, stderr=result.stderr)
+        if result.returncode != 0:
+            raise ValueError('OCR process failed')
+        value = decode_tsv(result.stdout)
+        value['diagnostics'] = diagnostics
+        return value
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        if isinstance(error, subprocess.TimeoutExpired):
+            for key, value in [('stdout', error.stdout), ('stderr', error.stderr)]:
+                diagnostics[key] = value.decode('utf-8', errors='replace') if isinstance(value, bytes) else (value or '')
+            diagnostics['timedOut'] = True
+        raise OCRReadingError(str(error), diagnostics) from error
 
 
 def checked_file(root, filename, png=False):
@@ -128,7 +156,11 @@ def verify_badge_phases(root, expected_device, commit, started, reader=read_pixe
             if 'redComponents=1\n' not in readings or 'inkBounds=' not in readings:
                 raise ValueError('Missing actual badge extraction evidence')
             observed['visionDiagnostic'] = readings
-            observed['ocr'] = reader(files['glyphs'])
+            try:
+                observed['ocr'] = reader(files['glyphs'])
+            except OCRReadingError as error:
+                observed['ocrFailureDiagnostics'] = error.diagnostics
+                raise
             if observed['ocr']['text'] != '2':
                 raise ValueError(phase + ': rendered unread count changed')
         if devices != {expected_device} or len(configurations) != 1 or '' in configurations:

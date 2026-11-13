@@ -3,11 +3,13 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
-from badge_pixel_gate import BADGE_TEST, PHASES, ENGINE_VERSION, MODEL_SHA256, decode_tsv, verify_badge_phases
+from unittest.mock import patch
+import subprocess
+from badge_pixel_gate import BADGE_TEST, PHASES, ENGINE_VERSION, MODEL_SHA256, TSV_COLUMNS, OCRReadingError, read_pixels, decode_tsv, verify_badge_phases
 
 
 def tsv(text='2', confidence='90'):
-    return 'level\tconf\ttext\n5\t' + confidence + '\t' + text + '\n'
+    return '\t'.join(TSV_COLUMNS) + '\n5\t1\t1\t1\t1\t1\t0\t0\t10\t16\t' + confidence + '\t' + text + '\n'
 
 
 class BadgePixelGateTests(unittest.TestCase):
@@ -16,11 +18,47 @@ class BadgePixelGateTests(unittest.TestCase):
             self.assertEqual(decode_tsv(tsv(text))['text'], text)
 
     def test_rejects_absence_ambiguity_non_numeric_and_low_confidence(self):
-        for raw in ('', 'level\tconf\ttext\n', tsv() + '5\t99\t3\n', tsv('O'),
+        for raw in ('', 'level\tconf\ttext\n', tsv() + '5\t1\t1\t1\t1\t2\t12\t0\t10\t16\t99\t3\n', tsv('O'),
                     tsv('2A'), tsv('2 3'), tsv(' 2'), tsv('.'), tsv(''),
                     tsv('2', '79.99'), tsv('2', 'nan'), tsv('2', '101')):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 decode_tsv(raw)
+
+    def test_explicit_output_flags_do_not_depend_on_configs_directory(self):
+        with patch('badge_pixel_gate.subprocess.run', return_value=subprocess.CompletedProcess([], 0, tsv(), '')) as run:
+            self.assertEqual(read_pixels(Path('actual.png'))['text'], '2')
+        command = run.call_args.args[0]
+        self.assertIn('tessedit_create_tsv=1', command)
+        self.assertIn('tessedit_create_txt=0', command)
+        self.assertNotIn('tsv', command)
+        self.assertNotIn('tessedit_char_whitelist', ' '.join(command))
+
+    def test_plain_text_with_success_exit_is_rejected_and_diagnosed(self):
+        with patch('badge_pixel_gate.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '2\n', "Can't open tsv\n")):
+            with self.assertRaises(OCRReadingError) as failure:
+                read_pixels(Path('actual.png'))
+        self.assertEqual(failure.exception.diagnostics['stdout'], '2\n')
+        self.assertIn("Can't open tsv", failure.exception.diagnostics['stderr'])
+
+    def test_low_confidence_and_process_failure_preserve_raw_evidence(self):
+        for code, output, error in [(0, tsv('2', '50'), ''), (1, '', 'model failed')]:
+            with patch('badge_pixel_gate.subprocess.run', return_value=subprocess.CompletedProcess([], code, output, error)):
+                with self.assertRaises(OCRReadingError) as failure:
+                    read_pixels(Path('actual.png'))
+            self.assertEqual(failure.exception.diagnostics['stdout'], output)
+            self.assertEqual(failure.exception.diagnostics['stderr'], error)
+            self.assertEqual(failure.exception.diagnostics['returnCode'], code)
+
+    def test_timeout_bytes_are_preserved_as_json_safe_diagnostics(self):
+        timeout = subprocess.TimeoutExpired(['tesseract'], 30, output=b'partial\n', stderr=b'timed out\xff')
+        with patch('badge_pixel_gate.subprocess.run', side_effect=timeout):
+            with self.assertRaises(OCRReadingError) as failure:
+                read_pixels(Path('actual.png'))
+        diagnostics = failure.exception.diagnostics
+        self.assertTrue(diagnostics['timedOut'])
+        self.assertEqual(diagnostics['stdout'], 'partial\n')
+        self.assertIn('timed out', diagnostics['stderr'])
+        json.dumps(diagnostics)
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

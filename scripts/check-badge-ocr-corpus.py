@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-from badge_pixel_gate import read_pixels, engine_identity
+from badge_pixel_gate import read_pixels, engine_identity, OCRReadingError
 
 corpus = json.loads(Path('scripts/fixtures/badge-ocr-corpus.json').read_text())
 version = subprocess.run(['tesseract', '--version'], capture_output=True, text=True, check=True, timeout=10).stdout
@@ -27,13 +27,14 @@ try:
                 raise RuntimeError('Corrupt corpus sample')
             path = Path(directory) / (sample['id'] + '.png')
             path.write_bytes(data)
-            actual, error = None, None
+            actual, error, diagnostics = None, None, None
             try:
                 actual = read_pixels(path)
-            except ValueError as failure:
+            except OCRReadingError as failure:
                 error = str(failure)
+                diagnostics = failure.diagnostics
             row = dict(id=sample['id'], truth=sample['truth'], actual=actual, rejection=error,
-                       source=sample['source']['kind'], knownLimitation=sample['known_limitation'])
+                       source=sample['source']['kind'], knownLimitation=sample['known_limitation'], rejectionDiagnostics=diagnostics)
             report['results'].append(row)
             if sample['known_limitation']:
                 # Keep these four failures visible. Do not count them as
