@@ -7,6 +7,21 @@ func puboTouchDimensionMeetsMinimum(_ dimension: CGFloat, minimum: CGFloat = 44)
         dimension >= minimum - minimum.ulp * 4
 }
 
+/// Compare endpoints instead of subtracting large screen coordinates into a
+/// dimension. CGRect subtraction can report a mathematically 44pt span as
+/// 43.99999999999994; this preserves the actual 44pt endpoint requirement.
+func puboTouchRectMeetsMinimum(_ frame: CGRect, minimum: CGFloat = 44) -> Bool {
+    guard minimum.isFinite, minimum > 0,
+          frame.origin.x.isFinite, frame.origin.y.isFinite,
+          frame.width.isFinite, frame.height.isFinite,
+          frame.width > 0, frame.height > 0 else { return false }
+    let requiredX = frame.minX + minimum, requiredY = frame.minY + minimum
+    guard frame.maxX.isFinite, frame.maxY.isFinite,
+          requiredX.isFinite, requiredY.isFinite,
+          requiredX > frame.minX, requiredY > frame.minY else { return false }
+    return frame.maxX >= requiredX && frame.maxY >= requiredY
+}
+
 /// Navigate through actual controls only. Helpers never reset a path or modify
 /// application state; callers retain responsibility for explicit Back actions.
 extension XCTestCase {

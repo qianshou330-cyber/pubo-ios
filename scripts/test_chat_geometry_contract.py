@@ -10,10 +10,20 @@ class ChatGeometryContractTests(unittest.TestCase):
         timeline = room.split('private var timeline:', 1)[1].split('private func positionTimeline', 1)[0]
         self.assertIn('.contentMargins(.horizontal, 16, for: .scrollContent)', timeline)
         self.assertIn('.scrollTargetLayout()', timeline)
-        self.assertIn('.scrollTargetLayout().padding(.vertical, 16)', timeline)
+        self.assertIn('.scrollTargetLayout().padding(.bottom, 16)', timeline)
+        self.assertIn('.padding(.top, index == 0 && !hasMore && !(loadError != nil && !messages.isEmpty) ? 16 : 0).id(message.id)', timeline)
         self.assertIn('anchor: scrollAnchor', timeline)
         self.assertIn('nearBottom = bottom <= viewport.size.height + 80', timeline)
         self.assertIn('.accessibilityIdentifier("room.avatar." + message.id)', room)
+
+    def test_header_insets_and_endpoint_minimum_are_not_weakened(self):
+        room = (ROOT / 'App/Features/RoomChatView.swift').read_text()
+        self.assertIn('}.padding(.top, 16)', room)
+        self.assertIn('.padding(.top, loadError != nil && !messages.isEmpty ? 0 : 16)', room)
+        helper = (ROOT / 'UITests/AppNavigationUITestSupport.swift').read_text()
+        self.assertIn('frame.maxX >= requiredX && frame.maxY >= requiredY', helper)
+        self.assertIn('requiredX > frame.minX, requiredY > frame.minY', helper)
+        self.assertIn('frame.maxX.isFinite, frame.maxY.isFinite', helper)
 
     def test_avatar_touch_shape_includes_full_44pt_label(self):
         for name in ['ChatView.swift', 'RoomChatView.swift']:
@@ -29,7 +39,7 @@ class ChatGeometryContractTests(unittest.TestCase):
         composer = (ROOT / 'UITests/ChatComposerParityUITests.swift').read_text()
         for required in ['viewport.swipeUp()', 'viewport.swipeDown()',
                          'retry.frame.minY < viewport.frame.minY', 'frame.maxY <= min(bounds.maxY, composer.frame.minY)',
-                         'puboTouchDimensionMeetsMinimum(frame.height)', 'revealRetry(app, prefix: prefix, retry: retry)',
+                         'puboTouchRectMeetsMinimum(frame)', 'revealRetry(app, prefix: prefix, retry: retry)',
                          'retry.tap()', 'retry.waitForNonExistence(timeout: 8)', 'label CONTAINS %@',
                          'https://example.com/pubo-chat-fixture']:
             self.assertIn(required, composer)

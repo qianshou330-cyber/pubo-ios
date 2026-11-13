@@ -38,7 +38,7 @@ final class ChatComposerParityUITests: XCTestCase {
             let frame = retry.frame, bounds = viewport.frame
             return frame.minX >= bounds.minX && frame.maxX <= bounds.maxX &&
                 frame.minY >= bounds.minY && frame.maxY <= min(bounds.maxY, composer.frame.minY) &&
-                puboTouchDimensionMeetsMinimum(frame.width) && puboTouchDimensionMeetsMinimum(frame.height)
+                puboTouchRectMeetsMinimum(frame)
         }
         for _ in 0..<5 where !fullyVisible() {
             if retry.exists && retry.frame.minY < viewport.frame.minY { viewport.swipeDown() }
@@ -75,6 +75,15 @@ final class ChatComposerParityUITests: XCTestCase {
     }
 
     private func assertTimelineHorizontalInsets(_ app: XCUIApplication, room: Bool, stage: String) {
+        // Regression for endpoint subtraction at the exact C23 AX coordinates.
+        let y = CGFloat(484.3333333333333), maxY = CGFloat(528.3333333333333)
+        XCTAssertTrue(puboTouchRectMeetsMinimum(CGRect(x: 16, y: y, width: 44, height: maxY - y)))
+        for undersized in [CGFloat(43.999), 43, 42] {
+            XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: y, width: 44, height: undersized)))
+        }
+        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: y, width: 44, height: .nan)))
+        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: 1e20, width: 44, height: 1)))
+        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: .infinity, width: 44, height: 44)))
         let prefix = room ? "room" : "chat"
         let viewport = app.scrollViews[prefix + ".timeline"]
         let composer = app.descendants(matching: .any).matching(identifier: prefix + ".composer").firstMatch
@@ -91,7 +100,7 @@ final class ChatComposerParityUITests: XCTestCase {
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let frames = verticallyVisibleFrames(), bounds = viewport.frame
             return !frames.isEmpty && frames.allSatisfy { frame in
-                puboTouchDimensionMeetsMinimum(frame.width) && puboTouchDimensionMeetsMinimum(frame.height) &&
+                puboTouchRectMeetsMinimum(frame) &&
                 frame.minX >= bounds.minX && frame.maxX <= bounds.maxX &&
                 abs(frame.minX - bounds.minX - 16) <= 1
             }

@@ -21,7 +21,7 @@ final class ChatAlignmentUITests: XCTestCase {
         // viewport. Do not infer content insets from an offscreen lazy row.
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let row = avatar.frame, visible = viewport.frame
-            guard puboTouchDimensionMeetsMinimum(row.width), puboTouchDimensionMeetsMinimum(row.height),
+            guard puboTouchRectMeetsMinimum(row),
                   abs(row.minX - visible.minX - 16) <= 1,
                   row.minY >= visible.minY,
                   row.maxY <= min(visible.maxY, composer.frame.minY) else { return false }

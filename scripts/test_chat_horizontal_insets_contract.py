@@ -27,8 +27,7 @@ class ChatHorizontalInsetsContract(unittest.TestCase):
         self.assertNotIn('frame.maxX', selection)
         self.assertNotIn('puboTouchDimensionMeetsMinimum', selection)
         validation = block.split('let frames = verticallyVisibleFrames()', 1)[1].split('}, object: nil)', 1)[0]
-        self.assertIn('puboTouchDimensionMeetsMinimum(frame.width)', validation)
-        self.assertIn('puboTouchDimensionMeetsMinimum(frame.height)', validation)
+        self.assertIn('puboTouchRectMeetsMinimum(frame)', validation)
         self.assertIn('frame.minX >= bounds.minX && frame.maxX <= bounds.maxX', validation)
         self.assertNotIn('.swipe', block)
         self.assertNotIn('.tap()', block)

@@ -71,19 +71,19 @@ struct RoomChatView: View {
                                 Text(loadError).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.loadError")
                                 Button(retryOlder ? "重试加载更早消息" : "重试同步消息") { Task { await load(older: retryOlder, reconcile: !retryOlder) } }
                                     .frame(minHeight: 44).disabled(loading).accessibilityIdentifier("room.retry")
-                            }
+                            }.padding(.top, 16)
                         }
-                        if hasMore { Button("更早的群聊消息") { Task { await load(older: true) } }.disabled(loading) }
+                        if hasMore { Button("更早的群聊消息") { Task { await load(older: true) } }.disabled(loading).padding(.top, loadError != nil && !messages.isEmpty ? 0 : 16) }
                         ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                             VStack(spacing: 12) {
                                 if let pair = ChatDays.pair(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(pair: pair, style: .room) }
                                 messageRow(message)
-                            }.id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 80))
+                            }.padding(.top, index == 0 && !hasMore && !(loadError != nil && !messages.isEmpty) ? 16 : 0).id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 80))
                                 .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12))
                                 .onDisappear { animatedIDs.remove(message.id) }
                         }
                         Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("roomScroll")).maxY) })
-                    }.scrollTargetLayout().padding(.vertical, 16)
+                    }.scrollTargetLayout().padding(.bottom, 16)
                 }.contentMargins(.horizontal, 16, for: .scrollContent)
                     .accessibilityIdentifier("room.timeline")
                     .scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
