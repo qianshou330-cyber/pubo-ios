@@ -13,6 +13,7 @@ packages:
 settings:
   base:
     SWIFT_VERSION: '5.0'
+    SWIFT_INCLUDE_PATHS: '$(inherited) $(SRCROOT)/Interop/PUBONotify'
     TARGETED_DEVICE_FAMILY: '1'
     CODE_SIGNING_ALLOWED: NO
     MARKETING_VERSION: 0.10.0

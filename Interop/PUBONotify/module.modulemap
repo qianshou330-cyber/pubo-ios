@@ -1,0 +1,4 @@
+module PUBONotify [system] {
+    header "PUBONotify.h"
+    export *
+}

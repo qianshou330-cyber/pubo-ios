@@ -5,12 +5,18 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class ChatLoadingGateContract(unittest.TestCase):
-    def test_notify_apis_import_their_sdk_module_in_both_processes(self):
+    def test_notify_apis_import_explicit_header_module_in_both_processes(self):
         # Source regression only; the macOS preflight remains the compilation gate.
         for path in ('App/Infrastructure/ChatFixtureResponseGate.swift',
                      'UITests/ChatLoadingTestGate.swift'):
             source = (ROOT / path).read_text()
-            self.assertIn('import DarwinNotify\n', source)
+            self.assertIn('import PUBONotify\n', source)
+
+    def test_notify_module_uses_real_sdk_header_and_all_build_paths(self):
+        self.assertIn('#include <notify.h>', (ROOT / 'Interop/PUBONotify/PUBONotify.h').read_text())
+        self.assertIn('header "PUBONotify.h"', (ROOT / 'Interop/PUBONotify/module.modulemap').read_text())
+        self.assertIn("SWIFT_INCLUDE_PATHS: '$(inherited) $(SRCROOT)/Interop/PUBONotify'", (ROOT / 'project.yml').read_text())
+        self.assertIn('swiftc -I "$root/Interop/PUBONotify"', (ROOT / 'scripts/check_chat_gate_macos.sh').read_text())
 
     def test_gate_is_debug_transport_only_and_keeps_failure_delay(self):
         gate = (ROOT / 'App/Infrastructure/ChatFixtureResponseGate.swift').read_text()

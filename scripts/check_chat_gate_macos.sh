@@ -50,7 +50,7 @@ import Foundation
     }
 }
 SWIFT
-xcrun swiftc -D DEBUG -swift-version 5 -parse-as-library \
+xcrun swiftc -I "$root/Interop/PUBONotify" -D DEBUG -swift-version 5 -parse-as-library \
   "$root/App/Infrastructure/ChatFixtureResponseGate.swift" \
   "$root/UITests/ChatLoadingTestGate.swift" "$tmp/GateMain.swift" -o "$tmp/gate-preflight"
 "$tmp/gate-preflight"
