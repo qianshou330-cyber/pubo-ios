@@ -58,6 +58,13 @@ class LifecycleTests(unittest.TestCase):
     def test_pid_and_capture_are_exact(self):
         for pid in [True, 42.0, '42', None, -1]: self.assertFalse(valid(sequence(pid)))
         s = sequence(); s[1]['eventMessage'] = s[1]['eventMessage'].replace('captureStarted=1', 'captureStarted=2'); self.assertFalse(valid(s))
+    def test_drag_receipt_is_passive_not_application_or_resume(self):
+        s = sequence()
+        for e in s: e['eventMessage'] += ';timelineDragEnded=1'
+        self.assertTrue(valid(s))
+        missing = s[:2] + [event(sceneActive=2)]
+        missing[-1]['eventMessage'] += ';timelineDragEnded=2'
+        self.assertFalse(valid(missing))
     def test_interleaving_and_full_counter_payload(self):
         s = sequence(); s.insert(1, event(43))
         for e in s: e['eventMessage'] += ';requestStarted=2;requestReturned=2;cancelledResult=0'

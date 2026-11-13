@@ -4,10 +4,10 @@ import Foundation
 import os
 #endif
 
-/// Passive fixture-only diagnostics. No UI nodes, gesture handlers or request data.
+/// Passive fixture-only diagnostics. No UI nodes, additional gesture handlers or request data.
 final class RefreshDiagnostics {
     enum Event: String, CaseIterable {
-        case pullStarted, pullEnded, loadAttempt, skippedError, skippedBusy, skippedEnd
+        case pullStarted, pullEnded, timelineDragEnded, loadAttempt, skippedError, skippedBusy, skippedEnd
         case requestStarted, requestReturned, rowsApplied, rowsPending, loadFailed, cancelledResult, staleResult
         case fixtureGeneration, captureStarted, sceneBackground, sceneActive
     }

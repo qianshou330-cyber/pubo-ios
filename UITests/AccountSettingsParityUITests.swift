@@ -15,8 +15,12 @@ final class AccountSettingsParityUITests: XCTestCase {
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
         XCTAssertTrue(control.isHittable)
+        let expected = value ? "1" : "0"
+        let before = control.value
+        let transitionStarted = ProcessInfo.processInfo.systemUptime
+        var transition = ["expected=\(expected) before=\(String(describing: before))"]
         // Scope native control discovery to the stable identified row.
-        if (control.value as? String) != (value ? "1" : "0") {
+        if (before as? String) != expected {
             // C13's AX tree shows one native Switch directly inside this row.
             // Global app.switches enumeration instead re-resolved other rows,
             // including stale indexes, and exhausted the observation budget.
@@ -75,10 +79,25 @@ final class AccountSettingsParityUITests: XCTestCase {
             }
             XCTAssertEqual(ready, .completed, "Expected one enabled, hittable native switch inside the identified row")
             guard ready == .completed, let actual = concrete else { return }
+            transition.append("tapStarted=\(ProcessInfo.processInfo.systemUptime - transitionStarted)")
             actual.tap()
+            transition.append("tapReturned=\(ProcessInfo.processInfo.systemUptime - transitionStarted)")
         }
-        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
+        // C15's failed transition was 1 -> 0, not a delayed successful 0 -> 1.
+        // Keep the same value equality and budget, recording every actual read
+        // without triggering XCTest's expensive automatic predicate diagnostics.
+        let equalsExpected = NSPredicate(format: "SELF == %@", expected)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let probeStarted = ProcessInfo.processInfo.systemUptime
+            let actual = control.value
+            let ended = ProcessInfo.processInfo.systemUptime
+            transition.append("elapsed=\(ended - transitionStarted) queryDuration=\(ended - probeStarted) actual=\(String(describing: actual))")
+            return equalsExpected.evaluate(with: actual)
+        }, object: control)
         let outcome = XCTWaiter.wait(for: [changed], timeout: 8)
+        let stateEvidence = XCTAttachment(string: "timeout=8 outcome=\(outcome.rawValue)\n" + transition.joined(separator: "\n"))
+        stateEvidence.name = "privacy-switch-transition-" + control.identifier + "-expected-" + expected
+        stateEvidence.lifetime = .keepAlways; add(stateEvidence)
         if outcome != .completed {
             capture(app, "privacy-switch-failure-" + control.identifier)
             let tree = XCTAttachment(string: app.debugDescription)

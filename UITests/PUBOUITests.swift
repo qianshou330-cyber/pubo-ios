@@ -394,12 +394,25 @@ final class PUBOUITests: XCTestCase {
         // The short default swipe only partially reveals UIRefreshControl on SE.
         // Pull from below the header to above the tab bar, through the row gutter.
         let list = app.scrollViews["timeline.scroll"]
+        let frameBeforePull = list.frame
+        let hittableBeforePull = list.isHittable
+        capture(app, "home-before-single-pull")
+        let pullStart = ProcessInfo.processInfo.systemUptime
+        // Keep exactly the original one gesture. These facts only distinguish
+        // event dispatch from the existing drag and native refresh callbacks.
         list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.20))
             .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.86)))
+        let pullEnd = ProcessInfo.processInfo.systemUptime
         // Old rows remain in the list by design. Query the new row instead of
         // holding the original accessibility element and expecting its text view value to mutate.
         let refreshed = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 1)")).firstMatch
-        XCTAssertTrue(refreshed.waitForExistence(timeout: 10))
+        let refreshVisible = refreshed.waitForExistence(timeout: 10)
+        let observedAt = ProcessInfo.processInfo.systemUptime
+        let inputEvidence = XCTAttachment(string: "beforeGeneration=\(before) expectedGeneration=\(before + 1) observed=\(refreshVisible) observationBudget=10\nlistFrame=\(frameBeforePull) listHittable=\(hittableBeforePull) normalizedStart=(0.97,0.20) normalizedEnd=(0.97,0.86) pressDuration=0.1\npullStartUptime=\(pullStart) pullEndUptime=\(pullEnd) observedUptime=\(observedAt)")
+        inputEvidence.name = "home-single-pull-dispatch-and-outcome"
+        inputEvidence.lifetime = .keepAlways; add(inputEvidence)
+        if !refreshVisible { capture(app, "home-single-pull-no-next-generation") }
+        XCTAssertTrue(refreshVisible)
         capture(app, "home-pull-to-refresh")
         XCUIDevice.shared.press(.home)
         // XCUIApplication.state is asynchronously updated (Apple documentation).

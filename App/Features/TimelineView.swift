@@ -156,6 +156,10 @@ struct TimelineView: View {
         atTop = id == nil || id == "timeline-top" || id == "timeline-panels"
     }
     private func switchTimeline(_ value: DragGesture.Value) {
+        #if DEBUG
+        // Passive receipt from the existing recognizer, not another gesture or refresh trigger.
+        RefreshDiagnostics.shared.record(.timelineDragEnded)
+        #endif
         guard abs(value.translation.width) > abs(value.translation.height) * 2,
               let index = choices.firstIndex(of: preferences.selected) else { return }
         let next = index + (value.translation.width < 0 ? 1 : -1)
