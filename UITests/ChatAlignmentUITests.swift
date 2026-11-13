@@ -103,6 +103,17 @@ final class ChatAlignmentUITests: XCTestCase {
     }
     func testLargeTextGroupComposerAndTabsStayReachable() {
         let app = launch(["--large-text", "--dark"]); room(app)
+        let body = app.staticTexts["room.bubble.room0003"]
+        XCTAssertTrue(body.waitForExistence(timeout: 6))
+        XCTAssertEqual(body.value as? String, "今天一起分享喜欢的舞台。")
+        let renderedBody = body.textViews.firstMatch
+        XCTAssertEqual(body.textViews.count, 1)
+        XCTAssertTrue(renderedBody.exists)
+        XCTAssertEqual(renderedBody.label, "今天一起分享喜欢的舞台。")
+        // C17's ordinary-size AX tree measured this text at 15.5pt high. Its
+        // large-text screenshot also looked unscaled, but had no exported AX tree.
+        // This new check measures actual TextKit geometry, not bubble padding.
+        XCTAssertGreaterThan(renderedBody.frame.height, 22, "Large-text mode must enlarge the message body too")
         let input = app.textViews["room.input"]; XCTAssertTrue(input.isHittable); input.tap(); input.typeText("大字体草稿")
         XCTAssertTrue(app.buttons["room.send"].isHittable); capture(app, "chat-room-large-keyboard")
         let search = app.buttons["room.tab.search"]; if !search.isHittable { app.scrollViews.firstMatch.swipeLeft() }; search.tap()

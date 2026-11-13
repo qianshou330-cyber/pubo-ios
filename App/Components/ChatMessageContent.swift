@@ -7,6 +7,7 @@ struct ChatMessageContent: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var phase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .subheadline) private var messagePointSize: CGFloat = 12.6
     let text: String
     let active: Bool
     let identifier: String
@@ -31,7 +32,7 @@ struct ChatMessageContent: View {
                      openURL: { url in
                          if let link = NativeLink(url) { destination = NativeLinkTarget(link: link) }
                          else if NativeLink.publicURL(url.absoluteString) != nil { UIApplication.shared.open(url) }
-                     }, fitsContentWidth: true)
+                     }, fitsContentWidth: true, pointSizeOverride: messagePointSize)
             .background(GeometryReader { geometry in
                 Color.clear.onAppear { visible = geometry.frame(in: .global).intersects(UIScreen.main.bounds) }
                     .onChange(of: geometry.frame(in: .global)) { _, frame in visible = frame.intersects(UIScreen.main.bounds) }

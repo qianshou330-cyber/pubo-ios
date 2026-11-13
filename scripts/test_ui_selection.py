@@ -85,7 +85,7 @@ class SelectionTests(unittest.TestCase):
     def test_h5_chat_reference_is_independent_and_retains_failures(self):
         workflow = (pathlib.Path(__file__).resolve().parents[1] / '.github/workflows/four-tabs.yml').read_text()
         job = workflow.split('  h5-chat-reference:\n', 1)[1].split('  package:\n', 1)[0]
-        for required in ['ubuntu-latest', 'scripts/h5-chat', 'npm ci', 'playwright install --with-deps chromium',
+        for required in ['ubuntu-24.04', 'scripts/h5-chat', 'npm ci', 'playwright install --with-deps chromium',
                          'npm run capture', 'if: always()', 'actions/upload-artifact@v4']:
             self.assertIn(required, job)
         source = (pathlib.Path(__file__).resolve().parents[1] / 'scripts/h5-chat/capture.mjs').read_text()

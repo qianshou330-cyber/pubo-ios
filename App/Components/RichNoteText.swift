@@ -14,6 +14,8 @@ struct RichNoteText: UIViewRepresentable {
     var onTap: (() -> Void)?
     var appearance: NoteAppearance = .standard
     var fitsContentWidth = false
+    /// Already scaled by SwiftUI for chat; nil preserves the existing note path.
+    var pointSizeOverride: CGFloat? = nil
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> AnimatedTextView {
         let view = AnimatedTextView()
@@ -28,7 +30,11 @@ struct RichNoteText: UIViewRepresentable {
     func updateUIView(_ view: AnimatedTextView, context: Context) {
         context.coordinator.openURL = openURL; context.coordinator.onTap = onTap; context.coordinator.view = view
         // H5's 14px base is 0.9em in a phone-width note container.
-        let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: UIFont.systemFont(ofSize: 12.6))
+        // SwiftUI's dynamicTypeSize (including accessibility overrides) need not
+        // match UIKit's ambient trait collection. Never scale the explicit value twice.
+        let font = pointSizeOverride.map { UIFont.systemFont(ofSize: $0) }
+            ?? UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: UIFont.systemFont(ofSize: 12.6))
+        view.adjustsFontForContentSizeCategory = pointSizeOverride == nil
         let imageKey = urls.keys.sorted().map { key in key + "=" + (images[key].map { String(describing: ObjectIdentifier($0)) } ?? "pending") }.joined(separator: "|")
         let renderKey = parts.joined(separator: "\u{001f}") + imageKey + String(describing: font.pointSize) + appearance.rawValue
         if context.coordinator.renderKey != renderKey {

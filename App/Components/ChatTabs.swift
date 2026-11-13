@@ -12,22 +12,28 @@ struct ChatTabs: View {
     @Binding var selection: String
     let items: [ChatTab]
     var prefix = "chat.tab."
+    private var tabItems: some View {
+        HStack(spacing: 2) {
+            ForEach(items) { item in
+                Button { selection = item.id } label: {
+                    VStack(spacing: 0) {
+                        HStack(spacing: 4) { Image(systemName: item.icon); Text(item.title) }
+                            .font(.system(size: labelSize, weight: selection == item.id ? .semibold : .regular))
+                            .fixedSize().frame(minWidth: 44, minHeight: 44).padding(.horizontal, 6)
+                        Capsule().fill(selection == item.id ? PUBOTheme.accent : .clear).frame(height: 3)
+                    }.contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityIdentifier(prefix + item.id)
+                    .accessibilityAddTraits(selection == item.id ? .isSelected : [])
+            }
+        }.padding(.horizontal, 8)
+    }
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 2) {
-                ForEach(items) { item in
-                    Button { selection = item.id } label: {
-                        VStack(spacing: 0) {
-                            HStack(spacing: 4) { Image(systemName: item.icon); Text(item.title) }
-                                .font(.system(size: labelSize, weight: selection == item.id ? .semibold : .regular))
-                                .fixedSize().frame(minWidth: 44, minHeight: 44).padding(.horizontal, 6)
-                            Capsule().fill(selection == item.id ? PUBOTheme.accent : .clear).frame(height: 3)
-                        }.contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityIdentifier(prefix + item.id)
-                        .accessibilityAddTraits(selection == item.id ? .isSelected : [])
-                }
-            }.padding(.horizontal, 8).frame(maxWidth: .infinity)
-        }.scrollIndicators(.hidden).background(PUBOTheme.panel)
+        // Center the complete phone tab row when it fits, as H5 does. At large
+        // type sizes preserve horizontal scrolling instead of shrinking labels.
+        ViewThatFits(in: .horizontal) {
+            tabItems.fixedSize(horizontal: true, vertical: false).frame(maxWidth: .infinity)
+            ScrollView(.horizontal) { tabItems }.scrollIndicators(.hidden)
+        }.background(PUBOTheme.panel)
             .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
 }

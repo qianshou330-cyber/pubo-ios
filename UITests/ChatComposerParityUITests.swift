@@ -124,7 +124,10 @@ final class ChatComposerParityUITests: XCTestCase {
             retry.tap()
             XCTAssertTrue(retry.waitForNonExistence(timeout: 15))
             let expected = room ? "欢迎来到音乐交流群。" : "你好，欢迎来到 PUBO。"
-            let message = app.descendants(matching: .any).matching(identifier: prefix + ".text." + (room ? "room0001" : "private0001")).firstMatch
+            // C17's actual AX tree exposes the group body through its established
+            // bubble identifier; the ancestor replaces the inner UIKit identifier.
+            let messageID = room ? "room.bubble.room0001" : "chat.text.private0001"
+            let message = app.descendants(matching: .any).matching(identifier: messageID).firstMatch
             XCTAssertTrue(message.waitForExistence(timeout: 15))
             XCTAssertTrue(message.label.contains(expected) || (message.value as? String)?.contains(expected) == true)
             assertComposer(app, room: room, keyboard: false); capture(app, "chat-state-recovered-" + prefix)

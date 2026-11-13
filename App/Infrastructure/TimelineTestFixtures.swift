@@ -8,6 +8,7 @@ enum TimelineTestFixtures {
     }()
     static func media(_ url: URL) -> Data? {
         guard url.host == "timeline-fixture.invalid" else { return nil }
+        if url.path == "/avatar.png" { return GIFTestFixtures.avatar }
         if url.path.hasSuffix(".apng") { return PublicAnimationFixtures.apng }
         if url.path.hasSuffix(".webp") { return PublicAnimationFixtures.webp }
         if url.path.hasSuffix(".png") { return GIFTestFixtures.still }

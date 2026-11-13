@@ -4,7 +4,7 @@
     "username": "fixture",
     "name": "测试用户",
     "host": null,
-    "avatarUrl": "https://timeline-fixture.invalid/still.png",
+    "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
     "avatarDecorations": [],
     "badgeRoles": [],
     "emojis": {}
@@ -14,7 +14,7 @@
     "username": "friend",
     "name": "测试朋友",
     "host": null,
-    "avatarUrl": "https://timeline-fixture.invalid/still.png",
+    "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
     "avatarDecorations": [],
     "badgeRoles": [],
     "emojis": {}
@@ -24,7 +24,7 @@
     "username": "music",
     "name": "音乐朋友",
     "host": null,
-    "avatarUrl": "https://timeline-fixture.invalid/still.png",
+    "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
     "avatarDecorations": [],
     "badgeRoles": [],
     "emojis": {}
@@ -39,7 +39,7 @@
         "username": "friend",
         "name": "测试朋友",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -57,7 +57,7 @@
         "username": "fixture",
         "name": "测试用户",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -75,7 +75,7 @@
         "username": "friend",
         "name": "测试朋友",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -97,7 +97,7 @@
         "username": "friend",
         "name": "测试朋友",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -113,7 +113,7 @@
             "username": "fixture",
             "name": "测试用户",
             "host": null,
-            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
             "avatarDecorations": [],
             "badgeRoles": [],
             "emojis": {}
@@ -126,7 +126,7 @@
             "username": "music",
             "name": "音乐朋友",
             "host": null,
-            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
             "avatarDecorations": [],
             "badgeRoles": [],
             "emojis": {}
@@ -147,7 +147,7 @@
         "username": "fixture",
         "name": "测试用户",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -174,7 +174,7 @@
         "username": "friend",
         "name": "测试朋友",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -190,7 +190,7 @@
           "username": "friend",
           "name": "测试朋友",
           "host": null,
-          "avatarUrl": "https://timeline-fixture.invalid/still.png",
+          "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
           "avatarDecorations": [],
           "badgeRoles": [],
           "emojis": {}
@@ -207,7 +207,7 @@
             "username": "fixture",
             "name": "测试用户",
             "host": null,
-            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
             "avatarDecorations": [],
             "badgeRoles": [],
             "emojis": {}
@@ -220,7 +220,7 @@
             "username": "music",
             "name": "音乐朋友",
             "host": null,
-            "avatarUrl": "https://timeline-fixture.invalid/still.png",
+            "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
             "avatarDecorations": [],
             "badgeRoles": [],
             "emojis": {}
@@ -241,7 +241,7 @@
         "username": "fixture",
         "name": "测试用户",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -257,7 +257,7 @@
           "username": "friend",
           "name": "测试朋友",
           "host": null,
-          "avatarUrl": "https://timeline-fixture.invalid/still.png",
+          "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
           "avatarDecorations": [],
           "badgeRoles": [],
           "emojis": {}
@@ -281,7 +281,7 @@
         "username": "friend",
         "name": "测试朋友",
         "host": null,
-        "avatarUrl": "https://timeline-fixture.invalid/still.png",
+        "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
         "avatarDecorations": [],
         "badgeRoles": [],
         "emojis": {}
@@ -297,7 +297,7 @@
           "username": "friend",
           "name": "测试朋友",
           "host": null,
-          "avatarUrl": "https://timeline-fixture.invalid/still.png",
+          "avatarUrl": "https://timeline-fixture.invalid/avatar.png",
           "avatarDecorations": [],
           "badgeRoles": [],
           "emojis": {}

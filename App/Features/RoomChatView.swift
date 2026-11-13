@@ -217,12 +217,13 @@ struct RoomChatView: View {
                 }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
                     .accessibilityIdentifier("room.bubble." + message.id)
                     .contextMenu { messageMenu(message, mine: mine) }
-                if message["recalledAt"].isNull {
+                if message["recalledAt"].isNull && !ChatContentPolicy.previewLinks(message.text).isEmpty {
                     ChatMessageLinkPreviews(text: message.text, active: section == "messages" && preview == nil, identifier: "room.links." + message.id)
                 }
                 HStack(spacing: 6) {
-                    Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id)
+                    if !mine { Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id) }
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary) }
+                    if mine { Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id) }
                 }
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value, desired in Task { await react(message, value, requested: desired) } } }
             }

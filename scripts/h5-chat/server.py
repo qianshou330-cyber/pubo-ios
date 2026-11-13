@@ -1,4 +1,5 @@
 import os,sys,time,base64
+from fixture_media import load_native_media
 import http.server,pathlib,urllib.request,urllib.parse,json,re,hashlib,threading,mimetypes
 ROOT=pathlib.Path(__file__).resolve().parent; CACHE=ROOT/'cache';CACHE.mkdir(exist_ok=True)
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -12,6 +13,10 @@ if not HTML.exists():
 fixture=json.loads(FIXTURE.read_text()); html=HTML.read_text()
 CHAT=pathlib.Path(os.environ.get('CHAT_FIXTURE_PATH','../../App/Resources/ChatParity.json')).resolve()
 chat=json.loads(CHAT.read_text())
+MEDIA_SOURCE=(ROOT.parent.parent/'App/Infrastructure/GIFTestFixtures.swift')
+# Use the exact native synthetic image bytes. A generic 1x1 red substitute
+# changes avatar crop/scale and cannot support a same-media comparison.
+native_media=load_native_media(MEDIA_SOURCE)
 (ROOT/'requests.log').write_text('')
 assets=[]
 meta=json.loads(re.search(r'<script type="application/json" id="misskey_meta"[^>]*>(.*?)</script>',html,re.S).group(1));meta['uri']=ORIGIN;meta['mediaProxy']=ORIGIN+'/proxy';meta['maintainerEmail']='fixture@example.invalid';meta['maintainerName']='Synthetic'
@@ -68,12 +73,13 @@ class H(http.server.BaseHTTPRequestHandler):
  def do_GET(self):
   p=urllib.parse.urlparse(self.path).path
   if '..' in urllib.parse.unquote(p).split('/') or '\\' in p:return self.out('Invalid path','text/plain',400)
-  if p=='/__health':return self.out(json.dumps({'ready':True,'fixtureSha256':hashlib.sha256(FIXTURE.read_bytes()).hexdigest(),'chatFixtureSha256':hashlib.sha256(CHAT.read_bytes()).hexdigest(),'htmlSha256':hashlib.sha256(HTML.read_bytes()).hexdigest(),'source':'https://bolubo.com/','assets':assets}))
+  if p=='/__health':return self.out(json.dumps({'ready':True,'fixtureSha256':hashlib.sha256(FIXTURE.read_bytes()).hexdigest(),'chatFixtureSha256':hashlib.sha256(CHAT.read_bytes()).hexdigest(),'nativeMediaSourceSha256':hashlib.sha256(MEDIA_SOURCE.read_bytes()).hexdigest(),'nativeMediaSha256':{k:hashlib.sha256(v).hexdigest() for k,v in native_media.items()},'htmlSha256':hashlib.sha256(HTML.read_bytes()).hexdigest(),'source':'https://bolubo.com/','assets':assets}))
   if p=='/capture':return self.out('<!doctype html><style>body{margin:0;background:#ddd}iframe{border:0;width:375px;height:667px;display:block}</style><iframe src="/"></iframe>','text/html')
   if p.startswith('/fixture/'):
-   # Match iOS synthetic 1x1 image fixture; never fetch arbitrary image hosts.
-   import base64
-   return self.out(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='),'image/png')
+   if p=='/fixture/avatar.png':return self.out(native_media['avatar'],'image/png')
+   if p.endswith('.png'):return self.out(native_media['still'],'image/png')
+   if p.endswith('.gif'):return self.out(native_media['finite' if 'finite' in p else 'looping'],'image/gif')
+   return self.out('Unsupported fixture media','text/plain',501)
   if p=='/url':return self.out(json.dumps({'title':'下载 PUBO Android 版','description':'PUBO 官方下载页面','sitename':'bolubo.com','url':ORIGIN+'/download/android','icon':None,'thumbnail':None}))
   if p.startswith(('/vite/','/assets/','/static-assets/','/twemoji/','/fluent-emoji/')) or p in ['/favicon.ico','/apple-touch-icon.png','/manifest.json']:
    key=CACHE/hashlib.sha256(p.encode()).hexdigest()

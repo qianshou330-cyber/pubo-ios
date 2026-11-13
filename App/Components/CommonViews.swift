@@ -21,7 +21,7 @@ struct Avatar: View {
         ZStack {
             #if DEBUG
             if let url = safeMediaURL(user["avatarUrl"].string), url.host == "timeline-fixture.invalid" {
-                PublicAnimatedAsset(url: url).frame(width: size, height: size).clipShape(Circle())
+                PublicAnimatedAsset(url: url, fit: false).frame(width: size, height: size).clipShape(Circle())
             } else {
                 avatarImage
             }

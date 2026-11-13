@@ -226,14 +226,15 @@ struct ChatView: View {
                 }.padding(.horizontal, 12).padding(.vertical, 8)
                     .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
                     .contextMenu { messageMenu(message, own: own) }
-                if message["recalledAt"].isNull && !message["privateAttachmentFallback"].bool {
+                if message["recalledAt"].isNull && !message["privateAttachmentFallback"].bool && !ChatContentPolicy.previewLinks(message.text).isEmpty {
                     ChatMessageLinkPreviews(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.links." + message.id)
                 }
                 HStack(spacing: 6) {
-                    Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id)
+                    if !own { Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id) }
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date) }
                     if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
                     if !message["editedAt"].isNull { Text("已编辑") }
+                    if own { Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id) }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
                     ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }

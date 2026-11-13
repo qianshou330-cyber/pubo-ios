@@ -9,7 +9,12 @@ final class FourTabNavigationUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--reduce-motion"] + flags
         app.launch()
-        XCTAssertTrue(tabButton(app, "消息").waitForExistence(timeout: 20))
+        if flags.contains("--four-tabs-push-chat") {
+            // The approved conversation destination hides the root tab controls.
+            // Require the actual routed editor, not an obsolete root-bar flash.
+            XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 20))
+            XCTAssertTrue(tabButton(app, "消息").waitForNonExistence(timeout: 5))
+        } else { XCTAssertTrue(tabButton(app, "消息").waitForExistence(timeout: 20)) }
         return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
@@ -85,6 +90,16 @@ final class FourTabNavigationUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     private func tap(_ app: XCUIApplication, _ id: String) {
+        if id == "messages.scan" || id == "messages.addUsername" {
+            // These are transient native-menu buttons, not scrollable list rows.
+            // C17 video shows swipeUp dismissed the already-open menu before tap.
+            let item = app.buttons[id]
+            XCTAssertTrue(item.waitForExistence(timeout: 8), id)
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: item)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed, id)
+            item.tap()
+            return
+        }
         let control = element(app, id)
         _ = control.waitForExistence(timeout: 3)
         for _ in 0..<8 where !control.isHittable { app.swipeUp() }
@@ -97,6 +112,15 @@ final class FourTabNavigationUITests: XCTestCase {
         XCTAssertTrue(control.isSelected)
     }
     private func back(_ app: XCUIApplication) { app.navigationBars.buttons.firstMatch.tap() }
+    private func backFromChat(_ app: XCUIApplication) {
+        XCTAssertTrue(app.textViews["chat.input"].exists)
+        XCTAssertTrue(tabButton(app, "消息").waitForNonExistence(timeout: 5))
+        back(app) // real Back, never a test-only navigation reset
+        XCTAssertTrue(app.textViews["chat.input"].waitForNonExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["messages.add"].waitForExistence(timeout: 8))
+        XCTAssertTrue(tabButton(app, "消息").waitForExistence(timeout: 8))
+        XCTAssertTrue(tabButton(app, "消息").isSelected)
+    }
     private func openRequests(_ app: XCUIApplication) {
         tab(app, "好友"); tap(app, "friends.requests")
         XCTAssertTrue(app.segmentedControls["followRequests.direction"].waitForExistence(timeout: 8))
@@ -185,10 +209,14 @@ final class FourTabNavigationUITests: XCTestCase {
         let friend = element(app, "conversation.user:syntheticpeer")
         XCTAssertTrue(friend.waitForExistence(timeout: 10)); friend.tap()
         XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8))
+        backFromChat(app)
         tab(app, "好友"); tap(app, "friends.contacts")
         XCTAssertTrue(app.navigationBars["联系人"].waitForExistence(timeout: 8))
         tab(app, "消息")
+        XCTAssertTrue(app.buttons["messages.add"].waitForExistence(timeout: 8))
+        friend.tap()
         XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8))
+        backFromChat(app)
         tab(app, "好友")
         XCTAssertTrue(app.navigationBars["联系人"].waitForExistence(timeout: 8))
         capture(app, "independent-friend-back-stack")
@@ -198,7 +226,7 @@ final class FourTabNavigationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["创建群聊"].exists)
         XCTAssertTrue(app.staticTexts["PUBO 音乐交流"].waitForExistence(timeout: 8))
         capture(app, "existing-rooms-without-create")
-        tab(app, "消息"); back(app)
+        tab(app, "消息")
         XCTAssertTrue(app.buttons["messages.add"].waitForExistence(timeout: 8))
         app.terminate()
     }
@@ -343,6 +371,7 @@ final class FourTabNavigationUITests: XCTestCase {
         let friend = element(app, "conversation.user:syntheticpeer")
         XCTAssertTrue(friend.waitForExistence(timeout: 10)); friend.tap()
         XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8))
+        backFromChat(app)
         tab(app, "好友"); tap(app, "friends.contacts")
         tab(app, "世界圈"); tap(app, "home.compose")
         let editor = app.textViews["compose.text"]
@@ -378,18 +407,26 @@ final class FourTabNavigationUITests: XCTestCase {
             let app = launch([flag, "--follow-requests-preview"])
             let destination = target == "帖子" ? app.navigationBars["帖子"] : element(app, target)
             XCTAssertTrue(destination.waitForExistence(timeout: 12), flag)
-            XCTAssertTrue(tabButton(app, title).isSelected)
+            if title == "消息" { XCTAssertTrue(tabButton(app, title).waitForNonExistence(timeout: 5)) }
+            else { XCTAssertTrue(tabButton(app, title).isSelected) }
             XCTAssertEqual(app.sheets.count, 0)
             capture(app, "synthetic-route-" + title)
-            tab(app, "我的"); tab(app, title)
-            XCTAssertTrue(destination.waitForExistence(timeout: 8))
+            if title == "消息" {
+                backFromChat(app) // proves the push belonged to the messages stack
+                tab(app, "我的"); tab(app, title)
+                XCTAssertTrue(app.buttons["messages.add"].waitForExistence(timeout: 8))
+            } else {
+                tab(app, "我的"); tab(app, title)
+                XCTAssertTrue(destination.waitForExistence(timeout: 8))
+            }
             app.terminate()
         }
         let cold = launch(["--four-tabs-push-chat", "--four-tabs-push-cold"])
         XCTAssertTrue(cold.textViews["chat.input"].waitForExistence(timeout: 12))
-        XCTAssertTrue(tabButton(cold, "消息").isSelected)
+        XCTAssertTrue(tabButton(cold, "消息").waitForNonExistence(timeout: 5))
         XCTAssertEqual(cold.sheets.count, 0)
-        capture(cold, "synthetic-cold-launch-notice-retained"); cold.terminate()
+        capture(cold, "synthetic-cold-launch-notice-retained")
+        backFromChat(cold); cold.terminate()
         let mismatch = launch(["--four-tabs-push-note", "--four-tabs-push-mismatch"])
         XCTAssertTrue(mismatch.buttons["messages.add"].waitForExistence(timeout: 10))
         XCTAssertTrue(tabButton(mismatch, "消息").isSelected)
