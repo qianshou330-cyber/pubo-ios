@@ -1,5 +1,12 @@
 import XCTest
 
+/// Accept only floating-point representation noise at the required dimension,
+/// not a smaller visual or touch target. At 44 pt the allowance is ~2.84e-14 pt.
+func puboTouchDimensionMeetsMinimum(_ dimension: CGFloat, minimum: CGFloat = 44) -> Bool {
+    dimension.isFinite && minimum.isFinite && minimum > 0 &&
+        dimension >= minimum - minimum.ulp * 4
+}
+
 /// Navigate through actual controls only. Helpers never reset a path or modify
 /// application state; callers retain responsibility for explicit Back actions.
 extension XCTestCase {

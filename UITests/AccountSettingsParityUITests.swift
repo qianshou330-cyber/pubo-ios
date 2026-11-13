@@ -17,24 +17,48 @@ final class AccountSettingsParityUITests: XCTestCase {
         XCTAssertTrue(control.isHittable)
         // Scope native control discovery to the stable identified row.
         if (control.value as? String) != (value ? "1" : "0") {
-            // Resolve the concrete, hittable UISwitch within this exact row.
-            // Candidate 4's failing dark-theme video stayed unchanged, with no
-            // setter event after a coordinate tap. That does not establish a
-            // product binding failure. Wait for an actionable native control
-            // and perform one ordinary tap; do not retry or bypass the UI.
+            // C13's AX tree shows one native Switch directly inside this row.
+            // Global app.switches enumeration instead re-resolved other rows,
+            // including stale indexes, and exhausted the observation budget.
+            // Inspect one row snapshot, then tap only its unique native child.
             var concrete: XCUIElement?
+            let started = ProcessInfo.processInfo.systemUptime
+            var observations: [String] = []
             let actionable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                let row = control.frame
-                concrete = app.switches.allElementsBoundByIndex.first { candidate in
-                    let bounds = candidate.frame
-                    return candidate.identifier.isEmpty && bounds.width > 0 &&
-                        bounds.height > 0 && bounds.width < row.width * 0.5 &&
-                        row.contains(CGPoint(x: bounds.midX, y: bounds.midY)) &&
-                        candidate.isEnabled && candidate.isHittable
+                concrete = nil
+                let probeStarted = ProcessInfo.processInfo.systemUptime
+                var detail = ""
+                defer {
+                    let ended = ProcessInfo.processInfo.systemUptime
+                    observations.append("elapsed=\(ended - started) queryDuration=\(ended - probeStarted) " + detail)
                 }
-                return control.isEnabled && control.isHittable && concrete != nil
-            }, object: app)
+                do {
+                    let row = try control.snapshot()
+                    let switches = row.children.filter { $0.elementType == .switch }
+                    detail = "row=\(row.frame) rowEnabled=\(row.isEnabled) directSwitches=\(switches.count)"
+                    guard switches.count == 1, let native = switches.first else { return false }
+                    let bounds = native.frame
+                    detail += " nativeID=\(native.identifier) native=\(bounds) nativeEnabled=\(native.isEnabled)"
+                    guard row.isEnabled, native.isEnabled, native.identifier.isEmpty,
+                          bounds.width > 0, bounds.height > 0,
+                          bounds.width < row.frame.width * 0.5,
+                          row.frame.contains(bounds) else { return false }
+                    let candidate = control.children(matching: .switch).firstMatch
+                    let rowHittable = control.isHittable
+                    let nativeHittable = candidate.isHittable
+                    detail += " rowHittable=\(rowHittable) nativeHittable=\(nativeHittable)"
+                    guard rowHittable, nativeHittable else { return false }
+                    concrete = candidate
+                    return true
+                } catch {
+                    detail += " snapshotError=\(error)"
+                    return false
+                }
+            }, object: control)
             let ready = XCTWaiter.wait(for: [actionable], timeout: 8)
+            let observation = XCTAttachment(string: "timeout=8 outcome=\(ready.rawValue)\n" + observations.joined(separator: "\n"))
+            observation.name = "privacy-native-switch-observations-" + control.identifier
+            observation.lifetime = .keepAlways; add(observation)
             let rowState = XCTAttachment(string: control.debugDescription)
             rowState.name = "privacy-switch-before-" + control.identifier
             rowState.lifetime = .keepAlways; add(rowState)

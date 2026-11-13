@@ -170,8 +170,23 @@ final class PUBOUITests: XCTestCase {
     private func checkHomeMore(_ app: XCUIApplication, screenshot: String) {
         let more = app.buttons["home.more"]
         XCTAssertTrue(more.isHittable)
-        XCTAssertGreaterThanOrEqual(more.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(more.frame.height, 44)
+        // Native coordinate conversion reported a designed 44 pt as two ULPs
+        // below 44. Preserve the 44 pt contract, allow only representation noise,
+        // and keep true undersized/invalid values as executable negative cases.
+        XCTAssertTrue(puboTouchDimensionMeetsMinimum(44))
+        XCTAssertTrue(puboTouchDimensionMeetsMinimum(CGFloat(44).nextDown.nextDown))
+        let numericalBoundary = CGFloat(44) - CGFloat(44).ulp * 4
+        XCTAssertTrue(puboTouchDimensionMeetsMinimum(numericalBoundary))
+        XCTAssertFalse(puboTouchDimensionMeetsMinimum(numericalBoundary.nextDown))
+        XCTAssertFalse(puboTouchDimensionMeetsMinimum(43.999))
+        XCTAssertFalse(puboTouchDimensionMeetsMinimum(43))
+        XCTAssertFalse(puboTouchDimensionMeetsMinimum(.nan))
+        XCTAssertFalse(puboTouchDimensionMeetsMinimum(.infinity))
+        let frame = more.frame
+        let geometry = XCTAttachment(string: "minimum=44 numericTolerance=\(CGFloat(44).ulp * 4) rawFrame=\(frame)")
+        geometry.name = "home-more-raw-touch-geometry"; geometry.lifetime = .keepAlways; add(geometry)
+        XCTAssertTrue(puboTouchDimensionMeetsMinimum(frame.width), "home.more raw width \(frame.width) must be at least 44 pt")
+        XCTAssertTrue(puboTouchDimensionMeetsMinimum(frame.height), "home.more raw height \(frame.height) must be at least 44 pt")
         more.tap()
         // This is a timeline preference menu, not the account policy menu.
         let preference = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "显示转帖")).firstMatch
