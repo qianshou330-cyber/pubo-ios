@@ -1,7 +1,7 @@
 import XCTest
 
 /// Product geometry assertions, not screenshot-only smoke tests. Both simulator
-/// sizes execute this suite through the existing chat-alignment CI matrix.
+/// sizes execute both disjoint halves through the required presentation matrix.
 final class ChatComposerParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
@@ -25,6 +25,28 @@ final class ChatComposerParityUITests: XCTestCase {
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    private func revealRetry(_ app: XCUIApplication, prefix: String, retry: XCUIElement) {
+        let viewport = app.scrollViews[prefix + ".timeline"]
+        let composer = app.descendants(matching: .any).matching(identifier: prefix + ".composer").firstMatch
+        XCTAssertTrue(viewport.waitForExistence(timeout: 8))
+        XCTAssertTrue(composer.waitForExistence(timeout: 8))
+        func fullyVisible() -> Bool {
+            guard retry.exists else { return false }
+            let frame = retry.frame, bounds = viewport.frame
+            return frame.minX >= bounds.minX && frame.maxX <= bounds.maxX &&
+                frame.minY >= bounds.minY && frame.maxY <= min(bounds.maxY, composer.frame.minY) &&
+                puboTouchDimensionMeetsMinimum(frame.width) && puboTouchDimensionMeetsMinimum(frame.height)
+        }
+        for _ in 0..<5 where !fullyVisible() {
+            if retry.exists && retry.frame.minY < viewport.frame.minY { viewport.swipeDown() }
+            else { viewport.swipeUp() }
+        }
+        let proof = XCTAttachment(string: "retry=\(retry.frame)\nviewport=\(viewport.frame)\ncomposer=\(composer.frame)\n" + app.debugDescription)
+        proof.name = "chat-link-retry-geometry-" + prefix; proof.lifetime = .keepAlways; add(proof)
+        XCTAssertTrue(fullyVisible(), "The complete 44pt retry target must be above the composer, not an AX edge hit point")
+        XCTAssertTrue(retry.isHittable)
     }
 
     private func assertComposer(_ app: XCUIApplication, room: Bool, keyboard: Bool) {
@@ -158,7 +180,8 @@ final class ChatComposerParityUITests: XCTestCase {
             let card = app.buttons[cardID], retry = app.buttons[cardID + ".retry"]
             for _ in 0..<5 where !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 8))
-            XCTAssertTrue(retry.waitForExistence(timeout: 8)); XCTAssertTrue(retry.isHittable)
+            XCTAssertTrue(retry.waitForExistence(timeout: 8))
+            revealRetry(app, prefix: prefix, retry: retry)
             XCTAssertTrue(card.label.contains("https://example.com/pubo-chat-fixture"))
             XCTAssertTrue(card.label.contains("暂时无法预览"))
             capture(app, "chat-link-fallback-" + prefix)

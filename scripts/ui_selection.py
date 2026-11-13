@@ -22,7 +22,28 @@ FOCUSED = [
     'AccountSettingsParityUITests/testAutoAcceptRequiresLockedAccountAndRetainsSelectionInBothThemes',
 ]
 
+# The complete eight-method selection stays available. CI splits it into two
+# disjoint four-method jobs so runner startup cannot consume the whole 30-minute
+# budget before later methods start. Both halves are required for each size.
+PRESENTATION_PARTS = {
+    'chat-presentation-composer': [
+        'testPrivateComposerToolsAndBackRestoreBothThemes',
+        'testRoomComposerToolsAndBackRestoreBothThemes',
+        'testPrivateKeyboardAndDraftSurviveBackBothThemes',
+        'testRoomKeyboardAndDraftSurviveBackBothThemes',
+    ],
+    'chat-presentation-states': [
+        'testInitialLoadingAndEmptyConversationStates',
+        'testInitialFailureHasExplicitRetryAndRecovers',
+        'testRoomSenderNamesRespectSyncedPreference',
+        'testLinkPreviewFailurePreservesDestinationAndRetries',
+    ],
+}
+
 def selection(shard):
+    if shard in PRESENTATION_PARTS:
+        methods = PRESENTATION_PARTS[shard]
+        return len(methods), ['-only-testing:PUBOUITests/ChatComposerParityUITests/' + name for name in methods]
     if shard not in SHARDS:
         raise ValueError('Unknown UI shard: ' + shard)
     count, suites = SHARDS[shard]

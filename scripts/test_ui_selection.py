@@ -1,7 +1,7 @@
 import pathlib
 import re
 import unittest
-from ui_selection import SHARDS, FOCUSED, selection, complete
+from ui_selection import SHARDS, FOCUSED, PRESENTATION_PARTS, selection, complete
 
 class SelectionTests(unittest.TestCase):
     def test_disjoint_complete_original_coverage(self):
@@ -81,6 +81,34 @@ class SelectionTests(unittest.TestCase):
         candidate = workflow.split('  candidate-package:', 1)[1]
         self.assertIn('    needs: checks', candidate)
         self.assertIn('QA-INCOMPLETE', candidate)
+
+    def test_presentation_halves_are_disjoint_complete_and_both_required(self):
+        source = (pathlib.Path(__file__).resolve().parents[1] / 'UITests/ChatComposerParityUITests.swift').read_text()
+        original = set(re.findall(r'^\s+func (test\w+)\(', source, re.M))
+        self.assertEqual(len(original), 8)
+        self.assertEqual(set(PRESENTATION_PARTS), {'chat-presentation-composer', 'chat-presentation-states'})
+        methods = [method for group in PRESENTATION_PARTS.values() for method in group]
+        self.assertEqual(len(methods), 8)
+        self.assertEqual(len(methods), len(set(methods)))
+        self.assertEqual(set(methods), original)
+        for part, names in PRESENTATION_PARTS.items():
+            self.assertEqual(len(names), 4)
+            self.assertEqual(selection(part), (4, ['-only-testing:PUBOUITests/ChatComposerParityUITests/' + name for name in names]))
+            self.assertFalse(complete(dict(passedTests=3, failedTests=0, skippedTests=1, expectedFailures=0), 4))
+        root = pathlib.Path(__file__).resolve().parents[1]
+        workflow = (root / '.github/workflows/four-tabs.yml').read_text()
+        job = workflow.split('  chat-presentation:\n', 1)[1].split('  h5-chat-reference:\n', 1)[0]
+        for required in ['size: [small, large]', 'part: [composer, states]', 'fail-fast: false',
+                         "PUBO_UI_SHARD: 'chat-presentation-${{ matrix.part }}'", 'timeout-minutes: 65',
+                         'four-tabs-chat-presentation-${{ matrix.size }}-${{ matrix.part }}-${{ github.sha }}']:
+            self.assertIn(required, job)
+        package = workflow.split('  package:\n', 1)[1].split('  candidate-package:', 1)[0]
+        self.assertIn('needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference]', package)
+        self.assertNotIn('continue-on-error', job)
+        self.assertNotIn('skip-testing', job)
+        runner = (root / 'scripts/simulator-tests.py').read_text()
+        self.assertIn('if elapsed >= 1800:', runner)
+        self.assertIn('if not complete(gate, expected):', runner)
 
     def test_h5_chat_reference_is_independent_and_retains_failures(self):
         workflow = (pathlib.Path(__file__).resolve().parents[1] / '.github/workflows/four-tabs.yml').read_text()

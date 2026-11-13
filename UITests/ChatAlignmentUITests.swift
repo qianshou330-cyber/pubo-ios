@@ -10,6 +10,28 @@ final class ChatAlignmentUITests: XCTestCase {
     private func capture(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)
     }
+    private func assertRoomInsets(_ app: XCUIApplication, firstRowAtTop: Bool, stage: String) {
+        let viewport = app.scrollViews["room.timeline"]
+        let avatar = app.buttons["room.avatar.room0001"]
+        let composer = app.descendants(matching: .any).matching(identifier: "room.composer").firstMatch
+        XCTAssertTrue(viewport.waitForExistence(timeout: 6))
+        XCTAssertTrue(avatar.waitForExistence(timeout: 6))
+        XCTAssertTrue(composer.waitForExistence(timeout: 6))
+        // This fixed three-message fixture fits even the small ordinary-text
+        // viewport. Do not infer content insets from an offscreen lazy row.
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let row = avatar.frame, visible = viewport.frame
+            guard puboTouchDimensionMeetsMinimum(row.width), puboTouchDimensionMeetsMinimum(row.height),
+                  abs(row.minX - visible.minX - 16) <= 1,
+                  row.minY >= visible.minY,
+                  row.maxY <= min(visible.maxY, composer.frame.minY) else { return false }
+            return !firstRowAtTop || abs(row.minY - visible.minY - 16) <= 1
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [settled], timeout: 8)
+        let geometry = XCTAttachment(string: "stage=\(stage)\nviewport=\(viewport.frame)\navatar=\(avatar.frame)\ncomposer=\(composer.frame)\n" + app.debugDescription)
+        geometry.name = "chat-room-insets-" + stage; geometry.lifetime = .keepAlways; add(geometry)
+        XCTAssertEqual(result, .completed, "Group insets must remain stable during " + stage)
+    }
     private func room(_ app: XCUIApplication) {
         let row = app.buttons["conversation.room:socialroom"]
         for _ in 0..<4 where !row.isHittable { app.swipeUp() }
@@ -56,15 +78,23 @@ final class ChatAlignmentUITests: XCTestCase {
     func testGroupSearchExactMessageReportAndMenuBothThemes() {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light", app = launch(dark ? ["--dark"] : []); room(app)
-            XCTAssertTrue(app.staticTexts["日期 11/3 · 11/4"].waitForExistence(timeout: 6)); capture(app, "chat-room-" + theme)
+            XCTAssertTrue(app.staticTexts["日期 11/3 · 11/4"].waitForExistence(timeout: 6))
+            assertRoomInsets(app, firstRowAtTop: true, stage: "initial-" + theme)
+            capture(app, "chat-room-" + theme)
             app.buttons["room.tab.search"].tap(); let input = app.textFields["chat.search.query"]; XCTAssertTrue(input.waitForExistence(timeout: 6)); input.tap(); input.typeText("欢迎")
             let found = app.staticTexts["欢迎来到音乐交流群。"]; XCTAssertTrue(found.waitForExistence(timeout: 6)); capture(app, "chat-room-search-" + theme); found.tap()
             XCTAssertTrue(app.buttons["回到最新消息"].waitForExistence(timeout: 6))
-            let bubble = app.descendants(matching: .any).matching(identifier: "room.bubble.room0001").firstMatch; XCTAssertTrue(bubble.waitForExistence(timeout: 6)); capture(app, "chat-room-context-" + theme)
+            let bubble = app.descendants(matching: .any).matching(identifier: "room.bubble.room0001").firstMatch; XCTAssertTrue(bubble.waitForExistence(timeout: 6))
+            assertRoomInsets(app, firstRowAtTop: false, stage: "context-" + theme)
+            capture(app, "chat-room-context-" + theme)
             bubble.press(forDuration: 1); XCTAssertTrue(app.buttons["举报"].waitForExistence(timeout: 5)); capture(app, "chat-room-menu-" + theme); app.buttons["举报"].tap()
             let reason = app.textViews["report.reason"]; XCTAssertTrue(reason.waitForExistence(timeout: 5)); XCTAssertTrue((reason.value as? String)?.contains("/chat/messages/room0001") == true)
             XCTAssertFalse((reason.value as? String)?.contains("欢迎来到音乐交流群") == true); capture(app, "chat-room-report-" + theme); app.buttons["取消"].tap()
-            app.buttons["回到最新消息"].tap(); app.buttons["room.tab.members"].tap(); XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5)); capture(app, "chat-room-members-" + theme)
+            app.buttons["回到最新消息"].tap()
+            XCTAssertTrue(app.buttons["回到最新消息"].waitForNonExistence(timeout: 6))
+            assertRoomInsets(app, firstRowAtTop: true, stage: "latest-" + theme)
+            capture(app, "chat-room-latest-" + theme)
+            app.buttons["room.tab.members"].tap(); XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5)); capture(app, "chat-room-members-" + theme)
             app.buttons["room.tab.about"].tap(); XCTAssertTrue(app.staticTexts["一起分享音乐和日常。"].waitForExistence(timeout: 5)); capture(app, "chat-room-about-" + theme)
             app.terminate()
         }

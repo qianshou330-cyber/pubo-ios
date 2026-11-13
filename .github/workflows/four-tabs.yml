@@ -163,12 +163,13 @@ jobs:
           retention-days: 14
           if-no-files-found: error
   chat-presentation:
-    # New presentation methods run independently; the original nine stay intact.
+    # Required disjoint 4+4 methods per size; original eight and 30-minute budget stay intact.
     needs: checks
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
+        part: [composer, states]
     runs-on: macos-15-intel
     timeout-minutes: 65
     steps:
@@ -181,10 +182,10 @@ jobs:
           xcodegen generate
       - name: Compile Debug app and all UI test sources
         run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
-      - name: Eight chat presentation tests with strict count gate and 30-minute test budget
+      - name: Four chat presentation methods in one required half, strict count and 30-minute budget
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_SHARD: 'chat-presentation'
+          PUBO_UI_SHARD: 'chat-presentation-${{ matrix.part }}'
           PUBO_PREBUILT_TESTS: '1'
         run: |
           set -o pipefail
@@ -192,7 +193,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: four-tabs-chat-presentation-${{ matrix.size }}-${{ github.sha }}
+          name: four-tabs-chat-presentation-${{ matrix.size }}-${{ matrix.part }}-${{ github.sha }}
           path: |
             build/*.json
             build/chat-presentation-tests.log

@@ -100,10 +100,19 @@ private struct ChatLinkPreviewCard: View {
                     .contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityIdentifier(identifier)
             if failed {
-                Button("重试链接预览") { retry += 1 }.font(.caption).frame(minHeight: 44)
+                Button {
+                    retry += 1
+                    #if DEBUG
+                    if session.testMode { print("[ChatPreview] retry action accepted; attempt=\(retry)") }
+                    #endif
+                } label: {
+                    Text("重试链接预览").font(.caption)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain)
                     .accessibilityIdentifier(identifier + ".retry")
             }
-        }.overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider))
+        }.overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider).allowsHitTesting(false))
             .background(GeometryReader { geometry in
                 Color.clear.onAppear { visible = geometry.frame(in: .global).intersects(UIScreen.main.bounds) }
                     .onChange(of: geometry.frame(in: .global)) { _, frame in visible = frame.intersects(UIScreen.main.bounds) }
@@ -114,10 +123,16 @@ private struct ChatLinkPreviewCard: View {
                 guard enabled, metadata == nil else { return }
                 loading = true
                 defer { loading = false }
+                #if DEBUG
+                if session.testMode { print("[ChatPreview] fetch started; attempt=\(retry)") }
+                #endif
                 do {
                     let value = try await fetch()
                     guard !Task.isCancelled, epoch == session.generation else { return }
                     metadata = value; failed = false
+                    #if DEBUG
+                    if session.testMode { print("[ChatPreview] metadata published; attempt=\(retry)") }
+                    #endif
                 } catch {
                     guard !Task.isCancelled, epoch == session.generation else { return }
                     failed = true

@@ -17,7 +17,12 @@ extension XCTestCase {
     func puboSelectTab(_ app: XCUIApplication, _ title: String, file: StaticString = #filePath, line: UInt = #line) {
         let button = puboTab(app, title)
         XCTAssertTrue(button.waitForExistence(timeout: 20), title, file: file, line: line)
-        XCTAssertTrue(button.isHittable, title, file: file, line: line)
+        let started = Date()
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: button)
+        let result = XCTWaiter.wait(for: [ready], timeout: 8)
+        print("PUBO tab ready wait \(title): \(Date().timeIntervalSince(started))s, result=\(result.rawValue)")
+        XCTAssertEqual(result, .completed, title, file: file, line: line)
+        guard result == .completed else { return }
         button.tap()
         XCTAssertTrue(button.isSelected, title, file: file, line: line)
     }

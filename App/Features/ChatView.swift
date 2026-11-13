@@ -85,7 +85,7 @@ struct ChatView: View {
     }
     private var messageScroll: some View {
         GeometryReader { viewport in
-                ScrollView { messageList }.scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
+                ScrollView { messageList }.accessibilityIdentifier("chat.timeline").scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in
                         if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") }
