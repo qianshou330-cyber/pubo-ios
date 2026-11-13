@@ -58,20 +58,24 @@ final class FourTabNavigationUITests: XCTestCase {
         let bar = element(app, "app.tabBar")
         XCTAssertTrue(bar.waitForExistence(timeout: 8))
         let frame = bar.frame
+        // AX includes the opaque background through the home-indicator inset.
+        // Measure controls independently; save evidence before any failing check.
+        let evidence = XCTAttachment(string: "window=\(window)\nbar=\(frame)\n\(app.debugDescription)")
+        evidence.name = "four-tabs-bottom-safe-area-geometry"; evidence.lifetime = .keepAlways; add(evidence)
+        capture(app, "bottom-safe-area-before-assertions")
         XCTAssertEqual(frame.minX, window.minX, accuracy: 1)
         XCTAssertEqual(frame.width, window.width, accuracy: 1)
         let expectedBottom: CGFloat = window.height < 750 ? 0 : 34
-        XCTAssertEqual(window.maxY - frame.maxY, expectedBottom, accuracy: 2)
+        XCTAssertEqual(frame.maxY, window.maxY, accuracy: 1, "Opaque bar background must reach the screen bottom")
         for (index, title) in ["消息", "好友", "世界圈", "我的"].enumerated() {
             let button = tabButton(app, title)
             XCTAssertTrue(button.isHittable, title)
             XCTAssertGreaterThanOrEqual(button.frame.height, 44)
             XCTAssertEqual(button.frame.width, window.width / 4, accuracy: 1)
             XCTAssertEqual(button.frame.midX, window.minX + (CGFloat(index) + 0.5) * window.width / 4, accuracy: 1)
-            XCTAssertLessThanOrEqual(button.frame.maxY, frame.maxY + 1)
+            XCTAssertEqual(window.maxY - button.frame.maxY, expectedBottom, accuracy: 2, "Controls must stay above the home indicator")
+            XCTAssertEqual(button.frame.minY, frame.minY, accuracy: 1)
         }
-        let evidence = XCTAttachment(string: "window=\(window)\nbar=\(frame)\nexpectedHomeIndicatorInset=\(expectedBottom)\n\(app.debugDescription)")
-        evidence.name = "four-tabs-bottom-safe-area-geometry"; evidence.lifetime = .keepAlways; add(evidence)
     }
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
@@ -144,7 +148,8 @@ final class FourTabNavigationUITests: XCTestCase {
         capture(app, "username-keyboard-no-floating-bar")
         tap(app, "addFriend.search")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
-        assertBottomBarGeometry(app)
+        // Username search is a modal sheet: the underlying bar must not be
+        // required to accept taps through it. Verify recovery after real Close.
         let result = element(app, "addFriend.result.syntheticpeer")
         XCTAssertTrue(result.waitForExistence(timeout: 8)); capture(app, "username-search-results")
         result.tap()
@@ -152,6 +157,11 @@ final class FourTabNavigationUITests: XCTestCase {
         // Merely searching/opening a profile must not submit a follow request.
         XCTAssertTrue(app.buttons["profile.follow"].waitForExistence(timeout: 8))
         back(app); XCTAssertTrue(field.waitForExistence(timeout: 5))
+        tap(app, "addFriend.close")
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        assertBottomBarGeometry(app)
+        tab(app, "好友"); tab(app, "消息")
+        capture(app, "username-closed-bottom-bar-restored")
         app.terminate()
     }
 
@@ -266,7 +276,14 @@ final class FourTabNavigationUITests: XCTestCase {
         tab(app, "好友")
         XCTAssertTrue(element(app, "friends.loading").waitForExistence(timeout: 5))
         capture(app, "friends-loading-request-pending")
-        app.swipeDown()
+        // C6's short generic swipe only stretched the list about 30pt, below
+        // UIRefreshControl's activation distance. Perform one ordinary long
+        // downward drag in the real list, not a fixture/state shortcut.
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).press(forDuration: 0.1,
+            thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)))
+        capture(app, "friends-real-pull-refresh")
         XCTAssertTrue(app.staticTexts["测试朋友"].waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "friends.loading").waitForNonExistence(timeout: 5))
         capture(app, "friends-loading-released-by-real-refresh"); app.terminate()

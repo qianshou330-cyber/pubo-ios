@@ -95,26 +95,37 @@ func readTabBadge(app: XCUIApplication, tab: XCUIElement) -> TabBadgeReading {
     }
     var minX = [Int](repeating: w, count: h), maxX = [Int](repeating: -1, count: h)
     for i in component { let y = i / w; minX[y] = min(minX[y], i % w); maxX[y] = max(maxX[y], i % w) }
-    let margin = 8, zoom = 4
-    let outW = (bw + 2 * margin) * zoom, outH = (bh + 2 * margin) * zoom
-    var output = [UInt8](repeating: 255, count: outW * outH), ink = 0
+    // Keep only observed white ink. Normalize its height rather than leaving
+    // 2x-device glyphs smaller than 3x-device glyphs for Vision's detector.
+    var ink = [(x: Int, y: Int)]()
     for y in top...bottom where minX[y] < maxX[y] {
         for x in minX[y]...maxX[y] {
             let p = (y * w + x) * 4
-            guard pixels[p] >= 145, pixels[p + 1] >= 145, pixels[p + 2] >= 150 else { continue }
-            ink += 1
-            for dy in 0..<zoom {
-                let start = ((y - top + margin) * zoom + dy) * outW + (x - left + margin) * zoom
-                for dx in 0..<zoom { output[start + dx] = 0 }
-            }
+            if pixels[p] >= 145, pixels[p + 1] >= 145, pixels[p + 2] >= 150 { ink.append((x, y)) }
         }
     }
-    guard ink > 0, let provider = CGDataProvider(data: Data(output) as CFData),
+    guard let inkLeft = ink.map({ $0.x }).min(), let inkRight = ink.map({ $0.x }).max(),
+          let inkTop = ink.map({ $0.y }).min(), let inkBottom = ink.map({ $0.y }).max() else {
+        result.failureReason = "No white glyphs"; return result
+    }
+    let zoom = max(1, Int(ceil(128.0 / Double(inkBottom - inkTop + 1))))
+    let margin = 32
+    let outW = (inkRight - inkLeft + 1) * zoom + 2 * margin
+    let outH = (inkBottom - inkTop + 1) * zoom + 2 * margin
+    var output = [UInt8](repeating: 255, count: outW * outH)
+    for pixel in ink {
+        for dy in 0..<zoom {
+            let start = ((pixel.y - inkTop) * zoom + margin + dy) * outW + (pixel.x - inkLeft) * zoom + margin
+            for dx in 0..<zoom { output[start + dx] = 0 }
+        }
+    }
+    result.readings.append("inkBounds=\(inkLeft),\(inkTop),\(inkRight),\(inkBottom); normalizedZoom=\(zoom)")
+    guard let provider = CGDataProvider(data: Data(output) as CFData),
           let digits = CGImage(width: outW, height: outH, bitsPerComponent: 8, bitsPerPixel: 8,
                                bytesPerRow: outW, space: CGColorSpaceCreateDeviceGray(),
                                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
                                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) else {
-        result.failureReason = "No white glyphs"; return result
+        result.failureReason = "Cannot build observed glyph image"; return result
     }
     result.extractedDigits = UIImage(cgImage: digits)
     let request = VNRecognizeTextRequest()
