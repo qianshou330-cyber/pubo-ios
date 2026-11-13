@@ -19,9 +19,6 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           set -o pipefail
           mkdir -p build
-          brew install tesseract
-          python3 scripts/setup-badge-ocr.py
-          python3 scripts/check-badge-ocr-corpus.py
           swift test 2>&1 | tee build/core-tests.log
           python3 -m unittest discover -s scripts -p 'test_*.py' -v 2>&1 | tee build/script-tests.log
       - name: Preserve exact revision
@@ -37,8 +34,24 @@ jobs:
             build/source-sha.txt
             build/core-tests.log
             build/script-tests.log
-            build/badge-ocr-corpus-results.json
-            build/badge-ocr-setup.json
+  ocr-validation:
+    needs: checks
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned OCR identity and all 189 controls, no relaxed expected results
+        run: |
+          brew install tesseract
+          python3 scripts/setup-badge-ocr.py
+          python3 scripts/check-badge-ocr-corpus.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: four-tabs-ocr-validation-${{ github.sha }}
+          path: build/badge-ocr-*.json
+          retention-days: 14
+          if-no-files-found: error
   navigation:
     needs: checks
     strategy:
@@ -74,7 +87,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
   package:
-    needs: [checks, navigation]
+    needs: [checks, ocr-validation, navigation]
     runs-on: macos-15-intel
     timeout-minutes: 30
     steps:
@@ -99,6 +112,61 @@ jobs:
           path: |
             build/unsigned/
             build/device-package.json
+            build/source-sha.txt
+          retention-days: 14
+          if-no-files-found: error
+
+  candidate-package:
+    # Requested trial build, explicitly not the all-gates-passed artifact above.
+    # Core checks and actual Release/device packaging must still succeed.
+    needs: checks
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare fixed build tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Release simulator compile
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/release CODE_SIGNING_ALLOWED=NO build
+      - name: Real iPhoneOS arm64 unsigned package, never a renamed simulator app
+        run: |
+          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          python3 scripts/package-device.py
+          git rev-parse HEAD > build/source-sha.txt
+      - name: Label trial package as QA incomplete, never a validation pass
+        run: |
+          python3 - <<'PYCODE'
+          import json, os
+          from pathlib import Path
+          package = json.loads(Path('build/device-package.json').read_text())
+          assert package['status'] == 'PASS' and package['commit'] == os.environ['GITHUB_SHA']
+          report = {
+              'artifactKind': 'UNSIGNED_TRIAL_CANDIDATE',
+              'overallQA': 'INCOMPLETE',
+              'sourceCommit': os.environ['GITHUB_SHA'],
+              'workflowRun': 'https://github.com/' + os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID'],
+              'packageValidation': 'PASS',
+              'coreChecks': 'PASS',
+              'requiresSigningBeforeInstallation': True,
+              'notCertifiedByThisArtifact': ['OCR corpus gate', 'current iOS UI and three-phase pixel gates', 'full legacy regression', 'real camera', 'APNs', 'minimum iOS17', 'signed install and upgrade'],
+              'knownPriorBlocker': 'C10 Mac OCR corpus rejected three correct-text controls below the unchanged confidence80 threshold; do not call this all-QA-passed.',
+          }
+          Path('build/candidate-status.json').write_text(json.dumps(report, indent=2) + '\n')
+          Path('build/CANDIDATE-NOT-FULLY-VERIFIED.txt').write_text('Unsigned trial candidate. Package structure and core checks passed. This is NOT an all-QA-passed release. See candidate-status.json and the workflow results. Requires your own signing before installation. Real device camera, APNs, signed installation and upgrade have NOT been verified.\n')
+          PYCODE
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: four-tabs-candidate-QA-INCOMPLETE-${{ github.sha }}
+          path: |
+            build/unsigned/
+            build/device-package.json
+            build/candidate-status.json
+            build/CANDIDATE-NOT-FULLY-VERIFIED.txt
             build/source-sha.txt
           retention-days: 14
           if-no-files-found: error
