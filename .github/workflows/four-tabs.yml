@@ -50,8 +50,8 @@ jobs:
           brew install xcodegen
           swift scripts/brand-assets.swift
           xcodegen generate
-      - name: Compile Debug simulator before starting device
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO build
+      - name: Compile Debug app and UI test bundle before starting device
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
       - name: Four-tab synthetic UI and real simulator screenshots
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}

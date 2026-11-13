@@ -16,14 +16,16 @@ struct PUBOApp: App {
                 else if session.user == nil { AuthView() }
                 else {
                     TabView(selection: $session.selectedTab) {
-                        ChatListView().tabItem { Label("消息", systemImage: "bubble.left.and.bubble.right") }.badge(session.badges.chatLabel).tag(AppTab.messages)
-                        FriendsView().tabItem { Label("好友", systemImage: "person.2") }.badge(session.pendingFollowRequestBadge).tag(AppTab.friends)
-                        TimelineView().tabItem { Label("世界圈", systemImage: "globe") }.tag(AppTab.world)
+                        ChatListView().tabItem { Label("消息", systemImage: "bubble.left.and.bubble.right") }.toolbar(.hidden, for: .tabBar).tag(AppTab.messages)
+                        FriendsView().tabItem { Label("好友", systemImage: "person.2") }.toolbar(.hidden, for: .tabBar).tag(AppTab.friends)
+                        TimelineView().tabItem { Label("世界圈", systemImage: "globe") }.toolbar(.hidden, for: .tabBar).tag(AppTab.world)
                         MyAccountView().tabItem {
                             if let profileTabAvatar { Image(uiImage: profileTabAvatar).renderingMode(.original); Text("我的") }
                             else { Label("我的", systemImage: "person.crop.circle") }
-                        }.badge(session.badges.notificationLabel).tag(AppTab.me)
-                    }.id(session.generation).toolbarBackground(PUBOTheme.panel, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
+                        }.toolbar(.hidden, for: .tabBar).tag(AppTab.me)
+                    }.toolbar(.hidden, for: .tabBar)
+                        .id(session.generation)
+                        .modifier(BottomTabBarInset(profileAvatar: profileTabAvatar))
                 }
             }.environment(session).tint(PUBOTheme.accent).foregroundStyle(PUBOTheme.text)
                 .environment(\.locale, Locale(identifier: "zh_CN"))

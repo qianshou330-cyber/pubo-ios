@@ -53,7 +53,7 @@ try:
     command = ['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
         '-destination', 'platform=iOS Simulator,id=' + identifier, '-destination-timeout', '90',
         '-derivedDataPath', 'build/debug', '-resultBundlePath', str(bundle), '-parallel-testing-enabled', 'NO',
-        '-only-testing:PUBOUITests/' + SUITE, 'CODE_SIGNING_ALLOWED=NO', 'test']
+        '-only-testing:PUBOUITests/' + SUITE, 'CODE_SIGNING_ALLOWED=NO', 'test-without-building']
     process = subprocess.Popen(command, start_new_session=True)
     exit_code = process.wait(timeout=2700)
     result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)],

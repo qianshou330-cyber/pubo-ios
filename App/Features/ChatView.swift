@@ -103,7 +103,7 @@ struct ChatView: View {
             }
         }
             .puboScreen().navigationTitle(peer.displayName)
-            .toolbar(.visible, for: .tabBar)
+            .toolbar(.hidden, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .principal) { HStack(spacing: 8) { Avatar(user: peer, size: 32); Text(peer.displayName).font(.headline).lineLimit(1) } }
                 ToolbarItem(placement: .topBarTrailing) { Menu {

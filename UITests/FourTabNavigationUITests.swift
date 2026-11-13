@@ -9,33 +9,69 @@ final class FourTabNavigationUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--reduce-motion"] + flags
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["消息"].waitForExistence(timeout: 20))
+        XCTAssertTrue(tabButton(app, "消息").waitForExistence(timeout: 20))
         return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "four-tabs-" + name; shot.lifetime = .keepAlways; add(shot)
     }
-    private func waitForText(_ field: XCUIElement, _ expected: String) {
-        // UIKit may still be committing the one synthesized input sequence when
-        // typeText returns. Never retype, truncate or accept a partial draft.
-        let complete = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: field)
-        XCTAssertEqual(XCTWaiter.wait(for: [complete], timeout: 10), .completed)
+    private func waitForText(_ app: XCUIApplication, _ id: String, _ expected: String) {
+        // Each poll resolves a fresh actual editor. No retyping or partial value
+        // acceptance; attach timing only after the single bounded wait.
+        let started = ProcessInfo.processInfo.systemUptime
+        let complete = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.textViews[id].value as? String == expected
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [complete], timeout: 10)
+        let ended = ProcessInfo.processInfo.systemUptime
+        let actual = app.textViews[id].value as? String ?? "<nil>"
+        let evidence = XCTAttachment(string: "start=\(started)\nend=\(ended)\nduration=\(ended-started)\nactualLength=\(actual.count)\nactual=\(actual)")
+        evidence.name = "four-tabs-input-completion"; evidence.lifetime = .keepAlways; add(evidence)
+        XCTAssertEqual(result, .completed)
+        XCTAssertEqual(actual, expected)
     }
     private func assertChatBadge(_ app: XCUIApplication, count: String) {
-        let messages = app.tabBars.buttons["消息"]
-        let expected = "(?<![0-9])" + NSRegularExpression.escapedPattern(for: count) + "(?![0-9])"
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            // UIKit can put the badge in the item label or a child instead of
-            // value, which may describe selection. Still require the real 2.
-            messages.label.range(of: expected, options: .regularExpression) != nil ||
-                messages.staticTexts[count].exists || (messages.value as? String) == count
+            (self.tabButton(app, "消息").value as? String) == count + " 条未读聊天"
         }, object: nil)
+        // Unread is asynchronous. Wait for real model-backed accessibility data,
+        // then independently read rendered pixels once, never supply OCR an expected digit.
         let result = XCTWaiter.wait(for: [ready], timeout: 10)
+        let messages = tabButton(app, "消息")
         let tree = XCTAttachment(string: "label=\(messages.label)\nvalue=\(String(describing: messages.value))\n\(app.debugDescription)")
         tree.name = "four-tabs-chat-badge-accessibility"; tree.lifetime = .keepAlways; add(tree)
         capture(app, "chat-badge-expected-" + count)
         XCTAssertEqual(result, .completed)
+        let reading = readTabBadge(app: app, tab: messages)
+        XCTContext.runActivity(named: "Independent rendered chat badge OCR") {
+            reading.attach(to: $0, name: "four-tabs-chat-badge")
+        }
+        XCTAssertEqual(reading.recognizedText, count, reading.failureReason ?? reading.readings.joined(separator: "\n"))
+    }
+    private func tabButton(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        let ids = ["消息": "messages", "好友": "friends", "世界圈": "world", "我的": "me"]
+        return app.buttons["app.tab." + ids[title]!]
+    }
+    private func assertBottomBarGeometry(_ app: XCUIApplication) {
+        let window = app.windows.firstMatch.frame
+        let bar = element(app, "app.tabBar")
+        XCTAssertTrue(bar.waitForExistence(timeout: 8))
+        let frame = bar.frame
+        XCTAssertEqual(frame.minX, window.minX, accuracy: 1)
+        XCTAssertEqual(frame.width, window.width, accuracy: 1)
+        let expectedBottom: CGFloat = window.height < 750 ? 0 : 34
+        XCTAssertEqual(window.maxY - frame.maxY, expectedBottom, accuracy: 2)
+        for (index, title) in ["消息", "好友", "世界圈", "我的"].enumerated() {
+            let button = tabButton(app, title)
+            XCTAssertTrue(button.isHittable, title)
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+            XCTAssertEqual(button.frame.width, window.width / 4, accuracy: 1)
+            XCTAssertEqual(button.frame.midX, window.minX + (CGFloat(index) + 0.5) * window.width / 4, accuracy: 1)
+            XCTAssertLessThanOrEqual(button.frame.maxY, frame.maxY + 1)
+        }
+        let evidence = XCTAttachment(string: "window=\(window)\nbar=\(frame)\nexpectedHomeIndicatorInset=\(expectedBottom)\n\(app.debugDescription)")
+        evidence.name = "four-tabs-bottom-safe-area-geometry"; evidence.lifetime = .keepAlways; add(evidence)
     }
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
@@ -48,7 +84,7 @@ final class FourTabNavigationUITests: XCTestCase {
         XCTAssertTrue(control.isHittable, id); control.tap()
     }
     private func tab(_ app: XCUIApplication, _ title: String) {
-        let control = app.tabBars.buttons[title]
+        let control = tabButton(app, title)
         XCTAssertTrue(control.waitForExistence(timeout: 8)); control.tap()
         XCTAssertTrue(control.isSelected)
     }
@@ -61,8 +97,8 @@ final class FourTabNavigationUITests: XCTestCase {
     func testFourRootsAndExclusiveComposerInBothThemes() {
         for dark in [false, true] {
             let app = launch(["--social-align", "--timeline-align", "--gif-preview"] + (dark ? ["--dark"] : []))
-            XCTAssertEqual(app.tabBars.buttons.count, 4)
-            XCTAssertTrue(app.tabBars.buttons["消息"].isSelected)
+            XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "app.tab.")).count, 4)
+            XCTAssertTrue(tabButton(app, "消息").isSelected)
             for title in ["消息", "好友", "世界圈", "我的"] {
                 tab(app, title)
                 if title == "世界圈" {
@@ -71,6 +107,7 @@ final class FourTabNavigationUITests: XCTestCase {
                     XCTAssertTrue(app.buttons["world.following"].exists)
                     XCTAssertFalse(app.buttons["附近"].exists)
                 } else { XCTAssertFalse(app.buttons["home.compose"].exists) }
+                assertBottomBarGeometry(app)
                 capture(app, title + (dark ? "-dark" : "-light"))
             }
             app.terminate()
@@ -82,7 +119,7 @@ final class FourTabNavigationUITests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--logged-out", "--reduce-motion"]
         app.launch()
         XCTAssertTrue(app.buttons["auth.openLogin"].waitForExistence(timeout: 15))
-        XCTAssertFalse(app.tabBars.firstMatch.exists)
+        XCTAssertFalse(element(app, "app.tabBar").exists)
         let chart = app.buttons["home.chartDetail"]
         for _ in 0..<8 where !chart.isHittable { app.swipeUp() }
         XCTAssertTrue(chart.waitForExistence(timeout: 10))
@@ -103,8 +140,11 @@ final class FourTabNavigationUITests: XCTestCase {
         let field = app.textFields["addFriend.username"]
         XCTAssertTrue(field.waitForExistence(timeout: 8)); field.tap(); field.typeText("friend")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "app.tabBar").waitForNonExistence(timeout: 5))
+        capture(app, "username-keyboard-no-floating-bar")
         tap(app, "addFriend.search")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        assertBottomBarGeometry(app)
         let result = element(app, "addFriend.result.syntheticpeer")
         XCTAssertTrue(result.waitForExistence(timeout: 8)); capture(app, "username-search-results")
         result.tap()
@@ -153,8 +193,10 @@ final class FourTabNavigationUITests: XCTestCase {
         let app = launch(["--four-tabs-drafts"])
         tab(app, "世界圈"); tap(app, "home.compose")
         let editor = app.textViews["compose.text"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 8)); editor.tap(); editor.typeText("Unsent four tab draft")
-        waitForText(editor, "Unsent four tab draft")
+        XCTAssertTrue(editor.waitForExistence(timeout: 8)); editor.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        editor.typeText("Unsent four tab draft")
+        waitForText(app, "compose.text", "Unsent four tab draft")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         capture(app, "compose-keyboard")
         tap(app, "compose.close")
@@ -220,10 +262,14 @@ final class FourTabNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["关系用户 031"].waitForExistence(timeout: 10))
         XCTAssertFalse(retry.exists)
         capture(app, "friends-retry-recovered"); app.terminate()
-        app = launch(["--four-tabs-friends-slow"])
+        app = launch(["--four-tabs-friends-hold"])
         tab(app, "好友")
         XCTAssertTrue(element(app, "friends.loading").waitForExistence(timeout: 5))
-        capture(app, "friends-loading"); app.terminate()
+        capture(app, "friends-loading-request-pending")
+        app.swipeDown()
+        XCTAssertTrue(app.staticTexts["测试朋友"].waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "friends.loading").waitForNonExistence(timeout: 5))
+        capture(app, "friends-loading-released-by-real-refresh"); app.terminate()
         app = launch(["--four-tabs-messages-empty"])
         XCTAssertTrue(element(app, "messages.empty").waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["messages.retry"].exists)
@@ -278,8 +324,10 @@ final class FourTabNavigationUITests: XCTestCase {
         tab(app, "好友"); tap(app, "friends.contacts")
         tab(app, "世界圈"); tap(app, "home.compose")
         let editor = app.textViews["compose.text"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 8)); editor.tap(); editor.typeText("Account A private draft")
-        waitForText(editor, "Account A private draft")
+        XCTAssertTrue(editor.waitForExistence(timeout: 8)); editor.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        editor.typeText("Account A private draft")
+        waitForText(app, "compose.text", "Account A private draft")
         tap(app, "compose.close"); tap(app, "world.more")
         tab(app, "我的"); tap(app, "me.accounts"); tap(app, "accounts.select.syntheticsecond")
         tab(app, "我的")
@@ -308,7 +356,7 @@ final class FourTabNavigationUITests: XCTestCase {
             let app = launch([flag, "--follow-requests-preview"])
             let destination = target == "帖子" ? app.navigationBars["帖子"] : element(app, target)
             XCTAssertTrue(destination.waitForExistence(timeout: 12), flag)
-            XCTAssertTrue(app.tabBars.buttons[title].isSelected)
+            XCTAssertTrue(tabButton(app, title).isSelected)
             XCTAssertEqual(app.sheets.count, 0)
             capture(app, "synthetic-route-" + title)
             tab(app, "我的"); tab(app, title)
@@ -317,12 +365,12 @@ final class FourTabNavigationUITests: XCTestCase {
         }
         let cold = launch(["--four-tabs-push-chat", "--four-tabs-push-cold"])
         XCTAssertTrue(cold.textViews["chat.input"].waitForExistence(timeout: 12))
-        XCTAssertTrue(cold.tabBars.buttons["消息"].isSelected)
+        XCTAssertTrue(tabButton(cold, "消息").isSelected)
         XCTAssertEqual(cold.sheets.count, 0)
         capture(cold, "synthetic-cold-launch-notice-retained"); cold.terminate()
         let mismatch = launch(["--four-tabs-push-note", "--four-tabs-push-mismatch"])
         XCTAssertTrue(mismatch.buttons["messages.add"].waitForExistence(timeout: 10))
-        XCTAssertTrue(mismatch.tabBars.buttons["消息"].isSelected)
+        XCTAssertTrue(tabButton(mismatch, "消息").isSelected)
         tab(mismatch, "世界圈")
         XCTAssertTrue(mismatch.buttons["home.compose"].waitForExistence(timeout: 8))
         XCTAssertFalse(mismatch.navigationBars["帖子"].exists)

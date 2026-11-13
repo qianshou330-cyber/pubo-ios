@@ -19,6 +19,7 @@ actor FixtureTransport: HTTPTransport {
     private var timelineOlderFailureSent = false
     #if DEBUG
     private var notificationFixtures = NotificationFixtureState()
+    private var fourTabFriendReads = 0
     // Synthetic response barriers make race tests depend on a real overlapping request,
     // not on whether XCTest manages to tap within an arbitrary sleep window.
     private var pendingRaceResponses: [String: CheckedContinuation<Void, Error>] = [:]
@@ -173,6 +174,14 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if path == "users/following", args.contains("--four-tabs-friends-hold") {
+            fourTabFriendReads += 1
+            if fourTabFriendReads == 1 {
+                // Only a real second following request (pull-to-refresh) releases
+                // this outstanding response. The loading row is not synthesized.
+                try await holdRaceResponse("four-tabs-friends")
+            } else { releaseRaceResponse("four-tabs-friends") }
+        }
         if path == "users/following", args.contains("--four-tabs-friends-slow") {
             try await Task.sleep(for: .seconds(5))
         }

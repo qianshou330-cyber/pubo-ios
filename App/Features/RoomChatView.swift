@@ -135,7 +135,7 @@ struct RoomChatView: View {
                     if section == "messages" { composer }
                 }
             }
-        }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.visible, for: .tabBar)
+        }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.hidden, for: .tabBar)
             .toolbar {
                 if room != nil && !invited {
                     Menu {
