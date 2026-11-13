@@ -5,6 +5,13 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class ChatLoadingGateContract(unittest.TestCase):
+    def test_notify_apis_import_their_sdk_module_in_both_processes(self):
+        # Source regression only; the macOS preflight remains the compilation gate.
+        for path in ('App/Infrastructure/ChatFixtureResponseGate.swift',
+                     'UITests/ChatLoadingTestGate.swift'):
+            source = (ROOT / path).read_text()
+            self.assertIn('import DarwinNotify\n', source)
+
     def test_gate_is_debug_transport_only_and_keeps_failure_delay(self):
         gate = (ROOT / 'App/Infrastructure/ChatFixtureResponseGate.swift').read_text()
         transport = (ROOT / 'App/Infrastructure/FixtureTransport.swift').read_text()

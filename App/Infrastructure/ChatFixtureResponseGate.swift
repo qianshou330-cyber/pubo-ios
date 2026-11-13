@@ -1,6 +1,6 @@
 #if DEBUG
 import Foundation
-import Darwin
+import DarwinNotify
 
 /// Test-only transport synchronization; never supplies or changes UI state.
 enum ChatFixtureResponseGate {

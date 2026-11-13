@@ -1,5 +1,5 @@
 import Foundation
-import Darwin
+import DarwinNotify
 
 /// Retains the notification registration from before launch through response release.
 /// Each launch owns a distinct name; no app UI or accessibility value is fabricated.
