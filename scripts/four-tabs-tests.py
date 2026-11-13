@@ -6,8 +6,10 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import time
 from simulator_boot import boot
 from four_tabs_gate import SUITE, EXPECTED_TESTS, complete, declared_tests
+from badge_pixel_gate import verify_badge_phases
 
 root = Path('build')
 root.mkdir(exist_ok=True)
@@ -37,6 +39,7 @@ receipt = root / 'four-tabs-environment.json'
 bundle = root / 'four-tabs.xcresult'
 shots = root / 'screenshots' / ('four-tabs-' + size)
 shots.mkdir(parents=True, exist_ok=True)
+started = time.time()
 process = None
 exit_code = 1
 
@@ -86,6 +89,15 @@ finally:
             exit_code = 1
     if exit_code:
         diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot', str(shots / 'runner-failure.png')], 30)
+    # XCTest's 13/13 is necessary, not sufficient: all three exported actual
+    # glyphs must independently decode to the contract count, in phase order.
+    proof = verify_badge_phases(shots, expected_device=identifier, commit=record['commit'], started=started)
+    (root / 'four-tabs-badge-pixels.json').write_text(json.dumps(proof, indent=2))
+    record['pixelGate'] = proof['status']
+    if proof['status'] != 'PASS':
+        record['tests'] = 'FAIL'
+        record['gateError'] = 'Three-phase independent rendered badge OCR missing or failed'
+        exit_code = 1
     receipt.write_text(json.dumps(record, indent=2))
     diagnostic(['xcrun', 'simctl', 'shutdown', identifier], 60)
     diagnostic(['xcrun', 'simctl', 'delete', identifier], 60)

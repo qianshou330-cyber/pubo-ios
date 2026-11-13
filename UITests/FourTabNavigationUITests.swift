@@ -31,7 +31,7 @@ final class FourTabNavigationUITests: XCTestCase {
         XCTAssertEqual(result, .completed)
         XCTAssertEqual(actual, expected)
     }
-    private func assertChatBadge(_ app: XCUIApplication, count: String) {
+    private func assertChatBadge(_ app: XCUIApplication, count: String, phase: String) {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (self.tabButton(app, "消息").value as? String) == count + " 条未读聊天"
         }, object: nil)
@@ -40,14 +40,18 @@ final class FourTabNavigationUITests: XCTestCase {
         let result = XCTWaiter.wait(for: [ready], timeout: 10)
         let messages = tabButton(app, "消息")
         let tree = XCTAttachment(string: "label=\(messages.label)\nvalue=\(String(describing: messages.value))\n\(app.debugDescription)")
-        tree.name = "four-tabs-chat-badge-accessibility"; tree.lifetime = .keepAlways; add(tree)
+        tree.name = "four-tabs-chat-badge-" + phase + "-accessibility"; tree.lifetime = .keepAlways; add(tree)
         capture(app, "chat-badge-expected-" + count)
         XCTAssertEqual(result, .completed)
         let reading = readTabBadge(app: app, tab: messages)
         XCTContext.runActivity(named: "Independent rendered chat badge OCR") {
-            reading.attach(to: $0, name: "four-tabs-chat-badge")
+            reading.attach(to: $0, name: "four-tabs-chat-badge-" + phase)
         }
-        XCTAssertEqual(reading.recognizedText, count, reading.failureReason ?? reading.readings.joined(separator: "\n"))
+        // The exported-pixel gate in four-tabs-tests.py must independently read
+        // every phase with Tesseract and compare the numeric result. Vision's
+        // line detector remains diagnostic; no absent result is called a pass.
+        // Keep extraction failures fatal here, before any external OCR can run.
+        XCTAssertNotNil(reading.extractedDigits, reading.failureReason ?? "Badge extraction failed")
     }
     private func tabButton(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         let ids = ["消息": "messages", "好友": "friends", "世界圈": "world", "我的": "me"]
@@ -323,13 +327,14 @@ final class FourTabNavigationUITests: XCTestCase {
     }
 
     func testOpeningNotificationsDoesNotClearChatBadge() {
+        assertBadgeExtractionControls()
         let app = launch(["--parity-preview"])
-        assertChatBadge(app, count: "2")
+        assertChatBadge(app, count: "2", phase: "initial")
         tab(app, "我的"); tap(app, "me.notifications")
         XCTAssertTrue(app.buttons["notifications.filter"].waitForExistence(timeout: 10))
-        assertChatBadge(app, count: "2")
+        assertChatBadge(app, count: "2", phase: "notifications")
         capture(app, "notification-chat-badge-isolation")
-        tab(app, "消息"); assertChatBadge(app, count: "2")
+        tab(app, "消息"); assertChatBadge(app, count: "2", phase: "returned")
         app.terminate()
     }
 

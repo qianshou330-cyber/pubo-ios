@@ -28,10 +28,19 @@ struct TabBadgeReading {
 func readTabBadge(app: XCUIApplication, tab: XCUIElement) -> TabBadgeReading {
     let shot = app.screenshot().image
     var result = TabBadgeReading(screenshot: shot)
-    guard tab.exists, tab.elementType == .button, let screen = shot.cgImage else {
-        result.failureReason = "Missing button or screenshot"; return result
+    guard tab.exists, tab.elementType == .button else {
+        result.failureReason = "Missing button"; return result
     }
-    let frame = tab.frame, appFrame = app.frame
+    return readTabBadgeImage(shot, buttonFrame: tab.frame, appFrame: app.frame)
+}
+
+/// Pure screenshot path, also exercised by synthetic clipping/ambiguity controls.
+/// There is no expected digit or accessibility value in this API.
+func readTabBadgeImage(_ shot: UIImage, buttonFrame frame: CGRect, appFrame: CGRect) -> TabBadgeReading {
+    var result = TabBadgeReading(screenshot: shot)
+    guard let screen = shot.cgImage else {
+        result.failureReason = "Missing screenshot pixels"; return result
+    }
     guard !frame.isEmpty, !frame.isNull, !frame.isInfinite,
           appFrame.width > 0, appFrame.height > 0, appFrame.contains(frame) else {
         result.failureReason = "Invalid button geometry"; return result
@@ -90,8 +99,21 @@ func readTabBadge(app: XCUIApplication, tab: XCUIElement) -> TabBadgeReading {
     result.readings.append("badgePixels=\(left),\(top),\(bw),\(bh); points=\(widthPoints)x\(heightPoints); aspect=\(aspect); redFill=\(fill)")
     guard left > 0, top > 0, right < w - 1, bottom < h - 1,
           heightPoints >= 8, heightPoints <= 32, widthPoints >= 8, widthPoints <= 70,
-          aspect >= 0.65, aspect <= 4, fill >= 0.35, fill <= 0.95 else {
+          aspect >= 0.9, aspect <= 4, fill >= 0.35, fill <= 0.95 else {
         result.failureReason = "Clipped or implausible badge geometry"; return result
+    }
+    // Native badges use Capsule. A cut-off circle padded with white can no
+    // longer touch the crop edge, so test its original red outline as well.
+    // This is shape validation, not a font template or expected-digit matcher.
+    let radius = Double(bh) / 2, tolerance = Double(sx) * 0.5
+    let outsideCapsule = component.filter { i in
+        let x = Double(i % w - left) + 0.5, y = Double(i / w - top) + 0.5
+        let centerX = min(max(x, radius), Double(bw) - radius)
+        return hypot(x - centerX, y - radius) > radius + tolerance
+    }.count
+    result.readings.append("capsuleOutsidePixels=\(outsideCapsule)")
+    guard outsideCapsule == 0 else {
+        result.failureReason = "Badge red outline is clipped or not a complete capsule"; return result
     }
     var minX = [Int](repeating: w, count: h), maxX = [Int](repeating: -1, count: h)
     for i in component { let y = i / w; minX[y] = min(minX[y], i % w); maxX[y] = max(maxX[y], i % w) }
@@ -107,6 +129,10 @@ func readTabBadge(app: XCUIApplication, tab: XCUIElement) -> TabBadgeReading {
     guard let inkLeft = ink.map({ $0.x }).min(), let inkRight = ink.map({ $0.x }).max(),
           let inkTop = ink.map({ $0.y }).min(), let inkBottom = ink.map({ $0.y }).max() else {
         result.failureReason = "No white glyphs"; return result
+    }
+    guard inkLeft > left + 1, inkRight < right - 1,
+          inkTop > top + 1, inkBottom < bottom - 1 else {
+        result.failureReason = "Glyph touches badge boundary"; return result
     }
     let zoom = max(1, Int(ceil(128.0 / Double(inkBottom - inkTop + 1))))
     let margin = 32

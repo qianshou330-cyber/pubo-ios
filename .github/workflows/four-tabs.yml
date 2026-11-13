@@ -19,6 +19,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
           set -o pipefail
           mkdir -p build
+          brew install tesseract
+          python3 scripts/setup-badge-ocr.py
+          python3 scripts/check-badge-ocr-corpus.py
           swift test 2>&1 | tee build/core-tests.log
           python3 -m unittest discover -s scripts -p 'test_*.py' -v 2>&1 | tee build/script-tests.log
       - name: Preserve exact revision
@@ -34,6 +37,7 @@ jobs:
             build/source-sha.txt
             build/core-tests.log
             build/script-tests.log
+            build/badge-ocr-corpus-results.json
   navigation:
     needs: checks
     strategy:
@@ -47,7 +51,8 @@ jobs:
       - name: Prepare fixed build tools
         run: |
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
+          brew install xcodegen tesseract
+          python3 scripts/setup-badge-ocr.py
           swift scripts/brand-assets.swift
           xcodegen generate
       - name: Compile Debug app and UI test bundle before starting device
