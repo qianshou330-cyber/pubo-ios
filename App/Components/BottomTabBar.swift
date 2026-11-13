@@ -95,7 +95,7 @@ struct BottomTabBarInset: ViewModifier {
 
     func body(content: Content) -> some View {
         content.safeAreaInset(edge: .bottom, spacing: 0) {
-            if !keyboardVisible { BottomTabBar(profileAvatar: profileAvatar) }
+            if !keyboardVisible && !session.hidesBottomTabs { BottomTabBar(profileAvatar: profileAvatar) }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
             guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
@@ -111,5 +111,18 @@ struct BottomTabBarInset: ViewModifier {
             keyboardVisible = false
         }
         .onDisappear { keyboardVisible = false }
+    }
+}
+
+/// A visible conversation leases suppression for its own tab. Multiple nested
+/// destinations cannot release one another's lease, and other tabs stay usable.
+struct ConversationTabSuppression: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @State private var lease = UUID()
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { session.conversationTabLeases[lease] = session.selectedTab }
+            .onDisappear { session.conversationTabLeases.removeValue(forKey: lease) }
     }
 }

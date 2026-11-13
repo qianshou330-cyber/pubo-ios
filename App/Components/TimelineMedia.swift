@@ -16,7 +16,7 @@ enum PublicImageDecoder {
                   w.doubleValue > 0, h.doubleValue > 0, w.doubleValue * h.doubleValue <= 40_000_000 else { throw APIError.invalidResponse }
             if CGImageSourceGetCount(source) > 1,
                let image = SDAnimatedImage(data: data, scale: 1, options: [.decodeThumbnailPixelSize: NSValue(cgSize: CGSize(width: maxPixel, height: maxPixel)), .decodePreserveAspectRatio: true]) { return image }
-            guard let frame = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel] as CFDictionary) else { throw APIError.invalidResponse }
+            guard let frame = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceShouldCacheImmediately: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel] as CFDictionary) else { throw APIError.invalidResponse }
             return UIImage(cgImage: frame)
         }
         return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
@@ -74,6 +74,8 @@ struct PublicAnimatedAsset: View {
                 .onChange(of: g.frame(in: .global)) { _, rect in visible = rect.intersects(UIScreen.main.bounds) }
         }).task(id: "\(url)-\(session.generation)-\(retry)") {
             image = nil; error = false; let epoch = session.generation
+            let cacheKey = PublicPreviewCache.shared.key("image:\(emoji):" + url.absoluteString, generation: String(describing: epoch))
+            if let cached = PublicPreviewCache.shared.image(cacheKey) { image = cached; return }
             do {
                 let data: Data
                 #if DEBUG
@@ -85,6 +87,8 @@ struct PublicAnimatedAsset: View {
                 #endif
                 let decoded = try await PublicImageDecoder.decode(data, maxPixel: emoji ? 100 : 720)
                 guard epoch == session.generation, !Task.isCancelled else { return }; image = decoded
+                // Never freeze GIF/WebP animation into a single cached frame.
+                if !(decoded is SDAnimatedImage) { PublicPreviewCache.shared.insert(decoded, key: cacheKey) }
             } catch { if !Task.isCancelled { self.error = true } }
         }.onDisappear { visible = false; image = nil }
     }
@@ -152,7 +156,8 @@ struct TimelineMediaItem: View {
             } else if mime.hasPrefix("video/") || mime.hasPrefix("audio/") {
                 Button { preview = true } label: {
                     ZStack {
-                        if let url = safeMediaURL(file["thumbnailUrl"].string) { PublicAnimatedAsset(url: url).aspectRatio(ratio, contentMode: .fit) }
+                        if mime.hasPrefix("video/") { PublicVideoPoster(file: file, ratio: ratio) }
+                        else if let url = safeMediaURL(file["thumbnailUrl"].string) { PublicAnimatedAsset(url: url).aspectRatio(ratio, contentMode: .fit) }
                         else { PUBOTheme.button.frame(height: mime.hasPrefix("audio/") ? 72 : 160) }
                         Image(systemName: "play.fill").font(.title2).foregroundStyle(.white).padding(18).background(PUBOTheme.accent, in: Circle())
                     }

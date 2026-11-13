@@ -162,8 +162,73 @@ jobs:
             build/screenshots/
           retention-days: 14
           if-no-files-found: error
+  chat-presentation:
+    # New presentation methods run independently; the original nine stay intact.
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small, large]
+    runs-on: macos-15-intel
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare fixed build tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Compile Debug app and all UI test sources
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+      - name: Eight chat presentation tests with strict count gate and 30-minute test budget
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_SHARD: 'chat-presentation'
+          PUBO_PREBUILT_TESTS: '1'
+        run: |
+          set -o pipefail
+          python3 scripts/simulator-tests.py 2>&1 | tee build/chat-presentation-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: four-tabs-chat-presentation-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/*.json
+            build/chat-presentation-tests.log
+            build/ui-*.xcresult
+            build/screenshots/
+          retention-days: 14
+          if-no-files-found: error
+  h5-chat-reference:
+    # Real H5 bundles, synthetic ChatParity data, no production API writes.
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned browser harness
+        working-directory: scripts/h5-chat
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Capture actual H5 small and large views in both themes
+        working-directory: scripts/h5-chat
+        run: npm run capture
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: four-tabs-h5-chat-${{ github.sha }}
+          path: |
+            scripts/h5-chat/artifacts/
+            docs/chat-h5-source-manifest.json
+          retention-days: 14
+          if-no-files-found: error
   package:
-    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment]
+    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference]
     runs-on: macos-15-intel
     timeout-minutes: 30
     steps:

@@ -42,8 +42,27 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(selection('chat-alignment'), (9, ['-only-testing:PUBOUITests/ChatAlignmentUITests']))
         selected = [s for _, suites in SHARDS.values() for s in suites]
         self.assertEqual(len(selected), len(set(selected)))
-        self.assertEqual(sum(count for count, _ in SHARDS.values()), 95)
+        self.assertEqual(sum(count for count, _ in SHARDS.values()), 103)
         self.assertFalse(any(name.startswith('ChatAlignmentUITests/') for name in FOCUSED))
+
+    def test_composer_parity_exact_methods(self):
+        source = (pathlib.Path(__file__).resolve().parents[1] / 'UITests/ChatComposerParityUITests.swift').read_text()
+        methods = re.findall(r'^\s+func (test\w+)\(', source, re.M)
+        self.assertEqual(set(methods), {
+            'testPrivateComposerToolsAndBackRestoreBothThemes',
+            'testRoomComposerToolsAndBackRestoreBothThemes',
+            'testPrivateKeyboardAndDraftSurviveBackBothThemes',
+            'testRoomKeyboardAndDraftSurviveBackBothThemes',
+            'testInitialLoadingAndEmptyConversationStates',
+            'testInitialFailureHasExplicitRetryAndRecovers',
+            'testRoomSenderNamesRespectSyncedPreference',
+            'testLinkPreviewFailurePreservesDestinationAndRetries',
+        })
+        self.assertEqual(len(methods), 8)
+        self.assertEqual(selection('chat-presentation'), (8, ['-only-testing:PUBOUITests/ChatComposerParityUITests']))
+        for required in ['isHittable', 'puboTouchDimensionMeetsMinimum', 'keyboardView.frame.minY',
+                         'waitForNonExistence', '--four-tabs-drafts', 'backToHome(app)']:
+            self.assertIn(required, source)
 
     def test_chat_pilot_workflow_keeps_independent_execution_and_formal_gate(self):
         workflow = (pathlib.Path(__file__).resolve().parents[1] / '.github/workflows/four-tabs.yml').read_text()
@@ -58,10 +77,24 @@ class SelectionTests(unittest.TestCase):
             self.assertIn(required, pilot)
         self.assertNotIn('PUBO_REGRESSION_147_ONLY', pilot)
         self.assertNotIn('skip-testing', pilot)
-        self.assertIn('    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment]', workflow)
+        self.assertIn('    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference]', workflow)
         candidate = workflow.split('  candidate-package:', 1)[1]
         self.assertIn('    needs: checks', candidate)
         self.assertIn('QA-INCOMPLETE', candidate)
+
+    def test_h5_chat_reference_is_independent_and_retains_failures(self):
+        workflow = (pathlib.Path(__file__).resolve().parents[1] / '.github/workflows/four-tabs.yml').read_text()
+        job = workflow.split('  h5-chat-reference:\n', 1)[1].split('  package:\n', 1)[0]
+        for required in ['ubuntu-latest', 'scripts/h5-chat', 'npm ci', 'playwright install --with-deps chromium',
+                         'npm run capture', 'if: always()', 'actions/upload-artifact@v4']:
+            self.assertIn(required, job)
+        source = (pathlib.Path(__file__).resolve().parents[1] / 'scripts/h5-chat/capture.mjs').read_text()
+        self.assertIn("u.origin===origin", source)
+        self.assertIn("route.abort('blockedbyclient')", source)
+        self.assertIn("serviceWorkers:'block'", source)
+        self.assertIn('DIAGNOSTIC-NOT-PARITY-', source)
+        self.assertIn("body?.error?.code==='NO_SUCH_KEY'", source)
+        self.assertIn('report.cases.length===8&&report.cases.every(c=>c.passed)', source)
 
     def test_unknown_fails_closed(self):
         with self.assertRaises(ValueError): selection('typo')

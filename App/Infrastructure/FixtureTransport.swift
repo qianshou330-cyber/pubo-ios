@@ -20,6 +20,7 @@ actor FixtureTransport: HTTPTransport {
     #if DEBUG
     private var notificationFixtures = NotificationFixtureState()
     private var fourTabFriendReads = 0
+    private var chatParityFailedPaths = Set<String>()
     // Synthetic response barriers make race tests depend on a real overlapping request,
     // not on whether XCTest manages to tap within an arbitrary sleep window.
     private var pendingRaceResponses: [String: CheckedContinuation<Void, Error>] = [:]
@@ -152,6 +153,19 @@ actor FixtureTransport: HTTPTransport {
             }
         }
 
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--chat-preview-failure") {
+            let common: [String: JSONValue] = [
+                "id": .string("zzchat-link-fixture"), "fromUserId": Self.me["id"],
+                "fromUser": Self.chatParity["me"],
+                "text": .string("链接测试 https://example.com/pubo-chat-fixture"),
+                "createdAt": .string("2026-11-05T10:00:00Z"),
+                "attachments": .array([]), "reactions": .array([]), "revision": .number(0)
+            ]
+            var direct = common; direct["toUserId"] = Self.peer["id"]; sent.append(.object(direct))
+            var group = common; group["toRoomId"] = .string("socialroom"); roomMessages.append(.object(group))
+        }
+        #endif
         if ProcessInfo.processInfo.arguments.contains("--chat-readonly") {
             var value = profile.object; var policy = profile["policies"].object
             policy["chatAvailability"] = .string("readonly"); value["policies"] = .object(policy); profile = .object(value)
@@ -174,6 +188,25 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        // Scoped to actual conversation reads, so the home list remains usable.
+        // These synthetic-only flags never affect a production API transport.
+        if ["chat/messages/user-timeline", "chat/messages/room-timeline"].contains(path) {
+            if args.contains("--chat-load-delay") { try await Task.sleep(for: .seconds(5)) }
+            if args.contains("--chat-load-fail-once"), !chatParityFailedPaths.contains(path) {
+                chatParityFailedPaths.insert(path)
+                throw URLError(.notConnectedToInternet)
+            }
+            if args.contains("--chat-load-empty") {
+                return (try JSONEncoder().encode(JSONValue.array([])), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+            }
+        }
+        if path == "i/registry/get", body["key"].string == "default:chat.showSenderName" {
+            if args.contains("--chat-sender-names") {
+                let value = JSONValue.array([.array([.object([:]), .bool(true)])])
+                return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+            }
+            throw APIError(code: "NO_SUCH_KEY", message: "Synthetic preference is not set")
+        }
         if path == "users/following", args.contains("--four-tabs-friends-hold") {
             fourTabFriendReads += 1
             if fourTabFriendReads == 1 {

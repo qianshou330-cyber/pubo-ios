@@ -13,6 +13,7 @@ struct RichNoteText: UIViewRepresentable {
     let openURL: (URL) -> Void
     var onTap: (() -> Void)?
     var appearance: NoteAppearance = .standard
+    var fitsContentWidth = false
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> AnimatedTextView {
         let view = AnimatedTextView()
@@ -85,7 +86,12 @@ struct RichNoteText: UIViewRepresentable {
     }
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: AnimatedTextView, context: Context) -> CGSize? {
         let width = proposal.width ?? 300
-        return CGSize(width: width, height: max(1, uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height))
+        var fittedWidth = width
+        if fitsContentWidth {
+            let measured = uiView.attributedText.boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+            fittedWidth = min(width, max(1, ceil(measured.width)))
+        }
+        return CGSize(width: fittedWidth, height: max(1, uiView.sizeThatFits(CGSize(width: fittedWidth, height: .greatestFiniteMagnitude)).height))
     }
     static func dismantleUIView(_ view: AnimatedTextView, coordinator: Coordinator) { view.clearAnimations(); view.delegate = nil }
     final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {

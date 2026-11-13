@@ -19,6 +19,12 @@ final class AppSession {
     var error: String?
     var restoring = true
     var selectedTab = AppTab.messages
+    var conversationTabLeases: [UUID: AppTab] = [:]
+    var hidesBottomTabs: Bool { conversationTabLeases.values.contains(selectedTab) }
+    var chatShowSenderName = false
+    private var chatPreferenceLoaded = false
+    private var chatPreferenceAttempt = UUID()
+    var streamConnection = ChatConnectionPhase.idle
     var messagesPath = NavigationPath()
     var friendsPath = NavigationPath()
     var worldPath = NavigationPath()
@@ -111,6 +117,7 @@ final class AppSession {
         if !testing { try? PrivateFiles.clear() }
         stream.onChange = { [weak self] in self?.streamRevision += 1 }
         stream.onConnect = { [weak self] in self?.connectionRevision += 1 }
+        stream.onStatusChange = { [weak self] in self?.streamConnection = $0 }
         stream.onTimelineNote = { [weak self] note in self?.newestTimelineNote = note }
         stream.onNoteEvent = { [weak self] event in self?.latestNoteEvent = event }
         stream.onNotificationEvent = { [weak self] kind, body in
@@ -277,6 +284,7 @@ final class AppSession {
     }
     private func clearAccountMemory() {
         token = nil; user = nil; selectedTab = .messages;
+        conversationTabLeases = [:]; chatShowSenderName = false; chatPreferenceLoaded = false; chatPreferenceAttempt = UUID(); streamConnection = .idle
         messagesPath = NavigationPath(); friendsPath = NavigationPath(); worldPath = NavigationPath(); mePath = NavigationPath(); authorizationRequired = false; deletedNoteIDs = []; changedChatIDs = []
         pendingFollowRequestBadge = nil; followRequestRevision += 1
         badges = NotificationBadges(); unreadAttempt = nil; unreadRefreshQueued = false; notificationRevision = 0; chartPreferences = KpopPreferences(); recentEmojis = []
@@ -319,6 +327,35 @@ final class AppSession {
         recentEmojis = Array(([value] + recentEmojis.filter { $0 != value }).prefix(32))
         try? store?.save(recentEmojis, account: owner, key: "recent-emojis")
     }
+    /// H5 keeps this preference locally unless its cloud sync is enabled. Read
+    /// the synced value once when available; a local native choice always wins.
+    func restoreChatPreferences() async {
+        guard !chatPreferenceLoaded, let owner = user?.id else { return }
+        chatPreferenceLoaded = true
+        if let local = try? store?.read(Bool.self, account: owner, key: "chat.showSenderName") {
+            chatShowSenderName = local; return
+        }
+        let epoch = generation, attempt = chatPreferenceAttempt
+        do {
+            let value = try await call("i/registry/get", ["scope": .strings(["client", "preferences", "sync"]), "key": .string("default:chat.showSenderName")])
+            guard owner == user?.id, epoch == generation, attempt == chatPreferenceAttempt else { return }
+            if let show = ChatPresentationPreferences.senderName(in: value, accountID: owner) {
+                chatShowSenderName = show
+                try? store?.save(show, account: owner, key: "chat.showSenderName")
+            }
+        } catch {
+            // A missing key is H5's unsynced/default state. Transient failures can
+            // retry on the next conversation appearance without overwriting a choice.
+            if owner == user?.id, epoch == generation, attempt == chatPreferenceAttempt,
+               (error as? APIError)?.code != "NO_SUCH_KEY" { chatPreferenceLoaded = false }
+        }
+    }
+    func setChatShowSenderName(_ value: Bool) {
+        guard let owner = user?.id else { return }
+        chatPreferenceLoaded = true; chatPreferenceAttempt = UUID(); chatShowSenderName = value
+        try? store?.save(value, account: owner, key: "chat.showSenderName")
+    }
+
     func restoreTimelinePreferences() {
         let owner = user?.id ?? "guest"
         var value = (try? store?.read(TimelinePreferences.self, account: owner, key: "timeline-preferences-v1")) ?? TimelinePreferences()

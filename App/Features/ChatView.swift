@@ -27,7 +27,11 @@ struct ChatView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var loading = false
-    @State private var hasMore = true
+    @State private var hasMore = false
+    @State private var initialLoadCompleted = false
+    @State private var loadError: String?
+    @State private var retryOlder = false
+    @State private var choosingPhoto = false
     @State private var photos: [PhotosPickerItem] = []
     @State private var importing = false
     @State private var recorder = VoiceRecorder()
@@ -60,6 +64,13 @@ struct ChatView: View {
 
     private var messageList: some View {
         LazyVStack(spacing: 18) {
+            if let loadError, !messages.isEmpty {
+                VStack(spacing: 4) {
+                    Text(loadError).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.loadError")
+                    Button(retryOlder ? "重试加载更早消息" : "重试同步消息") { Task { await load(older: retryOlder) } }
+                        .frame(minHeight: 44).disabled(loading).accessibilityIdentifier("chat.retry")
+                }
+            }
             if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
             ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                 VStack(spacing: 12) {
@@ -93,15 +104,23 @@ struct ChatView: View {
     private var chatLayout: some View {
         VStack(spacing: 0) {
             ChatTabs(selection: Binding(get: { searching ? "search" : "messages" }, set: { searching = $0 == "search" }), items: [ChatTab(id: "messages", title: "消息", icon: "bubble.left.and.bubble.right"), ChatTab(id: "search", title: "搜索", icon: "magnifyingglass")])
+            ChatConnectionStatus(phase: session.streamConnection, synchronizing: initialLoadCompleted && loading && !retryOlder, prefix: "chat") {
+                session.stream.reconnectNow(); Task { await load(reconcileAll: true) }
+            }
             ZStack {
                 messageScroll.opacity(searching ? 0 : 1).allowsHitTesting(!searching).accessibilityHidden(searching)
+                if !searching {
+                    ChatTimelineStatus(loaded: initialLoadCompleted, loading: loading, isEmpty: messages.isEmpty && pending.isEmpty, error: loadError, prefix: "chat") {
+                        Task { await retryInitialLoad() }
+                    }
+                }
                 if searching { ChatSearchView(peer: peer, select: { id in searching = false; Task { await openContext(id) } }).chatNavigationTitle(peer.displayName, embedded: false) }
             }.clipped()
-            if !searching {
-                if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).padding().accessibilityIdentifier("chat.availability") }
-                inputBar
-            }
         }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if !searching { inputBar.fixedSize(horizontal: false, vertical: true) }
+            }
+            .modifier(ConversationTabSuppression())
             .puboScreen().navigationTitle(peer.displayName)
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
@@ -118,12 +137,15 @@ struct ChatView: View {
         chatLayout
             .task {
                 active = true; session.stream.showChat(peer.id)
-                await refreshPeer()
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
+                await refreshPeer()
                 if let initialMessageID { await openContext(initialMessageID) } else { await load() }; await loadConversation()
             }
-            .task(id: session.streamRevision) { guard active else { return }; try? await Task.sleep(for: .milliseconds(500)); if !Task.isCancelled { await load(); await loadConversation() } }
-            .task(id: session.connectionRevision) { if active { await load(reconcileAll: true) } }
+            .task(id: session.generation) { await session.restoreChatPreferences() }
+            .onChange(of: session.streamRevision) { _, _ in
+                Task { guard active else { return }; try? await Task.sleep(for: .milliseconds(500)); if !Task.isCancelled { await load(); await loadConversation() } }
+            }
+            .onChange(of: session.connectionRevision) { _, _ in if active { Task { await load(reconcileAll: true) } } }
             .onReceive(session.chatEvents) { receive($0) }
             .onChange(of: text) { _, _ in saveDraft() }
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
@@ -134,6 +156,7 @@ struct ChatView: View {
     var body: some View {
         chatLifecycle
 
+            .photosPicker(isPresented: $choosingPhoto, selection: $photos, maxSelectionCount: max(1, 10 - attachments.count), matching: .any(of: [.images, .videos]))
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item]) { result in Task { await importFile(result) } }
             .sheet(isPresented: $choosingEmoji) { ChatEmojiPicker(chooseEmoji: { TextInsertion.insert($0, into: &text, selection: &textSelection) }, chooseGIF: { data in let epoch = session.generation; Task { guard epoch == session.generation else { return }; await attachSticker(data) } }) }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
@@ -144,6 +167,7 @@ struct ChatView: View {
     }
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat.availability") }
             if contextMode { Text("正在查看历史消息，预取不会标记已读").font(.caption).foregroundStyle(.secondary) }
             if contextMode || hasNewer || unreadBelow { Button(unreadBelow ? "有新消息 · 回到最新" : "回到最新消息") { Task { await returnToLatest() } }.frame(minHeight: 44).disabled(contextBusy).accessibilityIdentifier("chat.latest") }
             if let error { Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("chat.error") }
@@ -161,26 +185,32 @@ struct ChatView: View {
             HStack(spacing: 6) {
                 Menu {
                     Button("选择文件") { importing = true }
+                    Button("添加图片或视频") { choosingPhoto = true }.disabled(attachments.count >= 10)
                     Button("从网盘导入") { choosingDrive = true }.disabled(attachments.count >= 10)
                     Button(recorder.recording ? "结束并添加语音" : "录制语音（最多60秒）") { Task { await voice() } }
                     if recorder.recording { Button("取消录音", role: .cancel) { recorder.cancel() } }
-                } label: { Image(systemName: recorder.recording ? "mic.fill" : "paperclip").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy).accessibilityLabel("文件与语音")
-                Button { Task { await voice() } } label: { Image(systemName: recorder.recording ? "stop.circle.fill" : "mic").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy || attachments.count >= 10).accessibilityLabel(recorder.recording ? "结束并添加语音" : "录制语音")
-                PhotosPicker(selection: $photos, maxSelectionCount: max(1, 10 - attachments.count), matching: .any(of: [.images, .videos])) { Image(systemName: "photo").frame(width: 44, height: 44) }.disabled(busy || attachments.count >= 10).accessibilityLabel("添加图片或视频")
-                Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.accessibilityLabel("插入表情")
+                } label: { Image(systemName: recorder.recording ? "mic.fill" : "paperclip").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy).accessibilityLabel("文件与语音").accessibilityIdentifier("chat.attachments")
+                Button { Task { await voice() } } label: { Image(systemName: recorder.recording ? "stop.circle.fill" : "mic").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy || attachments.count >= 10).accessibilityLabel(recorder.recording ? "结束并添加语音" : "录制语音").accessibilityIdentifier("chat.voice")
+                Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.accessibilityLabel("插入表情").accessibilityIdentifier("chat.emoji")
                 Spacer(minLength: 0)
                 Button { Task { await sendNew() } } label: {
                     Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44).foregroundStyle(PUBOTheme.accent)
                 }.disabled(busy || sendProblem != nil || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)).accessibilityLabel("发送消息").accessibilityIdentifier("chat.send")
             }.buttonStyle(.borderless).disabled(chatProblem != nil)
         }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
-            .background(PUBOTheme.panel).overlay(alignment: .top) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+            .background(PUBOTheme.panel.ignoresSafeArea(.container, edges: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+            .accessibilityElement(children: .contain).accessibilityIdentifier("chat.composer")
     }
     private func bubble(_ message: Record) -> some View {
         let own = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
             if own { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: peer.id) } label: { Avatar(user: peer, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(peer.displayName + "的主页") }
             VStack(alignment: own ? .trailing : .leading, spacing: 6) {
+                if !own && session.chatShowSenderName {
+                    Text(peer.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)
+                        .accessibilityIdentifier("chat.sender." + message.id)
+                }
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(PUBOTheme.secondary) }
                     else {
@@ -189,13 +219,16 @@ struct ChatView: View {
                                 Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
                             }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
                         }
-                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.system(size: messageFont)) }
+                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"]).font(.system(size: messageFont)) }
                         ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                     }
                 }.padding(.horizontal, 12).padding(.vertical, 8)
                     .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
                     .contextMenu { messageMenu(message, own: own) }
+                if message["recalledAt"].isNull && !message["privateAttachmentFallback"].bool {
+                    ChatMessageLinkPreviews(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.links." + message.id)
+                }
                 HStack(spacing: 6) {
                     Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id)
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date) }
@@ -270,10 +303,18 @@ struct ChatView: View {
         guard restored, let account = session.user?.id, account == ownerID else { return }
         do { try session.store?.save(ChatDraft(text: text, attachments: attachments, reply: reply, lastFailure: error), account: account, key: draftKey) } catch { self.error = "草稿保存失败。" }
     }
+    private func retryInitialLoad() async {
+        if contextMode && messages.isEmpty, let initialMessageID { await openContext(initialMessageID) }
+        else { await load() }
+    }
     private func load(older: Bool = false, reconcileAll: Bool = false) async {
+        // Initial deep links must load their target context, not report an empty
+        // successful timeline from the intentionally skipped latest endpoint.
+        if contextMode && messages.isEmpty && !older { return }
         if reconcileAll { needsFullState = true }
         guard active, !loading else { return }; loading = true; defer { loading = false }
         let epoch = syncEpoch
+        retryOlder = older; loadError = nil
         do {
             var fields: [String: JSONValue] = ["userId": .string(peer.id), "limit": .number(50)]
             if older, let id = messages.first?.id { fields["untilId"] = .string(id) }
@@ -299,7 +340,10 @@ struct ChatView: View {
                 if let preview, missing.contains(preview.messageID) || updates.contains(where: { $0.id == preview.messageID && !$0["recalledAt"].isNull }) { self.preview = nil }
             }
             if all { needsFullState = false }
-        } catch { self.error = error.localizedDescription }
+            initialLoadCompleted = true; loadError = nil
+        } catch {
+            if active, epoch == syncEpoch, !Task.isCancelled { loadError = error.localizedDescription }
+        }
     }
     private func updateDraft(targets: [Record], missing: [String]) {
         guard let reply else { return }
@@ -312,6 +356,7 @@ struct ChatView: View {
     private func openContext(_ id: String) async {
         guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
         syncEpoch = UUID(); let epoch = syncEpoch; scrollTarget = nil
+        if messages.isEmpty { loadError = nil }
         do {
             let value = try await session.call("chat/messages/context", ["userId": .string(peer.id), "messageId": .string(id)])
             guard epoch == syncEpoch, !Task.isCancelled else { return }
@@ -320,9 +365,14 @@ struct ChatView: View {
                 Set([row["fromUserId"].string ?? "", row["toUserId"].string ?? ""]) == Set([peer.id, ownerID ?? ""]) && row["toRoomId"].isNull
             }) else { throw APIError.invalidResponse }
             contextMode = true; messages = ChatRecords.merge([], rows); hasMore = value["hasOlder"].bool; hasNewer = value["hasNewer"].bool
-            highlightedID = id; error = nil
+            highlightedID = id; error = nil; initialLoadCompleted = true; loadError = nil
             await Task.yield(); guard epoch == syncEpoch else { return }; scrollTarget = id
-        } catch { if epoch == syncEpoch { self.error = "无法定位原消息：" + error.localizedDescription } }
+        } catch {
+            if active, epoch == syncEpoch, !Task.isCancelled {
+                let message = "无法定位原消息：" + error.localizedDescription
+                if messages.isEmpty { loadError = message } else { self.error = message }
+            }
+        }
     }
     private func returnToLatest() async {
         guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
@@ -330,7 +380,7 @@ struct ChatView: View {
         do {
             let rows = Record.list(try await session.call("chat/messages/user-timeline", ["userId": .string(peer.id), "limit": .number(50)]))
             guard epoch == syncEpoch, !Task.isCancelled else { return }
-            messages = ChatRecords.merge([], rows); contextMode = false; hasNewer = false; highlightedID = nil; hasMore = rows.count == 50; error = nil
+            messages = ChatRecords.merge([], rows); contextMode = false; hasNewer = false; highlightedID = nil; hasMore = rows.count == 50; error = nil; initialLoadCompleted = true; loadError = nil
             scrollTarget = nil; await Task.yield(); scrollTarget = "bottom"
         } catch { if epoch == syncEpoch { self.error = error.localizedDescription } }
     }

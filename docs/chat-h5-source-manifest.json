@@ -1,0 +1,137 @@
+{
+  "recordedAt": "2026-11-13T13:08:41.962672+00:00",
+  "sourceKind": "local H5 source snapshot; no .git provenance in this copy",
+  "commit": "UNCONFIRMED",
+  "deploymentEquivalence": "UNCONFIRMED",
+  "files": [
+    {
+      "path": "packages/frontend/src/pages/chat/XAttachment.stories.impl.ts",
+      "sha256": "0857a86b5dad5df13557bde29d0de00d7f1bd11a0ac3bcdfc60045479123cc3f"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XAttachment.vue",
+      "sha256": "df87fc7f9c60ebb7370d2fb1f7f0835d5a8166759978007a0930f0beb38dc5e1"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XAttachmentComposer.stories.impl.ts",
+      "sha256": "472ea6681f3415171ec9c89827512861f19147167e79a837d21a30c801c809b1"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XAttachmentComposer.vue",
+      "sha256": "8c6c866358640348b18a1364c058c0166ebc2329fffc4f2e509ca4e1ff14e984"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XMessage.stories.impl.ts",
+      "sha256": "ee8c25ca91bc13b5e4ba527cb9bb9622970c0bdbbba9b33224ce98db9a7aed38"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XMessage.vue",
+      "sha256": "262f056218693b0611522f8e66369ffbb284f620e6fed632e7a7f7b38ae6944a"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XPendingMessage.vue",
+      "sha256": "6a5b12716effe0a3dcb2cf77e0995b4f6b022d90114e1369e81c26cf3c0b6f84"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XReply.vue",
+      "sha256": "31e0422b9a0aec8a8359226e020fd1b57e48ebcb234dcae2f339348eb9be1dec"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XRoom.vue",
+      "sha256": "43350634cc12c8dd91f9b232af91b703023cecc274e9471def78fbe83d74aef9"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XVoiceMessage.stories.impl.ts",
+      "sha256": "3501d64652c6f6868493b6838682493419ad57b4d1f9ba555bdaf7ff6f17af74"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XVoiceMessage.vue",
+      "sha256": "8ba8ab09ba6f24c3b49ff3fe1612f1ece39707bb9524df5d1211273da122c775"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XVoiceRecorder.stories.impl.ts",
+      "sha256": "2f9dcacf06d42f15c0d625f882d26b3e5baabb98ac0c719aaddd7b6ae631b7ed"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/XVoiceRecorder.vue",
+      "sha256": "085a5a03f912b9d9f59b1ac84faacc004385f668ed5a5f855c22246eba79f8a2"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/chat.stories-fixtures.ts",
+      "sha256": "15eefba57b31e8a38b1c18b0e496f5453f112c78a7a1a4eba1c5ddeb6964cd86"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/contacts.stories.impl.ts",
+      "sha256": "5a4f7dbeb79826b5c4c277ee564f849766e4f870c93b66e0f17df9e7a638fc27"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/contacts.vue",
+      "sha256": "12e90a5547da5513f5bbdd01122f7aa6c80221f6912c03e100f645449c99b5e6"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/home.home.vue",
+      "sha256": "a79314ec4582fdb93c2d01bf1cbb507055d0d318d4ef79a9d5996aaf0f3cb836"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/home.invitations.vue",
+      "sha256": "0c40f16bc05d943c67b0308a146e17906b98062d4257b997c42ed3f36d1a1f89"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/home.joiningRooms.vue",
+      "sha256": "ae0c312c77f6d217462d46800b01925aa873fe6b6d7b061ebab328f0fe9fe14a"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/home.ownedRooms.vue",
+      "sha256": "a6a5f31182eec739b043df53ee9340f1462d9eea5e780539841c626f5cbd748b"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/home.vue",
+      "sha256": "589d8acc15db0278ff2725544a380c196423c39e27ae1dd86f545e9e45439990"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/message.vue",
+      "sha256": "cb0be4d49685a67b269b0007a6665f07a614590cc03df22dcbc9a9e7e2b31d49"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/private-message-layout.module.scss",
+      "sha256": "b83a1b0515dc7b29c8a790ea53c1ddf25957ec6fd1e63df75de89730808613fa"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/private.stories.impl.ts",
+      "sha256": "3d32657a84e0479934db47d3765ea946d76d9c9a835cecca588ae164d1568635"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/private.vue",
+      "sha256": "3b2b327a92348ff858ac286ca5ac789c3633a0ecaa3f4d4b12f03259ee2eb088"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/room.form.vue",
+      "sha256": "ecc2f6204c1f44d0b19991cdca0817c274abefede5e69cc2d1e979ff78c7d8d1"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/room.info.vue",
+      "sha256": "e62ff6a25eebfa1608c3c2fee7e127832b71bf970430dcd14105fef59da3927e"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/room.members.vue",
+      "sha256": "e98601e19a4495bb8d8c2690fdbc7c62685be94697cf3641e2ce25211a2e54aa"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/room.search.vue",
+      "sha256": "a87d0b4d3f7dfc222a72e9c05902b055d083be1e9c93007a5011d9db795f9796"
+    },
+    {
+      "path": "packages/frontend/src/pages/chat/room.vue",
+      "sha256": "4be577fb45121b84d0380210112ca37fe03296d9ea8b953610e78fb81320b7cf"
+    },
+    {
+      "path": "packages/frontend/src/preferences.ts",
+      "sha256": "97afe9eb561e047c6beb9fd3e6a652554f0f7e6537b230364cb74ce7606e8fb3"
+    },
+    {
+      "path": "packages/frontend/src/components/MkUrlPreview.vue",
+      "sha256": "5e3439c792dd6a8ccb087dbfb5453c312f40fa76bb86614d74ac44e438ecfb17"
+    }
+  ],
+  "fileManifestSha256": "d55e3e96fe79b88995f5b5252e1ce1bb1e4c7d5693d9ba516a991af8669de29e"
+}

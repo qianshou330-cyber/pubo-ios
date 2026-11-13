@@ -25,6 +25,9 @@ struct RoomChatView: View {
     @State private var busy = false
     @State private var loading = false
     @State private var hasMore = false
+    @State private var initialLoadCompleted = false
+    @State private var loadError: String?
+    @State private var retryOlder = false
     @State private var active = false
     @State private var restored = false
     @State private var choosingFile = false
@@ -63,6 +66,13 @@ struct RoomChatView: View {
         GeometryReader { viewport in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
+                        if let loadError, !messages.isEmpty {
+                            VStack(spacing: 4) {
+                                Text(loadError).font(.caption).foregroundStyle(.red).accessibilityIdentifier("room.loadError")
+                                Button(retryOlder ? "重试加载更早消息" : "重试同步消息") { Task { await load(older: retryOlder, reconcile: !retryOlder) } }
+                                    .frame(minHeight: 44).disabled(loading).accessibilityIdentifier("room.retry")
+                            }
+                        }
                         if hasMore { Button("更早的群聊消息") { Task { await load(older: true) } }.disabled(loading) }
                         ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                             VStack(spacing: 12) {
@@ -109,13 +119,15 @@ struct RoomChatView: View {
                     Button("从网盘选择") { choosingFile = true }
                     Button("选择本地文件") { importingFile = true }
                     Button("选择图片或视频") { choosingPhoto = true }
-                } label: { Image(systemName: "paperclip").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("添加群聊附件")
-                Button { choosingPhoto = true } label: { Image(systemName: "photo").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("群聊图片或视频")
-                Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("插入群聊表情")
+                } label: { Image(systemName: "paperclip").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("添加群聊附件").accessibilityIdentifier("room.attachments")
+                Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("插入群聊表情").accessibilityIdentifier("room.emoji")
                 Spacer(minLength: 0)
                 Button { Task { await send() } } label: { Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44) }.disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
             }.buttonStyle(.borderless).disabled(chatProblem != nil)
-        }.padding().background(PUBOTheme.panel)
+        }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
+            .background(PUBOTheme.panel.ignoresSafeArea(.container, edges: .bottom))
+            .overlay(alignment: .top) { PUBOTheme.divider.frame(height: 0.5) }
+            .accessibilityElement(children: .contain).accessibilityIdentifier("room.composer")
     }
     private var roomContent: some View {
         Group {
@@ -124,7 +136,15 @@ struct RoomChatView: View {
             } else {
                 VStack(spacing: 0) {
                     ChatTabs(selection: $section, items: [ChatTab(id: "messages", title: "消息", icon: "bubble.left.and.bubble.right"), ChatTab(id: "members", title: "成员", icon: "person.2"), ChatTab(id: "search", title: "搜索", icon: "magnifyingglass"), ChatTab(id: "about", title: "关于", icon: "info.circle")], prefix: "room.tab.")
-                    if section == "messages" { timeline.clipped() }
+                    if section == "messages" {
+                        ChatConnectionStatus(phase: session.streamConnection, synchronizing: initialLoadCompleted && loading && !retryOlder, prefix: "room") {
+                            session.stream.reconnectNow(); Task { await load(reconcile: true) }
+                        }
+                        ZStack {
+                            timeline
+                            ChatTimelineStatus(loaded: initialLoadCompleted, loading: loading, isEmpty: messages.isEmpty, error: loadError, prefix: "room") { Task { await load() } }
+                        }.clipped()
+                    }
                     else if section == "members" { RoomMembersView(roomID: roomID, canInvite: own, embedded: true, owner: room.map { Record($0["owner"]) }) }
                     else if section == "search" { List { ChatSearchView(roomID: roomID, embedded: true, selectMessage: { message in section = "messages"; Task { await openContext(message) } }) }.puboList() }
                     else { List {
@@ -132,13 +152,16 @@ struct RoomChatView: View {
                         Section("描述") { Text(room?["description"].string ?? "暂无群聊简介") }
                         if !own { Toggle("消息免打扰", isOn: Binding(get: { room?["isMuted"].bool ?? false }, set: { _ in Task { await mute() } })).disabled(busy) }
                     }.puboList().accessibilityIdentifier("room.about") }
-                    if section == "messages" { composer }
+                }.safeAreaInset(edge: .bottom, spacing: 0) {
+                    if section == "messages" { composer.fixedSize(horizontal: false, vertical: true) }
                 }
             }
         }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.hidden, for: .tabBar)
+            .modifier(ConversationTabSuppression())
             .toolbar {
                 if room != nil && !invited {
                     Menu {
+                        Toggle("显示发送者昵称", isOn: Binding(get: { session.chatShowSenderName }, set: { session.setChatShowSenderName($0) }))
                         Button("群聊成员") { section = "members" }
                         Button("搜索本群") { section = "search" }
                         if !own { Button(room?["isMuted"].bool == true ? "恢复提醒" : "免打扰") { Task { await mute() } } }
@@ -155,8 +178,9 @@ struct RoomChatView: View {
                 if !restored { restored = true; ownerID = session.user?.id; if let ownerID { draft = ((try? session.store?.read(RoomDraft.self, account: ownerID, key: key)) ?? nil) ?? RoomDraft() } }
                 session.stream.showRoom(roomID); await load(); if let initialMessage { await openContext(initialMessage) }
             }
-            .task(id: session.streamRevision) { if active && scenePhase == .active { await load() } }
-            .task(id: session.connectionRevision) { if active && scenePhase == .active { await load(reconcile: true) } }
+            .task(id: session.generation) { await session.restoreChatPreferences() }
+            .onChange(of: session.streamRevision) { _, _ in if active && scenePhase == .active { Task { await load() } } }
+            .onChange(of: session.connectionRevision) { _, _ in if active && scenePhase == .active { Task { await load(reconcile: true) } } }
             .onReceive(session.chatEvents) { receive($0) }
             .onChange(of: section) { _, value in if value == "messages" { Task { await load(reconcile: true) } } }
             .onChange(of: draft.text) { _, _ in persist() }
@@ -180,16 +204,22 @@ struct RoomChatView: View {
         return HStack(alignment: .top, spacing: 8) {
             if mine { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(user.displayName + "的主页") }
             VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
-
+                if !mine && session.chatShowSenderName {
+                    Text(user.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)
+                        .accessibilityIdentifier("room.sender." + message.id)
+                }
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回") }
                     else {
-                        if !message.text.isEmpty { NoteText(text: message.text, expands: false).font(.system(size: messageFont)) }
+                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: section == "messages" && preview == nil, identifier: "room.text." + message.id, remoteEmojis: message["emojis"]).font(.system(size: messageFont)) }
                         if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
                     }
                 }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
                     .accessibilityIdentifier("room.bubble." + message.id)
                     .contextMenu { messageMenu(message, mine: mine) }
+                if message["recalledAt"].isNull {
+                    ChatMessageLinkPreviews(text: message.text, active: section == "messages" && preview == nil, identifier: "room.links." + message.id)
+                }
                 HStack(spacing: 6) {
                     Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id)
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary) }
@@ -264,7 +294,7 @@ struct RoomChatView: View {
     }
     @discardableResult private func persist() -> Bool {
         guard let ownerID, ownerID == session.user?.id else { return false }
-        if session.testMode { return true }
+        if session.testMode && session.store == nil { return true }
         guard let store = session.store else { error = "无法保存待发状态，请稍后重试。"; return false }
         do { try store.save(draft, account: ownerID, key: key); return true } catch { self.error = "群聊草稿保存失败。"; return false }
     }
@@ -275,10 +305,11 @@ struct RoomChatView: View {
         let reconcile = needsReconcile && !older; if reconcile { needsReconcile = false }
         defer { loading = false; if active && needsReconcile && section == "messages" { Task { await load() } } }
         let epoch = loadEpoch
+        retryOlder = older; loadError = nil
         do {
             let fresh = Record(try await session.call("chat/rooms/show", ["roomId": .string(roomID)])); try Task.checkCancellation()
             guard active, epoch == loadEpoch else { return }; guard !fresh.id.isEmpty else { throw APIError.invalidResponse }; room = fresh
-            if fresh["invitationExists"].bool { messages = []; return }
+            if fresh["invitationExists"].bool { messages = []; initialLoadCompleted = true; return }
             // This endpoint marks read; search/members/about never call it.
             guard section == "messages", !contextMode || older || reconcile else { return }
             var fields: [String: JSONValue] = ["roomId": .string(roomID), "limit": .number(reconcile ? 100 : 30)]
@@ -302,10 +333,10 @@ struct RoomChatView: View {
                 let wasEmpty = messages.isEmpty; messages = Records.merge(retained, page, newestFirst: false, limit: 2000)
                 if wasEmpty { hasMore = lastCount == 30 }
             }
-            error = nil; await session.refreshUnread()
+            initialLoadCompleted = true; loadError = nil; await session.refreshUnread()
         } catch {
             if active && epoch == loadEpoch && !Task.isCancelled {
-                self.error = error.localizedDescription
+                self.loadError = error.localizedDescription
                 if ["NO_SUCH_ROOM", "ACCESS_DENIED", "PERMISSION_DENIED"].contains((error as? APIError)?.code ?? "") { messages = []; room = nil; preview = nil }
             }
         }

@@ -11,6 +11,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
 @MainActor final class StreamClient {
     var onChange: (() -> Void)?
     var onConnect: (() -> Void)?
+    var onStatusChange: ((ChatConnectionPhase) -> Void)?
     var onChatEvent: ((String) -> Void)?
     var onChatMessageEvent: ((ChatStreamEvent) -> Void)?
     var onTimelineNote: ((Record) -> Void)?
@@ -76,6 +77,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
     func start(token: String) {
         guard currentToken != token || task == nil else { return }
         stop(); currentToken = token
+        onStatusChange?(.connecting)
         task = Task { [weak self] in
             var backoff: UInt64 = 1
             while !Task.isCancelled {
@@ -103,7 +105,8 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                         try await socket.send(.data(try JSONEncoder().encode(packet)))
                     }
                     for id in self.captured { try await self.send(.object(["type": .string("sr"), "body": .object(["id": .string(id)])]), socket: socket) }
-                    self.onConnect?(); self.notify()
+                    guard !Task.isCancelled, self.socket === socket else { return }
+                    self.onStatusChange?(.connected); self.onConnect?(); self.notify()
                     while !Task.isCancelled {
                         let message = try await socket.receive()
                         guard !Task.isCancelled, self.socket === socket else { return }
@@ -139,6 +142,7 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
                 } catch {
                     // A cancelled old task must never close a replacement connection.
                     if Task.isCancelled { return }
+                    self.onStatusChange?(.reconnecting)
                     self.socket?.cancel(with: .goingAway, reason: nil)
                     self.session?.invalidateAndCancel()
                     try? await Task.sleep(nanoseconds: backoff * 1_000_000_000)
@@ -147,7 +151,12 @@ private final class StreamRedirectGuard: NSObject, URLSessionTaskDelegate {
             }
         }
     }
+    func reconnectNow() {
+        guard let token = currentToken else { return }
+        stop(); start(token: token)
+    }
     func stop() {
+        onStatusChange?(.idle)
         notificationTask?.cancel(); notificationTask = nil
         task?.cancel(); task = nil; currentToken = nil
         socket?.cancel(with: .goingAway, reason: nil); socket = nil
