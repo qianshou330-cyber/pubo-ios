@@ -85,10 +85,22 @@ public enum ChatDays {
         let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return parser.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
     }
-    public static func separator(previous: Record?, current: Record, calendar: Calendar = .current) -> String? {
+    public struct Pair: Equatable, Sendable {
+        public let older: String
+        public let newer: String
+        public var privateText: String { newer + " · " + older }
+        public var chronologicalText: String { older + " · " + newer }
+    }
+    /// Input remains chronological; this only describes a boundary, never reorders rows.
+    public static func pair(previous: Record?, current: Record, calendar: Calendar = .current) -> Pair? {
         guard let previous, let before = date(previous["createdAt"].string), let after = date(current["createdAt"].string), !calendar.isDate(before, inSameDayAs: after) else { return nil }
         let f = DateFormatter(); f.calendar = calendar; f.timeZone = calendar.timeZone
+        f.locale = Locale(identifier: "en_US_POSIX")
+        // Deliberate native enhancement: retain years at a cross-year boundary.
         f.dateFormat = calendar.component(.year, from: before) == calendar.component(.year, from: after) ? "M/d" : "yyyy/M/d"
-        return f.string(from: before) + " · " + f.string(from: after)
+        return Pair(older: f.string(from: before), newer: f.string(from: after))
+    }
+    public static func separator(previous: Record?, current: Record, calendar: Calendar = .current) -> String? {
+        pair(previous: previous, current: current, calendar: calendar)?.chronologicalText
     }
 }

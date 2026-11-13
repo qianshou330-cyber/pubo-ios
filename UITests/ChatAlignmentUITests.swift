@@ -65,7 +65,7 @@ final class ChatAlignmentUITests: XCTestCase {
     func testPrivateSearchDateAndReactionsBothThemes() {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light", app = launch(dark ? ["--dark"] : []); peer(app)
-            XCTAssertTrue(app.staticTexts["日期 11/2 · 11/3"].waitForExistence(timeout: 6))
+            XCTAssertTrue(app.staticTexts["日期 11/3 · 11/2"].waitForExistence(timeout: 6))
             XCTAssertTrue(app.buttons["取消反应 ❤"].exists); capture(app, "chat-private-" + theme)
             app.buttons["添加反应 ❤"].tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].exists, "Clicking another participant must not remove my reaction")
             app.buttons["取消反应 ❤"].tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].waitForNonExistence(timeout: 6))

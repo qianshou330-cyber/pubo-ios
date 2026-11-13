@@ -76,7 +76,7 @@ struct RoomChatView: View {
                         if hasMore { Button("更早的群聊消息") { Task { await load(older: true) } }.disabled(loading) }
                         ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                             VStack(spacing: 12) {
-                                if let label = ChatDays.separator(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(text: label) }
+                                if let pair = ChatDays.pair(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(pair: pair, style: .room) }
                                 messageRow(message)
                             }.id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 80))
                                 .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12))

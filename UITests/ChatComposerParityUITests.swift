@@ -5,9 +5,10 @@ import XCTest
 final class ChatComposerParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
-    private func launch(dark: Bool, flags: [String] = []) -> XCUIApplication {
+    private func launch(dark: Bool, flags: [String] = [], environment: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--social-align", "--chat-align", "--four-tabs-drafts"] + (dark ? ["--dark"] : []) + flags
+        app.launchEnvironment.merge(environment) { _, new in new }
         app.launch()
         XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 20))
         puboSelectTab(app, "消息")
@@ -73,6 +74,37 @@ final class ChatComposerParityUITests: XCTestCase {
         XCTAssertLessThanOrEqual(input.frame.maxY, bottom + 0.5)
     }
 
+    private func assertTimelineHorizontalInsets(_ app: XCUIApplication, room: Bool, stage: String) {
+        let prefix = room ? "room" : "chat"
+        let viewport = app.scrollViews[prefix + ".timeline"]
+        let composer = app.descendants(matching: .any).matching(identifier: prefix + ".composer").firstMatch
+        let avatars = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix + ".avatar."))
+        let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix + ".tab."))
+        XCTAssertTrue(viewport.waitForExistence(timeout: 6))
+        XCTAssertTrue(composer.waitForExistence(timeout: 6))
+        func verticallyVisibleFrames() -> [CGRect] {
+            let bounds = viewport.frame
+            return avatars.allElementsBoundByIndex.map { $0.frame }.filter { frame in
+                frame.minY >= bounds.minY && frame.maxY <= min(bounds.maxY, composer.frame.minY)
+            }
+        }
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frames = verticallyVisibleFrames(), bounds = viewport.frame
+            return !frames.isEmpty && frames.allSatisfy { frame in
+                puboTouchDimensionMeetsMinimum(frame.width) && puboTouchDimensionMeetsMinimum(frame.height) &&
+                frame.minX >= bounds.minX && frame.maxX <= bounds.maxX &&
+                abs(frame.minX - bounds.minX - 16) <= 1
+            }
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [settled], timeout: 8)
+        let rows = avatars.allElementsBoundByIndex.map { "\($0.identifier)=\($0.frame)" }.joined(separator: "\n")
+        let tabFrames = tabs.allElementsBoundByIndex.map { "\($0.identifier)=\($0.frame)" }.joined(separator: "\n")
+        let proof = XCTAttachment(string: "stage=\(stage)\nviewport=\(viewport.frame)\ncomposer=\(composer.frame)\ntabs:\n\(tabFrames)\navatars:\n\(rows)\n" + app.debugDescription)
+        proof.name = "chat-horizontal-insets-" + prefix + "-" + stage
+        proof.lifetime = .keepAlways; add(proof)
+        XCTAssertEqual(result, .completed, "At least one complete fixture avatar must be visible, with real viewport-relative 16pt inset; never scroll just to satisfy this gate")
+    }
+
     private func backToHome(_ app: XCUIApplication) {
         // Actual navigation, never a test-only path reset or tab switch.
         let back = app.navigationBars.buttons.element(boundBy: 0)
@@ -86,6 +118,7 @@ final class ChatComposerParityUITests: XCTestCase {
         for dark in [false, true] {
             let app = launch(dark: dark), theme = dark ? "dark" : "light", kind = room ? "room" : "private"
             open(app, room: room); assertComposer(app, room: room, keyboard: false)
+            assertTimelineHorizontalInsets(app, room: room, stage: "ordinary-" + theme)
             capture(app, "chat-composer-" + kind + "-" + theme)
             // Exercise the real attachment menu and a cancellable picker. Native
             // camera/microphone permissions are intentionally not synthesized.
@@ -111,24 +144,31 @@ final class ChatComposerParityUITests: XCTestCase {
             input.tap(); input.typeText(draft)
             assertComposer(app, room: room, keyboard: true)
             XCTAssertTrue(app.buttons[prefix + ".send"].isEnabled)
+            assertTimelineHorizontalInsets(app, room: room, stage: "keyboard-" + theme)
             capture(app, "chat-composer-keyboard-" + kind + "-" + theme)
             backToHome(app); open(app, room: room)
             XCTAssertEqual(app.textViews[prefix + ".input"].value as? String, draft)
             assertComposer(app, room: room, keyboard: false)
+            assertTimelineHorizontalInsets(app, room: room, stage: "draft-restored-" + theme)
             capture(app, "chat-composer-draft-restored-" + kind + "-" + theme)
             app.terminate()
         }
     }
 
-    func testInitialLoadingAndEmptyConversationStates() {
+    func testInitialLoadingAndEmptyConversationStates() throws {
         for room in [false, true] {
-            let app = launch(dark: false, flags: ["--chat-load-delay", "--chat-load-empty"])
+            let gate = try ChatLoadingTestGate(room: room)
+            defer { gate.close() }
+            let app = launch(dark: false, flags: ["--chat-load-gate", "--chat-load-empty"], environment: gate.environment)
+            defer { app.terminate() }
             let prefix = room ? "room" : "chat"
             open(app, room: room)
             let loading = app.descendants(matching: .any).matching(identifier: prefix + ".loading").firstMatch
             XCTAssertTrue(loading.waitForExistence(timeout: 3)); capture(app, "chat-state-loading-" + prefix)
+            try gate.release()
             let empty = app.descendants(matching: .any).matching(identifier: prefix + ".empty").firstMatch
-            XCTAssertTrue(empty.waitForExistence(timeout: 15)); XCTAssertFalse(app.buttons[prefix + ".retry"].exists)
+            XCTAssertTrue(empty.waitForExistence(timeout: 15)); XCTAssertFalse(loading.exists)
+            XCTAssertFalse(app.buttons[prefix + ".retry"].exists)
             assertComposer(app, room: room, keyboard: false); capture(app, "chat-state-empty-" + prefix)
             app.terminate()
         }

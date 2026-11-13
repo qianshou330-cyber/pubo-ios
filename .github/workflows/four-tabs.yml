@@ -23,6 +23,11 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_*.py' -v 2>&1 | tee build/script-tests.log
           sh scripts/test-refresh-diagnostics.sh 2>&1 | tee build/refresh-diagnostic-tests.log
           node --test scripts/isolated/test-room-message-proof.mjs 2>&1 | tee build/room-receipt-tests.log
+      - name: Darwin gate host preflight (not Simulator proof)
+        run: |
+          set -o pipefail
+          mkdir -p build
+          bash scripts/check_chat_gate_macos.sh 2>&1 | tee build/chat-gate-preflight.log
       - name: Preserve exact revision
         if: always()
         run: |
@@ -38,6 +43,7 @@ jobs:
             build/script-tests.log
             build/refresh-diagnostic-tests.log
             build/room-receipt-tests.log
+            build/chat-gate-preflight.log
   ocr-validation:
     needs: checks
     runs-on: macos-15-intel

@@ -39,12 +39,33 @@ struct ChatTabs: View {
 }
 
 struct ChatDateSeparator: View {
-    let text: String
+    enum Style { case direct, room }
+    let pair: ChatDays.Pair
+    let style: Style
+    @ScaledMetric(relativeTo: .caption) private var labelSize = 11.9
     var body: some View {
-        HStack(spacing: 12) { line; Text(text).font(.caption).foregroundStyle(PUBOTheme.secondary); line }
-            .padding(.vertical, 8).accessibilityLabel("日期 " + text)
+        Group {
+            if style == .direct {
+                Text(pair.privateText).padding(.vertical, 8).opacity(0.7)
+            } else {
+                HStack(spacing: labelSize * 0.5) {
+                    Image(systemName: "chevron.up")
+                    Text(pair.older)
+                    Rectangle().fill(PUBOTheme.divider).frame(width: 1, height: labelSize)
+                    Text(pair.newer)
+                    Image(systemName: "chevron.down")
+                }
+                .padding(.vertical, labelSize * 0.5).padding(.horizontal, labelSize)
+                .overlay(Capsule().strokeBorder(PUBOTheme.divider, lineWidth: 0.5).allowsHitTesting(false))
+                .opacity(0.75)
+            }
+        }
+        .font(.system(size: labelSize)).foregroundStyle(PUBOTheme.text)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("日期 " + (style == .direct ? pair.privateText : pair.chronologicalText))
+        .accessibilityAddTraits(.isStaticText)
     }
-    private var line: some View { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
 }
 
 struct ChatRelativeTime: View {
@@ -55,8 +76,7 @@ struct ChatRelativeTime: View {
         }
     }
     private func label(at now: Date) -> String {
-        let format = RelativeDateTimeFormatter(); format.locale = Locale(identifier: "zh_CN"); format.unitsStyle = .short
-        return format.localizedString(for: date, relativeTo: now)
+        ChatRelativeTimePolicy.label(date: date, now: now)
     }
 }
 

@@ -74,18 +74,18 @@ struct ChatView: View {
             if hasMore { Button("更早的消息") { Task { await load(older: true) } }.disabled(loading) }
             ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                 VStack(spacing: 12) {
-                    if let label = ChatDays.separator(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(text: label) }
+                    if let pair = ChatDays.pair(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(pair: pair, style: .direct) }
                     bubble(message)
                 }.id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 12)).onDisappear { animatedIDs.remove(message.id) }
                     .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
             }
             ForEach(pending) { item in pendingBubble(item) }
             Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("privateScroll")).maxY) })
-        }.scrollTargetLayout().padding(16)
+        }.scrollTargetLayout().padding(.vertical, 16)
     }
     private var messageScroll: some View {
         GeometryReader { viewport in
-                ScrollView { messageList }.accessibilityIdentifier("chat.timeline").scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
+                ScrollView { messageList }.contentMargins(.horizontal, 16, for: .scrollContent).accessibilityIdentifier("chat.timeline").scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in
                         if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") }
@@ -205,7 +205,7 @@ struct ChatView: View {
     private func bubble(_ message: Record) -> some View {
         let own = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
-            if own { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: peer.id) } label: { Avatar(user: peer, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(peer.displayName + "的主页") }
+            if own { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: peer.id) } label: { Avatar(user: peer, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(peer.displayName + "的主页").accessibilityIdentifier("chat.avatar." + message.id) }
             VStack(alignment: own ? .trailing : .leading, spacing: 6) {
                 if !own && session.chatShowSenderName {
                     Text(peer.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)

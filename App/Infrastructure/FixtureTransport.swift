@@ -191,6 +191,9 @@ actor FixtureTransport: HTTPTransport {
         // Scoped to actual conversation reads, so the home list remains usable.
         // These synthetic-only flags never affect a production API transport.
         if ["chat/messages/user-timeline", "chat/messages/room-timeline"].contains(path) {
+            if args.contains("--chat-load-gate") {
+                try await ChatFixtureResponseGate.wait(path: path)
+            }
             if args.contains("--chat-load-delay") { try await Task.sleep(for: .seconds(5)) }
             if args.contains("--chat-load-fail-once"), !chatParityFailedPaths.contains(path) {
                 chatParityFailedPaths.insert(path)
