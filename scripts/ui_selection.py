@@ -10,6 +10,8 @@ SHARDS = {
     ]),
     'authentication': (9, ['AuthStaticUITests']),
     'baseline': (46, ['PUBOUITests']),
+    # Independent synthetic expansion; original 86 and focused five remain unchanged.
+    'chat-alignment': (9, ['ChatAlignmentUITests']),
 }
 FOCUSED = [
     'PUBOUITests/testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons',
