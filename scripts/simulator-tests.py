@@ -3,6 +3,7 @@ import json
 import re
 import os
 import pathlib
+import platform
 import signal
 import subprocess
 import time
@@ -48,7 +49,10 @@ for index, template in enumerate(selected):
     device = next(dict(d, runtime=runtime) for runtime, values in inventory.items() for d in values if d['udid'] == identifier)
     created.append(device)
     (root / 'simulators.json').write_text(json.dumps(created, indent=2))
-    record = {'device': device['name'], 'udid': identifier, 'boot': 'PENDING', 'tests': 'NOT_RUN'}
+    record = {'device': device['name'], 'runtime': device['runtime'], 'udid': identifier, 'boot': 'PENDING', 'tests': 'NOT_RUN',
+              'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True, timeout=15).strip(),
+              'hostArchitecture': platform.machine(),
+              'xcode': subprocess.check_output(['xcodebuild', '-version'], text=True, timeout=30).strip()}
     environment.append(record)
     bundle = root / f'ui-{index}.xcresult'
     screenshots = root / 'screenshots' / str(index)
@@ -139,6 +143,9 @@ for index, template in enumerate(selected):
                 'testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable',
                 'testPasswordVisibilityAndAccountChangePreserveSafety',
                 'testNativeLoginAndFourTabs']]
+        if os.environ.get('PUBO_PREBUILT_TESTS') == '1':
+            if command[-1] != 'test': raise RuntimeError('Unexpected test action')
+            command[-1] = 'test-without-building'
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
@@ -231,6 +238,8 @@ for index, template in enumerate(selected):
             if test_exit == 0 and not capture.get('lifecycleVerified', False):
                 print('Refresh lifecycle proof missing: require same-process background, resume and third applied generation', flush=True)
                 test_exit = 1
+                record['tests'] = 'FAIL'
+                record['gateError'] = 'Strict same-process post-resume application evidence missing'
         if focused or shard_selection:
             try:
                 privacy_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',

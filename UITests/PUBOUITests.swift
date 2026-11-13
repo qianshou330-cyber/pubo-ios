@@ -15,7 +15,7 @@ final class PUBOUITests: XCTestCase {
 
     func testAccountDeletionRequiresSameAccountSecuritySession() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); puboTapVisible(app, "me.settings")
         let entry = app.buttons["删除账号"]; for _ in 0..<9 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
         let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); XCTAssertFalse(app.buttons["申请永久删除账号"].exists)
         password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
@@ -39,7 +39,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["已保存通知偏好"].waitForExistence(timeout: 5)); capture(app, "account-notification-preferences")
     }
     private func enterAdmin(_ app: XCUIApplication) {
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); puboTapVisible(app, "me.settings")
         let entry = app.buttons["admin.entry"]; for _ in 0..<6 where !entry.isHittable { app.swipeUp() }; XCTAssertTrue(entry.isHittable); entry.tap()
         let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only"); app.buttons["admin.authorize"].tap()
     }
@@ -59,11 +59,11 @@ final class PUBOUITests: XCTestCase {
         XCTAssertFalse(app.buttons["admin.operation.admin/update-meta"].exists)
     }
     func testOrdinaryAccountHasNoNativeAdminEntry() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); puboTapVisible(app, "me.settings")
         for _ in 0..<5 { XCTAssertFalse(app.buttons["admin.entry"].exists); app.swipeUp() }
     }
     private func openSettings(_ app: XCUIApplication) {
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 15)); puboTab(app, "我的").tap()
         let settings = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !settings.isHittable { app.swipeUp() }; XCTAssertTrue(settings.isHittable); settings.tap()
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
@@ -98,12 +98,12 @@ final class PUBOUITests: XCTestCase {
     }
     func testMultipleAccountsSwitchAndPreserveOtherAccount() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--multi-account-preview"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 15)); puboTab(app, "我的").tap()
         let link = app.buttons["多账号管理"]; for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap()
         let second = app.buttons["accounts.select.syntheticsecond"]; XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); XCTAssertTrue(app.staticTexts["第二个测试账号"].waitForExistence(timeout: 5))
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); XCTAssertTrue(app.staticTexts["第二个测试账号"].waitForExistence(timeout: 5))
         for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap(); XCTAssertTrue(app.buttons["accounts.select.syntheticself"].waitForExistence(timeout: 5)); app.buttons["accounts.select.syntheticself"].tap()
-        app.tabBars.buttons["我的"].tap()
+        puboTab(app, "我的").tap()
         let restoredName = app.staticTexts["测试用户"]
         for _ in 0..<8 where !restoredName.isHittable { app.swipeDown() }
         XCTAssertTrue(restoredName.waitForExistence(timeout: 5)); capture(app, "native-account-switch")
@@ -117,8 +117,8 @@ final class PUBOUITests: XCTestCase {
     }
     func testNativeContactGroupCreateAndAdd() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
-        app.buttons["联系人"].tap(); app.buttons["新建分组"].tap()
+        puboSelectTab(app, "好友")
+        puboTapVisible(app, "friends.contacts"); app.buttons["新建分组"].tap()
         let name = app.alerts.textFields["分组名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native friends")
         app.alerts.buttons["保存"].tap()
         let group = app.staticTexts["Native friends"]; XCTAssertTrue(group.waitForExistence(timeout: 5)); group.tap()
@@ -126,24 +126,39 @@ final class PUBOUITests: XCTestCase {
         app.staticTexts["测试朋友"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["测试朋友"].waitForExistence(timeout: 5)); capture(app, "parity-contact-group")
     }
-    func testNativeRoomCreateAndSend() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap(); app.buttons["chat.start"].tap()
-        app.buttons["创建群聊"].tap(); let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room")
-        app.buttons["保存群聊"].tap(); let room = app.staticTexts["Native room"]; XCTAssertTrue(room.waitForExistence(timeout: 5)); room.tap()
+    // Approved difference: no new-group UI; send through a pre-existing fixture room.
+    func testNativeExistingRoomSendWithoutCreationEntry() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion", "--social-align"]; app.launch()
+        puboSelectTab(app, "消息")
+        XCTAssertFalse(app.buttons["chat.start"].exists)
+        app.buttons["messages.add"].tap()
+        XCTAssertTrue(app.buttons["messages.scan"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["messages.addUsername"].exists)
+        XCTAssertFalse(app.buttons["创建群聊"].exists)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.4)).tap()
+        puboSelectTab(app, "好友"); puboTapVisible(app, "friends.rooms")
+        XCTAssertFalse(app.buttons["创建群聊"].exists)
+        let room = app.staticTexts["PUBO 音乐交流"]; XCTAssertTrue(room.waitForExistence(timeout: 5)); room.tap()
+        XCTAssertTrue(app.staticTexts["欢迎来到音乐交流群。"].waitForExistence(timeout: 5))
         let text = app.textViews["room.input"]; XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap(); text.typeText("Room proof")
-        app.buttons["发送"].tap(); XCTAssertTrue(app.staticTexts["Room proof"].waitForExistence(timeout: 5)); capture(app, "parity-room-message")
+        app.buttons["room.send"].tap(); XCTAssertTrue(app.staticTexts["Room proof"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(room.waitForExistence(timeout: 5)); room.tap()
+        XCTAssertTrue(app.staticTexts["Room proof"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "Room proof").count, 1)
+        capture(app, "parity-existing-room-message-readback")
     }
+
     func testNativeClipCreateAndOpenFeed() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["更多功能"].tap(); app.buttons["剪藏"].tap()
+        puboOpenDiscovery(app); puboTapVisible(app, "剪藏")
         app.buttons["创建剪藏"].tap(); let name = app.textFields["名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native clip")
         app.buttons["保存"].tap(); let clip = app.staticTexts["Native clip"]; XCTAssertTrue(clip.waitForExistence(timeout: 5)); clip.tap()
         XCTAssertTrue(app.buttons["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "parity-clip-feed")
     }
     func testNativeDriveFolderCreate() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["网盘"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); puboTapVisible(app, "me.drive")
         XCTAssertTrue(app.buttons["网盘新增"].waitForExistence(timeout: 5)); app.buttons["网盘新增"].tap(); app.buttons["新建文件夹"].tap()
         let field = app.alerts.textFields["文件夹名称"]; field.tap(); field.typeText("Native folder"); app.alerts.buttons["创建"].tap()
         XCTAssertTrue(app.staticTexts["Native folder"].waitForExistence(timeout: 5)); capture(app, "parity-drive-folder")
@@ -187,22 +202,22 @@ final class PUBOUITests: XCTestCase {
         app.buttons["auth.loginContinue"].tap()
         let password = app.secureTextFields["auth.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5)); password.tap(); password.typeText("synthetic-only")
         app.buttons["auth.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 10))
-        for title in ["通知", "私信", "我的", "动态"] {
-            app.tabBars.buttons[title].tap()
-            if title == "动态" { XCTAssertTrue(app.buttons["timeline.home"].exists) }
-            else if title == "通知" {
-                XCTAssertTrue(app.buttons["notifications.tab.all"].waitForExistence(timeout: 5))
-                XCTAssertTrue(app.buttons["notification.notice1"].waitForExistence(timeout: 5))
-            }
+        for title in ["消息", "好友", "我的", "世界圈"] {
+            puboSelectTab(app, title)
+            if title == "世界圈" { XCTAssertTrue(app.buttons["world.following"].exists) }
             else { XCTAssertTrue(app.navigationBars[title].exists) }
         }
+        puboOpenNotifications(app)
+        XCTAssertTrue(app.buttons["notifications.tab.all"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["notification.notice1"].waitForExistence(timeout: 5))
+        app.navigationBars["通知"].buttons.firstMatch.tap()
+        puboSelectTab(app, "世界圈")
         capture(app, "light-timeline")
     }
 
     func testSecondChatShowsReplyRequired() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reply-required"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); puboTab(app, "消息").tap()
         app.staticTexts["测试朋友"].firstMatch.tap()
         let input = app.textViews["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("synthetic message")
         app.buttons["chat.send"].tap()
@@ -220,15 +235,15 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testNetworkFailureHasRetryAndKeepsTabs() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--network-error"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--network-error"]; app.launch(); puboSelectTab(app, "世界圈")
         XCTAssertTrue(app.buttons["重试"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.tabBars.buttons["我的"].exists)
+        XCTAssertTrue(puboTab(app, "我的").exists)
     }
 
     func testContentWarningStaysHidden() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); puboSelectTab(app, "世界圈")
         let warning = app.buttons["内容提示"]
-        XCTAssertTrue(app.buttons["timeline.home"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["world.following"].waitForExistence(timeout: 10))
         for _ in 0..<5 where !warning.isHittable { app.swipeUp() }
         XCTAssertTrue(warning.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["这段文字需要展开内容警告后查看"].exists)
@@ -244,7 +259,7 @@ final class PUBOUITests: XCTestCase {
 
     func testLostChatReplyReconcilesWithoutNewMessage() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--lost-chat-response"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); puboTab(app, "消息").tap()
         XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5)); app.staticTexts["测试朋友"].firstMatch.tap()
         let input = app.textViews["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("receipt-check")
         app.buttons["chat.send"].tap()
@@ -256,19 +271,14 @@ final class PUBOUITests: XCTestCase {
 
     func testHomePanelsAndChartNavigation() {
         for dark in [false, true] {
-            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--fixture-tab-avatar", "--reduce-motion"] + (dark ? ["--dark"] : []); app.launch()
-            XCTAssertTrue(app.staticTexts["韩国女团音源榜"].waitForExistence(timeout: 10))
-            let announcement = app.buttons["home.announcement.fixtureannouncement"]
-            XCTAssertTrue(announcement.waitForExistence(timeout: 10))
-            XCTAssertEqual(announcement.label, "欢迎加入 PUBO")
-            XCTAssertGreaterThanOrEqual(announcement.frame.height, 44)
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--fixture-tab-avatar", "--reduce-motion"] + (dark ? ["--dark"] : []); app.launch(); puboSelectTab(app, "世界圈")
             XCTAssertTrue(app.buttons["home.compose"].isHittable)
             XCTAssertFalse(app.navigationBars["动态"].exists)
-            XCTAssertTrue(app.buttons["timeline.hybrid"].exists)
+            XCTAssertFalse(app.buttons["附近"].exists)
             XCTAssertFalse(app.buttons["刷新首页"].exists)
             XCTAssertFalse(app.buttons["我的资料"].exists)
-            XCTAssertTrue(app.tabBars.buttons["我的"].isHittable)
-            for name in ["timeline.home", "timeline.local", "timeline.hybrid", "timeline.global"] {
+            XCTAssertTrue(puboTab(app, "我的").isHittable)
+            for name in ["world.following", "world.recommended"] {
                 let control = app.buttons[name]
                 XCTAssertTrue(control.isHittable, name)
                 XCTAssertGreaterThanOrEqual(control.frame.width, 44, name)
@@ -276,13 +286,19 @@ final class PUBOUITests: XCTestCase {
             }
             capture(app, dark ? "home-h5-dark" : "home-h5-light")
             checkHomeMore(app, screenshot: dark ? "home-more-dark" : "home-more-light")
+            puboOpenDiscovery(app)
+            XCTAssertTrue(app.staticTexts["韩国女团音源榜"].waitForExistence(timeout: 10))
+            let announcement = app.buttons["home.announcement.fixtureannouncement"]
+            XCTAssertTrue(announcement.waitForExistence(timeout: 10))
+            XCTAssertEqual(announcement.label, "欢迎加入 PUBO")
+            XCTAssertGreaterThanOrEqual(announcement.frame.height, 44)
             announcement.tap()
             XCTAssertTrue(app.navigationBars["站内公告"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.staticTexts["这是隔离测试公告，不会发布到生产。"].exists)
             app.navigationBars.buttons.firstMatch.tap()
-            app.buttons["切换榜单"].tap(); app.buttons["Genie 实时榜"].tap()
+            puboTapVisible(app, "切换榜单"); app.buttons["Genie 实时榜"].tap()
             XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Genie 实时榜")).firstMatch.waitForExistence(timeout: 5))
-            app.buttons["home.chartDetail"].tap()
+            puboTapVisible(app, "home.chartDetail")
             XCTAssertTrue(app.navigationBars["Genie 实时榜"].waitForExistence(timeout: 5))
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chart.song.")).firstMatch.tap()
             XCTAssertTrue(app.staticTexts["7 天最佳"].waitForExistence(timeout: 5))
@@ -290,8 +306,8 @@ final class PUBOUITests: XCTestCase {
             app.terminate()
         }
         for dark in [false, true] {
-            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--large-text"] + (dark ? ["--dark"] : []); app.launch()
-            XCTAssertTrue(app.buttons["timeline.home"].waitForExistence(timeout: 10))
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--large-text"] + (dark ? ["--dark"] : []); app.launch(); puboSelectTab(app, "世界圈")
+            XCTAssertTrue(app.buttons["world.following"].waitForExistence(timeout: 10))
             capture(app, dark ? "home-header-large-dark" : "home-header-large-light")
             checkHomeMore(app, screenshot: dark ? "home-more-large-dark" : "home-more-large-light")
             app.terminate()
@@ -299,7 +315,7 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testSlowPanelsDoNotBlockTimelineOrComposer() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--slow-home-panels"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--slow-home-panels"]; app.launch(); puboSelectTab(app, "世界圈")
         XCTAssertTrue(app.staticTexts["测试用户"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home.compose"].isHittable); app.buttons["home.compose"].tap()
         XCTAssertTrue(app.textViews["compose.text"].waitForExistence(timeout: 5))
@@ -307,7 +323,7 @@ final class PUBOUITests: XCTestCase {
 
     func testSkeletonLoadingResolvesIndependently() {
         for dark in [false, true] {
-            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--skeleton-loading"] + (dark ? ["--dark"] : []); app.launch()
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--skeleton-loading"] + (dark ? ["--dark"] : []); app.launch(); puboSelectTab(app, "世界圈")
             let skeleton = app.descendants(matching: .any).matching(identifier: "loading.post").firstMatch
             XCTAssertTrue(skeleton.waitForExistence(timeout: 5))
             XCTAssertFalse(app.staticTexts["暂时没有帖子"].exists)
@@ -315,21 +331,22 @@ final class PUBOUITests: XCTestCase {
             capture(app, dark ? "loading-skeleton-dark" : "loading-skeleton-light")
             XCTAssertTrue(app.staticTexts["测试用户"].firstMatch.waitForExistence(timeout: 15))
             XCTAssertTrue(skeleton.waitForNonExistence(timeout: 5))
+            puboOpenDiscovery(app)
             XCTAssertTrue(app.buttons["home.announcement.fixtureannouncement"].waitForExistence(timeout: 5))
             app.terminate()
         }
     }
 
     func testSkeletonFailureAndReducedMotion() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--skeleton-failure"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--skeleton-failure"]; app.launch(); puboSelectTab(app, "世界圈")
         let skeleton = app.descendants(matching: .any).matching(identifier: "loading.post").firstMatch
         XCTAssertTrue(skeleton.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["重试"].waitForExistence(timeout: 10))
         XCTAssertTrue(skeleton.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.tabBars.buttons["我的"].isHittable)
+        XCTAssertTrue(puboTab(app, "我的").isHittable)
         capture(app, "loading-skeleton-failure")
         app.terminate()
-        app.launchArguments = ["--ui-testing", "--skeleton-loading", "--reduce-motion", "--dark"]; app.launch()
+        app.launchArguments = ["--ui-testing", "--skeleton-loading", "--reduce-motion", "--dark"]; app.launch(); puboSelectTab(app, "世界圈")
         XCTAssertTrue(skeleton.waitForExistence(timeout: 5))
         XCTAssertEqual(skeleton.value as? String, "加载中，静态占位")
         capture(app, "loading-skeleton-reduce-motion")
@@ -341,12 +358,12 @@ final class PUBOUITests: XCTestCase {
         let launch = app.descendants(matching: .any).matching(identifier: "loading.launch").firstMatch
         XCTAssertTrue(launch.waitForExistence(timeout: 5))
         capture(app, "loading-launch-skeleton")
-        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 12))
+        XCTAssertTrue(puboTab(app, "世界圈").waitForExistence(timeout: 12))
         XCTAssertTrue(launch.waitForNonExistence(timeout: 5))
     }
 
     func testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--refreshable-feed", "--fixture-tab-avatar"]; app.launch(); puboSelectTab(app, "世界圈")
         let newest = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value BEGINSWITH %@", "note.open.refresh", "刷新样例 ")).firstMatch
         XCTAssertTrue(newest.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["刷新首页"].exists)
@@ -377,13 +394,13 @@ final class PUBOUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "note.open.refresh", "刷新样例 \(before + 2)")).firstMatch.waitForExistence(timeout: 10))
-        app.tabBars.buttons["我的"].tap()
+        puboTab(app, "我的").tap()
         XCTAssertTrue(app.navigationBars["我的"].waitForExistence(timeout: 5))
         capture(app, "profile-avatar-tab")
     }
 
     func testLostPostResponseKeepsDraftAndDisablesResubmit() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--lost-post-response"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--lost-post-response"]; app.launch(); puboSelectTab(app, "世界圈")
         XCTAssertTrue(app.buttons["发帖"].waitForExistence(timeout: 10)); app.buttons["发帖"].tap()
         let editor = app.textViews["compose.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
@@ -404,7 +421,7 @@ final class PUBOUITests: XCTestCase {
 
     func testComposerH5ToolbarAndVisibilityKeepDraft() {
         for dark in [false, true] {
-            let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
+            let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch(); puboSelectTab(app, "世界圈")
             XCTAssertTrue(app.buttons["发帖"].waitForExistence(timeout: 10))
             capture(app, dark ? "compose-entry-dark" : "compose-entry-light")
             app.buttons["发帖"].tap()
@@ -432,13 +449,13 @@ final class PUBOUITests: XCTestCase {
             XCTAssertEqual(editor.value as? String, "draft")
             capture(app, dark ? "compose-cw-preview-dark" : "compose-cw-preview-light")
             app.buttons["compose.close"].tap()
-            XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 5))
+            XCTAssertTrue(puboTab(app, "世界圈").waitForExistence(timeout: 5))
             app.terminate()
         }
     }
 
     func testComposerLargeTextKeyboardControlsRemainReachable() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text"]; app.launch(); puboSelectTab(app, "世界圈")
         XCTAssertTrue(app.buttons["发帖"].waitForExistence(timeout: 10)); app.buttons["发帖"].tap()
         let editor = app.textViews["compose.text"]; XCTAssertTrue(editor.waitForExistence(timeout: 5)); editor.tap()
         for character in "large draft" { editor.typeText(String(character)) }
@@ -456,12 +473,12 @@ final class PUBOUITests: XCTestCase {
         }
         XCTAssertTrue(toolFailures.isEmpty, toolFailures.joined(separator: "; "))
         app.buttons["compose.close"].tap()
-        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 5))
+        XCTAssertTrue(puboTab(app, "世界圈").waitForExistence(timeout: 5))
     }
 
     func testDarkLargeTextNavigationAndLogout() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); puboTapVisible(app, "me.settings")
         capture(app, "dark-large-text-profile")
         let logout = app.buttons["退出登录"]
         // Extra account features make this form longer at accessibility text sizes.
@@ -555,13 +572,13 @@ final class PUBOUITests: XCTestCase {
     func testWebStyleFeedsAndChatsInBothThemes() {
         for dark in [false, true] {
             let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview"] + (dark ? ["--dark"] : [])
-            app.launch()
-            XCTAssertTrue(app.buttons["timeline.global"].waitForExistence(timeout: 10)); app.buttons["timeline.global"].tap()
+            app.launch(); puboSelectTab(app, "世界圈")
+            XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 10)); app.buttons["world.recommended"].tap()
             let warning = app.buttons["内容提示"]
             for _ in 0..<4 where !warning.isHittable { app.swipeUp() }
             XCTAssertTrue(warning.waitForExistence(timeout: 5))
             capture(app, dark ? "web-style-feed-dark" : "web-style-feed-light")
-            app.tabBars.buttons["通知"].tap()
+            puboOpenNotifications(app)
             // The redesigned row exposes a navigable notification with separate
             // actor and summary text, rather than the former concatenated label.
             let follow = app.buttons["notification.notice1"]
@@ -570,7 +587,8 @@ final class PUBOUITests: XCTestCase {
             XCTAssertTrue(follow.label.contains("你有新的关注者"))
             XCTAssertTrue(follow.isHittable)
             capture(app, dark ? "web-style-notifications-dark" : "web-style-notifications-light")
-            app.tabBars.buttons["私信"].tap(); XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5))
+            app.navigationBars["通知"].buttons.firstMatch.tap()
+            puboTab(app, "消息").tap(); XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5))
             capture(app, dark ? "web-style-conversations-dark" : "web-style-conversations-light")
             app.staticTexts["测试朋友"].firstMatch.tap()
             XCTAssertTrue(app.staticTexts["你好，欢迎来到 PUBO。"].waitForExistence(timeout: 5))
@@ -584,14 +602,15 @@ final class PUBOUITests: XCTestCase {
 
     func testSearchFavoritesAndOwnNoteDeletion() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
-        app.buttons["搜索"].tap()
+        puboOpenDiscovery(app); puboTapVisible(app, "搜索")
         let search = app.textFields["search.query"]; XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("PUBO\n")
         XCTAssertTrue(app.buttons["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5))
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["收藏帖子"].tap()
         XCTAssertTrue(app.staticTexts["已收藏"].waitForExistence(timeout: 5)); capture(app, "social-search-favorite")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.buttons["我的收藏"].tap()
+        XCTAssertTrue(app.navigationBars["发现"].waitForExistence(timeout: 5))
+        app.navigationBars["发现"].buttons.firstMatch.tap()
+        puboSelectTab(app, "我的"); puboTapVisible(app, "me.favorites")
         XCTAssertTrue(app.buttons["欢迎来到 PUBO。原生界面测试 :test:"].waitForExistence(timeout: 5)); capture(app, "social-favorites")
         app.buttons["帖子更多操作"].firstMatch.tap(); app.buttons["删除帖子"].tap()
         app.buttons["删除帖子"].firstMatch.tap()
@@ -601,7 +620,7 @@ final class PUBOUITests: XCTestCase {
 
     func testSearchPolicyDisabledStillAllowsUserSearch() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--search-unavailable"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["搜索"].tap()
+        puboOpenDiscovery(app); puboTapVisible(app, "搜索")
         XCTAssertTrue(app.staticTexts["search.unavailable"].waitForExistence(timeout: 5))
         let field = app.textFields["search.query"]; field.tap(); field.typeText("PUBO")
         XCTAssertFalse(app.buttons["search.submit"].isEnabled)
@@ -611,7 +630,7 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testPollVoteAndComposePoll() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-preview"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-preview"]; app.launch(); puboSelectTab(app, "世界圈")
         let choice = app.buttons["poll.choice.0"]
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
         for _ in 0..<5 where !choice.isHittable { app.swipeUp() }
@@ -628,7 +647,7 @@ final class PUBOUITests: XCTestCase {
 
     func testChatEditRecallAndReactions() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); puboTab(app, "消息").tap()
         app.staticTexts["测试朋友"].firstMatch.tap()
         let sent = app.staticTexts["收到，我们在这里聊天。"]
         XCTAssertTrue(sent.waitForExistence(timeout: 5)); sent.press(forDuration: 1)
@@ -651,9 +670,10 @@ final class PUBOUITests: XCTestCase {
 
     func testPermissionFailureOffersAuthorizationWithoutLoggingOut() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--permission-denied"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap(); app.buttons["我的收藏"].tap()
+        XCTAssertTrue(puboTab(app, "我的").waitForExistence(timeout: 10)); puboTab(app, "我的").tap(); puboTapVisible(app, "me.favorites")
         XCTAssertTrue(app.staticTexts["当前授权缺少此功能权限，请到“我的”重新授权；原有草稿会保留。"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.element(boundBy: 0).tap()
+        puboTapVisible(app, "me.settings")
         let authorize = app.buttons["重新授权（保留草稿）"]; for _ in 0..<5 where !authorize.isHittable { app.swipeUp() }
         XCTAssertTrue(authorize.isHittable); capture(app, "social-reauthorization-entry")
     }
@@ -661,7 +681,7 @@ final class PUBOUITests: XCTestCase {
     func testChatEditConflictAndLostResponseKeepDraftUntilManualResolution() {
         for conflict in [true, false] {
             let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--chat-preview", conflict ? "--edit-conflict" : "--lost-edit-response"]; app.launch()
-            XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+            XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); puboTab(app, "消息").tap()
             app.staticTexts["测试朋友"].firstMatch.tap()
             let sent = app.staticTexts["收到，我们在这里聊天。"]
             XCTAssertTrue(sent.waitForExistence(timeout: 5)); sent.press(forDuration: 1)
@@ -711,7 +731,7 @@ final class PUBOUITests: XCTestCase {
 
     func testLargeTextChatKeepsInputAndActionsReachable() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--dark", "--large-text", "--chat-preview"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); puboTab(app, "消息").tap()
         XCTAssertTrue(app.staticTexts["测试朋友"].firstMatch.waitForExistence(timeout: 5)); app.staticTexts["测试朋友"].firstMatch.tap()
         let input = app.textViews["chat.input"]; XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("draft")
         let send = app.buttons["chat.send"]
@@ -722,7 +742,7 @@ final class PUBOUITests: XCTestCase {
 
     func testHistoricalReferenceAndReturnToLatest() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--parity-preview"]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); app.tabBars.buttons["私信"].tap()
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); puboTab(app, "消息").tap()
         app.staticTexts["测试朋友"].firstMatch.tap()
         let quote = app.buttons["chat.reference.chatquote003"]
         XCTAssertTrue(quote.waitForExistence(timeout: 5))
@@ -737,7 +757,7 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testChartFallbackSearchAndHistory() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--parity-preview"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--parity-preview"]; app.launch(); puboOpenDiscovery(app)
         XCTAssertTrue(app.buttons["home.chartDetail"].waitForExistence(timeout: 10)); app.buttons["home.chartDetail"].tap()
         let song = app.buttons["chart.song.fixturesong"]
         XCTAssertTrue(song.waitForExistence(timeout: 5)); XCTAssertTrue(song.label.contains("下降 1 位"))
@@ -764,7 +784,7 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testAdminAnnouncementEditRequiresReauthentication() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--admin-preview", "--reduce-motion"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--admin-preview", "--reduce-motion"]; app.launch(); puboOpenDiscovery(app)
         let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 10)); edit.tap()
         app.buttons["announcement.edit.fixtureannouncement"].tap()
         let password = app.secureTextFields["admin.password"]; XCTAssertTrue(password.waitForExistence(timeout: 5))
@@ -778,13 +798,13 @@ final class PUBOUITests: XCTestCase {
     }
 
     func testScheduledPostReceiptAndCancel() {
-        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch()
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reduce-motion"]; app.launch(); puboSelectTab(app, "世界圈")
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10)); app.buttons["home.compose"].tap()
         let editor = app.textViews["compose.text"]; editor.tap(); editor.typeText("Scheduled fixture")
         app.buttons["compose.more"].tap(); app.buttons["定时发布"].tap()
         app.buttons["compose.send"].tap()
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["我的"].tap(); app.buttons["定时帖子"].tap()
+        puboTab(app, "我的").tap(); puboTapVisible(app, "定时帖子")
         XCTAssertTrue(app.staticTexts["Scheduled fixture"].waitForExistence(timeout: 5)); capture(app, "parity-scheduled-note")
         app.buttons["取消定时，保留服务器草稿"].tap(); app.buttons["取消定时发布"].tap()
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))

@@ -4,9 +4,9 @@ final class PersonalGIFUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func launch(reset: Bool = true, flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-align", "--gif-preview", "--sticker-testing"] + (reset ? ["--reset-stickers"] : []) + flags; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 12)); openChat(app); return app
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 12)); openChat(app); return app
     }
-    private func openChat(_ app: XCUIApplication) { app.tabBars.buttons["私信"].tap(); let friend = app.staticTexts["测试朋友"].firstMatch; XCTAssertTrue(friend.waitForExistence(timeout: 8)); friend.tap(); XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8)) }
+    private func openChat(_ app: XCUIApplication) { puboSelectTab(app, "消息"); let friend = app.staticTexts["测试朋友"].firstMatch; XCTAssertTrue(friend.waitForExistence(timeout: 8)); friend.tap(); XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8)) }
     private func collect(_ app: XCUIApplication) {
         let image = app.descendants(matching: .any).matching(identifier: "private.gif.inline").firstMatch
         XCTAssertTrue(image.waitForExistence(timeout: 10)); image.press(forDuration: 1)
@@ -36,10 +36,10 @@ final class PersonalGIFUITests: XCTestCase {
     func testRestartPersistenceAndAccountIsolation() {
         var app = launch(flags: ["--multi-account-preview"]); collect(app); app.terminate()
         app = launch(reset: false, flags: ["--multi-account-preview"]); library(app); XCTAssertEqual(cells(app).count, 1); app.buttons["关闭"].tap()
-        app.navigationBars.buttons.firstMatch.tap(); app.tabBars.buttons["我的"].tap(); let accounts = app.buttons["多账号管理"]
+        app.navigationBars.buttons.firstMatch.tap(); puboSelectTab(app, "我的"); let accounts = app.buttons["me.accounts"]
         for _ in 0..<5 where !accounts.isHittable { app.swipeUp() }; accounts.tap()
         let second = app.buttons["accounts.select.syntheticsecond"]; XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); openChat(app); library(app)
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); openChat(app); library(app)
         XCTAssertTrue(app.staticTexts["还没有收藏的 GIF"].waitForExistence(timeout: 5)); XCTAssertEqual(cells(app).count, 0); capture(app, "gif-favorites-other-account")
     }
     func testRevokedSourceCannotBeFavorited() {

@@ -16,11 +16,11 @@ import XCTest
         app.launch()
         defer { app.terminate() }
 
-        let entry = app.tabBars.buttons["通知"]
+        let entry = puboTab(app, "我的")
         XCTAssertTrue(entry.waitForExistence(timeout: 20))
         let before = try await serverReadState()
-        XCTAssertFalse(before, "Opening the app's timeline must preserve the notification badge")
-        entry.tap()
+        XCTAssertFalse(before, "Opening the messages landing page must preserve the notification badge")
+        puboOpenNotifications(app)
         XCTAssertTrue(app.buttons["notifications.tab.all"].waitForExistence(timeout: 10))
         var read = false
         for _ in 0..<24 {

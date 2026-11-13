@@ -4,8 +4,8 @@ final class ChatAlignmentUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-align", "--chat-align"] + flags; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 15)); app.tabBars.buttons["私信"].tap()
-        XCTAssertTrue(app.buttons["chat.home.home"].waitForExistence(timeout: 8)); return app
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 15)); puboSelectTab(app, "消息")
+        XCTAssertTrue(app.buttons["messages.add"].waitForExistence(timeout: 8)); return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)
@@ -28,10 +28,14 @@ final class ChatAlignmentUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["99+"].waitForExistence(timeout: 8))
             XCTAssertTrue(app.buttons["conversation.room:socialroom"].exists); XCTAssertTrue(app.buttons["conversation.user:syntheticpeer"].exists)
             capture(app, "chat-home-" + theme)
-            for (tab, expected) in [("invited", "新朋友邀请"), ("joining", "PUBO 音乐交流"), ("owned", "我的音乐小组")] {
-                let button = app.buttons["chat.home." + tab]; if !button.isHittable { app.scrollViews.firstMatch.swipeLeft() }; button.tap()
+            puboSelectTab(app, "好友"); puboTapVisible(app, "friends.rooms")
+            XCTAssertTrue(app.navigationBars["群聊"].waitForExistence(timeout: 8))
+            XCTAssertFalse(app.buttons["创建群聊"].exists)
+            for (tab, expected) in [("邀请", "新朋友邀请"), ("已加入", "PUBO 音乐交流"), ("我创建的", "我的音乐小组")] {
+                let button = app.segmentedControls.buttons[tab]
+                XCTAssertTrue(button.waitForExistence(timeout: 6)); button.tap()
                 XCTAssertTrue(app.staticTexts[expected].waitForExistence(timeout: 6)); capture(app, "chat-" + tab + "-" + theme)
-                XCTAssertEqual(app.tabBars.buttons.count, 4)
+                XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "app.tab.")).count, 4)
             }
             app.terminate()
         }

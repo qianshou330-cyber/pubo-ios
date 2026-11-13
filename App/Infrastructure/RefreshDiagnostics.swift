@@ -36,6 +36,13 @@ final class RefreshDiagnostics {
             #endif
         }
     }
+    /// Passive evidence of a merge, not merely a successful response. One event
+    /// per applied response, regardless of row count; never logs note IDs.
+    func recordMergedPage(beforeVisible: Set<String>, afterVisible: Set<String>,
+                          beforePending: Set<String>, afterPending: Set<String>) {
+        if !afterVisible.subtracting(beforeVisible).isEmpty { record(.rowsApplied) }
+        if !afterPending.subtracting(beforePending).isEmpty { record(.rowsPending) }
+    }
     func snapshot() -> [Event: Int] {
         lock.lock(); defer { lock.unlock() }
         return counts

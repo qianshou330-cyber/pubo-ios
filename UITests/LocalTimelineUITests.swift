@@ -4,7 +4,8 @@ final class LocalTimelineUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--timeline-align", "--gif-preview"] + flags; app.launch()
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 15)); return app
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.more"].waitForExistence(timeout: 15)); return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) { let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot) }
     private func find(_ app: XCUIApplication, _ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
@@ -25,7 +26,7 @@ final class LocalTimelineUITests: XCTestCase {
         let scroll = app.scrollViews["timeline.scroll"]
         for _ in 0..<32 {
             let upper = max(110, app.buttons["home.more"].frame.maxY + 12)
-            let lower = app.tabBars.firstMatch.frame.minY - 16
+            let lower = app.descendants(matching: .any).matching(identifier: "app.tabBar").firstMatch.frame.minY - 16
             if item.exists && item.isHittable && item.frame.midY > upper && item.frame.midY < lower { return item }
             let reverse = item.exists && item.frame.midY <= upper
             let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: reverse ? 0.40 : 0.72))
@@ -37,11 +38,11 @@ final class LocalTimelineUITests: XCTestCase {
     func testFirstLocalAndFourTabsInBothThemes() {
         for dark in [false, true] {
             let app = launch(dark ? ["--dark"] : [])
-            XCTAssertTrue(app.buttons["timeline.local"].isSelected)
+            XCTAssertTrue(app.buttons["world.recommended"].isSelected)
             XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10))
-            for title in ["动态", "通知", "私信", "我的"] { XCTAssertTrue(app.tabBars.buttons[title].exists) }
+            for title in ["消息", "好友", "世界圈", "我的"] { XCTAssertTrue(puboTab(app, title).exists) }
             capture(app, dark ? "local-home-dark" : "local-home-light")
-            Thread.sleep(forTimeInterval: 7) // Record uninterrupted real marquee and media animation.
+            Thread.sleep(forTimeInterval: 7) // Record uninterrupted real feed media animation; marquee is in discovery.
             app.buttons["home.more"].tap(); XCTAssertTrue(app.buttons["仅限媒体"].exists); capture(app, dark ? "local-filters-dark" : "local-filters-light")
             app.terminate()
         }
@@ -151,7 +152,7 @@ final class LocalTimelineUITests: XCTestCase {
         app.navigationBars.buttons.firstMatch.tap()
         let media = reveal(app,"media.open.timelinegif"); XCTAssertTrue(media.isHittable); media.tap()
         XCTAssertTrue(app.buttons["attachment.saveFile"].waitForExistence(timeout: 10)); capture(app,"local-media-destination")
-        app.buttons["关闭"].tap(); XCTAssertTrue(app.buttons["timeline.local"].exists); app.terminate()
+        app.buttons["关闭"].tap(); XCTAssertTrue(app.buttons["world.recommended"].exists); app.terminate()
     }
     func testReducedMotionAndLargeTextKeepFiltersReachable() {
         let app = launch(["--reduce-motion", "--large-text"])
@@ -161,24 +162,25 @@ final class LocalTimelineUITests: XCTestCase {
     func testSavedChoiceMigratesAndStaysIsolatedAcrossAccounts() {
         let flags = ["--timeline-persistence", "--multi-account-preview"]
         var app = launch(flags + ["--reset-timeline-preferences", "--legacy-timeline-home"])
-        XCTAssertTrue(app.buttons["timeline.home"].isSelected)
+        XCTAssertTrue(app.buttons["world.following"].isSelected)
         app.buttons["home.more"].tap(); app.buttons["仅限媒体"].tap()
         XCTAssertTrue(find(app,"media.open.timelinegif").waitForExistence(timeout: 10)); app.terminate()
         app = launch(flags)
-        XCTAssertTrue(app.buttons["timeline.home"].isSelected)
+        XCTAssertTrue(app.buttons["world.following"].isSelected)
         XCTAssertTrue(find(app,"media.open.timelinegif").waitForExistence(timeout: 10))
         XCTAssertFalse(find(app,"note.open.at4tltest0025").exists)
-        app.tabBars.buttons["我的"].tap()
-        let accounts = app.buttons["多账号管理"]; for _ in 0..<6 where !accounts.isHittable { app.swipeUp() }; accounts.tap()
+        puboSelectTab(app, "我的")
+        puboTapVisible(app, "me.accounts")
         app.buttons["accounts.select.syntheticsecond"].tap()
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 10)); XCTAssertTrue(app.buttons["timeline.local"].isSelected)
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 10)); XCTAssertTrue(app.buttons["world.recommended"].isSelected)
         XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10))
         capture(app,"local-account-preferences-isolated"); app.terminate()
     }
     func testUnavailableLocalFallsBackAndFailedReadCanRetry() {
         var app = launch(["--timeline-local-disabled"])
-        XCTAssertTrue(app.staticTexts["本地时间线暂不可用，已切换到关注。"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["timeline.home"].isSelected); capture(app,"local-unavailable-fallback"); app.terminate()
+        XCTAssertTrue(app.staticTexts["公开内容暂不可用，已切换到关注。"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["world.following"].isSelected); capture(app,"local-unavailable-fallback"); app.terminate()
         app = launch(["--timeline-offline-first"])
         let retry = app.buttons["重试"]; XCTAssertTrue(retry.waitForExistence(timeout: 10)); retry.tap()
         XCTAssertTrue(find(app,"note.open.at4tltest0025").waitForExistence(timeout: 10)); capture(app,"local-retry-restored"); app.terminate()

@@ -18,4 +18,15 @@ precondition(counter.snapshot()[.pullEnded] == 1)
 DispatchQueue.concurrentPerform(iterations: 1_000) { _ in counter.record(.fixtureGeneration) }
 precondition(counter.snapshot()[.fixtureGeneration] == 1_000)
 precondition(RefreshDiagnostics(arguments: flags).snapshot().isEmpty)
+// Existing 128-log cap does not prevent counting; no-op and pending-only
+// responses must not masquerade as visible applications.
+let merging = counter
+merging.recordMergedPage(beforeVisible: ["a"], afterVisible: ["a"], beforePending: [], afterPending: [])
+precondition(merging.snapshot()[.rowsApplied] == nil)
+merging.recordMergedPage(beforeVisible: ["a"], afterVisible: ["a"], beforePending: [], afterPending: ["b"])
+precondition(merging.snapshot()[.rowsApplied] == nil)
+precondition(merging.snapshot()[.rowsPending] == 1)
+merging.recordMergedPage(beforeVisible: ["a"], afterVisible: ["a", "b", "c"], beforePending: ["b"], afterPending: [])
+precondition(merging.snapshot()[.rowsApplied] == 1)
+precondition(merging.snapshot()[.rowsPending] == 1)
 print("DIAGNOSTIC_TESTS_PASS")

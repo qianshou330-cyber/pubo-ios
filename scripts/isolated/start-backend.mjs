@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
+import { roomMessageReceipt, validRoomMessageNonce } from './room-message-proof.mjs';
 import { writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -99,6 +100,13 @@ const control=createServer(async(req,res)=>{
    await api('i/update',{hideOnlineStatus:false},alice.token);
    res.writeHead(204);res.end();return;
   }
+  if (req.method === 'GET' && new URL(req.url, 'http://127.0.0.1:61913').pathname === '/room-message-proof') {
+   const nonce = new URL(req.url, 'http://127.0.0.1:61913').searchParams.get('nonce');
+   if (!validRoomMessageNonce(nonce)) { res.writeHead(400); res.end(); return; }
+   const rows = await api('chat/messages/room-timeline', {roomId: parityRoom.id, limit: 100}, alice.token);
+   res.setHeader('content-type', 'application/json');
+   res.end(JSON.stringify(roomMessageReceipt(rows, {roomId: parityRoom.id, userId: alice.id, nonce}))); return;
+  }
   if(req.method==='GET'&&req.url==='/context'){res.setHeader('content-type','application/json');res.end(JSON.stringify(context));return;}
   if(req.method==='POST'&&req.url==='/chat-event'){
    parityEvent=await api('chat/messages/create-to-room',{toRoomId:parityRoom.id,text:'Native live group arrival'},bob.token);
@@ -134,14 +142,11 @@ const control=createServer(async(req,res)=>{
    const drafts=await api('notes/drafts/list',{scheduled:false,limit:100},alice.token);
    const announcements=await api('announcements',{display:'marquee',isActive:true,limit:100});
    const contacts=await api('chat/contact-groups/list',{},alice.token);
-   const rooms=await api('chat/rooms/owned',{limit:100},alice.token);
-   const room=rooms.find(x=>x.name==='Native room proof');
-   const roomMessages=room?await api('chat/messages/room-timeline',{roomId:room.id,limit:100},alice.token):[];
    const folders=await api('drive/folders',{limit:100},alice.token);
    const clips=await api('clips/list',{limit:100},alice.token);
    const privacy=await api('i',{},alice.token); const invites=await api('invite/list',{limit:100},alice.token); const mutes=await api('mute/list',{limit:100},alice.token);
    const adminAnnouncements=await api('admin/announcements/list',{status:'all',limit:100},owner.token);
-   const daily={adminAnnouncementCreated:adminAnnouncements.some(x=>x.title==='Native administrator announcement'&&x.text==='Native administrator body'),privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),roomMessageCreated:roomMessages.some(x=>x.text==='Native room message proof'&&x.fromUserId===alice.id),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
+   const daily={adminAnnouncementCreated:adminAnnouncements.some(x=>x.title==='Native administrator announcement'&&x.text==='Native administrator body'),privacyChanged:privacy.hideOnlineStatus===true,invitationCreated:invites.length>0,muted:mutes.some(x=>x.muteeId===bob.id),notMuted:!mutes.some(x=>x.muteeId===bob.id),contactsCreated:contacts.some(x=>x.name==='Native contacts proof'),folderCreated:folders.some(x=>x.name==='Native folder proof'),clipCreated:clips.some(x=>x.name==='Native clip proof')};
    const reacted=reactionMessage.reactions.some(x=>x.user.id===alice.id&&x.reaction.replace(/\ufe0f/g,'')==='❤');
    res.setHeader('content-type','application/json');res.end(JSON.stringify({...daily,...timelineReceipts,timelineReacted:timelineNote.myReaction?.replace(/\ufe0f/g,'')==='❤',timelineUnreacted:timelineNote.myReaction==null,favorite:favorites.some(x=>x.note.id===note.createdNote.id),voted:vote.poll.choices.some(x=>x.isVoted),edited:message.text?.includes('Edited')??false,recalled:message.recalledAt!=null,reacted,unreacted:!reacted,contextUnread:old.readState==='unread',scheduled:scheduled.some(x=>x.text==='Native scheduled proof'),scheduledCancelled:!scheduled.some(x=>x.text==='Native scheduled proof')&&drafts.some(x=>x.text==='Native scheduled proof'),announcementEdited:announcements.some(x=>x.id===announcement.id&&x.title==='隔离原生公告 Edited')}));return;
   }

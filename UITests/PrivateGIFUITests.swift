@@ -4,10 +4,10 @@ final class PrivateGIFUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-align", "--gif-preview"] + flags; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 12)); openPrivate(app); return app
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 12)); openPrivate(app); return app
     }
     private func openPrivate(_ app: XCUIApplication) {
-        app.tabBars.buttons["私信"].tap(); let peer = app.staticTexts["测试朋友"].firstMatch
+        puboSelectTab(app, "消息"); let peer = app.staticTexts["测试朋友"].firstMatch
         XCTAssertTrue(peer.waitForExistence(timeout: 6)); peer.tap()
         XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 6))
     }
@@ -112,10 +112,10 @@ final class PrivateGIFUITests: XCTestCase {
     }
     func testAccountSwitchNeverReusesPreviousPrivateImage() {
         let app = launch(["--multi-account-preview"]); moving(gif(app)); app.navigationBars.buttons.firstMatch.tap()
-        app.tabBars.buttons["我的"].tap(); let link = app.buttons["多账号管理"]
+        puboSelectTab(app, "我的"); let link = app.buttons["me.accounts"]
         for _ in 0..<5 where !link.isHittable { app.swipeUp() }; link.tap()
         let second = app.buttons["accounts.select.syntheticsecond"]; XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap()
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 10)); openPrivate(app)
+        XCTAssertTrue(puboTab(app, "消息").waitForExistence(timeout: 10)); openPrivate(app)
         XCTAssertFalse(gif(app).exists); XCTAssertFalse(app.staticTexts["分享一张 GIF 动图"].exists); capture(app, "gif-switched-account")
     }
     func testStaticPNGAndLargeGIFPreserveBounds() {

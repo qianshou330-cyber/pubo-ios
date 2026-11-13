@@ -4,7 +4,7 @@ final class SocialAlignmentUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--social-align"] + flags; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 12)); return app
+        XCTAssertTrue(puboTab(app, "世界圈").waitForExistence(timeout: 12)); puboSelectTab(app, "世界圈"); return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)
@@ -14,11 +14,11 @@ final class SocialAlignmentUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5)); XCTAssertTrue(element.isHittable)
     }
     private func openPrivate(_ app: XCUIApplication) {
-        app.tabBars.buttons["私信"].tap(); let peer = app.staticTexts["测试朋友"].firstMatch; XCTAssertTrue(peer.waitForExistence(timeout: 6)); peer.tap()
+        puboSelectTab(app, "消息"); let peer = app.staticTexts["测试朋友"].firstMatch; XCTAssertTrue(peer.waitForExistence(timeout: 6)); peer.tap()
         XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 6))
     }
     private func openRoom(_ app: XCUIApplication) {
-        app.tabBars.buttons["通知"].tap(); let row = app.buttons["notification.socialnotice1"]; XCTAssertTrue(row.waitForExistence(timeout: 6)); row.tap()
+        puboOpenNotifications(app); let row = app.buttons["notification.socialnotice1"]; XCTAssertTrue(row.waitForExistence(timeout: 6)); row.tap()
         XCTAssertTrue(app.navigationBars["PUBO 音乐交流"].waitForExistence(timeout: 6)); XCTAssertTrue(app.textViews["room.input"].exists)
     }
     func testContextCardsNavigateToExactOriginalInBothThemes() {
@@ -32,7 +32,7 @@ final class SocialAlignmentUITests: XCTestCase {
         }
     }
     func testNotificationDestinationsAndSpecifiedNotes() {
-        let app = launch(); app.tabBars.buttons["通知"].tap()
+        let app = launch(); puboOpenNotifications(app)
         let achievement = app.buttons["notification.socialnotice2"]; XCTAssertTrue(achievement.waitForExistence(timeout: 6)); capture(app, "social-notifications-light"); achievement.tap()
         XCTAssertTrue(app.navigationBars["成就"].waitForExistence(timeout: 5)); app.navigationBars.buttons.firstMatch.tap()
         app.buttons["notification.socialnotice3"].tap()

@@ -57,8 +57,8 @@ final class ProfileParityUITests: XCTestCase {
             let app = XCUIApplication()
             app.launchArguments = ["--ui-testing", "--timeline-align"] + (dark ? ["--dark"] : [])
             app.launch()
-            let home = app.buttons["我的主页"]
-            XCTAssertTrue(home.waitForExistence(timeout: 15)); home.tap()
+            puboSelectTab(app, "我的")
+            puboTapVisible(app, "me.profile")
             let edit = app.buttons["编辑个人资料"]
             XCTAssertTrue(edit.waitForExistence(timeout: 10)); reveal(edit, in: app); edit.tap()
 

@@ -5,7 +5,8 @@ import XCTest
     func testRealTimelineReplyAndRenoteButtons() async throws {
         let data = try await context(); let id = data["noteId"]!
         var app = launch(data)
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 20))
         let reply = app.buttons["note.reply." + id]
         for _ in 0..<10 where !reply.isHittable { app.swipeUp() }
         XCTAssertTrue(reply.isHittable); reply.tap()
@@ -16,7 +17,8 @@ import XCTest
         let replied = try await proof("timelineReplied"); XCTAssertTrue(replied)
         capture(app, "joint-timeline-reply-receipt"); app.terminate()
         app = launch(data)
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 20))
         let renote = app.buttons["note.renote." + id]
         for _ in 0..<10 where !renote.isHittable { app.swipeUp() }
         XCTAssertTrue(renote.isHittable); renote.tap(); app.buttons["转发"].tap()
@@ -26,7 +28,8 @@ import XCTest
     }
     func testRealLocalTimelineReactionAndCancellation() async throws {
         let data = try await context(); let app = launch(data)
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20)); XCTAssertTrue(app.buttons["timeline.local"].isSelected)
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 20)); XCTAssertTrue(app.buttons["world.recommended"].isSelected)
         let reaction = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "note.reaction." + data["noteId"]! + ".")).firstMatch
         for _ in 0..<8 where !reaction.isHittable { app.swipeUp() }
         XCTAssertTrue(reaction.isHittable); reaction.tap()
@@ -39,7 +42,8 @@ import XCTest
     }
     func testRealLocalTimelineReceivesAndDeletesSpecificNote() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["poll.choice.0"].waitForExistence(timeout: 20))
         var create = URLRequest(url: URL(string: "http://127.0.0.1:61913/timeline-create")!); create.httpMethod = "POST"; create.timeoutInterval = 15
         let (bytes, response) = try await URLSession.shared.data(for: create); XCTAssertEqual((response as? HTTPURLResponse)?.statusCode,200)
@@ -53,7 +57,8 @@ import XCTest
     func testRealNativeAdminCreatesAnnouncement() async throws {
         let data = try await context(); let app = XCUIApplication(); app.launchArguments = ["--isolated-backend"]
         app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
+        puboSelectTab(app, "我的")
+        puboTapVisible(app, "me.settings")
         let entry = app.buttons["admin.entry"]; for _ in 0..<7 where !entry.isHittable { app.swipeUp() }; entry.tap()
         XCTAssertTrue(app.buttons["admin.authorize"].waitForExistence(timeout: 5)); app.buttons["admin.authorize"].tap()
         let search = app.searchFields.firstMatch; XCTAssertTrue(search.waitForExistence(timeout: 10)); search.tap(); search.typeText("公告")
@@ -68,7 +73,7 @@ import XCTest
         let saved = try await proof("adminAnnouncementCreated"); XCTAssertTrue(saved)
     }
     private func openAccountSettings(_ app: XCUIApplication) {
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
+        puboSelectTab(app, "我的")
         let target = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !target.isHittable { app.swipeUp() }; XCTAssertTrue(target.isHittable); target.tap()
     }
     func testRealPrivacyUpdate() async throws {
@@ -100,27 +105,59 @@ import XCTest
     }
     func testRealContactGroupCreation() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["联系人"].tap(); app.buttons["新建分组"].tap()
+        puboSelectTab(app, "好友"); puboTapVisible(app, "friends.contacts"); app.buttons["新建分组"].tap()
         let name = app.alerts.textFields["分组名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native contacts proof"); app.alerts.buttons["保存"].tap()
         XCTAssertTrue(app.staticTexts["Native contacts proof"].waitForExistence(timeout: 10)); let saved = try await proof("contactsCreated"); XCTAssertTrue(saved); capture(app,"joint-native-contacts")
     }
-    func testRealRoomCreationAndMessage() async throws {
-        let app = launch(try await context())
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap(); app.buttons["chat.start"].tap(); app.buttons["创建群聊"].tap()
-        let name = app.textFields["群聊名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native room proof"); app.buttons["保存群聊"].tap()
-        let room = app.staticTexts["Native room proof"]; XCTAssertTrue(room.waitForExistence(timeout: 10)); room.tap()
-        let text = app.textViews["room.input"]; XCTAssertTrue(text.waitForExistence(timeout: 10)); text.tap(); text.typeText("Native room message proof"); app.buttons["发送"].tap()
-        XCTAssertTrue(app.staticTexts["Native room message proof"].waitForExistence(timeout: 10)); let saved = try await proof("roomMessageCreated"); XCTAssertTrue(saved); capture(app,"joint-native-room")
+    func testRealExistingRoomMessageAndBackendReceipt() async throws {
+        let data = try await context()
+        let nonce = UUID().uuidString
+        let expected = "Native room message proof " + nonce
+        let before = try await roomMessageProof(nonce)
+        XCTAssertEqual(before.roomId, data["roomId"])
+        XCTAssertTrue(before.messageIds.isEmpty, "A new nonce must have no existing receipt")
+        let app = launch(data)
+        XCTAssertFalse(app.buttons["chat.start"].exists)
+        openParityRoom(app, data)
+        XCTAssertFalse(app.buttons["创建群聊"].exists)
+        let text = app.textViews["room.input"]
+        XCTAssertTrue(text.waitForExistence(timeout: 10)); text.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        text.typeText(expected)
+        let input = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.textViews["room.input"].value as? String == expected
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [input], timeout: 10), .completed)
+        app.buttons["room.send"].tap()
+        XCTAssertTrue(app.staticTexts[expected].waitForExistence(timeout: 10))
+        let after = try await roomMessageProof(nonce)
+        XCTAssertEqual(after.roomId, data["roomId"])
+        XCTAssertEqual(after.messageIds.count, 1, "Exactly one real backend message must match this attempt")
+        XCTAssertTrue(after.messageIds.allSatisfy { !$0.isEmpty })
+        XCTAssertTrue(Set(after.messageIds).isDisjoint(with: Set(before.messageIds)))
+        capture(app,"joint-native-existing-room-new-message-receipt")
+        app.terminate()
+    }
+    private struct RoomMessageReceipt: Decodable {
+        let roomId: String
+        let messageIds: [String]
+    }
+    private func roomMessageProof(_ nonce: String) async throws -> RoomMessageReceipt {
+        var url = URLComponents(string: "http://127.0.0.1:61913/room-message-proof")!
+        url.queryItems = [URLQueryItem(name: "nonce", value: nonce)]
+        let (data, response) = try await URLSession.shared.data(from: url.url!)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        return try JSONDecoder().decode(RoomMessageReceipt.self, from: data)
     }
     func testRealClipCreation() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap(); app.buttons["更多功能"].tap(); app.buttons["剪藏"].tap(); app.buttons["创建剪藏"].tap()
+        puboOpenDiscovery(app); puboTapVisible(app, "剪藏"); app.buttons["创建剪藏"].tap()
         let name = app.textFields["名称"]; XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Native clip proof"); app.buttons["保存"].tap()
         XCTAssertTrue(app.staticTexts["Native clip proof"].waitForExistence(timeout: 10)); let saved = try await proof("clipCreated"); XCTAssertTrue(saved); capture(app,"joint-native-clip")
     }
     func testRealDriveFolderCreation() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap(); app.buttons["网盘"].tap(); app.buttons["网盘新增"].tap(); app.buttons["新建文件夹"].tap()
+        puboSelectTab(app, "我的"); app.buttons["网盘"].tap(); app.buttons["网盘新增"].tap(); app.buttons["新建文件夹"].tap()
         let name = app.alerts.textFields["文件夹名称"]; name.tap(); name.typeText("Native folder proof"); app.alerts.buttons["创建"].tap()
         XCTAssertTrue(app.staticTexts["Native folder proof"].waitForExistence(timeout: 10)); let saved = try await proof("folderCreated"); XCTAssertTrue(saved); capture(app,"joint-native-folder")
     }
@@ -156,8 +193,8 @@ import XCTest
     }
     func testRealSearchAndFavorite() async throws {
         let data = try await context(); let app = launch(data)
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20)); app.tabBars.buttons["我的"].tap()
-        app.buttons["搜索"].tap()
+        puboOpenDiscovery(app)
+        puboTapVisible(app, "搜索")
         let field = app.textFields["search.query"]; XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText("PUBO joint proof\n")
         let result = app.descendants(matching: .any).matching(identifier: "note.open." + data["noteId"]!).firstMatch
         guard result.waitForExistence(timeout: 15) else { capture(app,"joint-search-failure"); XCTFail("Search must return the real seeded post ID"); return }
@@ -171,7 +208,8 @@ import XCTest
     }
     func testRealVoteAndBackendReceipt() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20)); app.buttons["timeline.local"].tap()
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 20)); app.buttons["world.recommended"].tap()
         let choice = app.buttons["poll.choice.0"]
         for _ in 0..<6 where !choice.isHittable { app.swipeUp() }
         XCTAssertTrue(choice.waitForExistence(timeout: 10)); choice.tap()
@@ -180,7 +218,7 @@ import XCTest
     }
     func testRealHistoricalContextDoesNotMarkRead() async throws {
         let data = try await context(); let app = launch(data)
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()
+        puboSelectTab(app, "消息")
         let peer = app.staticTexts["历史引用验收朋友"].firstMatch
         XCTAssertTrue(peer.waitForExistence(timeout: 10)); peer.tap()
         let quote = app.buttons["chat.reference." + data["quoteId"]!]
@@ -198,12 +236,13 @@ import XCTest
     }
     func testRealScheduledCreateAndCancel() async throws {
         let app = launch(try await context())
+        puboSelectTab(app, "世界圈")
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 20)); app.buttons["home.compose"].tap()
         let text = app.textViews["compose.text"]; text.tap(); text.typeText("Native scheduled proof")
         app.buttons["compose.more"].tap(); app.buttons["定时发布"].tap(); app.buttons["compose.send"].tap(); XCTAssertTrue(text.waitForNonExistence(timeout: 15))
         XCTAssertTrue(app.buttons["home.compose"].waitForExistence(timeout: 10))
         let created = try await proof("scheduled"); XCTAssertTrue(created)
-        app.tabBars.buttons["我的"].tap(); app.buttons["定时帖子"].tap()
+        puboSelectTab(app, "我的"); app.buttons["定时帖子"].tap()
         XCTAssertTrue(app.staticTexts["Native scheduled proof"].waitForExistence(timeout: 10)); capture(app,"joint-real-scheduled-note")
         app.buttons["取消定时，保留服务器草稿"].tap(); app.buttons["取消定时发布"].tap()
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 10))
@@ -214,6 +253,7 @@ import XCTest
         app.launchArguments = ["--isolated-backend", "--reduce-motion"]
         app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": data["adminToken"]!, "PUBO_TEST_ADMIN_PASSWORD": data["adminPassword"]!]
         app.launch()
+        puboOpenDiscovery(app)
         let edit = app.buttons["修改公告"]; XCTAssertTrue(edit.waitForExistence(timeout: 20)); edit.tap(); app.buttons["修改：隔离原生公告"].tap()
         XCTAssertTrue(app.buttons["admin.authorize"].waitForExistence(timeout: 10)); XCTAssertFalse(app.textFields["announcement.title"].exists)
         app.buttons["admin.authorize"].tap()
@@ -224,7 +264,7 @@ import XCTest
     }
     func testRealChatEditRecallAndReaction() async throws {
         let app = launch(try await context())
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()
+        puboSelectTab(app, "消息")
         XCTAssertTrue(app.staticTexts["隔离测试朋友"].firstMatch.waitForExistence(timeout: 10)); app.staticTexts["隔离测试朋友"].firstMatch.tap()
         let message = app.staticTexts["原生编辑验收"]; XCTAssertTrue(message.waitForExistence(timeout: 10)); message.press(forDuration: 1)
         app.buttons["编辑／撤回消息"].tap(); XCTAssertTrue(app.buttons["编辑文字"].waitForExistence(timeout: 10)); app.buttons["编辑文字"].tap()
@@ -248,7 +288,7 @@ import XCTest
         let unreacted = try await proof("unreacted"); XCTAssertTrue(unreacted)
     }
     private func openParityRoom(_ app: XCUIApplication, _ data: [String: String]) {
-        XCTAssertTrue(app.tabBars.buttons["私信"].waitForExistence(timeout: 20)); app.tabBars.buttons["私信"].tap()
+        puboSelectTab(app, "消息")
         let row = app.buttons["conversation.room:" + data["roomId"]!]
         for _ in 0..<5 where !row.isHittable { app.swipeUp() }
         XCTAssertTrue(row.waitForExistence(timeout: 12)); row.tap()

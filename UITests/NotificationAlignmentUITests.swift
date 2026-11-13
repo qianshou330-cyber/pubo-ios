@@ -7,7 +7,7 @@ private extension XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--notifications-align"] + flags
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 15))
+        XCTAssertTrue(puboTab(app, "世界圈").waitForExistence(timeout: 15))
         return app
     }
 
@@ -16,7 +16,7 @@ private extension XCTestCase {
     }
 
     func enterNotifications(_ app: XCUIApplication) {
-        app.tabBars.buttons["通知"].tap()
+        puboOpenNotifications(app)
         XCTAssertTrue(element("notification.noticetest0032", in: app).waitForExistence(timeout: 10))
     }
 
@@ -122,8 +122,8 @@ final class NotificationAlignmentUITests: XCTestCase {
 
     func testUnreadAndPullToRefresh() {
         let app = notificationsApp(["--notifications-refresh"])
-        let tab = app.tabBars.buttons["通知"]
-        // UIKit's stock tab bar can draw the number without exposing it in XCUI's label/value.
+        let tab = puboTab(app, "我的")
+        // Read the real notification badge now carried by the My tab.
         // Read the visible badge at the actual tab's location, including on the smaller screen.
         var before: CGImage?
         for _ in 0..<6 where before == nil {
@@ -247,12 +247,12 @@ final class NotificationAlignmentUITests: XCTestCase {
     }
 }
 
-/// Isolates the digits displayed by the system tab bar. Input is a live simulator screenshot.
+/// Isolates the digits displayed by the native bottom tab bar. Input is a live simulator screenshot.
 /// Red run bounds on each line exclude the page and the rounded badge corners.
 private func notificationBadgeDigits(app: XCUIApplication, tab: XCUIElement) -> CGImage? {
     guard let screen = app.screenshot().image.cgImage else { return nil }
     let scale = CGFloat(screen.width) / app.frame.width
-    let box = tab.frame.insetBy(dx: 0, dy: -8)
+    let box = tab.frame
     let region = CGRect(x: box.minX * scale, y: box.minY * scale, width: box.width * scale,
                         height: box.height * scale).integral
     guard let crop = screen.cropping(to: region) else { return nil }

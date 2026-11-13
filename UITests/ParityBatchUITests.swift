@@ -4,7 +4,7 @@ final class ParityBatchUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--timeline-align"] + flags; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["动态"].waitForExistence(timeout: 15)); return app
+        XCTAssertTrue(puboTab(app, "世界圈").waitForExistence(timeout: 15)); puboSelectTab(app, "世界圈"); return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
@@ -39,15 +39,44 @@ final class ParityBatchUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 8), .completed)
         capture(app, "profile-request-cancelled"); app.terminate()
     }
+    private func assertReadonlyComposer(_ app: XCUIApplication, _ name: String) {
+        let input = app.textViews["chat.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["当前账号的聊天为只读，不能发送消息或创建聊天。"].exists)
+        input.tap()
+        let noKeyboard = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"), object: app.keyboards.firstMatch)
+        noKeyboard.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [noKeyboard], timeout: 1.5), .completed)
+        XCTAssertTrue(app.buttons["chat.send"].exists)
+        XCTAssertFalse(app.buttons["chat.send"].isEnabled)
+        for label in ["文件与语音", "录制语音", "添加图片或视频", "插入表情"] {
+            let control = app.buttons[label]
+            XCTAssertTrue(control.exists, label); XCTAssertFalse(control.isEnabled, label)
+        }
+        capture(app, name)
+    }
     func testReadonlyChatHasClearReasonAndDisabledStart() {
-        let app = launch(["--chat-readonly"]); app.tabBars.buttons["私信"].tap()
-        let start = app.buttons["chat.start"]
-        XCTAssertTrue(start.waitForExistence(timeout: 8)); XCTAssertFalse(start.isEnabled)
+        let app = launch(["--chat-readonly"]); puboSelectTab(app, "消息")
+        XCTAssertFalse(app.buttons["chat.start"].exists, "The removed start-chat entry must not return")
         XCTAssertTrue(app.staticTexts["chat.availability"].exists)
-        capture(app, "chat-readonly"); app.terminate()
+        let conversation = app.buttons["conversation.user:syntheticpeer"]
+        XCTAssertTrue(conversation.waitForExistence(timeout: 8)); conversation.tap()
+        assertReadonlyComposer(app, "chat-readonly-existing-conversation")
+        app.navigationBars.buttons.firstMatch.tap()
+        puboTapVisible(app, "messages.add"); puboTapVisible(app, "messages.addUsername")
+        let username = app.textFields["addFriend.username"]
+        XCTAssertTrue(username.waitForExistence(timeout: 8)); username.tap(); username.typeText("friend")
+        puboTapVisible(app, "addFriend.search")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        puboTapVisible(app, "addFriend.result.syntheticpeer")
+        let start = app.buttons["发送私信"]
+        for _ in 0..<6 where !start.isHittable { app.swipeUp() }
+        XCTAssertTrue(start.waitForExistence(timeout: 8)); XCTAssertTrue(start.isHittable); start.tap()
+        assertReadonlyComposer(app, "chat-readonly-username-profile-path")
+        app.terminate()
     }
     func testChatSearchEmptyIsNotAnErrorOrUnfinishedQuery() {
-        let app = launch(); app.tabBars.buttons["私信"].tap()
+        let app = launch(); puboSelectTab(app, "消息")
         let query = app.textFields["chat.search.query"]; XCTAssertTrue(query.waitForExistence(timeout: 8))
         XCTAssertFalse(app.staticTexts["chat.search.empty"].exists)
         query.tap(); query.typeText("no-such-message-141")

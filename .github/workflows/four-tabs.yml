@@ -21,6 +21,8 @@ jobs:
           mkdir -p build
           swift test 2>&1 | tee build/core-tests.log
           python3 -m unittest discover -s scripts -p 'test_*.py' -v 2>&1 | tee build/script-tests.log
+          sh scripts/test-refresh-diagnostics.sh 2>&1 | tee build/refresh-diagnostic-tests.log
+          node --test scripts/isolated/test-room-message-proof.mjs 2>&1 | tee build/room-receipt-tests.log
       - name: Preserve exact revision
         if: always()
         run: |
@@ -34,6 +36,8 @@ jobs:
             build/source-sha.txt
             build/core-tests.log
             build/script-tests.log
+            build/refresh-diagnostic-tests.log
+            build/room-receipt-tests.log
   ocr-validation:
     needs: checks
     runs-on: macos-15-intel
@@ -86,8 +90,42 @@ jobs:
             build/screenshots/
           retention-days: 14
           if-no-files-found: error
+  legacy-regression:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small, large]
+    runs-on: macos-15-intel
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare fixed build tools
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Compile Debug app and all UI test sources
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+      - name: Preserve five previous regressions and strict same-process resume proof
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_REGRESSION_147_ONLY: '1'
+          PUBO_PREBUILT_TESTS: '1'
+        run: python3 scripts/simulator-tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: four-tabs-legacy-five-${{ matrix.size }}-${{ github.sha }}
+          path: |
+            build/*.json
+            build/ui-*.xcresult
+            build/screenshots/
+          retention-days: 14
+          if-no-files-found: error
   package:
-    needs: [checks, ocr-validation, navigation]
+    needs: [checks, ocr-validation, navigation, legacy-regression]
     runs-on: macos-15-intel
     timeout-minutes: 30
     steps:

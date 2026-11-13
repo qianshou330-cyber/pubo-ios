@@ -19,7 +19,8 @@ import XCTest
         let context = try JSONDecoder().decode([String: String].self, from: await request("context"))
         let app = XCUIApplication(); app.launchArguments = ["--isolated-backend"]
         app.launchEnvironment = ["PUBO_ISOLATED_TOKEN": context["token"]!]; app.launch()
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 20))
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["poll.choice.0"].waitForExistence(timeout: 20))
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10) || app.state == .runningBackgroundSuspended)

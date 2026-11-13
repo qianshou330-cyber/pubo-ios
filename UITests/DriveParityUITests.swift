@@ -10,8 +10,8 @@ final class DriveParityUITests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     private func openFile(_ app: XCUIApplication) {
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
-        let drive = app.buttons["网盘"]; XCTAssertTrue(drive.waitForExistence(timeout: 5)); drive.tap()
+        puboSelectTab(app, "我的")
+        puboTapVisible(app, "me.drive")
         let file = app.staticTexts["敏感测试图片.png"].firstMatch
         XCTAssertTrue(file.waitForExistence(timeout: 8)); file.tap()
         XCTAssertTrue(app.buttons["drive.preview.request"].waitForExistence(timeout: 5))
@@ -51,7 +51,8 @@ final class DriveParityUITests: XCTestCase {
     }
     private func checkImagePicker(flag: String, suffix: String) {
         let app = launch([flag])
-        let home = app.buttons["我的主页"]; XCTAssertTrue(home.waitForExistence(timeout: 15)); home.tap()
+        puboSelectTab(app, "我的")
+        puboTapVisible(app, "me.profile")
         let edit = app.buttons["编辑个人资料"]; XCTAssertTrue(edit.waitForExistence(timeout: 10))
         for _ in 0..<8 where !edit.isHittable { app.swipeUp() }; XCTAssertTrue(edit.isHittable); edit.tap()
         XCTAssertTrue(app.navigationBars["编辑资料"].waitForExistence(timeout: 8))

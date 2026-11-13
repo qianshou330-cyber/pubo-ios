@@ -7,7 +7,8 @@ final class TimelineVisualUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--timeline-align", "--gif-preview"] + flags
         app.launch()
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 15))
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 15))
         return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
@@ -20,10 +21,10 @@ final class TimelineVisualUITests: XCTestCase {
         // A repost and the original can expose controls for the same note ID.
         // Search only the visible reading area, including the taller accessible selector.
         for _ in 0..<24 {
-            let header = [app.buttons["home.more"], app.buttons["timeline.global"]]
+            let header = [app.buttons["home.more"], app.buttons["world.following"]]
                 .filter { $0.exists }.map { $0.frame.maxY }.max() ?? scroll.frame.minY
             let upper = max(scroll.frame.minY, header) + 6
-            let lower = app.tabBars.firstMatch.frame.minY - 12
+            let lower = app.descendants(matching: .any).matching(identifier: "app.tabBar").firstMatch.frame.minY - 12
             let controls = matches.allElementsBoundByIndex.filter { !$0.frame.isEmpty }
             if let visible = controls.first(where: {
                 $0.frame.midY >= upper && $0.frame.midY <= lower && $0.isHittable

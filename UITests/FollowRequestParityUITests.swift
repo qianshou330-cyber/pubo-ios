@@ -5,11 +5,8 @@ final class FollowRequestParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func open(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--follow-requests-preview"] + flags; app.launch()
-        XCTAssertTrue(app.tabBars.buttons["通知"].waitForExistence(timeout: 15)); app.tabBars.buttons["通知"].tap()
-        let menu = app.buttons["notifications.filter"]; XCTAssertTrue(menu.waitForExistence(timeout: 10)); menu.tap()
-        let requests = app.buttons["notifications.followRequests"]
-        XCTAssertTrue(requests.waitForExistence(timeout: 5))
-        XCTAssertTrue(requests.isHittable); requests.tap()
+        puboSelectTab(app, "好友")
+        puboTapVisible(app, "friends.requests")
         XCTAssertTrue(app.segmentedControls["followRequests.direction"].waitForExistence(timeout: 5)); return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {

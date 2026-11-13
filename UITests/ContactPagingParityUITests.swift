@@ -6,8 +6,8 @@ final class ContactPagingParityUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--social-align", "--chat-align", "--contacts-preview"] + flags
         app.launch()
-        let tab = app.tabBars.buttons["私信"]; XCTAssertTrue(tab.waitForExistence(timeout: 15)); tab.tap()
-        let contacts = app.buttons["联系人"]; XCTAssertTrue(contacts.waitForExistence(timeout: 10)); contacts.tap()
+        puboSelectTab(app, "好友")
+        puboTapVisible(app, "friends.contacts")
         return app
     }
     private func group(_ app: XCUIApplication) {

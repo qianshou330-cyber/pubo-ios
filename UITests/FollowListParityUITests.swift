@@ -4,7 +4,8 @@ final class FollowListParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func open(_ flags: [String] = [], followers: Bool = false) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--timeline-align", "--follow-list-preview"] + flags; app.launch()
-        let home = app.buttons["我的主页"]; XCTAssertTrue(home.waitForExistence(timeout: 15)); home.tap()
+        puboSelectTab(app, "我的")
+        puboTapVisible(app, "me.profile")
         let relation = app.buttons.matching(NSPredicate(format: "label MATCHES %@", followers ? "关注者 [0-9]+" : "关注 [0-9]+")).firstMatch
         XCTAssertTrue(relation.waitForExistence(timeout: 10))
         for _ in 0..<6 where !relation.isHittable { app.swipeUp() }

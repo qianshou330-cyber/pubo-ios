@@ -8,10 +8,7 @@ final class ChannelParityUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--channel-parity-preview"] + (denied ? ["--channel-create-denied"] : [])
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 15)); app.tabBars.buttons["我的"].tap()
-        let more = app.buttons["更多功能"]
-        for _ in 0..<8 where !more.isHittable { app.swipeUp() }
-        XCTAssertTrue(more.isHittable); more.tap()
+        puboOpenDiscovery(app)
         let channels = app.buttons["频道"]
         XCTAssertTrue(channels.waitForExistence(timeout: 5)); channels.tap()
         XCTAssertTrue(app.navigationBars["频道"].waitForExistence(timeout: 5))

@@ -5,9 +5,14 @@ final class TimelineNavigationEvidenceTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--timeline-align", "--gif-preview"]
         app.launch()
-        XCTAssertTrue(app.buttons["timeline.local"].waitForExistence(timeout: 15))
+        puboSelectTab(app, "世界圈")
+        XCTAssertTrue(app.buttons["world.recommended"].waitForExistence(timeout: 15))
         for destination in ["我的主页", "列表", "天线", "频道"] {
-            let link = app.buttons.matching(identifier: destination).firstMatch
+            if destination == "我的主页" { puboSelectTab(app, "我的") }
+            else { puboOpenDiscovery(app) }
+            let link = app.buttons.matching(identifier: destination == "我的主页" ? "me.profile" : destination).firstMatch
+            XCTAssertTrue(link.waitForExistence(timeout: 8), destination)
+            for _ in 0..<10 where !link.isHittable { app.swipeUp() }
             XCTAssertTrue(link.isHittable, destination)
             XCTAssertGreaterThanOrEqual(link.frame.width, 44)
             XCTAssertGreaterThanOrEqual(link.frame.height, 44)
@@ -19,8 +24,14 @@ final class TimelineNavigationEvidenceTests: XCTestCase {
             shot.lifetime = .keepAlways
             add(shot)
             bar.buttons.firstMatch.tap()
-            XCTAssertTrue(app.buttons["timeline.local"].isSelected)
-            XCTAssertEqual(app.tabBars.buttons.count, 4)
+            if destination != "我的主页" {
+                XCTAssertTrue(app.navigationBars["发现"].waitForExistence(timeout: 8))
+                app.navigationBars["发现"].buttons.firstMatch.tap()
+            }
+            puboSelectTab(app, "世界圈")
+            XCTAssertTrue(app.buttons["world.recommended"].isSelected)
+            for title in ["消息", "好友", "世界圈", "我的"] { XCTAssertTrue(puboTab(app, title).exists) }
+            XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "app.tab.")).count, 4)
         }
     }
 
@@ -28,6 +39,7 @@ final class TimelineNavigationEvidenceTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--timeline-align", "--gif-preview", "--timeline-events"]
         app.launch()
+        puboSelectTab(app, "世界圈")
         let original = app.descendants(matching: .any).matching(identifier: "note.open.at4tltest0025").firstMatch
         XCTAssertTrue(original.waitForExistence(timeout: 15))
         app.buttons["home.more"].tap()

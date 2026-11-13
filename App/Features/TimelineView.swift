@@ -251,9 +251,27 @@ struct TimelineView: View {
                 var fields = preferences.parameters; fields["limit"] = .number(100)
                 if let cursor { fields["untilId"] = .string(cursor) }
                 do {
+                    #if DEBUG
+                    RefreshDiagnostics.shared.record(.requestStarted)
+                    #endif
                     let rows = Record.list(try await session.call("notes/\(preferences.selected)-timeline", fields))
-                    guard active, epoch == session.generation, context == request, !Task.isCancelled else { return }
+                    #if DEBUG
+                    RefreshDiagnostics.shared.record(.requestReturned)
+                    #endif
+                    guard active, epoch == session.generation, context == request, !Task.isCancelled else {
+                        #if DEBUG
+                        RefreshDiagnostics.shared.record(.staleResult)
+                        #endif
+                        return
+                    }
+                    #if DEBUG
+                    let beforeVisible = Set(feed.notes.map(\.id)), beforePending = Set(feed.pending.map(\.id))
+                    #endif
                     for row in rows where row.id > priorNewest { feed.receive(row, atTop: atTop, preferences: preferences, accountID: session.user?.id) }
+                    #if DEBUG
+                    RefreshDiagnostics.shared.recordMergedPage(beforeVisible: beforeVisible, afterVisible: Set(feed.notes.map(\.id)),
+                        beforePending: beforePending, afterPending: Set(feed.pending.map(\.id)))
+                    #endif
                     finished = rows.count < 100 || (rows.last?.id ?? "") <= priorNewest
                     cursor = rows.last?.id; pages += 1
                 } catch { if active && !Task.isCancelled && epoch == session.generation && context == request { failedOlderRequest = false; self.error = "重连后补取失败，已保留现有帖子。" }; return }

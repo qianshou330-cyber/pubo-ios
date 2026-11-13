@@ -4,10 +4,9 @@ final class AccountSettingsParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func openSettings(_ dark: Bool = false) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
-        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10)); app.tabBars.buttons["我的"].tap()
-        let settings = app.buttons["账号与隐私设置"]
-        for _ in 0..<8 where !settings.isHittable { app.swipeUp() }
-        XCTAssertTrue(settings.isHittable); settings.tap(); return app
+        puboSelectTab(app, "我的")
+        puboTapVisible(app, "me.settings")
+        return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
