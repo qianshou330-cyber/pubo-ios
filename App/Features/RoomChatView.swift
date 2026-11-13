@@ -83,8 +83,8 @@ struct RoomChatView: View {
                                 .onDisappear { animatedIDs.remove(message.id) }
                         }
                         Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("roomScroll")).maxY) })
-                    }.scrollTargetLayout()
-                }.contentMargins(16, for: .scrollContent)
+                    }.scrollTargetLayout().padding(.vertical, 16)
+                }.contentMargins(.horizontal, 16, for: .scrollContent)
                     .accessibilityIdentifier("room.timeline")
                     .scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
@@ -204,7 +204,7 @@ struct RoomChatView: View {
         let user = Record(message["fromUser"])
         let mine = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
-            if mine { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(user.displayName + "的主页").accessibilityIdentifier("room.avatar." + message.id) }
+            if mine { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 42).frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel(user.displayName + "的主页").accessibilityIdentifier("room.avatar." + message.id) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
                 if !mine && session.chatShowSenderName {
                     Text(user.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)

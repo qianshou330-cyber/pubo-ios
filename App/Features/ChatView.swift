@@ -205,7 +205,7 @@ struct ChatView: View {
     private func bubble(_ message: Record) -> some View {
         let own = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
-            if own { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: peer.id) } label: { Avatar(user: peer, size: 42).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(peer.displayName + "的主页").accessibilityIdentifier("chat.avatar." + message.id) }
+            if own { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: peer.id) } label: { Avatar(user: peer, size: 42).frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel(peer.displayName + "的主页").accessibilityIdentifier("chat.avatar." + message.id) }
             VStack(alignment: own ? .trailing : .leading, spacing: 6) {
                 if !own && session.chatShowSenderName {
                     Text(peer.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)

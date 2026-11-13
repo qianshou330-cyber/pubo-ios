@@ -8,12 +8,17 @@ class ChatGeometryContractTests(unittest.TestCase):
     def test_room_scroll_container_owns_unchanged_insets(self):
         room = (ROOT / 'App/Features/RoomChatView.swift').read_text()
         timeline = room.split('private var timeline:', 1)[1].split('private func positionTimeline', 1)[0]
-        self.assertIn('.contentMargins(16, for: .scrollContent)', timeline)
+        self.assertIn('.contentMargins(.horizontal, 16, for: .scrollContent)', timeline)
         self.assertIn('.scrollTargetLayout()', timeline)
-        self.assertNotIn('.scrollTargetLayout().padding', timeline)
+        self.assertIn('.scrollTargetLayout().padding(.vertical, 16)', timeline)
         self.assertIn('anchor: scrollAnchor', timeline)
         self.assertIn('nearBottom = bottom <= viewport.size.height + 80', timeline)
         self.assertIn('.accessibilityIdentifier("room.avatar." + message.id)', room)
+
+    def test_avatar_touch_shape_includes_full_44pt_label(self):
+        for name in ['ChatView.swift', 'RoomChatView.swift']:
+            text = (ROOT / 'App/Features' / name).read_text()
+            self.assertIn('size: 42).frame(width: 44, height: 44).contentShape(Rectangle())', text)
 
     def test_runtime_inset_and_retry_proofs_are_actual_geometry(self):
         alignment = (ROOT / 'UITests/ChatAlignmentUITests.swift').read_text()
