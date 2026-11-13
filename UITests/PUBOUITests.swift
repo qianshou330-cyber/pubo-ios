@@ -283,6 +283,10 @@ final class PUBOUITests: XCTestCase {
                 XCTAssertTrue(control.isHittable, name)
                 XCTAssertGreaterThanOrEqual(control.frame.width, 44, name)
                 XCTAssertGreaterThanOrEqual(control.frame.height, 44, name)
+                // Exercise the padded hit region, not just the central text.
+                // Each choice must really switch through one ordinary UI tap.
+                control.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+                XCTAssertTrue(control.isSelected, name)
             }
             capture(app, dark ? "home-h5-dark" : "home-h5-light")
             checkHomeMore(app, screenshot: dark ? "home-more-dark" : "home-more-light")
@@ -691,18 +695,34 @@ final class PUBOUITests: XCTestCase {
             let action = app.buttons["chat.actions.chatpreview002"].firstMatch
             XCTAssertTrue(action.waitForExistence(timeout: 5))
             var previousFrame = CGRect.null
-            var stableSince = Date()
+            var stableSince = ProcessInfo.processInfo.systemUptime
+            let started = stableSince
+            var observations: [String] = []
             let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                guard action.exists, action.isEnabled, action.isHittable else {
-                    previousFrame = .null; stableSince = Date(); return false
+                let probeStarted = ProcessInfo.processInfo.systemUptime
+                let exists = action.exists
+                let enabled = exists && action.isEnabled
+                let hittable = enabled && action.isHittable
+                let frame = hittable ? action.frame : .null
+                let observedAt = ProcessInfo.processInfo.systemUptime
+                observations.append("sample=\(observations.count + 1) elapsed=\(observedAt - started) queryDuration=\(observedAt - probeStarted) exists=\(exists) enabled=\(enabled) hittable=\(hittable) frame=\(frame)")
+                guard hittable else {
+                    previousFrame = .null; stableSince = observedAt; return false
                 }
-                let frame = action.frame
                 guard !frame.isEmpty, frame == previousFrame else {
-                    previousFrame = frame; stableSince = Date(); return false
+                    previousFrame = frame; stableSince = observedAt; return false
                 }
-                return Date().timeIntervalSince(stableSince) >= 0.3
+                return observedAt - stableSince >= 0.3
             }, object: action)
-            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+            // C12's five-second window admitted only one multi-query AX sample;
+            // stability needs two samples. Keep the same hit/geometry contract,
+            // allow a bounded 12-second observation budget, and record its cost.
+            let outcome = XCTWaiter.wait(for: [settled], timeout: 12)
+            let evidence = XCTAttachment(string: "timeout=12 requiredStableSeconds=0.3 outcome=\(outcome.rawValue)\n" + observations.joined(separator: "\n"))
+            evidence.name = conflict ? "chat-menu-settle-conflict" : "chat-menu-settle-uncertain"
+            evidence.lifetime = .keepAlways; add(evidence)
+            XCTAssertEqual(outcome, .completed)
+            guard outcome == .completed else { return }
             action.tap()
             XCTAssertTrue(app.navigationBars["消息操作"].waitForExistence(timeout: 5))
             let beginEdit = app.buttons["编辑文字"]

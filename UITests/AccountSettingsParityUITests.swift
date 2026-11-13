@@ -6,6 +6,8 @@ final class AccountSettingsParityUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"] + (dark ? ["--dark"] : []); app.launch()
         puboSelectTab(app, "我的")
         puboTapVisible(app, "me.settings")
+        puboTapVisible(app, "账号与隐私设置")
+        XCTAssertTrue(app.navigationBars["账号与隐私设置"].waitForExistence(timeout: 10))
         return app
     }
     private func capture(_ app: XCUIApplication, _ name: String) {

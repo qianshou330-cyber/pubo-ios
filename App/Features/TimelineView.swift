@@ -198,7 +198,7 @@ struct TimelineView: View {
                         VStack(spacing: 4) {
                             Text(WorldTimelinePolicy.title(for: choice)).font(.subheadline.weight(preferences.selected == choice ? .semibold : .regular))
                             Capsule().fill(preferences.selected == choice ? PUBOTheme.accent : .clear).frame(width: 20, height: 3)
-                        }.frame(minWidth: 56, minHeight: 44)
+                        }.frame(minWidth: 56, minHeight: 44).contentShape(Rectangle())
                     }.foregroundStyle(preferences.selected == choice ? PUBOTheme.accent : PUBOTheme.secondary)
                         .accessibilityAddTraits(preferences.selected == choice ? .isSelected : [])
                         .accessibilityIdentifier(choice == "local" ? "world.recommended" : "world.following")
