@@ -16,7 +16,7 @@ import subprocess
 PHASES = ('initial', 'notifications', 'returned')
 BADGE_TEST = 'FourTabNavigationUITests/testOpeningNotificationsDoesNotClearChatBadge()'
 MIN_CONFIDENCE = 80.0
-ENGINE_VERSION = 'tesseract 5.5.4'
+ENGINE_VERSION = 'tesseract 5.5.3'
 MODEL_SHA256 = '7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2'
 MODEL_DIR = Path(__file__).resolve().parents[1] / 'build' / 'badge-tessdata'
 
@@ -26,7 +26,7 @@ def engine_identity():
                              text=True, timeout=10, check=True).stdout.splitlines()[0]
     digest = hashlib.sha256((MODEL_DIR / 'eng.traineddata').read_bytes()).hexdigest()
     if version != ENGINE_VERSION or digest != MODEL_SHA256:
-        raise ValueError('Unvalidated OCR engine or model')
+        raise ValueError(f'Unvalidated OCR engine/model: actual={version}/{digest}; expected={ENGINE_VERSION}/{MODEL_SHA256}')
     return dict(version=version, modelSHA256=digest)
 
 

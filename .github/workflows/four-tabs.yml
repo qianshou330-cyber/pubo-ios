@@ -38,6 +38,7 @@ jobs:
             build/core-tests.log
             build/script-tests.log
             build/badge-ocr-corpus-results.json
+            build/badge-ocr-setup.json
   navigation:
     needs: checks
     strategy:
@@ -67,6 +68,7 @@ jobs:
           name: four-tabs-evidence-${{ matrix.size }}-${{ github.sha }}
           path: |
             build/four-tabs*.json
+            build/badge-ocr-setup.json
             build/four-tabs.xcresult
             build/screenshots/
           retention-days: 14
