@@ -60,12 +60,14 @@ struct PublicVideoPoster: View {
             }.onDisappear { image = nil }
     }
     @MainActor private func load() async {
+        PublicMediaDiagnostics.emit(.posterStarted)
         image = nil; failed = false; evidence = "loading"
         let epoch = session.generation
         let key = PublicPreviewCache.shared.key("video:" + (file["url"].string ?? file.id) + ":" + (file["thumbnailUrl"].string ?? ""), generation: String(describing: epoch))
-        if let cached = PublicPreviewCache.shared.image(key) { image = cached; evidence = "cached"; return }
+        if let cached = PublicPreviewCache.shared.image(key) { image = cached; evidence = "cached"; PublicMediaDiagnostics.emit(.posterCached); return }
         // Prefer the server poster: no video decoding or video transfer is needed.
         if let thumb = safeMediaURL(file["thumbnailUrl"].string) {
+            PublicMediaDiagnostics.emit(.thumbnailStarted)
             do {
                 let bytes: Data
                 #if DEBUG
@@ -78,8 +80,11 @@ struct PublicVideoPoster: View {
                 let decoded = try await PublicImageDecoder.decode(bytes, maxPixel: 720)
                 try Task.checkCancellation()
                 guard epoch == session.generation else { return }
-                image = decoded; evidence = "thumbnail"; PublicPreviewCache.shared.insert(decoded, key: key); return
-            } catch { if Task.isCancelled { return } }
+                image = decoded; evidence = "thumbnail"; PublicMediaDiagnostics.emit(.thumbnailReady); PublicPreviewCache.shared.insert(decoded, key: key); return
+            } catch {
+                if Task.isCancelled { PublicMediaDiagnostics.emit(.cancelled); return }
+                PublicMediaDiagnostics.emit(.thumbnailFailed)
+            }
         }
         var videoSource = safeMediaURL(file["url"].string)
         #if DEBUG
@@ -89,10 +94,13 @@ struct PublicVideoPoster: View {
             videoSource = TimelineTestFixtures.videoSource(videoSource)
         }
         #endif
-        guard let source = videoSource else { failed = true; evidence = "unavailable"; return }
+        guard let source = videoSource else { failed = true; evidence = "unavailable"; PublicMediaDiagnostics.emit(.sourceUnavailable); return }
         do {
+            PublicMediaDiagnostics.emit(.budgetWaiting)
             try await VideoPosterBudget.shared.acquire()
+            PublicMediaDiagnostics.emit(.budgetAcquired)
             do {
+                PublicMediaDiagnostics.emit(.generatorStarted)
                 let asset = AVURLAsset(url: source)
                 let generator = AVAssetImageGenerator(asset: asset)
                 generator.appliesPreferredTrackTransform = true
@@ -105,9 +113,14 @@ struct PublicVideoPoster: View {
                 try Task.checkCancellation()
                 if epoch == session.generation {
                     let decoded = UIImage(cgImage: result.image)
-                    image = decoded; evidence = "video-frame"; PublicPreviewCache.shared.insert(decoded, key: key)
+                    image = decoded; evidence = "video-frame"; PublicMediaDiagnostics.emit(.generatorReady); PublicPreviewCache.shared.insert(decoded, key: key)
                 }
-            } catch { if !Task.isCancelled && epoch == session.generation { failed = true } }
+            } catch {
+                if !Task.isCancelled && epoch == session.generation {
+                    failed = true; evidence = "unavailable"
+                    PublicMediaDiagnostics.emit(.generatorFailed)
+                } else { PublicMediaDiagnostics.emit(.cancelled) }
+            }
             await VideoPosterBudget.shared.release()
         } catch { /* View disappeared while waiting for a decoder. */ }
     }

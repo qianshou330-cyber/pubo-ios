@@ -220,6 +220,20 @@ for index, template in enumerate(selected):
         if test_exit:
             diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot',
                         str(screenshots / 'runner-failure.png')], timeout=30)
+        if shard == 'video-poster':
+            # Diagnostic collection cannot turn a failed test into a pass.
+            capture = {'status': 'UNAVAILABLE'}
+            try:
+                logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '30m', '--predicate',
+                    'subsystem == "com.pubo.media.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'media-diagnostics-{index}.json').write_text(logs.stdout)
+                capture['exitCode'] = logs.returncode
+                capture['status'] = 'CAPTURED' if logs.returncode == 0 else 'INCOMPLETE'
+                capture['interpretation'] = 'Stage logs are diagnostics, not visual or performance proof'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                capture['error'] = type(error).__name__
+            (root / f'media-capture-{index}.json').write_text(json.dumps(capture, indent=2))
         if focused:
             capture = {'status': 'UNAVAILABLE', 'captureStarted': False}
             try:

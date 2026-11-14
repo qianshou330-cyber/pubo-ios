@@ -1,13 +1,33 @@
 import SwiftUI
 import ImageIO
+import OSLog
 import SDWebImage
 import PUBOCore
+
+// Fixed stage names only: never emit account IDs, URLs, tokens or media contents.
+enum PublicMediaDiagnostics {
+    enum Stage: String {
+        case decoderRegistrationStarted, decoderRegistrationFinished, decodeStarted, decodeFinished
+        case posterStarted, posterCached, thumbnailStarted, thumbnailReady, thumbnailFailed
+        case sourceUnavailable, budgetWaiting, budgetAcquired, generatorStarted, generatorReady, generatorFailed, cancelled
+    }
+    static func emit(_ stage: Stage) {
+        #if DEBUG
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
+        Logger(subsystem: "com.pubo.media.diagnostics", category: "preview").notice("stage=\(stage.rawValue, privacy: .public)")
+        #endif
+    }
+}
 
 enum PublicImageDecoder {
     private static let registered: Void = { SDImageCodersManager.shared.addCoder(SDImageAWebPCoder.shared) }()
     static func decode(_ data: Data, maxPixel: Int = 720) async throws -> UIImage {
+        PublicMediaDiagnostics.emit(.decoderRegistrationStarted)
         _ = registered
+        PublicMediaDiagnostics.emit(.decoderRegistrationFinished)
         let task = Task<UIImage, Error>.detached(priority: .userInitiated) {
+            PublicMediaDiagnostics.emit(.decodeStarted)
+            defer { PublicMediaDiagnostics.emit(.decodeFinished) }
             try Task.checkCancellation()
             guard data.count <= 50 * 1024 * 1024, let source = CGImageSourceCreateWithData(data as CFData, nil),
                   CGImageSourceGetCount(source) > 0, CGImageSourceGetCount(source) <= 2_000,
