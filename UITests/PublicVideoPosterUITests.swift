@@ -12,6 +12,22 @@ final class PublicVideoPosterUITests: XCTestCase {
         let loaded = NSPredicate(format: "value == %@", expected)
         expectation(for: loaded, evaluatedWith: poster)
         waitForExpectations(timeout: 15)
+        if expected == "unavailable" {
+            let status = app.staticTexts["media.poster.status.posterfixture"]
+            let glyph = app.images["media.poster.playGlyph.posterfixture"]
+            XCTAssertTrue(status.waitForExistence(timeout: 3), "Unavailable explanation must be exposed")
+            XCTAssertTrue(glyph.waitForExistence(timeout: 3), "Playback affordance must remain visible")
+            let statusFrame = status.frame, glyphFrame = glyph.frame, posterFrame = poster.frame
+            XCTAssertFalse(statusFrame.isEmpty)
+            XCTAssertFalse(glyphFrame.isEmpty)
+            XCTAssertTrue(posterFrame.contains(statusFrame), "Failure explanation must not be clipped")
+            XCTAssertTrue(posterFrame.contains(glyphFrame), "Play glyph must not be clipped")
+            XCTAssertGreaterThanOrEqual(statusFrame.minY, glyphFrame.maxY + 4,
+                "Play glyph must not cover the failure explanation")
+            XCTAssertEqual(status.label, "视频预览暂不可用")
+            XCTAssertTrue(app.buttons["media.open.posterfixture"].isHittable,
+                "Preview button must remain actionable")
+        }
         let image = XCTAttachment(screenshot: app.screenshot())
         image.name = "video-poster-" + mode; image.lifetime = .keepAlways; add(image)
         if expected == "video-frame" {

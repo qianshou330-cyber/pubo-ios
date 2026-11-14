@@ -45,12 +45,19 @@ struct PublicVideoPoster: View {
     var body: some View {
         ZStack {
             PUBOTheme.button
-            if let image { Image(uiImage: image).resizable().scaledToFit() }
+            if let image {
+                Image(uiImage: image).resizable().scaledToFit()
+                playbackGlyph
+            }
             else {
-                VStack(spacing: 6) {
-                    Image(systemName: "video").font(.title2)
-                    Text(failed ? "视频预览暂不可用" : "正在加载视频画面…").font(.caption)
-                }.foregroundStyle(PUBOTheme.text)
+                // Keep the control and explanation in one layout instead of placing
+                // a second, centered play overlay on top of the explanation.
+                VStack(spacing: 8) {
+                    playbackGlyph
+                    Text(failed ? "视频预览暂不可用" : "正在加载视频画面…")
+                        .font(.caption).multilineTextAlignment(.center)
+                        .accessibilityIdentifier("media.poster.status." + file.id)
+                }.padding(8).foregroundStyle(PUBOTheme.text)
             }
         }.aspectRatio(ratio, contentMode: .fit)
             .accessibilityIdentifier("media.poster." + file.id)
@@ -58,6 +65,12 @@ struct PublicVideoPoster: View {
             .task(id: file.id + (file["url"].string ?? "") + (file["thumbnailUrl"].string ?? "") + String(describing: session.generation) + String(describing: phase)) {
                 guard phase == .active else { return }; await load()
             }.onDisappear { image = nil }
+    }
+    private var playbackGlyph: some View {
+        Image(systemName: "play.fill").font(.title2).foregroundStyle(.white)
+            .padding(18).background(PUBOTheme.accent, in: Circle())
+            .accessibilityLabel("播放视频")
+            .accessibilityIdentifier("media.poster.playGlyph." + file.id)
     }
     @MainActor private func load() async {
         PublicMediaDiagnostics.emit(.posterStarted)

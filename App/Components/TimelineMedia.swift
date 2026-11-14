@@ -179,7 +179,10 @@ struct TimelineMediaItem: View {
                         if mime.hasPrefix("video/") { PublicVideoPoster(file: file, ratio: ratio) }
                         else if let url = safeMediaURL(file["thumbnailUrl"].string) { PublicAnimatedAsset(url: url).aspectRatio(ratio, contentMode: .fit) }
                         else { PUBOTheme.button.frame(height: mime.hasPrefix("audio/") ? 72 : 160) }
-                        Image(systemName: "play.fill").font(.title2).foregroundStyle(.white).padding(18).background(PUBOTheme.accent, in: Circle())
+                        // Video lays out its own control alongside loading/failure text.
+                        if mime.hasPrefix("audio/") {
+                            Image(systemName: "play.fill").font(.title2).foregroundStyle(.white).padding(18).background(PUBOTheme.accent, in: Circle())
+                        }
                     }
                 }.buttonStyle(.plain).accessibilityLabel(mime.hasPrefix("audio/") ? "播放音频" : "播放视频").accessibilityIdentifier("media.open." + file.id)
             } else if let url = safeMediaURL(file["url"].string) { Link(file["name"].string ?? "打开附件", destination: url).font(.caption) }
