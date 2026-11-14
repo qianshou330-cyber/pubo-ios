@@ -1,5 +1,19 @@
 import XCTest
 
+/// iOS 26.1 exposes a native 63pt switch 2pt beyond its SwiftUI AX row
+/// (C33 SE evidence: row 32...343, switch 282...345). This is not a
+/// touch target enlargement: tap still uses the unique actual native child.
+/// Keep vertical containment exact to reject neighboring/recycled rows.
+func puboNativeSwitchFitsAXRow(_ native: CGRect, row: CGRect) -> Bool {
+    let values = [native.minX, native.minY, native.maxX, native.maxY,
+                  row.minX, row.minY, row.maxX, row.maxY]
+    guard values.allSatisfy({ $0.isFinite }),
+          native.width > 0, native.height > 0, row.width > 0, row.height > 0,
+          native.width < row.width * 0.5 else { return false }
+    return native.minY >= row.minY && native.maxY <= row.maxY &&
+        native.minX >= row.minX && native.maxX <= row.maxX + 2
+}
+
 final class AccountSettingsParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func openSettings(_ dark: Bool = false) -> XCUIApplication {
@@ -46,7 +60,7 @@ final class AccountSettingsParityUITests: XCTestCase {
                     guard row.isEnabled, native.isEnabled, native.identifier.isEmpty,
                           bounds.width > 0, bounds.height > 0,
                           bounds.width < row.frame.width * 0.5,
-                          row.frame.contains(bounds) else { return false }
+                          puboNativeSwitchFitsAXRow(bounds, row: row.frame) else { return false }
                     let candidate = control.children(matching: .switch).firstMatch
                     let rowHittable = control.isHittable
                     let nativeHittable = candidate.isHittable
@@ -111,6 +125,16 @@ final class AccountSettingsParityUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
     }
     func testAutoAcceptRequiresLockedAccountAndRetainsSelectionInBothThemes() {
+        // Regression controls for the AX geometry predicate, run on the same
+        // simulator before the unchanged real switches and state transitions.
+        let row = CGRect(x: 32, y: 121, width: 311, height: 28)
+        XCTAssertTrue(puboNativeSwitchFitsAXRow(CGRect(x: 280, y: 121, width: 63, height: 28), row: row))
+        XCTAssertTrue(puboNativeSwitchFitsAXRow(CGRect(x: 282, y: 121, width: 63, height: 28), row: row))
+        XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: 283, y: 121, width: 63, height: 28), row: row))
+        XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: 282, y: 173, width: 63, height: 28), row: row))
+        XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: 32, y: 121, width: 311, height: 28), row: row))
+        XCTAssertFalse(puboNativeSwitchFitsAXRow(.zero, row: row))
+        XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: .infinity, y: 121, width: 63, height: 28), row: row))
         for dark in [false, true] {
             let app = openSettings(dark); app.buttons["隐私与内容偏好"].tap()
             let locked = app.switches.matching(identifier: "privacy.isLocked").firstMatch
