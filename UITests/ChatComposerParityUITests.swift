@@ -81,9 +81,9 @@ final class ChatComposerParityUITests: XCTestCase {
         for undersized in [CGFloat(43.999), 43, 42] {
             XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: y, width: 44, height: undersized)))
         }
-        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: y, width: 44, height: .nan)))
+        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: y, width: 44, height: CGFloat.nan)))
         XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: 1e20, width: 44, height: 1)))
-        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: .infinity, width: 44, height: 44)))
+        XCTAssertFalse(puboTouchRectMeetsMinimum(CGRect(x: 16, y: CGFloat.infinity, width: 44, height: 44)))
         let prefix = room ? "room" : "chat"
         let viewport = app.scrollViews[prefix + ".timeline"]
         let composer = app.descendants(matching: .any).matching(identifier: prefix + ".composer").firstMatch
