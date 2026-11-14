@@ -60,6 +60,8 @@ struct PublicVideoPoster: View {
                 }.padding(8).foregroundStyle(PUBOTheme.text)
             }
         }.aspectRatio(ratio, contentMode: .fit)
+            // Keep independently named status and playback children in the AX tree.
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("media.poster." + file.id)
             .accessibilityValue(evidence)
             .task(id: file.id + (file["url"].string ?? "") + (file["thumbnailUrl"].string ?? "") + String(describing: session.generation) + String(describing: phase)) {

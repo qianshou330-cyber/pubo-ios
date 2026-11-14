@@ -12,6 +12,11 @@ class VideoPlaceholderLayoutTests(unittest.TestCase):
         self.assertIn('media.poster.status.', s)
         self.assertIn('media.poster.playGlyph.', s)
 
+    def test_poster_container_retains_child_accessibility_identifiers(self):
+        s = (ROOT / 'App/Components/PublicMediaPoster.swift').read_text()
+        self.assertIn('.accessibilityElement(children: .contain)\n            .accessibilityIdentifier("media.poster."', s)
+        self.assertNotIn('.accessibilityElement(children: .ignore)', s)
+
     def test_outer_overlay_is_audio_only_and_action_is_preserved(self):
         s = (ROOT / 'App/Components/TimelineMedia.swift').read_text()
         self.assertIn('if mime.hasPrefix("audio/") {\n                            Image(systemName: "play.fill")', s)
