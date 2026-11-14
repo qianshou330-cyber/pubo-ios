@@ -134,7 +134,7 @@ final class AccountSettingsParityUITests: XCTestCase {
         XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: 282, y: 173, width: 63, height: 28), row: row))
         XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: 32, y: 121, width: 311, height: 28), row: row))
         XCTAssertFalse(puboNativeSwitchFitsAXRow(.zero, row: row))
-        XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: .infinity, y: 121, width: 63, height: 28), row: row))
+        XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: CGFloat.infinity, y: 121, width: 63, height: 28), row: row))
         for dark in [false, true] {
             let app = openSettings(dark); app.buttons["隐私与内容偏好"].tap()
             let locked = app.switches.matching(identifier: "privacy.isLocked").firstMatch
