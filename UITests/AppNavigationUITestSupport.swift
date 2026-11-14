@@ -22,6 +22,11 @@ func puboTouchRectMeetsMinimum(_ frame: CGRect, minimum: CGFloat = 44) -> Bool {
     return frame.maxX >= requiredX && frame.maxY >= requiredY
 }
 
+/// Flatten an already captured immutable tree; this performs no remote query.
+func puboSnapshotDescendants(_ snapshot: XCUIElementSnapshot) -> [XCUIElementSnapshot] {
+    [snapshot] + snapshot.children.flatMap { puboSnapshotDescendants($0) }
+}
+
 /// Navigate through actual controls only. Helpers never reset a path or modify
 /// application state; callers retain responsibility for explicit Back actions.
 extension XCTestCase {

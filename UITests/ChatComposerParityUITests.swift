@@ -91,24 +91,46 @@ final class ChatComposerParityUITests: XCTestCase {
         let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix + ".tab."))
         XCTAssertTrue(viewport.waitForExistence(timeout: 6))
         XCTAssertTrue(composer.waitForExistence(timeout: 6))
-        func verticallyVisibleFrames() -> [CGRect] {
-            let bounds = viewport.frame
-            return avatars.allElementsBoundByIndex.map { $0.frame }.filter { frame in
-                frame.minY >= bounds.minY && frame.maxY <= min(bounds.maxY, composer.frame.minY)
-            }
-        }
+        // One immutable AX tree per poll: querying each row.frame separately
+        // can perform many remote snapshots and exceed the same 8-second gate.
+        // Do not reuse a successful snapshot across polls or after navigation.
+        var observations: [String] = []
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            let frames = verticallyVisibleFrames(), bounds = viewport.frame
-            return !frames.isEmpty && frames.allSatisfy { frame in
-                puboTouchRectMeetsMinimum(frame) &&
-                frame.minX >= bounds.minX && frame.maxX <= bounds.maxX &&
-                abs(frame.minX - bounds.minX - 16) <= 1
+            let started = ProcessInfo.processInfo.systemUptime
+            do {
+                let tree = try app.snapshot()
+                let nodes = puboSnapshotDescendants(tree)
+                guard let viewportSnapshot = nodes.first(where: {
+                    $0.elementType == .scrollView && $0.identifier == prefix + ".timeline"
+                }), let composerSnapshot = nodes.first(where: { $0.identifier == prefix + ".composer" }) else {
+                    observations.append("Missing viewport/composer in current snapshot")
+                    return false
+                }
+                let bounds = viewportSnapshot.frame, composerFrame = composerSnapshot.frame
+                let avatarSnapshots = nodes.filter {
+                    $0.elementType == .button && $0.identifier.hasPrefix(prefix + ".avatar.")
+                }
+                // Filter only by vertical visibility. A clipped or undersized
+                // horizontal target must remain a candidate and fail below.
+                let frames = avatarSnapshots.map { $0.frame }.filter { frame in
+                    frame.minY >= bounds.minY && frame.maxY <= min(bounds.maxY, composerFrame.minY)
+                }
+                let valid = !frames.isEmpty && frames.allSatisfy { frame in
+                    puboTouchRectMeetsMinimum(frame) &&
+                    frame.minX >= bounds.minX && frame.maxX <= bounds.maxX &&
+                    abs(frame.minX - bounds.minX - 16) <= 1
+                }
+                observations.append("duration=\(ProcessInfo.processInfo.systemUptime - started) viewport=\(bounds) composer=\(composerFrame) avatars=\(avatarSnapshots.map { "\($0.identifier)=\($0.frame)" }) valid=\(valid)")
+                return valid
+            } catch {
+                observations.append("duration=\(ProcessInfo.processInfo.systemUptime - started) snapshotError=\(error)")
+                return false
             }
         }, object: nil)
         let result = XCTWaiter.wait(for: [settled], timeout: 8)
         let rows = avatars.allElementsBoundByIndex.map { "\($0.identifier)=\($0.frame)" }.joined(separator: "\n")
         let tabFrames = tabs.allElementsBoundByIndex.map { "\($0.identifier)=\($0.frame)" }.joined(separator: "\n")
-        let proof = XCTAttachment(string: "stage=\(stage)\nviewport=\(viewport.frame)\ncomposer=\(composer.frame)\ntabs:\n\(tabFrames)\navatars:\n\(rows)\n" + app.debugDescription)
+        let proof = XCTAttachment(string: "stage=\(stage)\nobservations=\(observations.joined(separator: "\n"))\nviewport=\(viewport.frame)\ncomposer=\(composer.frame)\ntabs:\n\(tabFrames)\navatars:\n\(rows)\n" + app.debugDescription)
         proof.name = "chat-horizontal-insets-" + prefix + "-" + stage
         proof.lifetime = .keepAlways; add(proof)
         XCTAssertEqual(result, .completed, "At least one complete fixture avatar must be visible, with real viewport-relative 16pt inset; never scroll just to satisfy this gate")
