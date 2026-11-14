@@ -2,6 +2,7 @@ import SwiftUI
 import PUBOCore
 #if DEBUG
 import os
+import UIKit
 #endif
 
 struct AccountManagerView: View {
@@ -73,6 +74,9 @@ struct PrivacySettingsView: View {
                     .foregroundStyle(editable ? PUBOTheme.text : PUBOTheme.secondary)
                     .disabled(!editable)
                     .accessibilityIdentifier("privacy." + key)
+                    #if DEBUG
+                    .background(PrivacySwitchEventProbe(key: key))
+                    #endif
             }
             ForEach([("followingVisibility", "关注列表可见性"), ("followersVisibility", "关注者可见性")], id: \.0) { key, title in
                 Picker(title, selection: Binding(get: { values[key]?.string ?? "public" }, set: { values[key] = .string($0) })) { Text("公开").tag("public"); Text("仅关注者").tag("followers"); Text("仅自己").tag("private") }.disabled(busy || original.isNull)
@@ -109,6 +113,107 @@ struct PrivacySettingsView: View {
         } catch { self.error = error.localizedDescription }
     }
 }
+
+#if DEBUG
+// Observation only: keep SwiftUI's Toggle, targets, gestures and accessibility
+// intact. Never send actions or modify native state to make a test pass.
+private struct PrivacySwitchEventProbe: UIViewRepresentable {
+    let key: String
+    func makeUIView(context: Context) -> ProbeView { ProbeView(key: key) }
+    func updateUIView(_ view: ProbeView, context: Context) { view.scheduleObservation() }
+
+    final class ProbeView: UIView {
+        private let key: String
+        private weak var observed: UISwitch?
+        private var scheduled = false
+        private var lastState = ""
+        init(key: String) {
+            self.key = key
+            super.init(frame: .zero)
+            isUserInteractionEnabled = false
+            isAccessibilityElement = false
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil { detach() }
+            scheduleObservation()
+        }
+        override func layoutSubviews() { super.layoutSubviews(); scheduleObservation() }
+        func scheduleObservation() {
+            guard ProcessInfo.processInfo.arguments.contains("--ui-testing"), !scheduled else { return }
+            scheduled = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.scheduled = false
+                self.observeNativeControl()
+            }
+        }
+        private func observeNativeControl() {
+            guard let window else { detach(); return }
+            let probeBounds = convert(bounds, to: window)
+            guard !probeBounds.isEmpty, !probeBounds.isInfinite else { detach(); return }
+            var scanned = 0
+            var exceededBudget = false
+            func switches(in view: UIView) -> [UISwitch] {
+                scanned += 1
+                guard scanned <= 100 else { exceededBudget = true; return [] }
+                guard !(view is UITableView), !(view is UICollectionView) else { return [] }
+                if let control = view as? UISwitch { return [control] }
+                return view.subviews.flatMap { switches(in: $0) }
+            }
+            var parent = superview
+            // Stop at the first ancestor containing any switches; ambiguity
+            // is logged instead of attaching to a different settings row.
+            for _ in 0..<8 {
+                guard let ancestor = parent else { break }
+                let controls = switches(in: ancestor)
+                if exceededBudget { detach(); logState("scan-budget-exceeded"); return }
+                if !controls.isEmpty {
+                    guard controls.count == 1, let control = controls.first,
+                          probeBounds.contains(control.convert(CGPoint(x: control.bounds.midX, y: control.bounds.midY), to: window)) else {
+                        detach()
+                        logState("ambiguous count=\(controls.count)"); return
+                    }
+                    if observed !== control {
+                        observed?.removeTarget(self, action: nil, for: .allEvents)
+                        observed = control
+                        control.addTarget(self, action: #selector(touchDown(_:)), for: .touchDown)
+                        control.addTarget(self, action: #selector(touchUp(_:)), for: [.touchUpInside, .touchUpOutside])
+                        control.addTarget(self, action: #selector(touchCancel(_:)), for: .touchCancel)
+                        control.addTarget(self, action: #selector(valueChanged(_:)), for: .valueChanged)
+                        log("attached instance=\(ObjectIdentifier(control))")
+                    }
+                    let bounds = control.convert(control.bounds, to: window)
+                    let hit = window.hitTest(CGPoint(x: bounds.midX, y: bounds.midY), with: nil)
+                    let belongs = hit.map { $0 === control || $0.isDescendant(of: control) } ?? false
+                    logState("layout on=\(control.isOn) enabled=\(control.isEnabled) frame=\(bounds) centerHitsControl=\(belongs)")
+                    return
+                }
+                if ancestor is UITableViewCell || ancestor is UICollectionViewCell { break }
+                parent = ancestor.superview
+            }
+            detach()
+            logState("native-not-found")
+        }
+        private func detach() {
+            observed?.removeTarget(self, action: nil, for: .allEvents)
+            observed = nil
+        }
+        @objc private func touchDown(_ control: UISwitch) { log("touchDown on=\(control.isOn)") }
+        @objc private func touchUp(_ control: UISwitch) { log("touchUp on=\(control.isOn)") }
+        @objc private func touchCancel(_ control: UISwitch) { log("touchCancel on=\(control.isOn)") }
+        @objc private func valueChanged(_ control: UISwitch) { log("valueChanged on=\(control.isOn)") }
+        private func logState(_ state: String) {
+            guard lastState != state else { return }; lastState = state; log(state)
+        }
+        private func log(_ stage: String) {
+            let message = "PUBO_PRIVACY_TEST native key=\(key) \(stage)"
+            Logger(subsystem: "com.pubo.privacy.diagnostics", category: "fixture-draft").notice("\(message, privacy: .public)")
+        }
+    }
+}
+#endif
 
 struct ContentMuteSettingsView: View {
     @Environment(AppSession.self) private var session
