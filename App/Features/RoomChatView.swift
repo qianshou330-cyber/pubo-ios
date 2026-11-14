@@ -214,33 +214,49 @@ struct RoomChatView: View {
         let user = Record(message["fromUser"])
         let mine = message["fromUserId"].string == session.user?.id
         return HStack(alignment: .top, spacing: 8) {
-            if mine { Spacer(minLength: 40) } else { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 42).frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel(user.displayName + "的主页").accessibilityIdentifier("room.avatar." + message.id) }
+            if mine { Spacer(minLength: 0) } else { NavigationLink { ProfileView(userID: user.id) } label: { Avatar(user: user, size: 42).frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel(user.displayName + "的主页").accessibilityIdentifier("room.avatar." + message.id) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
                 if !mine && session.chatShowSenderName {
                     Text(user.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)
                         .accessibilityIdentifier("room.sender." + message.id)
                 }
-                VStack(alignment: .leading, spacing: 7) {
-                    if !message["recalledAt"].isNull { Text("消息已撤回") }
-                    else {
-                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: section == "messages" && preview == nil, identifier: "room.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, mine: mine)).font(.system(size: messageFont)) }
-                        if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
-                    }
-                }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
-                    .accessibilityIdentifier("room.bubble." + message.id)
-                    .contextMenu { messageMenu(message, mine: mine) }
+                HStack(alignment: .bottom, spacing: 4) {
+                    if mine { messageOverflow(message, mine: mine) }
+                    VStack(alignment: .leading, spacing: 7) {
+                        if !message["recalledAt"].isNull { Text("消息已撤回") }
+                        else {
+                            if !message.text.isEmpty { ChatMessageContent(text: message.text, active: section == "messages" && preview == nil, identifier: "room.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, mine: mine)).font(.system(size: messageFont)) }
+                            if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
+                        }
+                    }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
+                        .accessibilityIdentifier("room.bubble." + message.id)
+                        .contextMenu { messageMenu(message, mine: mine) }
+                    if !mine { messageOverflow(message, mine: mine) }
+                }
                 if message["recalledAt"].isNull && !ChatContentPolicy.previewLinks(message.text).isEmpty {
                     ChatMessageLinkPreviews(text: message.text, active: section == "messages" && preview == nil, identifier: "room.links." + message.id)
                 }
-                HStack(spacing: 6) {
-                    if !mine { Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id) }
-                    if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary) }
-                    if mine { Menu { messageMenu(message, mine: mine) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("群消息菜单").accessibilityIdentifier("room.menu." + message.id) }
+                if let date = puboDate(message["createdAt"].string) {
+                    ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary)
                 }
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull { ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !mine && !busy) { value, desired in Task { await react(message, value, requested: desired) } } }
             }
-            if !mine { Spacer(minLength: 28) }
+            if !mine { Spacer(minLength: 0) }
         }
+    }
+    // A dedicated sibling target keeps 44pt touch/VoiceOver access without
+    // adding a 44pt metadata row or placing an invisible target over content.
+    private func messageOverflow(_ message: Record, mine: Bool) -> some View {
+        Menu { messageMenu(message, mine: mine) } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("群消息菜单")
+        .accessibilityIdentifier("room.menu." + message.id)
     }
     private func messageMenu(_ message: Record, mine: Bool) -> some View {
         ChatMenuButtons(actions: messageActions(message, mine: mine))
