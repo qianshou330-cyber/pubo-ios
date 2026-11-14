@@ -11,7 +11,7 @@ SHARDS = {
     'authentication': (9, ['AuthStaticUITests']),
     'baseline': (46, ['PUBOUITests']),
     # Independent synthetic expansion; original 86 and focused five remain unchanged.
-    'chat-alignment': (9, ['ChatAlignmentUITests']),
+    'chat-alignment': (10, ['ChatAlignmentUITests']),
     'chat-presentation': (8, ['ChatComposerParityUITests']),
     'video-poster': (4, ['PublicVideoPosterUITests']),
 }

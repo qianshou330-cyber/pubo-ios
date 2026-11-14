@@ -12,6 +12,7 @@ struct ChatMessageContent: View {
     let active: Bool
     let identifier: String
     var remoteEmojis: JSONValue = .null
+    var menuActions: [ChatMenuAction] = []
     @State private var visible = false
     @State private var emojiStore = InlineEmojiStore.shared
     @State private var destination: NativeLinkTarget?
@@ -32,7 +33,7 @@ struct ChatMessageContent: View {
                      openURL: { url in
                          if let link = NativeLink(url) { destination = NativeLinkTarget(link: link) }
                          else if NativeLink.publicURL(url.absoluteString) != nil { UIApplication.shared.open(url) }
-                     }, fitsContentWidth: true, pointSizeOverride: messagePointSize)
+                     }, fitsContentWidth: true, pointSizeOverride: messagePointSize, menuActions: enabled ? menuActions : [])
             .background(GeometryReader { geometry in
                 Color.clear.onAppear { visible = geometry.frame(in: .global).intersects(UIScreen.main.bounds) }
                     .onChange(of: geometry.frame(in: .global)) { _, frame in visible = frame.intersects(UIScreen.main.bounds) }

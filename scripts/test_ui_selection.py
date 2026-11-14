@@ -27,6 +27,7 @@ class SelectionTests(unittest.TestCase):
         expected = {
             'testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize',
             'testGroupDraftSurvivesTabsAndKeyboard',
+            'testTextSelectionMenuPreservesRoomActionsBothThemes',
             'testGroupReactionDoesNotUseDirectMessagePermission',
             'testGroupSearchExactMessageReportAndMenuBothThemes',
             'testLargeTextGroupComposerAndTabsStayReachable',
@@ -37,12 +38,12 @@ class SelectionTests(unittest.TestCase):
         }
         source = (pathlib.Path(__file__).resolve().parents[1] / 'UITests/ChatAlignmentUITests.swift').read_text()
         methods = re.findall(r'^\s+func (test\w+)\(', source, re.M)
-        self.assertEqual(len(methods), 9)
+        self.assertEqual(len(methods), 10)
         self.assertEqual(set(methods), expected)
-        self.assertEqual(selection('chat-alignment'), (9, ['-only-testing:PUBOUITests/ChatAlignmentUITests']))
+        self.assertEqual(selection('chat-alignment'), (10, ['-only-testing:PUBOUITests/ChatAlignmentUITests']))
         selected = [s for _, suites in SHARDS.values() for s in suites]
         self.assertEqual(len(selected), len(set(selected)))
-        self.assertEqual(sum(count for count, _ in SHARDS.values()), 107)
+        self.assertEqual(sum(count for count, _ in SHARDS.values()), 108)
         self.assertFalse(any(name.startswith('ChatAlignmentUITests/') for name in FOCUSED))
 
     def test_composer_parity_exact_methods(self):

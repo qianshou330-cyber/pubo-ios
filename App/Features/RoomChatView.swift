@@ -56,7 +56,9 @@ struct RoomChatView: View {
     @State private var editing = false
     @State private var operation: String?
     @State private var reactionTarget: Record?
-    @State private var deletingMessage: Record?
+    @State private var deletingMessage: RoomMessageDeletionIntent?
+    @State private var deletionScreenID = UUID()
+    @State private var deletionRequestID: UUID?
     private var own: Bool { room?["ownerId"].string == session.user?.id }
     private var invited: Bool { room?["invitationExists"].bool ?? false }
     private var key: String { "room-draft-" + roomID }
@@ -184,10 +186,11 @@ struct RoomChatView: View {
             .onChange(of: session.streamRevision) { _, _ in if active && scenePhase == .active { Task { await load() } } }
             .onChange(of: session.connectionRevision) { _, _ in if active && scenePhase == .active { Task { await load(reconcile: true) } } }
             .onReceive(session.chatEvents) { receive($0) }
-            .onChange(of: section) { _, value in if value == "messages" { Task { await load(reconcile: true) } } }
+            .onChange(of: session.generation) { _, _ in invalidateMessageDeletion() }
+            .onChange(of: section) { _, value in invalidateMessageDeletion(); if value == "messages" { Task { await load(reconcile: true) } } }
             .onChange(of: draft.text) { _, _ in persist() }
             .onChange(of: scenePhase) { _, value in if value == .active && active { Task { await load(reconcile: true) } } }
-            .onDisappear { active = false; loadEpoch = UUID(); uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
+            .onDisappear { invalidateMessageDeletion(); active = false; loadEpoch = UUID(); uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
              .sheet(isPresented: $choosingFile) { DrivePicker { file in draft.file = file; persist() } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &draft.text, selection: &textSelection) } }
             .sheet(item: $reporting) { message in ReportView(userID: message["fromUserId"].string ?? "", context: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id).absoluteString + "\n-----\n") }
@@ -198,7 +201,7 @@ struct RoomChatView: View {
             .sheet(isPresented: $editing, onDismiss: { Task { await load() } }) { RoomEditor(room: room) }
             .sheet(item: $reactionTarget) { target in ReactionPicker { reaction in Task { await react(target, reaction) } } }
             .confirmationDialog("此操作会改变群聊及其成员的访问权限。是否继续？", isPresented: Binding(get: { operation != nil }, set: { if !$0 { operation = nil } })) { if let operation { Button(operation == "delete" ? "确认删除群聊" : "确认", role: .destructive) { Task { await perform(operation) } } } }
-            .confirmationDialog("删除此群聊消息？", isPresented: Binding(get: { deletingMessage != nil }, set: { if !$0 { deletingMessage = nil } })) { if let message = deletingMessage { Button("删除消息", role: .destructive) { Task { await deleteMessage(message) } } } }
+            .confirmationDialog("删除此群聊消息？", isPresented: Binding(get: { deletingMessage != nil }, set: { if !$0 { deletingMessage = nil } })) { if let intent = deletingMessage { Button("删除消息", role: .destructive) { confirmMessageDeletion(intent) } } }
     }
     private func messageRow(_ message: Record) -> some View {
         let user = Record(message["fromUser"])
@@ -213,7 +216,7 @@ struct RoomChatView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     if !message["recalledAt"].isNull { Text("消息已撤回") }
                     else {
-                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: section == "messages" && preview == nil, identifier: "room.text." + message.id, remoteEmojis: message["emojis"]).font(.system(size: messageFont)) }
+                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: section == "messages" && preview == nil, identifier: "room.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, mine: mine)).font(.system(size: messageFont)) }
                         if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
                     }
                 }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
@@ -232,15 +235,30 @@ struct RoomChatView: View {
             if !mine { Spacer(minLength: 28) }
         }
     }
-    @ViewBuilder private func messageMenu(_ message: Record, mine: Bool) -> some View {
-        if message["recalledAt"].isNull {
-            if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } }
-            if mine { Button("删除消息", role: .destructive) { deletingMessage = message } }
-            else {
-                Button("添加反应") { reactionTarget = message }
-                Button("举报") { reporting = message }.disabled(message["fromUserId"].string == nil)
+    private func messageMenu(_ message: Record, mine: Bool) -> some View {
+        ChatMenuButtons(actions: messageActions(message, mine: mine))
+    }
+    private func messageActions(_ message: Record, mine: Bool) -> [ChatMenuAction] {
+        guard message["recalledAt"].isNull else { return [] }
+        let epoch = session.generation
+        let owner = session.user?.id
+        func command(_ id: String, _ title: String, destructive: Bool = false, enabled: Bool = true, _ perform: @escaping () -> Void) -> ChatMenuAction {
+            ChatMenuAction(id: id, title: title, destructive: destructive, enabled: enabled) {
+                guard active, scenePhase == .active, section == "messages", preview == nil,
+                      epoch == session.generation, owner == session.user?.id,
+                      let current = messages.first(where: { $0.id == message.id }),
+                      current["recalledAt"].isNull, current.raw == message.raw else { return }
+                perform()
             }
         }
+        var actions: [ChatMenuAction] = []
+        if !message.text.isEmpty { actions.append(command("room.copy." + message.id, "复制文字") { UIPasteboard.general.string = message.text }) }
+        if mine { actions.append(command("room.delete." + message.id, "删除消息", destructive: true) { requestMessageDeletion(message) }) }
+        else {
+            actions.append(command("room.react." + message.id, "添加反应") { reactionTarget = message })
+            actions.append(command("room.report." + message.id, "举报", enabled: message["fromUserId"].string != nil) { reporting = message })
+        }
+        return actions
     }
     private func receive(_ event: ChatStreamEvent) {
         guard active, event.room, event.targetID == roomID, scenePhase == .active else { return }
@@ -367,9 +385,47 @@ struct RoomChatView: View {
         guard !busy else { return }; busy = true; defer { busy = false }
         do { _ = try await session.call("chat/rooms/mute", ["roomId": .string(roomID), "mute": .bool(!(room?["isMuted"].bool ?? false))], mutation: true); await load() } catch { self.error = error.localizedDescription }
     }
-    private func deleteMessage(_ message: Record) async {
-        guard !busy else { return }; busy = true; defer { busy = false; deletingMessage = nil }
-        do { _ = try await session.call("chat/messages/delete", ["messageId": .string(message.id)], mutation: true); messages.removeAll { $0.id == message.id }; await load() } catch { self.error = error.localizedDescription }
+    private func invalidateMessageDeletion() {
+        deletingMessage = nil; deletionScreenID = UUID()
+        if deletionRequestID != nil { deletionRequestID = nil; busy = false }
+    }
+    private func deletionContextMatches(_ intent: RoomMessageDeletionIntent) -> Bool {
+        ownerID == intent.ownerID && intent.matches(ownerID: session.user?.id, generation: session.generation,
+            screenID: deletionScreenID, roomID: roomID, active: active && section == "messages")
+    }
+    private func requestMessageDeletion(_ message: Record) {
+        guard !busy, active, section == "messages", let ownerID, ownerID == session.user?.id,
+              let intent = RoomMessageDeletionIntent(ownerID: ownerID, generation: session.generation,
+                  screenID: deletionScreenID, roomID: roomID, message: message),
+              intent.permits(messages.first { $0.id == intent.messageID }) else { return }
+        deletingMessage = intent
+    }
+    private func confirmMessageDeletion(_ intent: RoomMessageDeletionIntent) {
+        guard deletingMessage == intent, !busy, deletionRequestID == nil,
+              deletionContextMatches(intent), intent.permits(messages.first { $0.id == intent.messageID }) else { return }
+        // Consume synchronously: a second tap cannot create a second request.
+        deletingMessage = nil; let requestID = UUID(); deletionRequestID = requestID; busy = true
+        Task { await deleteMessage(intent, requestID: requestID) }
+    }
+    private func deleteMessage(_ intent: RoomMessageDeletionIntent, requestID: UUID) async {
+        defer {
+            if deletionRequestID == requestID && deletionContextMatches(intent) {
+                deletionRequestID = nil; busy = false
+            }
+        }
+        // Task scheduling is an interruption point, so check again before transmission.
+        guard deletionRequestID == requestID, deletionContextMatches(intent), !Task.isCancelled,
+              intent.permits(messages.first { $0.id == intent.messageID }) else { return }
+        do {
+            _ = try await session.call("chat/messages/delete", ["messageId": .string(intent.messageID)], mutation: true)
+            guard deletionRequestID == requestID, deletionContextMatches(intent), !Task.isCancelled else { return }
+            messages.removeAll { $0.id == intent.messageID }; error = nil
+            // No trailing reload: the stream will reconcile; an old task must not start
+            // another account's load after its delete response.
+        } catch {
+            guard deletionRequestID == requestID, deletionContextMatches(intent), !Task.isCancelled else { return }
+            self.error = error.localizedDescription
+        }
     }
     private func react(_ message: Record, _ reaction: String, requested: Bool = true) async {
         guard active, section == "messages", !busy, let viewer = session.user?.id else { return }; busy = true; defer { busy = false }

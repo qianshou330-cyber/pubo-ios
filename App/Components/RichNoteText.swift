@@ -16,6 +16,7 @@ struct RichNoteText: UIViewRepresentable {
     var fitsContentWidth = false
     /// Already scaled by SwiftUI for chat; nil preserves the existing note path.
     var pointSizeOverride: CGFloat? = nil
+    var menuActions: [ChatMenuAction] = []
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> AnimatedTextView {
         let view = AnimatedTextView()
@@ -28,7 +29,7 @@ struct RichNoteText: UIViewRepresentable {
         return view
     }
     func updateUIView(_ view: AnimatedTextView, context: Context) {
-        context.coordinator.openURL = openURL; context.coordinator.onTap = onTap; context.coordinator.view = view
+        context.coordinator.menuActions = menuActions; context.coordinator.openURL = openURL; context.coordinator.onTap = onTap; context.coordinator.view = view
         // H5's 14px base is 0.9em in a phone-width note container.
         // SwiftUI's dynamicTypeSize (including accessibility overrides) need not
         // match UIKit's ambient trait collection. Never scale the explicit value twice.
@@ -99,12 +100,19 @@ struct RichNoteText: UIViewRepresentable {
         }
         return CGSize(width: fittedWidth, height: max(1, uiView.sizeThatFits(CGSize(width: fittedWidth, height: .greatestFiniteMagnitude)).height))
     }
-    static func dismantleUIView(_ view: AnimatedTextView, coordinator: Coordinator) { view.clearAnimations(); view.delegate = nil }
+    static func dismantleUIView(_ view: AnimatedTextView, coordinator: Coordinator) { coordinator.menuActions = []; view.clearAnimations(); view.delegate = nil }
     final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
         weak var view: AnimatedTextView?
         var renderKey: String?
         var openURL: ((URL) -> Void)?
         var onTap: (() -> Void)?
+        var menuActions: [ChatMenuAction] = []
+        func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+            guard !menuActions.isEmpty else { return nil }
+            // Keep system selection/copy/translation/link commands unchanged.
+            let commands: [UIMenuElement] = menuActions.map { $0.uiAction }
+            return UIMenu(children: commands + suggestedActions)
+        }
         func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool { openURL?(URL); return false }
         private func link(at point: CGPoint, view: UITextView) -> Bool {
             guard view.attributedText.length > 0 else { return false }

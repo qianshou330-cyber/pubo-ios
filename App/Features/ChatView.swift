@@ -219,7 +219,7 @@ struct ChatView: View {
                                 Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
                             }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
                         }
-                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"]).font(.system(size: messageFont)) }
+                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, own: own)).font(.system(size: messageFont)) }
                         ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                     }
@@ -243,17 +243,32 @@ struct ChatView: View {
             if !own { Spacer(minLength: 28) }
         }
     }
-    @ViewBuilder private func messageMenu(_ message: Record, own: Bool) -> some View {
-                        if message["recalledAt"].isNull { Button("引用回复") { reply = message; saveDraft() }; if !message.text.isEmpty { Button("复制文字") { UIPasteboard.general.string = message.text } } }
-                        if message["recalledAt"].isNull {
-                            let gifs = Record.list(message["attachments"]).filter { $0["mime"].string == "image/gif" }
-                            ForEach(Array(gifs.enumerated()), id: \.element.id) { index, file in
-                                Button(gifs.count == 1 ? "收藏表情包" : "收藏 GIF \(index + 1)") { collectSticker(file) }.disabled(stickerBusy)
-                            }
-                        }
-                        Button(own ? "编辑／撤回消息" : "消息反应／举报") { actionMessage = message }
-                            .accessibilityIdentifier("chat.actions." + message.id)
-                    
+    private func messageMenu(_ message: Record, own: Bool) -> some View {
+        ChatMenuButtons(actions: messageActions(message, own: own))
+    }
+    private func messageActions(_ message: Record, own: Bool) -> [ChatMenuAction] {
+        let epoch = session.generation
+        let owner = session.user?.id
+        func command(_ id: String, _ title: String, enabled: Bool = true, allowRecalled: Bool = false, _ perform: @escaping () -> Void) -> ChatMenuAction {
+            ChatMenuAction(id: id, title: title, enabled: enabled) {
+                guard active, scenePhase == .active, !searching, preview == nil, actionMessage == nil,
+                      epoch == session.generation, owner == session.user?.id,
+                      let current = messages.first(where: { $0.id == message.id }),
+                      (allowRecalled || current["recalledAt"].isNull), current.raw == message.raw else { return }
+                perform()
+            }
+        }
+        var actions: [ChatMenuAction] = []
+        if message["recalledAt"].isNull {
+            actions.append(command("chat.reply." + message.id, "引用回复") { reply = message; saveDraft() })
+            if !message.text.isEmpty { actions.append(command("chat.copy." + message.id, "复制文字") { UIPasteboard.general.string = message.text }) }
+            let gifs = Record.list(message["attachments"]).filter { $0["mime"].string == "image/gif" }
+            for (index, file) in gifs.enumerated() {
+                actions.append(command("chat.collect." + message.id + "." + file.id, gifs.count == 1 ? "收藏表情包" : "收藏 GIF \(index + 1)", enabled: !stickerBusy) { collectSticker(file) })
+            }
+        }
+        actions.append(command("chat.actions." + message.id, own ? "编辑／撤回消息" : "消息反应／举报", allowRecalled: true) { actionMessage = message })
+        return actions
     }
     private func receive(_ event: ChatStreamEvent) {
         guard active, !event.room, event.targetID == peer.id, scenePhase == .active else { return }

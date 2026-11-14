@@ -87,7 +87,9 @@ final class ChatAlignmentUITests: XCTestCase {
             let bubble = app.descendants(matching: .any).matching(identifier: "room.bubble.room0001").firstMatch; XCTAssertTrue(bubble.waitForExistence(timeout: 6))
             assertRoomInsets(app, firstRowAtTop: false, stage: "context-" + theme)
             capture(app, "chat-room-context-" + theme)
-            bubble.press(forDuration: 1); XCTAssertTrue(app.buttons["举报"].waitForExistence(timeout: 5)); capture(app, "chat-room-menu-" + theme); app.buttons["举报"].tap()
+            bubble.press(forDuration: 1)
+            let reportAction = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND (elementType == %d OR elementType == %d)", "举报", XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.menuItem.rawValue)).firstMatch
+            XCTAssertTrue(reportAction.waitForExistence(timeout: 5)); capture(app, "chat-room-menu-" + theme); reportAction.tap()
             let reason = app.textViews["report.reason"]; XCTAssertTrue(reason.waitForExistence(timeout: 5)); XCTAssertTrue((reason.value as? String)?.contains("/chat/messages/room0001") == true)
             XCTAssertFalse((reason.value as? String)?.contains("欢迎来到音乐交流群") == true); capture(app, "chat-room-report-" + theme); app.buttons["取消"].tap()
             app.buttons["回到最新消息"].tap()
@@ -97,6 +99,36 @@ final class ChatAlignmentUITests: XCTestCase {
             app.buttons["room.tab.members"].tap(); XCTAssertTrue(app.staticTexts["测试用户"].waitForExistence(timeout: 5)); capture(app, "chat-room-members-" + theme)
             app.buttons["room.tab.about"].tap(); XCTAssertTrue(app.staticTexts["一起分享音乐和日常。"].waitForExistence(timeout: 5)); capture(app, "chat-room-about-" + theme)
             app.terminate()
+        }
+    }
+    func testTextSelectionMenuPreservesRoomActionsBothThemes() {
+        for dark in [false, true] {
+            let app = launch(dark ? ["--dark"] : []); room(app)
+            let own = app.descendants(matching: .any).matching(identifier: "room.bubble.room0002").firstMatch
+            XCTAssertTrue(own.waitForExistence(timeout: 6))
+            let ownText = own.textViews.firstMatch
+            XCTAssertTrue(ownText.exists); ownText.press(forDuration: 1)
+            let delete = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND (elementType == %d OR elementType == %d)", "删除消息", XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.menuItem.rawValue)).firstMatch
+            XCTAssertTrue(delete.waitForExistence(timeout: 5)); delete.tap()
+            XCTAssertTrue(app.buttons["取消"].waitForExistence(timeout: 5))
+            capture(app, "chat-text-menu-delete-confirm-" + (dark ? "dark" : "light"))
+            app.buttons["取消"].tap(); XCTAssertTrue(own.exists, "Cancel must retain the original message")
+            ownText.press(forDuration: 1)
+            XCTAssertTrue(delete.waitForExistence(timeout: 5)); delete.tap()
+            let confirmDelete = app.buttons["删除消息"]
+            XCTAssertTrue(confirmDelete.waitForExistence(timeout: 5)); confirmDelete.tap()
+            XCTAssertTrue(own.waitForNonExistence(timeout: 6), "Confirmed deletion must remove the original message")
+            capture(app, "chat-text-menu-deleted-" + (dark ? "dark" : "light"))
+            let foreign = app.descendants(matching: .any).matching(identifier: "room.bubble.room0001").firstMatch
+            XCTAssertTrue(foreign.textViews.firstMatch.exists); foreign.textViews.firstMatch.press(forDuration: 1)
+            let report = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND (elementType == %d OR elementType == %d)", "举报", XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.menuItem.rawValue)).firstMatch
+            XCTAssertTrue(report.waitForExistence(timeout: 5)); report.tap()
+            let reason = app.textViews["report.reason"]
+            XCTAssertTrue(reason.waitForExistence(timeout: 5))
+            XCTAssertTrue((reason.value as? String)?.contains("/chat/messages/room0001") == true)
+            XCTAssertFalse((reason.value as? String)?.contains("欢迎来到音乐交流群") == true)
+            capture(app, "chat-text-menu-report-" + (dark ? "dark" : "light"))
+            app.buttons["取消"].tap(); app.terminate()
         }
     }
     func testGroupReactionDoesNotUseDirectMessagePermission() {
