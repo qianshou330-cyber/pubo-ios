@@ -201,7 +201,14 @@ struct RoomChatView: View {
             .sheet(isPresented: $editing, onDismiss: { Task { await load() } }) { RoomEditor(room: room) }
             .sheet(item: $reactionTarget) { target in ReactionPicker { reaction in Task { await react(target, reaction) } } }
             .confirmationDialog("此操作会改变群聊及其成员的访问权限。是否继续？", isPresented: Binding(get: { operation != nil }, set: { if !$0 { operation = nil } })) { if let operation { Button(operation == "delete" ? "确认删除群聊" : "确认", role: .destructive) { Task { await perform(operation) } } } }
-            .confirmationDialog("删除此群聊消息？", isPresented: Binding(get: { deletingMessage != nil }, set: { if !$0 { deletingMessage = nil } })) { if let intent = deletingMessage { Button("删除消息", role: .destructive) { confirmMessageDeletion(intent) } } }
+            // A confirmationDialog may adapt to a popover with no visible Cancel action.
+            // An alert keeps both choices explicit for touch and VoiceOver on every size.
+            .alert("删除此群聊消息？", isPresented: Binding(get: { deletingMessage != nil }, set: { if !$0 { deletingMessage = nil } })) {
+                if let intent = deletingMessage {
+                    Button("删除消息", role: .destructive) { confirmMessageDeletion(intent) }
+                }
+                Button("取消", role: .cancel) { deletingMessage = nil }
+            }
     }
     private func messageRow(_ message: Record) -> some View {
         let user = Record(message["fromUser"])

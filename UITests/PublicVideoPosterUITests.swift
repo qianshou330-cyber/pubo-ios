@@ -7,7 +7,9 @@ final class PublicVideoPosterUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--timeline-align", "--gif-preview", "--video-poster-fixture=" + mode]
         app.launch(); puboSelectTab(app, "世界圈")
-        let poster = app.descendants(matching: .any).matching(identifier: "media.poster.posterfixture").firstMatch
+        // The poster is the media button's content. SwiftUI exposes its value on
+        // that actionable element while .contain keeps status/glyph children visible.
+        let poster = app.buttons["media.open.posterfixture"]
         XCTAssertTrue(poster.waitForExistence(timeout: 15))
         let loaded = NSPredicate(format: "value == %@", expected)
         expectation(for: loaded, evaluatedWith: poster)
