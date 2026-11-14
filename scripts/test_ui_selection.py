@@ -42,7 +42,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(selection('chat-alignment'), (9, ['-only-testing:PUBOUITests/ChatAlignmentUITests']))
         selected = [s for _, suites in SHARDS.values() for s in suites]
         self.assertEqual(len(selected), len(set(selected)))
-        self.assertEqual(sum(count for count, _ in SHARDS.values()), 103)
+        self.assertEqual(sum(count for count, _ in SHARDS.values()), 107)
         self.assertFalse(any(name.startswith('ChatAlignmentUITests/') for name in FOCUSED))
 
     def test_composer_parity_exact_methods(self):
@@ -77,7 +77,7 @@ class SelectionTests(unittest.TestCase):
             self.assertIn(required, pilot)
         self.assertNotIn('PUBO_REGRESSION_147_ONLY', pilot)
         self.assertNotIn('skip-testing', pilot)
-        self.assertIn('    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference]', workflow)
+        self.assertIn('    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', workflow)
         candidate = workflow.split('  candidate-package:', 1)[1]
         self.assertIn('    needs: checks', candidate)
         self.assertIn('QA-INCOMPLETE', candidate)
@@ -103,7 +103,7 @@ class SelectionTests(unittest.TestCase):
                          'four-tabs-chat-presentation-${{ matrix.size }}-${{ matrix.part }}-${{ github.sha }}']:
             self.assertIn(required, job)
         package = workflow.split('  package:\n', 1)[1].split('  candidate-package:', 1)[0]
-        self.assertIn('needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference]', package)
+        self.assertIn('needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', package)
         self.assertNotIn('continue-on-error', job)
         self.assertNotIn('skip-testing', job)
         runner = (root / 'scripts/simulator-tests.py').read_text()
@@ -123,6 +123,32 @@ class SelectionTests(unittest.TestCase):
         self.assertIn('DIAGNOSTIC-NOT-PARITY-', source)
         self.assertIn("body?.error?.code==='NO_SUCH_KEY'", source)
         self.assertIn('report.cases.length===8&&report.cases.every(c=>c.passed)', source)
+
+    def test_real_video_poster_gate_is_required_on_both_sizes(self):
+        root = pathlib.Path(__file__).resolve().parents[1]
+        source = (root / 'UITests/PublicVideoPosterUITests.swift').read_text()
+        methods = re.findall(r'^\s+func (test\w+)\(', source, re.M)
+        self.assertEqual(set(methods), {
+            'testUntrustedSyntheticVideoFailsClosed',
+            'testMissingThumbnailDecodesBundledVideo',
+            'testBrokenThumbnailDecodesBundledVideo',
+            'testServerThumbnailAvoidsVideoDecoder',
+        })
+        self.assertEqual(len(methods), 4)
+        self.assertEqual(selection('video-poster'), (4, ['-only-testing:PUBOUITests/PublicVideoPosterUITests']))
+        workflow = (root / '.github/workflows/four-tabs.yml').read_text()
+        job = workflow.split('  video-poster:\n', 1)[1].split('  h5-chat-reference:\n', 1)[0]
+        for required in ['size: [small, large]', 'fail-fast: false',
+                         "PUBO_UI_SHARD: 'video-poster'", "PUBO_PREBUILT_TESTS: '1'",
+                         'build-for-testing', 'set -o pipefail',
+                         'python3 scripts/simulator-tests.py', 'if: always()',
+                         'build/ui-*.xcresult', 'build/screenshots/']:
+            self.assertIn(required, job)
+        self.assertNotIn('continue-on-error', job)
+        self.assertNotIn('skip-testing', job)
+        package = workflow.split('  package:\n', 1)[1].split('  candidate-package:', 1)[0]
+        self.assertIn('needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', package)
+        self.assertFalse(complete(dict(passedTests=3, failedTests=0, skippedTests=1, expectedFailures=0), 4))
 
     def test_unknown_fails_closed(self):
         with self.assertRaises(ValueError): selection('typo')

@@ -1,7 +1,7 @@
 import SwiftUI
 import PUBOCore
 
-struct TimelineCache: Codable { let savedAt: Date; let notes: [Record] }
+struct TimelineCache: Codable, Sendable { let savedAt: Date; let notes: [Record] }
 private struct TimelineOffset: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
@@ -361,7 +361,7 @@ struct TimelineView: View {
             if older || !firstPageLoaded { hasMore = result.count == 20 }
             if !older { firstPageLoaded = true }
             error = nil; failedOlderRequest = false; cached = false; firstLoadFinished = true
-            if let owner = session.user?.id { try? session.store?.save(TimelineCache(savedAt: Date(), notes: Array(feed.notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected.requestKey) }
+            if let owner = session.user?.id { session.store?.saveSnapshot(TimelineCache(savedAt: Date(), notes: Array(feed.notes.filter { $0["visibility"].string == "public" }.prefix(100))), account: "public-" + owner, key: "timeline-" + selected.requestKey) }
         } catch is CancellationError {} catch {
             #if DEBUG
             RefreshDiagnostics.shared.record(.loadFailed)

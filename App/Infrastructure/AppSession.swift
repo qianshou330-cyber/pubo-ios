@@ -234,6 +234,7 @@ final class AppSession {
         let secret = LoginSecret(token: token, userID: account.id, username: account["username"].string, displayName: account.displayName)
         if !testMode { try KeychainStore.save(secret) }
         if user?.id != account.id {
+            store?.cancelPendingSnapshots()
             generation = UUID(); stream.stop(); admin.clear(); security.clear()
             await api.cancelAll(); nativePush.logout(preservePreference: true, preservePendingNotice: restoring && user == nil)
             clearAccountMemory()
@@ -276,6 +277,7 @@ final class AppSession {
         guard !changingAccount, let owner = user?.id else { return }
         changingAccount = true; defer { changingAccount = false }
         if !testMode { try KeychainStore.remove(owner) }
+        store?.cancelPendingSnapshots()
         generation = UUID(); stream.stop(); admin.clear(); security.clear()
         await api.cancelAll()
         nativePush.logout()

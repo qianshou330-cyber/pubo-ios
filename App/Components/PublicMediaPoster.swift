@@ -41,6 +41,7 @@ struct PublicVideoPoster: View {
     let ratio: CGFloat
     @State private var image: UIImage?
     @State private var failed = false
+    @State private var evidence = "loading"
     var body: some View {
         ZStack {
             PUBOTheme.button
@@ -53,15 +54,16 @@ struct PublicVideoPoster: View {
             }
         }.aspectRatio(ratio, contentMode: .fit)
             .accessibilityIdentifier("media.poster." + file.id)
+            .accessibilityValue(evidence)
             .task(id: file.id + (file["url"].string ?? "") + (file["thumbnailUrl"].string ?? "") + String(describing: session.generation) + String(describing: phase)) {
                 guard phase == .active else { return }; await load()
             }.onDisappear { image = nil }
     }
     @MainActor private func load() async {
-        image = nil; failed = false
+        image = nil; failed = false; evidence = "loading"
         let epoch = session.generation
         let key = PublicPreviewCache.shared.key("video:" + (file["url"].string ?? file.id) + ":" + (file["thumbnailUrl"].string ?? ""), generation: String(describing: epoch))
-        if let cached = PublicPreviewCache.shared.image(key) { image = cached; return }
+        if let cached = PublicPreviewCache.shared.image(key) { image = cached; evidence = "cached"; return }
         // Prefer the server poster: no video decoding or video transfer is needed.
         if let thumb = safeMediaURL(file["thumbnailUrl"].string) {
             do {
@@ -76,14 +78,18 @@ struct PublicVideoPoster: View {
                 let decoded = try await PublicImageDecoder.decode(bytes, maxPixel: 720)
                 try Task.checkCancellation()
                 guard epoch == session.generation else { return }
-                image = decoded; PublicPreviewCache.shared.insert(decoded, key: key); return
+                image = decoded; evidence = "thumbnail"; PublicPreviewCache.shared.insert(decoded, key: key); return
             } catch { if Task.isCancelled { return } }
         }
+        var videoSource = safeMediaURL(file["url"].string)
         #if DEBUG
-        // Synthetic UI fixtures must never silently access external media.
-        if session.testMode && !session.isolatedBackend { failed = true; return }
+        // Synthetic UI mode only decodes this explicitly opted-in bundled asset.
+        // Unknown fixture URLs fail closed; never fall back to the network.
+        if session.testMode && !session.isolatedBackend {
+            videoSource = TimelineTestFixtures.videoSource(videoSource)
+        }
         #endif
-        guard let source = safeMediaURL(file["url"].string) else { failed = true; return }
+        guard let source = videoSource else { failed = true; evidence = "unavailable"; return }
         do {
             try await VideoPosterBudget.shared.acquire()
             do {
@@ -99,7 +105,7 @@ struct PublicVideoPoster: View {
                 try Task.checkCancellation()
                 if epoch == session.generation {
                     let decoded = UIImage(cgImage: result.image)
-                    image = decoded; PublicPreviewCache.shared.insert(decoded, key: key)
+                    image = decoded; evidence = "video-frame"; PublicPreviewCache.shared.insert(decoded, key: key)
                 }
             } catch { if !Task.isCancelled && epoch == session.generation { failed = true } }
             await VideoPosterBudget.shared.release()

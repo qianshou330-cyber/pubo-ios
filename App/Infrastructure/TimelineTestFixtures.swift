@@ -8,16 +8,30 @@ enum TimelineTestFixtures {
     }()
     static func media(_ url: URL) -> Data? {
         guard url.host == "timeline-fixture.invalid" else { return nil }
+        if url.path == "/broken-poster" { return Data() }
         if url.path == "/avatar.png" { return GIFTestFixtures.avatar }
         if url.path.hasSuffix(".apng") { return PublicAnimationFixtures.apng }
         if url.path.hasSuffix(".webp") { return PublicAnimationFixtures.webp }
         if url.path.hasSuffix(".png") { return GIFTestFixtures.still }
         return url.path.contains("finite") ? GIFTestFixtures.finite : GIFTestFixtures.looping
     }
+    static func videoSource(_ url: URL?) -> URL? {
+        guard ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--video-poster-fixture=") }),
+              url?.host == "timeline-fixture.invalid", url?.path == "/poster-red.mp4" else { return nil }
+        return Bundle.main.url(forResource: "PublicPosterRedFixture", withExtension: "mp4")
+    }
     static var posts: [JSONValue] {
         let format = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--timeline-format=") }?.components(separatedBy: "=").last
         let grid = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--timeline-grid=") }?.components(separatedBy: "=").last.flatMap(Int.init)
         return snapshot["posts"].array.map { original in
+            if original["id"].string == "at4tltest0025",
+               let mode = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--video-poster-fixture=") })?.components(separatedBy: "=").last {
+                var note = original.object
+                let thumb: JSONValue = mode == "thumbnail" ? .string("https://timeline-fixture.invalid/still.png") : mode == "broken" ? .string("https://timeline-fixture.invalid/broken-poster") : .null
+                let file: JSONValue = .object(["id": .string("posterfixture"), "type": .string("video/mp4"), "url": .string(mode == "untrusted" ? "https://external.invalid/poster.mp4" : "https://timeline-fixture.invalid/poster-red.mp4"), "thumbnailUrl": thumb, "isSensitive": .bool(false), "properties": .object(["width": .number(160), "height": .number(90)])])
+                note["files"] = .array([file]); note["fileIds"] = .array([.string("posterfixture")])
+                return .object(note)
+            }
             if ProcessInfo.processInfo.arguments.contains("--timeline-visual-header"), original["id"].string == "at4tltest0025",
                let url = Bundle.main.url(forResource: "TimelineVisualCases", withExtension: "json"),
                let data = try? Data(contentsOf: url), let fixture = try? JSONDecoder().decode(JSONValue.self, from: data) {

@@ -13,6 +13,7 @@ SHARDS = {
     # Independent synthetic expansion; original 86 and focused five remain unchanged.
     'chat-alignment': (9, ['ChatAlignmentUITests']),
     'chat-presentation': (8, ['ChatComposerParityUITests']),
+    'video-poster': (4, ['PublicVideoPosterUITests']),
 }
 FOCUSED = [
     'PUBOUITests/testAHomePullRefreshAndForegroundRefreshWithoutHeaderButtons',
