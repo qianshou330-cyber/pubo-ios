@@ -50,7 +50,7 @@ for size in [(0.0, 0.0), (0, 10), (10, 0), (1, 1), (2, 20), (20, 2), (24, 24), (
                 if body.contains(p) { check(actual.contains(p), "Hole in body: \(size), own=\(own), \(p)") }
                 check(actual.contains(p) == actual.contains(p, eoFill: true), "Fill rule disagreement")
                 let mirror = CGPoint(x: rect.minX + rect.maxX - p.x, y: p.y)
-                check(right.contains(p) == left.contains(mirror), "Left/right asymmetry")
+                check(right.contains(p) == left.contains(mirror), "Left/right asymmetry: size=\(size), origin=\(origin), own=\(own), p=\(p), mirror=\(mirror), right=\(right.contains(p)), left=\(left.contains(mirror)), rightBounds=\(right.boundingRect), leftBounds=\(left.boundingRect)")
                 checks += 3
             } }
         }

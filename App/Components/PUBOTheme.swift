@@ -157,7 +157,7 @@ struct PUBOChatBubble: Shape {
         guard rect.width > 0, rect.height > 0 else { return Path() }
         let radius = min(PUBOTheme.radius, rect.width / 2, rect.height / 2)
         let inset = radius * 0.13
-        let body = CGRect(x: rect.minX + (own ? 0 : inset),
+        let body = CGRect(x: rect.minX,
                           y: rect.minY + inset,
                           width: rect.width - inset, height: rect.height - inset)
         let path = Path(roundedRect: body, cornerRadius: radius)
@@ -165,7 +165,7 @@ struct PUBOChatBubble: Shape {
         // H5 SVG viewBox 0 0 14.597 14.58, width radius * 1.13.
         let scale = radius * 1.13 / 14.597
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: own ? rect.maxX - (14.597 - x) * scale : rect.minX + (14.597 - x) * scale,
+            CGPoint(x: rect.maxX - (14.597 - x) * scale,
                     y: rect.minY + y * scale)
         }
         var tail = Path()
@@ -180,9 +180,13 @@ struct PUBOChatBubble: Shape {
         tail.addCurve(to: point(14.60339, 1.94639), control1: point(13.40129, 7.14209), control2: point(14.60359, 4.61529))
         tail.addCurve(to: point(14.47989, 0.47289), control1: point(14.60333, 1.45264), control2: point(14.56209, 0.95977))
         tail.closeSubpath()
-        // A Boolean union, not compound subpaths: reflection changes winding.
-        // Keeping the operands separate prevents cancellation in their overlap.
-        return path.union(tail)
+        // Build one canonical Boolean union. Mirroring operands before union can
+        // produce a separately approximated contour on the opposite side.
+        // Reflect the completed outline instead, preserving identical geometry.
+        let outline = path.union(tail)
+        guard !own else { return outline }
+        return outline.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1,
+                                                 tx: rect.minX + rect.maxX, ty: 0))
     }
 }
 
