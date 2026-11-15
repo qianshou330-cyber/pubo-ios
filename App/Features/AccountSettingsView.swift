@@ -127,6 +127,8 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
         private weak var observed: UISwitch?
         private var scheduled = false
         private var lastState = ""
+        private var observationTimer: Timer?
+        private var observationDeadline: Date?
         init(key: String) {
             self.key = key
             super.init(frame: .zero)
@@ -136,9 +138,36 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            if window == nil { detach() }
+            if window == nil {
+                observationTimer?.invalidate()
+                observationTimer = nil
+                observationDeadline = nil
+                detach()
+            } else {
+                startBoundedObservation()
+            }
             scheduleObservation()
         }
+        // Only the failing synthetic isLocked row is polled. SwiftUI can
+        // replace its native switch without laying out this background view.
+        // Weak capture, a fixed deadline and window removal bound lifetime/cost.
+        private func startBoundedObservation() {
+            guard key == "isLocked",
+                  ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+                  observationTimer == nil, observationDeadline == nil else { return }
+            observationDeadline = Date().addingTimeInterval(60)
+            let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
+                guard let self, self.window != nil,
+                      let deadline = self.observationDeadline, Date() < deadline else {
+                    timer.invalidate()
+                    return
+                }
+                self.observeNativeControl()
+            }
+            observationTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        }
+        deinit { observationTimer?.invalidate() }
         override func layoutSubviews() { super.layoutSubviews(); scheduleObservation() }
         func scheduleObservation() {
             guard ProcessInfo.processInfo.arguments.contains("--ui-testing"), !scheduled else { return }
@@ -187,7 +216,7 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
                     let bounds = control.convert(control.bounds, to: window)
                     let hit = window.hitTest(CGPoint(x: bounds.midX, y: bounds.midY), with: nil)
                     let belongs = hit.map { $0 === control || $0.isDescendant(of: control) } ?? false
-                    logState("layout on=\(control.isOn) enabled=\(control.isEnabled) frame=\(bounds) centerHitsControl=\(belongs)")
+                    logState("layout instance=\(ObjectIdentifier(control)) on=\(control.isOn) enabled=\(control.isEnabled) frame=\(bounds) centerHitsControl=\(belongs)")
                     return
                 }
                 if ancestor is UITableViewCell || ancestor is UICollectionViewCell { break }
@@ -197,6 +226,7 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
             logState("native-not-found")
         }
         private func detach() {
+            if let observed { log("detached instance=\(ObjectIdentifier(observed))") }
             observed?.removeTarget(self, action: nil, for: .allEvents)
             observed = nil
         }
