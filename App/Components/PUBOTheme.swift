@@ -149,21 +149,40 @@ struct PUBOPostButtonStyle: ButtonStyle {
     }
 }
 
+// Bubble outline translated from H5 MkFukidashi.vue (AGPL-3.0-only;
+// syuilo and other misskey contributors). Content and hit targets stay unchanged.
 struct PUBOChatBubble: Shape {
     let own: Bool
     func path(in rect: CGRect) -> Path {
-        let body = CGRect(x: own ? 0 : 4, y: 3, width: rect.width - 4, height: rect.height - 3)
-        var path = Path(roundedRect: body, cornerRadius: PUBOTheme.radius)
-        if own {
-            path.move(to: CGPoint(x: rect.maxX - 16, y: 4))
-            path.addLine(to: CGPoint(x: rect.maxX, y: 0))
-            path.addLine(to: CGPoint(x: rect.maxX - 5, y: 16))
-        } else {
-            path.move(to: CGPoint(x: 16, y: 4))
-            path.addLine(to: .zero)
-            path.addLine(to: CGPoint(x: 5, y: 16))
+        guard rect.width > 0, rect.height > 0 else { return Path() }
+        let radius = min(PUBOTheme.radius, rect.width / 2, rect.height / 2)
+        let inset = radius * 0.13
+        let body = CGRect(x: rect.minX + (own ? 0 : inset),
+                          y: rect.minY + inset,
+                          width: rect.width - inset, height: rect.height - inset)
+        let path = Path(roundedRect: body, cornerRadius: radius)
+
+        // H5 SVG viewBox 0 0 14.597 14.58, width radius * 1.13.
+        let scale = radius * 1.13 / 14.597
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: own ? rect.maxX - (14.597 - x) * scale : rect.minX + (14.597 - x) * scale,
+                    y: rect.minY + y * scale)
         }
-        path.closeSubpath()
-        return path
+        var tail = Path()
+        tail.move(to: point(14.48, 0.473))
+        tail.addCurve(to: point(7.813, 4.5595), control1: point(13.011, 2.7948), control2: point(10.5485, 4.3042))
+        tail.addCurve(to: point(0.0069, 1.878), control1: point(5.5821, 2.8216), control2: point(2.8349, 1.8779))
+        tail.addLine(to: point(0.00639, 1.878))
+        tail.addLine(to: point(0.00639, 14.58))
+        tail.addLine(to: point(12.70839, 14.58))
+        tail.addLine(to: point(12.70839, 14.57949))
+        tail.addCurve(to: point(11.33039, 8.82549), control1: point(12.70841, 12.57969), control2: point(12.23626, 10.60819))
+        tail.addCurve(to: point(14.60339, 1.94639), control1: point(13.40129, 7.14209), control2: point(14.60359, 4.61529))
+        tail.addCurve(to: point(14.47989, 0.47289), control1: point(14.60333, 1.45264), control2: point(14.56209, 0.95977))
+        tail.closeSubpath()
+        // A Boolean union, not compound subpaths: reflection changes winding.
+        // Keeping the operands separate prevents cancellation in their overlap.
+        return path.union(tail)
     }
 }
+
