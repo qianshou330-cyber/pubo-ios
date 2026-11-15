@@ -154,8 +154,28 @@ struct PUBOPostButtonStyle: ButtonStyle {
 struct PUBOChatBubble: Shape {
     let own: Bool
     func path(in rect: CGRect) -> Path {
-        guard rect.width > 0, rect.height > 0 else { return Path() }
-        let radius = min(PUBOTheme.radius, rect.width / 2, rect.height / 2)
+        guard rect.width > 0, rect.height > 0,
+              rect.origin.x.isFinite, rect.origin.y.isFinite,
+              rect.width.isFinite, rect.height.isFinite,
+              rect.minX.isFinite, rect.maxX.isFinite,
+              rect.minY.isFinite, rect.maxY.isFinite else { return Path() }
+        let originalRect = rect
+        // Boolean path operations may approximate tiny contours. Perform the
+        // same union in normalized coordinates, then map back without changing
+        // the requested visual dimensions or clamping away tiny test cases.
+        let geometryScale = max(1, 256 / min(rect.width, rect.height))
+        let normalizedWidth = originalRect.width * geometryScale
+        let normalizedHeight = originalRect.height * geometryScale
+        let inverseScale = 1 / geometryScale
+        let radius = min(PUBOTheme.radius, rect.width / 2, rect.height / 2) * geometryScale
+        // Reject non-representable geometry rather than feeding infinities or
+        // a collapsed inverse transform to CoreGraphics (subnormal dimensions,
+        // huge aspect ratios, or non-finite layout proposals).
+        guard geometryScale.isFinite, inverseScale.isFinite, inverseScale > 0,
+              normalizedWidth.isFinite, normalizedHeight.isFinite,
+              radius.isFinite, radius > 0,
+              (originalRect.minX + originalRect.maxX).isFinite else { return Path() }
+        let rect = CGRect(x: 0, y: 0, width: normalizedWidth, height: normalizedHeight)
         let inset = radius * 0.13
         let body = CGRect(x: rect.minX,
                           y: rect.minY + inset,
@@ -183,10 +203,12 @@ struct PUBOChatBubble: Shape {
         // Build one canonical Boolean union. Mirroring operands before union can
         // produce a separately approximated contour on the opposite side.
         // Reflect the completed outline instead, preserving identical geometry.
-        let outline = path.union(tail)
+        let outline = path.union(tail).applying(CGAffineTransform(
+            a: inverseScale, b: 0, c: 0, d: inverseScale,
+            tx: originalRect.minX, ty: originalRect.minY))
         guard !own else { return outline }
         return outline.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1,
-                                                 tx: rect.minX + rect.maxX, ty: 0))
+                                                 tx: originalRect.minX + originalRect.maxX, ty: 0))
     }
 }
 

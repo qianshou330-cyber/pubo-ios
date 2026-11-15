@@ -54,61 +54,85 @@ func diagnose(_ actual: Path, body: Path, rect: CGRect, own: Bool, point: CGPoin
 }
 
 
-// Independent winding oracle. SwiftUI Path.contains can classify equivalent
-// split cubic segments differently near a boundary. No border band is ignored.
+// Independent curve/ray winding, without flattening or a boundary exemption.
+// Split cubics at y-derivative roots, then bisect each monotone interval.
 struct PrecisePath {
+    struct Segment { let a: CGPoint; let b: CGPoint; let c: CGPoint; let d: CGPoint; let line: Bool }
     let path: Path
-    let edges: [(CGPoint, CGPoint)]
-    init(_ path: Path, tolerance: CGFloat = 0.0001) {
-        self.path = path
-        var edges: [(CGPoint, CGPoint)] = []
-        var current = CGPoint.zero, start = CGPoint.zero
-        var openSubpath = false
-        func line(_ end: CGPoint) { edges.append((current, end)); current = end }
-        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint {
-            CGPoint(x: (a.x+b.x)/2, y: (a.y+b.y)/2)
-        }
-        func distance(_ p: CGPoint, _ a: CGPoint, _ b: CGPoint) -> CGFloat {
-            let dx=b.x-a.x, dy=b.y-a.y, squared=dx*dx+dy*dy
-            if squared == 0 { return hypot(p.x-a.x,p.y-a.y) }
-            let t=max(0,min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/squared))
-            return hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy))
-        }
-        func cubic(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint, _ depth: Int = 0) {
-            if max(distance(b,a,d), distance(c,a,d)) <= tolerance {
-                line(d); return
-            }
-            precondition(depth < 24, "Curve flattening did not converge")
-            let ab=mid(a,b), bc=mid(b,c), cd=mid(c,d)
-            let abc=mid(ab,bc), bcd=mid(bc,cd), center=mid(abc,bcd)
-            cubic(a,ab,abc,center,depth+1); cubic(center,bcd,cd,d,depth+1)
-        }
+    let segments: [Segment]
+    let iterations: Int
+    init(_ path: Path, iterations: Int = 48) {
+        self.path=path; self.iterations=iterations
+        var segments=[Segment]()
+        var current=CGPoint.zero, start=CGPoint.zero, open=false
+        func line(_ end: CGPoint) { segments.append(Segment(a:current,b:current,c:end,d:end,line:true)); current=end }
         path.forEach { element in
             switch element {
             case .move(let p):
-                if openSubpath { line(start) }
-                current=p; start=p; openSubpath=true
+                if open { line(start) }; current=p; start=p; open=true
             case .line(let p): line(p)
             case .quadCurve(let p, let c):
                 let a=current
-                cubic(a, CGPoint(x:a.x+2*(c.x-a.x)/3,y:a.y+2*(c.y-a.y)/3),
-                      CGPoint(x:p.x+2*(c.x-p.x)/3,y:p.y+2*(c.y-p.y)/3), p)
-            case .curve(let p, let c1, let c2): cubic(current,c1,c2,p)
-            case .closeSubpath: line(start); openSubpath=false
+                segments.append(Segment(a:a,b:CGPoint(x:a.x+2*(c.x-a.x)/3,y:a.y+2*(c.y-a.y)/3),
+                    c:CGPoint(x:p.x+2*(c.x-p.x)/3,y:p.y+2*(c.y-p.y)/3),d:p,line:false)); current=p
+            case .curve(let p, let c1, let c2):
+                segments.append(Segment(a:current,b:c1,c:c2,d:p,line:false)); current=p
+            case .closeSubpath: line(start); open=false
             }
         }
-        if openSubpath { line(start) } // Fill implicitly closes open contours.
-        self.edges=edges
+        if open { line(start) }
+        self.segments=segments
     }
     var isEmpty: Bool { path.isEmpty }
     var boundingRect: CGRect { path.boundingRect }
     func contains(_ p: CGPoint, eoFill: Bool = false) -> Bool {
         var winding=0
-        for (a,b) in edges {
-            if a.y <= p.y && b.y > p.y {
-                if (b.x-a.x)*(p.y-a.y)-(p.x-a.x)*(b.y-a.y) > 0 { winding += 1 }
-            } else if a.y > p.y && b.y <= p.y {
-                if (b.x-a.x)*(p.y-a.y)-(p.x-a.x)*(b.y-a.y) < 0 { winding -= 1 }
+        func value(_ a: CGFloat,_ b: CGFloat,_ c: CGFloat,_ d: CGFloat,_ t: CGFloat) -> CGFloat {
+            // de Casteljau avoids cancellation at endpoints.
+            let ab=a+(b-a)*t, bc=b+(c-b)*t, cd=c+(d-c)*t
+            let abc=ab+(bc-ab)*t, bcd=bc+(cd-bc)*t
+            return abc+(bcd-abc)*t
+        }
+        for s in segments {
+            if s.line {
+                if (s.a.y <= p.y && p.y < s.d.y) || (s.d.y <= p.y && p.y < s.a.y) {
+                    let x=s.a.x+(p.y-s.a.y)*(s.d.x-s.a.x)/(s.d.y-s.a.y)
+                    if x > p.x { winding += s.d.y > s.a.y ? 1 : -1 }
+                }
+                continue
+            }
+            let a = -s.a.y+3*s.b.y-3*s.c.y+s.d.y
+            let b = 2*(s.a.y-2*s.b.y+s.c.y)
+            let c = s.b.y-s.a.y
+            var cuts: [CGFloat]=[0,1]
+            func root(_ t: CGFloat) { if t.isFinite && t > 0 && t < 1 { cuts.append(t) } }
+            if a == 0 { if b != 0 { root(-c/b) } }
+            else {
+                let discriminant=b*b-4*a*c
+                if discriminant >= 0 {
+                    let radical=sqrt(discriminant)
+                    // Stable quadratic formula, including a repeated root.
+                    let q = -0.5*(b+(b >= 0 ? radical : -radical))
+                    if q == 0 { root(-b/(2*a)) }
+                    else { root(q/a); root(c/q) }
+                }
+            }
+            cuts.sort()
+            for index in 0..<(cuts.count-1) {
+                var lo=cuts[index], hi=cuts[index+1]
+                if lo == hi { continue }
+                let lowY=value(s.a.y,s.b.y,s.c.y,s.d.y,lo)
+                let highY=value(s.a.y,s.b.y,s.c.y,s.d.y,hi)
+                let ascending=highY > lowY
+                if !((lowY <= p.y && p.y < highY) || (highY <= p.y && p.y < lowY)) { continue }
+                for _ in 0..<iterations {
+                    let mid=(lo+hi)/2
+                    if mid == lo || mid == hi { break }
+                    let y=value(s.a.y,s.b.y,s.c.y,s.d.y,mid)
+                    if (y < p.y) == ascending { lo=mid } else { hi=mid }
+                }
+                let t=(lo+hi)/2
+                if value(s.a.x,s.b.x,s.c.x,s.d.x,t) > p.x { winding += ascending ? 1 : -1 }
             }
         }
         return eoFill ? abs(winding)%2 == 1 : winding != 0
@@ -120,6 +144,48 @@ openTriangle.move(to:CGPoint(x:0,y:0)); openTriangle.addLine(to:CGPoint(x:10,y:0
 openTriangle.addLine(to:CGPoint(x:0,y:10))
 check(PrecisePath(openTriangle).contains(CGPoint(x:2,y:2)),"Open contour implicit closure failed")
 check(!PrecisePath(openTriangle).contains(CGPoint(x:8,y:8)),"Open contour exterior failed")
+
+
+// Known-answer curve controls exercise extrema/tangencies and quadratic conversion.
+func oracleAnswer(_ name: String, _ path: Path, _ point: CGPoint, _ expected: Bool) {
+    for iterations in [48,64] {
+        let prepared=PrecisePath(path,iterations:iterations)
+        check(prepared.contains(point) == expected, "Curve self-test failed: \(name)")
+        check(prepared.contains(point,eoFill:true) == expected, "Curve even-odd self-test failed: \(name)")
+    }
+}
+var quadraticArch=Path()
+quadraticArch.move(to:CGPoint(x:0,y:0))
+quadraticArch.addQuadCurve(to:CGPoint(x:10,y:0),control:CGPoint(x:5,y:10))
+quadraticArch.closeSubpath()
+oracleAnswer("quadratic interior",quadraticArch,CGPoint(x:5,y:4),true)
+oracleAnswer("quadratic above maximum",quadraticArch,CGPoint(x:5,y:6),false)
+oracleAnswer("quadratic tangent ray exterior",quadraticArch,CGPoint(x:-1,y:5),false)
+var cubicArch=Path()
+cubicArch.move(to:CGPoint(x:0,y:0))
+cubicArch.addCurve(to:CGPoint(x:12,y:0),control1:CGPoint(x:0,y:12),control2:CGPoint(x:12,y:12))
+cubicArch.closeSubpath()
+oracleAnswer("cubic interior below extremum",cubicArch,CGPoint(x:6,y:8),true)
+oracleAnswer("cubic exterior above extremum",cubicArch,CGPoint(x:6,y:10),false)
+oracleAnswer("cubic tangent double contact",cubicArch,CGPoint(x:-1,y:9),false)
+var stationaryInflection=Path()
+stationaryInflection.move(to:CGPoint(x:0,y:0))
+stationaryInflection.addCurve(to:CGPoint(x:10,y:1),control1:CGPoint(x:0,y:1),control2:CGPoint(x:10,y:0))
+stationaryInflection.closeSubpath()
+// At t=1/4, curve=(1.5625,.4375); closing chord x=4.375.
+oracleAnswer("repeated derivative root interior",stationaryInflection,CGPoint(x:2,y:0.4375),true)
+oracleAnswer("repeated derivative root exterior",stationaryInflection,CGPoint(x:5,y:0.4375),false)
+print("PASS known-answer quadratic, cubic extremum, tangent and stationary-inflection controls")
+
+// Invalid/unrepresentable proposals must never send non-finite paths to rendering.
+for rect in [CGRect(x:0,y:0,width:CGFloat.infinity,height:32),
+             CGRect(x:CGFloat.infinity,y:0,width:20,height:32),
+             CGRect(x:0,y:0,width:CGFloat.leastNonzeroMagnitude,height:1),
+             CGRect(x:0,y:0,width:CGFloat.greatestFiniteMagnitude,height:1)] {
+    for own in [false,true] {
+        check(PUBOChatBubble(own:own).path(in:rect).isEmpty,"Unrepresentable geometry must fail closed")
+    }
+}
 
 var checks = 0
 func validate(rect: CGRect, rightPath: Path, leftPath: Path, reportDiagnostics: Bool = false) -> [String] {
@@ -137,10 +203,10 @@ func validate(rect: CGRect, rightPath: Path, leftPath: Path, reportDiagnostics: 
         let inset = radius * 0.13
         for own in [false, true] {
             let actual = own ? right : left
-            let finer = PrecisePath(actual.path, tolerance: 0.00001)
+            let finer = PrecisePath(actual.path, iterations: 64)
             let body = PrecisePath(Path(roundedRect: CGRect(x: rect.minX + (own ? 0 : inset), y: rect.minY + inset,
                 width: rect.width - inset, height: rect.height - inset), cornerRadius: radius))
-            let finerBody = PrecisePath(body.path, tolerance: 0.00001)
+            let finerBody = PrecisePath(body.path, iterations: 64)
             // A point strictly inside the H5 tail but above the rounded body.
             // A regression returning only the rounded rectangle must fail here.
             let scale = radius * 1.13 / 14.597
@@ -214,7 +280,11 @@ print("NEGATIVE CONTROLS compound and reverse winding rejected")
 let historicalRect=CGRect(x:0,y:0,width:24,height:24)
 let historicalPoint=CGPoint(x:11.353215189873417,y:23.887291139240507)
 let historicalPath=PUBOChatBubble(own:false).path(in:historicalRect)
-print("C43 POINT native=\(historicalPath.contains(historicalPoint)) precise=\(PrecisePath(historicalPath).contains(historicalPoint)) finer=\(PrecisePath(historicalPath,tolerance:0.00001).contains(historicalPoint))")
+print("C43 POINT native=\(historicalPath.contains(historicalPoint)) precise=\(PrecisePath(historicalPath).contains(historicalPoint)) finer=\(PrecisePath(historicalPath,iterations:64).contains(historicalPoint))")
+let tinyRect=CGRect(x:0,y:0,width:1,height:1)
+let tinyPoint=CGPoint(x:0.8907721518987342,y:0.3370759493670886)
+let tinyPath=PUBOChatBubble(own:true).path(in:tinyRect)
+print("C45 POINT native=\(tinyPath.contains(tinyPoint)) analytic=\(PrecisePath(tinyPath).contains(tinyPoint)) finer=\(PrecisePath(tinyPath,iterations:64).contains(tinyPoint))")
 checks = 0 // Production count excludes intentional negative cases.
 for size in [(0.0,0.0),(0,10),(10,0),(1,1),(2,20),(20,2),(24,24),(80,32),(280,100),(240,240)] {
     for origin in [(0.0,0.0),(23,41)] {
