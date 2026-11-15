@@ -11,6 +11,48 @@ struct PUBOChatBubble: Shape {''' + shape + r'''
 func check(_ condition: Bool, _ message: String) {
     if !condition { fatalError(message) }
 }
+
+// Diagnostics preserve every assertion. These are isolated Shape renders, not app screenshots.
+func raster(_ path: Path, rect: CGRect, scale: CGFloat) -> [UInt8] {
+    let width = Int(ceil(rect.width * scale)), height = Int(ceil(rect.height * scale))
+    var pixels = [UInt8](repeating: 0, count: width * height)
+    pixels.withUnsafeMutableBytes { bytes in
+        let context = CGContext(data: bytes.baseAddress, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+        context.setShouldAntialias(false)
+        context.scaleBy(x: scale, y: scale)
+        context.translateBy(x: -rect.minX, y: -rect.minY)
+        context.addPath(path.cgPath)
+        context.setFillColor(gray: 1, alpha: 1)
+        context.fillPath()
+    }
+    return pixels
+}
+func diagnose(_ actual: Path, body: Path, rect: CGRect, own: Bool, point: CGPoint) {
+    let radius = min(12.0, rect.width / 2, rect.height / 2), inset = radius * 0.13
+    let canonicalBody = Path(roundedRect: CGRect(x: rect.minX, y: rect.minY + inset,
+        width: rect.width - inset, height: rect.height - inset), cornerRadius: radius)
+    let reflectedBody = canonicalBody.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1,
+        tx: rect.minX + rect.maxX, ty: 0))
+    let sourceBody = own ? canonicalBody : reflectedBody
+    let mirror = CGPoint(x: rect.minX + rect.maxX - point.x, y: point.y)
+    print("DIAGNOSTIC rect=\(rect) own=\(own) p=\(point) directBody=\(body.contains(point)) reflectedBody=\(sourceBody.contains(point)) inverseCanonical=\(canonicalBody.contains(own ? point : mirror)) actual=\(actual.contains(point))")
+    print("DIRECT BODY PATH \(body)")
+    print("REFLECTED CANONICAL BODY PATH \(sourceBody)")
+    print("ACTUAL OUTLINE PATH \(actual)")
+    for scale in [CGFloat(1), 2, 3, 16] {
+        let expected = raster(body, rect: rect, scale: scale)
+        let canonical = raster(sourceBody, rect: rect, scale: scale)
+        let observed = raster(actual, rect: rect, scale: scale)
+        let directMissing = zip(expected, observed).filter { $0.0 > 0 && $0.1 == 0 }.count
+        let canonicalMissing = zip(canonical, observed).filter { $0.0 > 0 && $0.1 == 0 }.count
+        let oracleDisagreement = zip(expected, canonical).filter { $0.0 != $0.1 }.count
+        print("RASTER scale=\(scale) directBodyMissingPixels=\(directMissing) canonicalBodyMissingPixels=\(canonicalMissing) oracleDisagreementPixels=\(oracleDisagreement)")
+    }
+    fflush(stdout)
+}
+
 var checks = 0
 // Tiny, narrow, short, standard, multiline, attachment; nonzero origin too.
 for size in [(0.0, 0.0), (0, 10), (10, 0), (1, 1), (2, 20), (20, 2), (24, 24), (80, 32), (280, 100), (240, 240)] {
@@ -47,7 +89,10 @@ for size in [(0.0, 0.0), (0, 10), (10, 0), (1, 1), (2, 20), (20, 2), (24, 24), (
             for ix in 0..<79 { for iy in 0..<79 {
                 let p = CGPoint(x: rect.minX + (CGFloat(ix) + 0.371) * rect.width / 79,
                                 y: rect.minY + (CGFloat(iy) + 0.629) * rect.height / 79)
-                if body.contains(p) { check(actual.contains(p), "Hole in body: \(size), own=\(own), \(p)") }
+                if body.contains(p) {
+                    if !actual.contains(p) { diagnose(actual, body: body, rect: rect, own: own, point: p) }
+                    check(actual.contains(p), "Hole in body: \(size), own=\(own), \(p)")
+                }
                 check(actual.contains(p) == actual.contains(p, eoFill: true), "Fill rule disagreement")
                 let mirror = CGPoint(x: rect.minX + rect.maxX - p.x, y: p.y)
                 check(right.contains(p) == left.contains(mirror), "Left/right asymmetry: size=\(size), origin=\(origin), own=\(own), p=\(p), mirror=\(mirror), right=\(right.contains(p)), left=\(left.contains(mirror)), rightBounds=\(right.boundingRect), leftBounds=\(left.boundingRect)")
