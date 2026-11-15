@@ -285,16 +285,32 @@ let tinyRect=CGRect(x:0,y:0,width:1,height:1)
 let tinyPoint=CGPoint(x:0.8907721518987342,y:0.3370759493670886)
 let tinyPath=PUBOChatBubble(own:true).path(in:tinyRect)
 print("C45 POINT native=\(tinyPath.contains(tinyPoint)) analytic=\(PrecisePath(tinyPath).contains(tinyPoint)) finer=\(PrecisePath(tinyPath,iterations:64).contains(tinyPoint))")
-checks = 0 // Production count excludes intentional negative cases.
-for size in [(0.0,0.0),(0,10),(10,0),(1,1),(2,20),(20,2),(24,24),(80,32),(280,100),(240,240)] {
+checks = 0 // Count is informational, not an exact assertion total.
+// All original cases remain mandatory. Normal content-domain classification is
+// informational only: it never exempts a tiny-case failure from the final gate.
+var allFailures = [String]()
+var failedCases = 0
+for size in [(0.0,0.0),(0,10),(10,0),(1,1),(2,20),(20,2),(24,16),(24,24),(80,32),(280,100),(240,240)] {
     for origin in [(0.0,0.0),(23,41)] {
         let rect=CGRect(x:origin.0,y:origin.1,width:size.0,height:size.1)
+        let domain = size.0 == 0 || size.1 == 0 ? "degenerate" :
+            (size.0 >= 24 && size.1 >= 16 ? "normal-content" : "synthetic-tiny")
         let failures=validate(rect:rect,rightPath:PUBOChatBubble(own:true).path(in:rect),
             leftPath:PUBOChatBubble(own:false).path(in:rect),reportDiagnostics:true)
-        check(failures.isEmpty,"Production geometry rejected: \(failures.prefix(20))")
+        print("GEOMETRY CASE domain=\(domain) size=\(size) origin=\(origin) failures=\(failures.count)")
+        if !failures.isEmpty {
+            failedCases += 1
+            allFailures.append(contentsOf: failures.map { "domain=\(domain) size=\(size) origin=\(origin): \($0)" })
+            print("GEOMETRY CASE FAILURE DETAILS \(failures.prefix(20))")
+        }
+        fflush(stdout)
     }
 }
-print("PASS \(checks) production Shape geometry assertions")
+print("GEOMETRY SUMMARY failedCases=\(failedCases) failures=\(allFailures.count)")
+fflush(stdout)
+check(allFailures.isEmpty,"Production geometry rejected: \(allFailures.prefix(20))")
+print("PASS production Shape geometry cases")
+
 '''
 with tempfile.TemporaryDirectory() as folder:
     path = Path(folder) / 'BubbleGeometry.swift'

@@ -1,0 +1,127 @@
+# Diagnostic evidence only. Does not modify or satisfy four-tabs.yml gates.
+name: PUBO diagnostics only - chat screenshots
+'on':
+  push:
+    branches:
+    - ui-four-tabs-148-20261112
+    paths:
+    - .github/workflows/chat-diagnostics-only.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: pubo-chat-diagnostics-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  diagnostic-chat-alignment:
+    strategy:
+      fail-fast: false
+      matrix:
+        size:
+        - small
+        - large
+    runs-on: macos-15-intel
+    timeout-minutes: 65
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - name: Record diagnostic scope and exact source revision
+      run: |-
+        mkdir -p build
+        python3 - <<'PYCODE'
+        import json, os, subprocess
+        from pathlib import Path
+        sha = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+        assert sha == os.environ['GITHUB_SHA']
+        Path('build/diagnostic-status.json').write_text(json.dumps({
+         'artifactKind':'DIAGNOSTIC_SCREENSHOTS_ONLY',
+         'overallQA':'NOT_EVALUATED_BY_THIS_WORKFLOW',
+         'sourceCommit':sha,
+         'workflowRun':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
+         'doesNotOverride':'four-tabs.yml required checks or package gates',
+         'screenshots':'Real rendered UI with synthetic data; not production API parity or real iPhone proof',
+         'packageProduced':False,
+         'limitations':['geometry status must be read from the separate candidate workflow','UI test failures may produce partial screenshots','No signed install, camera, APNs, real-device performance or full regression certification']
+        }, indent=2)+'\n')
+        PYCODE
+    - name: Prepare fixed build tools
+      run: |
+        sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+        brew install xcodegen
+        swift scripts/brand-assets.swift
+        xcodegen generate
+    - name: Compile Debug app and all UI test sources
+      run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+        -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+    - name: Nine chat-alignment tests with existing strict count gate and 30-minute test budget
+      env:
+        PUBO_SIM_SIZE: ${{ matrix.size }}
+        PUBO_UI_SHARD: chat-alignment
+        PUBO_PREBUILT_TESTS: '1'
+      run: |
+        set -o pipefail
+        python3 scripts/simulator-tests.py 2>&1 | tee build/chat-alignment-tests.log
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: diagnostic-only-four-tabs-chat-alignment-${{ matrix.size }}-${{ github.sha }}
+        path: |-
+          build/*.json
+          build/chat-alignment-tests.log
+          build/ui-*.xcresult
+          build/screenshots/
+
+          build/diagnostic-status.json
+        retention-days: 14
+        if-no-files-found: error
+    if: github.ref == 'refs/heads/ui-four-tabs-148-20261112'
+  diagnostic-h5-chat-reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - name: Record diagnostic scope and exact source revision
+      run: |-
+        mkdir -p build
+        python3 - <<'PYCODE'
+        import json, os, subprocess
+        from pathlib import Path
+        sha = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+        assert sha == os.environ['GITHUB_SHA']
+        Path('build/diagnostic-status.json').write_text(json.dumps({
+         'artifactKind':'DIAGNOSTIC_SCREENSHOTS_ONLY',
+         'overallQA':'NOT_EVALUATED_BY_THIS_WORKFLOW',
+         'sourceCommit':sha,
+         'workflowRun':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
+         'doesNotOverride':'four-tabs.yml required checks or package gates',
+         'screenshots':'Real rendered UI with synthetic data; not production API parity or real iPhone proof',
+         'packageProduced':False,
+         'limitations':['geometry status must be read from the separate candidate workflow','UI test failures may produce partial screenshots','No signed install, camera, APNs, real-device performance or full regression certification']
+        }, indent=2)+'\n')
+        PYCODE
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install pinned browser harness
+      working-directory: scripts/h5-chat
+      run: |
+        npm ci --ignore-scripts
+        npx playwright install --with-deps chromium
+    - name: Capture actual H5 small and large views in both themes
+      working-directory: scripts/h5-chat
+      run: npm run capture
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: diagnostic-only-four-tabs-h5-chat-${{ github.sha }}
+        path: |-
+          scripts/h5-chat/artifacts/
+          docs/chat-h5-source-manifest.json
+
+          build/diagnostic-status.json
+        retention-days: 14
+        if-no-files-found: error
+    if: github.ref == 'refs/heads/ui-four-tabs-148-20261112'
