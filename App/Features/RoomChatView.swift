@@ -163,6 +163,19 @@ struct RoomChatView: View {
         }.navigationTitle(room?["name"].string ?? "群聊").puboScreen().toolbar(.hidden, for: .tabBar)
             .modifier(ConversationTabSuppression())
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.2")
+                            .accessibilityHidden(true)
+                        Text(room?["name"].string ?? "群聊")
+                            .lineLimit(1)
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                    .font(.headline)
+                    .foregroundStyle(PUBOTheme.text)
+                }
+            }
+            .toolbar {
                 if room != nil && !invited {
                     Menu {
                         Toggle("显示发送者昵称", isOn: Binding(get: { session.chatShowSenderName }, set: { session.setChatShowSenderName($0) }))
