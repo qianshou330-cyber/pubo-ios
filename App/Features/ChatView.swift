@@ -224,7 +224,7 @@ struct ChatView: View {
                         if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                     }
                 }.padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own))
+                    .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own), fillStyle: FillStyle(eoFill: false))
                     .contextMenu { messageMenu(message, own: own) }
                 if message["recalledAt"].isNull && !message["privateAttachmentFallback"].bool && !ChatContentPolicy.previewLinks(message.text).isEmpty {
                     ChatMessageLinkPreviews(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.links." + message.id)
@@ -287,7 +287,7 @@ struct ChatView: View {
     }
     private func pendingBubble(_ item: PendingChat) -> some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Text(item.text.isEmpty ? "[附件]" : item.text).padding(.horizontal, 12).padding(.vertical, 8).background(PUBOTheme.ownBubble, in: PUBOChatBubble(own: true))
+            Text(item.text.isEmpty ? "[附件]" : item.text).padding(.horizontal, 12).padding(.vertical, 8).background(PUBOTheme.ownBubble, in: PUBOChatBubble(own: true), fillStyle: FillStyle(eoFill: false))
             Text(item.state == .uncertain ? APIError.uncertain.message : APIError.message(for: item.errorCode ?? "PENDING", status: 400)).font(.caption).foregroundStyle(PUBOTheme.secondary).multilineTextAlignment(.trailing).accessibilityIdentifier("chat.pending.error")
             ViewThatFits(in: .horizontal) {
                 HStack { retryButton(item); removeButton(item) }
@@ -605,4 +605,5 @@ struct PrivateAttachmentView: View {
     }
     private func clear() { data = nil; gifImage = nil; imagePreviewDisabled = false; if let localURL { try? FileManager.default.removeItem(at: localURL) }; localURL = nil }
 }
+
 

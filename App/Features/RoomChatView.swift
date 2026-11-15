@@ -241,7 +241,7 @@ struct RoomChatView: View {
                             if !message.text.isEmpty { ChatMessageContent(text: message.text, active: section == "messages" && preview == nil, identifier: "room.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, mine: mine)).font(.system(size: messageFont)) }
                             if !message["file"].isNull { PublicMedia(file: Record(message["file"]), noteID: "", sourceURL: Endpoint.origin.appendingPathComponent("chat/room/" + roomID)).frame(maxWidth: 240) }
                         }
-                    }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine))
+                    }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine), fillStyle: FillStyle(eoFill: false))
                         .accessibilityIdentifier("room.bubble." + message.id)
                         .contextMenu { messageMenu(message, mine: mine) }
                     if !mine { messageOverflow(message, mine: mine) }
@@ -510,3 +510,4 @@ struct RoomChatView: View {
         draft.file = file; persist(); error = nil
     }
 }
+

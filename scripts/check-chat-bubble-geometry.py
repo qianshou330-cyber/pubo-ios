@@ -86,6 +86,10 @@ struct PrecisePath {
     var isEmpty: Bool { path.isEmpty }
     var boundingRect: CGRect { path.boundingRect }
     func contains(_ p: CGPoint, eoFill: Bool = false) -> Bool {
+        let w = winding(at: p)
+        return eoFill ? abs(w)%2 == 1 : w != 0
+    }
+    func winding(at p: CGPoint) -> Int {
         var winding=0
         func value(_ a: CGFloat,_ b: CGFloat,_ c: CGFloat,_ d: CGFloat,_ t: CGFloat) -> CGFloat {
             // de Casteljau avoids cancellation at endpoints.
@@ -135,7 +139,7 @@ struct PrecisePath {
                 if value(s.a.x,s.b.x,s.c.x,s.d.x,t) > p.x { winding += ascending ? 1 : -1 }
             }
         }
-        return eoFill ? abs(winding)%2 == 1 : winding != 0
+        return winding
     }
 }
 
@@ -177,14 +181,70 @@ oracleAnswer("repeated derivative root interior",stationaryInflection,CGPoint(x:
 oracleAnswer("repeated derivative root exterior",stationaryInflection,CGPoint(x:5,y:0.4375),false)
 print("PASS known-answer quadratic, cubic extremum, tangent and stationary-inflection controls")
 
-// Invalid/unrepresentable proposals must never send non-finite paths to rendering.
-for rect in [CGRect(x:0,y:0,width:CGFloat.infinity,height:32),
-             CGRect(x:CGFloat.infinity,y:0,width:20,height:32),
-             CGRect(x:0,y:0,width:CGFloat.leastNonzeroMagnitude,height:1),
-             CGRect(x:0,y:0,width:CGFloat.greatestFiniteMagnitude,height:1)] {
-    for own in [false,true] {
-        check(PUBOChatBubble(own:own).path(in:rect).isEmpty,"Unrepresentable geometry must fail closed")
+// Read native path elements directly: conversion to cubic oracle segments can
+// itself overflow for finite extreme points and must not contaminate this check.
+func nativePointsFinite(_ path: Path) -> Bool {
+    var finite = true
+    func inspect(_ p: CGPoint) { finite = finite && p.x.isFinite && p.y.isFinite }
+    path.forEach { element in
+        switch element {
+        case .move(let p), .line(let p): inspect(p)
+        case .quadCurve(let p, let c): inspect(p); inspect(c)
+        case .curve(let p, let a, let b): inspect(p); inspect(a); inspect(b)
+        case .closeSubpath: break
+        }
     }
+    return finite
+}
+// Invalid/nonrepresentable mirror-offset proposals fail closed.
+let huge = CGFloat.greatestFiniteMagnitude
+let invalidRects: [CGRect] = [
+    CGRect(x:0,y:0,width:CGFloat.infinity,height:32),
+    CGRect(x:CGFloat.infinity,y:0,width:20,height:32),
+    CGRect(x:0,y:CGFloat.infinity,width:20,height:32),
+    CGRect(x:0,y:0,width:20,height:-CGFloat.infinity),
+    CGRect(x:CGFloat.nan,y:0,width:20,height:32),
+    CGRect(x:0,y:CGFloat.nan,width:20,height:32),
+    CGRect(x:0,y:0,width:CGFloat.nan,height:32),
+    CGRect(x:0,y:0,width:20,height:CGFloat.nan),
+    CGRect(x:0,y:0,width:-20,height:32),
+    CGRect(x:0,y:0,width:20,height:-32),
+    CGRect(x:huge * 0.75,y:0,width:20,height:32), // finite bounds, overflow mirror offset
+    CGRect(x:-huge * 0.75,y:0,width:20,height:32)
+]
+for rect in invalidRects {
+    for own in [false,true] {
+        let path = PUBOChatBubble(own:own).path(in:rect)
+        check(path.isEmpty,"Invalid geometry must fail closed: \(rect)")
+        check(nativePointsFinite(path),"Invalid proposal emitted non-finite points")
+    }
+}
+// Finite extremes may be empty or representable, without prescribing an obsolete
+// normalization limitation. Native points must remain finite for both directions.
+for rect in [CGRect(x:0,y:0,width:CGFloat.leastNonzeroMagnitude,height:1),
+             CGRect(x:0,y:0,width:huge,height:1),
+             CGRect(x:0,y:0,width:1,height:huge),
+             CGRect(x:-1000000,y:-1000000,width:80,height:32),
+             CGRect(x:huge/4,y:huge/4,width:80,height:32),
+             CGRect(x:-huge/4,y:-huge/4,width:80,height:32)] {
+    for own in [false,true] {
+        check(nativePointsFinite(PUBOChatBubble(own:own).path(in:rect)),"Non-finite native geometry: \(rect)")
+    }
+}
+// Split actual production subpaths; verify measured winding, not assumed orientation.
+func contours(_ path: Path) -> [Path] {
+    var result=[Path](), current=Path()
+    path.forEach { e in
+        switch e {
+        case .move(let p): if !current.isEmpty { result.append(current) }; current=Path(); current.move(to:p)
+        case .line(let p): current.addLine(to:p)
+        case .quadCurve(let p,let c): current.addQuadCurve(to:p,control:c)
+        case .curve(let p,let a,let b): current.addCurve(to:p,control1:a,control2:b)
+        case .closeSubpath: current.closeSubpath()
+        }
+    }
+    if !current.isEmpty { result.append(current) }
+    return result
 }
 
 var checks = 0
@@ -204,6 +264,9 @@ func validate(rect: CGRect, rightPath: Path, leftPath: Path, reportDiagnostics: 
         for own in [false, true] {
             let actual = own ? right : left
             let finer = PrecisePath(actual.path, iterations: 64)
+            let pieces = contours(actual.path).map { PrecisePath($0) }
+            var overlapCount = 0
+            var fillContractProbes = 0
             let body = PrecisePath(Path(roundedRect: CGRect(x: rect.minX + (own ? 0 : inset), y: rect.minY + inset,
                 width: rect.width - inset, height: rect.height - inset), cornerRadius: radius))
             let finerBody = PrecisePath(body.path, iterations: 64)
@@ -241,11 +304,28 @@ func validate(rect: CGRect, rightPath: Path, leftPath: Path, reportDiagnostics: 
                     if reportDiagnostics && !actualInside { diagnose(actual.path, body: body.path, rect: rect, own: own, point: p) }
                     check(actualInside, "Hole in body: \(size), own=\(own), \(p)")
                 }
-                check(actualInside == actual.contains(p, eoFill: true), "Fill rule disagreement")
+                // Production contract is explicit nonzero. Same-sign overlapping
+                // contours must ADD winding; evenodd equivalence is not its contract.
+                let ws = pieces.map { $0.winding(at:p) }.filter { $0 != 0 }
+                if ws.count >= 2 {
+                    overlapCount += 1
+                    check(ws.allSatisfy { ($0 > 0) == (ws[0] > 0) }, "Opposite contour winding")
+                    check(actualInside, "Nonzero overlap lost")
+                    // A body/tail overlap with exactly two unit windings is the
+                    // regression probe for accidentally switching to evenodd fill.
+                    if ws.count == 2 && ws.allSatisfy({ abs($0) == 1 }) &&
+                        (ws[0] > 0) == (ws[1] > 0) {
+                        fillContractProbes += 1
+                        check(actual.contains(p, eoFill:false), "Explicit nonzero overlap missing")
+                        check(!actual.contains(p, eoFill:true), "Expected evenodd overlap counterexample")
+                    }
+                }
                 let mirror = CGPoint(x: rect.minX + rect.maxX - p.x, y: p.y)
                 check(right.contains(p) == left.contains(mirror), "Left/right asymmetry: size=\(size), origin=\(origin), own=\(own), p=\(p), mirror=\(mirror), right=\(right.contains(p)), left=\(left.contains(mirror)), rightBounds=\(right.boundingRect), leftBounds=\(left.boundingRect)")
                 checks += 3
             } }
+            check(overlapCount > 0, "No measured overlap winding samples")
+            check(fillContractProbes > 0, "No nonzero/evenodd contract probes")
         }
     return failures
 }
@@ -262,19 +342,23 @@ let noTail=Path(roundedRect:CGRect(x:0,y:1.56,width:78.44,height:30.44),cornerRa
 negative("missing tail",path:noTail,expected:"Missing curved tail")
 let hole=controlRight.subtracting(Path(CGRect(x:30,y:10,width:8,height:8)))
 negative("subtracted interior hole",path:hole,expected:"Hole in body")
-// Both contour orientations are tested: one cancels nonzero fill, the other
-// retains nonzero fill but creates an even-odd hole. Both must be rejected.
+// Same-direction extra contour is valid nonzero fill; opposite-direction
+// contour must be rejected by the unchanged body-coverage gate.
 var inner=Path()
 inner.move(to:CGPoint(x:30,y:10)); inner.addLine(to:CGPoint(x:38,y:10))
 inner.addLine(to:CGPoint(x:38,y:18)); inner.addLine(to:CGPoint(x:30,y:18)); inner.closeSubpath()
+let probe=CGPoint(x:34,y:14)
+let bodySign=PrecisePath(controlRight).winding(at:probe)
+if (PrecisePath(inner).winding(at:probe) > 0) != (bodySign > 0) {
+    inner=inner.applying(CGAffineTransform(a:-1,b:0,c:0,d:1,tx:68,ty:0))
+}
 var compound=controlRight; compound.addPath(inner)
-let reversed=inner.applying(CGAffineTransform(a:-1,b:0,c:0,d:1,tx:68,ty:0))
-var opposite=controlRight; opposite.addPath(reversed)
 let compoundFailures=validate(rect:controlRect,rightPath:compound,leftPath:compound.applying(mirrorTransform))
-let oppositeFailures=validate(rect:controlRect,rightPath:opposite,leftPath:opposite.applying(mirrorTransform))
-check(compoundFailures.contains { $0.contains("Hole in body") || $0.contains("Fill rule disagreement") },"Compound winding control passed")
-check(oppositeFailures.contains { $0.contains("Hole in body") || $0.contains("Fill rule disagreement") },"Reverse winding control passed")
-print("NEGATIVE CONTROLS compound and reverse winding rejected")
+check(compoundFailures.isEmpty,"Same-winding positive control failed: \(compoundFailures)")
+var opposite=controlRight
+opposite.addPath(inner.applying(CGAffineTransform(a:-1,b:0,c:0,d:1,tx:68,ty:0)))
+negative("reverse winding",path:opposite,expected:"Hole in body")
+print("PASS measured same-winding positive control and reversed-winding negative control")
 
 // Preserve the exact historical point and compare native/independent oracles.
 let historicalRect=CGRect(x:0,y:0,width:24,height:24)
@@ -291,7 +375,7 @@ checks = 0 // Count is informational, not an exact assertion total.
 var allFailures = [String]()
 var failedCases = 0
 for size in [(0.0,0.0),(0,10),(10,0),(1,1),(2,20),(20,2),(24,16),(24,24),(80,32),(280,100),(240,240)] {
-    for origin in [(0.0,0.0),(23,41)] {
+    for origin in [(0.0,0.0),(23,41),(-23,-41)] {
         let rect=CGRect(x:origin.0,y:origin.1,width:size.0,height:size.1)
         let domain = size.0 == 0 || size.1 == 0 ? "degenerate" :
             (size.0 >= 24 && size.1 >= 16 ? "normal-content" : "synthetic-tiny")

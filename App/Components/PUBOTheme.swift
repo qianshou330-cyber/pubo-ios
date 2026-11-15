@@ -154,28 +154,15 @@ struct PUBOPostButtonStyle: ButtonStyle {
 struct PUBOChatBubble: Shape {
     let own: Bool
     func path(in rect: CGRect) -> Path {
-        guard rect.width > 0, rect.height > 0,
+        guard rect.size.width > 0, rect.size.height > 0,
               rect.origin.x.isFinite, rect.origin.y.isFinite,
               rect.width.isFinite, rect.height.isFinite,
               rect.minX.isFinite, rect.maxX.isFinite,
               rect.minY.isFinite, rect.maxY.isFinite else { return Path() }
-        let originalRect = rect
-        // Boolean path operations may approximate tiny contours. Perform the
-        // same union in normalized coordinates, then map back without changing
-        // the requested visual dimensions or clamping away tiny test cases.
-        let geometryScale = max(1, 256 / min(rect.width, rect.height))
-        let normalizedWidth = originalRect.width * geometryScale
-        let normalizedHeight = originalRect.height * geometryScale
-        let inverseScale = 1 / geometryScale
-        let radius = min(PUBOTheme.radius, rect.width / 2, rect.height / 2) * geometryScale
-        // Reject non-representable geometry rather than feeding infinities or
-        // a collapsed inverse transform to CoreGraphics (subnormal dimensions,
-        // huge aspect ratios, or non-finite layout proposals).
-        guard geometryScale.isFinite, inverseScale.isFinite, inverseScale > 0,
-              normalizedWidth.isFinite, normalizedHeight.isFinite,
-              radius.isFinite, radius > 0,
-              (originalRect.minX + originalRect.maxX).isFinite else { return Path() }
-        let rect = CGRect(x: 0, y: 0, width: normalizedWidth, height: normalizedHeight)
+        // Candidate contract: compound path rendered ONLY with nonzero fill.
+        // Preserve exact body curves; Boolean union must not approximate them.
+        let radius = min(PUBOTheme.radius, rect.width / 2, rect.height / 2)
+        guard radius > 0, (rect.minX + rect.maxX).isFinite else { return Path() }
         let inset = radius * 0.13
         let body = CGRect(x: rect.minX,
                           y: rect.minY + inset,
@@ -188,27 +175,24 @@ struct PUBOChatBubble: Shape {
             CGPoint(x: rect.maxX - (14.597 - x) * scale,
                     y: rect.minY + y * scale)
         }
+        // Reverse H5 tail orientation to match rounded body's nonzero winding.
         var tail = Path()
         tail.move(to: point(14.48, 0.473))
-        tail.addCurve(to: point(7.813, 4.5595), control1: point(13.011, 2.7948), control2: point(10.5485, 4.3042))
-        tail.addCurve(to: point(0.0069, 1.878), control1: point(5.5821, 2.8216), control2: point(2.8349, 1.8779))
-        tail.addLine(to: point(0.00639, 1.878))
-        tail.addLine(to: point(0.00639, 14.58))
+        tail.addLine(to: point(14.47989, 0.47289))
+        tail.addCurve(to: point(14.60339, 1.94639), control1: point(14.56209, 0.95977), control2: point(14.60333, 1.45264))
+        tail.addCurve(to: point(11.33039, 8.82549), control1: point(14.60359, 4.61529), control2: point(13.40129, 7.14209))
+        tail.addCurve(to: point(12.70839, 14.57949), control1: point(12.23626, 10.60819), control2: point(12.70841, 12.57969))
         tail.addLine(to: point(12.70839, 14.58))
-        tail.addLine(to: point(12.70839, 14.57949))
-        tail.addCurve(to: point(11.33039, 8.82549), control1: point(12.70841, 12.57969), control2: point(12.23626, 10.60819))
-        tail.addCurve(to: point(14.60339, 1.94639), control1: point(13.40129, 7.14209), control2: point(14.60359, 4.61529))
-        tail.addCurve(to: point(14.47989, 0.47289), control1: point(14.60333, 1.45264), control2: point(14.56209, 0.95977))
+        tail.addLine(to: point(0.00639, 14.58))
+        tail.addLine(to: point(0.00639, 1.878))
+        tail.addLine(to: point(0.0069, 1.878))
+        tail.addCurve(to: point(7.813, 4.5595), control1: point(2.8349, 1.8779), control2: point(5.5821, 2.8216))
+        tail.addCurve(to: point(14.48, 0.473), control1: point(10.5485, 4.3042), control2: point(13.011, 2.7948))
         tail.closeSubpath()
-        // Build one canonical Boolean union. Mirroring operands before union can
-        // produce a separately approximated contour on the opposite side.
-        // Reflect the completed outline instead, preserving identical geometry.
-        let outline = path.union(tail).applying(CGAffineTransform(
-            a: inverseScale, b: 0, c: 0, d: inverseScale,
-            tx: originalRect.minX, ty: originalRect.minY))
+        var outline = path
+        outline.addPath(tail)
         guard !own else { return outline }
         return outline.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1,
-                                                 tx: originalRect.minX + originalRect.maxX, ty: 0))
+                                                 tx: rect.minX + rect.maxX, ty: 0))
     }
 }
-
