@@ -123,10 +123,10 @@ struct RoomChatView: View {
                     Button("从网盘选择") { choosingFile = true }
                     Button("选择本地文件") { importingFile = true }
                     Button("选择图片或视频") { choosingPhoto = true }
-                } label: { Image(systemName: "paperclip").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("添加群聊附件").accessibilityIdentifier("room.attachments")
+                } label: { Image(systemName: "photo.badge.plus").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("添加群聊附件").accessibilityIdentifier("room.attachments")
                 Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("插入群聊表情").accessibilityIdentifier("room.emoji")
                 Spacer(minLength: 0)
-                Button { Task { await send() } } label: { Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44) }.disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
+                Button { Task { await send() } } label: { Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44).foregroundStyle(PUBOTheme.accent) }.disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
             }.buttonStyle(.borderless).disabled(chatProblem != nil)
         }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
             .background(PUBOTheme.panel.ignoresSafeArea(.container, edges: .bottom))
