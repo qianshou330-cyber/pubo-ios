@@ -68,21 +68,97 @@ final class PUBOUITests: XCTestCase {
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
         XCTAssertTrue(control.isHittable)
-        // SwiftUI exposes the whole row as a Switch as well as the actual
-        // UIKit switch. Select the smaller switch within this exact row.
-        if (control.value as? String) != (value ? "1" : "0") {
-            let row = control.frame
-            let actual = app.switches.allElementsBoundByIndex.first { candidate in
-                candidate.identifier.isEmpty && candidate.frame.width < row.width * 0.5 &&
-                row.contains(CGPoint(x: candidate.frame.midX, y: candidate.frame.midY))
+        let expected = value ? "1" : "0"
+        let before = control.value
+        let transitionStarted = ProcessInfo.processInfo.systemUptime
+        var transition = ["expected=\(expected) before=\(String(describing: before))"]
+        // Scope native control discovery to the stable identified row.
+        if (before as? String) != expected {
+            // C13's AX tree shows one native Switch directly inside this row.
+            // Global app.switches enumeration instead re-resolved other rows,
+            // including stale indexes, and exhausted the observation budget.
+            // Inspect one row snapshot, then tap only its unique native child.
+            var concrete: XCUIElement?
+            let started = ProcessInfo.processInfo.systemUptime
+            var observations: [String] = []
+            let actionable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                concrete = nil
+                let probeStarted = ProcessInfo.processInfo.systemUptime
+                var detail = ""
+                defer {
+                    let ended = ProcessInfo.processInfo.systemUptime
+                    observations.append("elapsed=\(ended - started) queryDuration=\(ended - probeStarted) " + detail)
+                }
+                do {
+                    let row = try control.snapshot()
+                    let switches = row.children.filter { $0.elementType == .switch }
+                    detail = "row=\(row.frame) rowEnabled=\(row.isEnabled) directSwitches=\(switches.count)"
+                    guard switches.count == 1, let native = switches.first else { return false }
+                    let bounds = native.frame
+                    detail += " nativeID=\(native.identifier) native=\(bounds) nativeEnabled=\(native.isEnabled)"
+                    guard row.isEnabled, native.isEnabled, native.identifier.isEmpty,
+                          bounds.width > 0, bounds.height > 0,
+                          bounds.width < row.frame.width * 0.5,
+                          puboNativeSwitchFitsAXRow(bounds, row: row.frame) else { return false }
+                    let candidate = control.children(matching: .switch).firstMatch
+                    let rowHittable = control.isHittable
+                    let nativeHittable = candidate.isHittable
+                    detail += " rowHittable=\(rowHittable) nativeHittable=\(nativeHittable)"
+                    guard rowHittable, nativeHittable else { return false }
+                    concrete = candidate
+                    return true
+                } catch {
+                    detail += " snapshotError=\(error)"
+                    return false
+                }
+            }, object: control)
+            let ready = XCTWaiter.wait(for: [actionable], timeout: 8)
+            let observation = XCTAttachment(string: "timeout=8 outcome=\(ready.rawValue)\n" + observations.joined(separator: "\n"))
+            observation.name = "privacy-native-switch-observations-" + control.identifier
+            observation.lifetime = .keepAlways; add(observation)
+            let rowState = XCTAttachment(string: control.debugDescription)
+            rowState.name = "privacy-switch-before-" + control.identifier
+            rowState.lifetime = .keepAlways; add(rowState)
+            if let actual = concrete {
+                let target = XCTAttachment(string: "enabled=\(actual.isEnabled) hittable=\(actual.isHittable) frame=\(actual.frame)\n" + actual.debugDescription)
+                target.name = "privacy-native-switch-target-" + control.identifier
+                target.lifetime = .keepAlways; add(target)
             }
-            XCTAssertNotNil(actual, "Expected the concrete switch inside the identified row")
-            guard let actual else { return }
-            XCTAssertTrue(actual.isHittable); actual.tap()
+            capture(app, "privacy-switch-before-tap-" + control.identifier)
+            if ready != .completed {
+                let tree = XCTAttachment(string: app.debugDescription)
+                tree.name = "privacy-native-switch-not-ready-tree"
+                tree.lifetime = .keepAlways; add(tree)
+            }
+            XCTAssertEqual(ready, .completed, "Expected one enabled, hittable native switch inside the identified row")
+            guard ready == .completed, let actual = concrete else { return }
+            transition.append("tapStarted=\(ProcessInfo.processInfo.systemUptime - transitionStarted)")
+            actual.tap()
+            transition.append("tapReturned=\(ProcessInfo.processInfo.systemUptime - transitionStarted)")
         }
-        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value ? "1" : "0"), object: control)
-        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 8), .completed)
+        // C15's failed transition was 1 -> 0, not a delayed successful 0 -> 1.
+        // Keep the same value equality and budget, recording every actual read
+        // without triggering XCTest's expensive automatic predicate diagnostics.
+        let equalsExpected = NSPredicate(format: "SELF == %@", expected)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let probeStarted = ProcessInfo.processInfo.systemUptime
+            let actual = control.value
+            let ended = ProcessInfo.processInfo.systemUptime
+            transition.append("elapsed=\(ended - transitionStarted) queryDuration=\(ended - probeStarted) actual=\(String(describing: actual))")
+            return equalsExpected.evaluate(with: actual)
+        }, object: control)
+        let outcome = XCTWaiter.wait(for: [changed], timeout: 8)
+        let stateEvidence = XCTAttachment(string: "timeout=8 outcome=\(outcome.rawValue)\n" + transition.joined(separator: "\n"))
+        stateEvidence.name = "privacy-switch-transition-" + control.identifier + "-expected-" + expected
+        stateEvidence.lifetime = .keepAlways; add(stateEvidence)
+        if outcome != .completed {
+            capture(app, "privacy-switch-failure-" + control.identifier)
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "privacy-switch-failure-tree"; tree.lifetime = .keepAlways; add(tree)
+        }
+        XCTAssertEqual(outcome, .completed)
     }
+
     func testNativePrivacyAndVerificationStatus() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing"]; app.launch(); openSettings(app)
         app.buttons["认证申请"].tap(); XCTAssertTrue(app.staticTexts["尚未申请"].waitForExistence(timeout: 5)); let submit = app.buttons["提交认证申请"]; for _ in 0..<6 where !submit.exists { app.swipeUp() }; XCTAssertTrue(submit.exists); XCTAssertFalse(submit.isEnabled)
@@ -720,21 +796,8 @@ final class PUBOUITests: XCTestCase {
             // A context menu is exposed to accessibility before its presentation
             // has settled. Wait for its real, stable hit target before one tap;
             // do not retry edits or weaken the conflict/uncertain-write checks.
-            var action = app.buttons["chat.actions.chatpreview002"].firstMatch
-            if !action.waitForExistence(timeout: 5) {
-                // UIKit can expose the presented context action as a MenuItem
-                // without our SwiftUI identifier. Accept only its exact label
-                // and a unique match; never fall back to an arbitrary button.
-                let nativeActions = app.menuItems.matching(NSPredicate(format: "label == %@", "编辑／撤回消息"))
-                let nativeAction = nativeActions.firstMatch
-                let appeared = nativeAction.waitForExistence(timeout: 5)
-                XCTAssertTrue(appeared)
-                guard appeared else { return }
-                XCTAssertEqual(nativeActions.count, 1)
-                guard nativeActions.count == 1 else { return }
-                action = nativeAction
-            }
-            XCTAssertTrue(action.exists)
+            let action = app.buttons["chat.actions.chatpreview002"].firstMatch
+            XCTAssertTrue(action.waitForExistence(timeout: 5))
             var previousFrame = CGRect.null
             var stableSince = ProcessInfo.processInfo.systemUptime
             let started = stableSince
