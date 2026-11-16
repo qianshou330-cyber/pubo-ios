@@ -38,7 +38,17 @@ extension XCTestCase {
         let button = puboTab(app, title)
         XCTAssertTrue(button.waitForExistence(timeout: 20), title, file: file, line: line)
         let started = Date()
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: button)
+        // Do not ask XCTest for an activation point while its AX window geometry is invalid.
+        // This uses the same single 8-second readiness budget; invalid frames never pass.
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let window = app.windows.firstMatch.frame
+            let frame = button.frame
+            let finite = [window.minX, window.minY, window.width, window.height,
+                          frame.minX, frame.minY, frame.width, frame.height].allSatisfy { $0.isFinite }
+            guard finite, window.width > 0, window.height > 0,
+                  frame.width > 0, frame.height > 0, window.intersects(frame) else { return false }
+            return button.isHittable == true
+        }, object: button)
         let result = XCTWaiter.wait(for: [ready], timeout: 8)
         print("PUBO tab ready wait \(title): \(Date().timeIntervalSince(started))s, result=\(result.rawValue)")
         XCTAssertEqual(result, .completed, title, file: file, line: line)
@@ -65,3 +75,4 @@ extension XCTestCase {
         XCTAssertTrue(app.navigationBars["发现"].waitForExistence(timeout: 10))
     }
 }
+
