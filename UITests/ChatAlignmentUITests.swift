@@ -153,7 +153,22 @@ final class ChatAlignmentUITests: XCTestCase {
     }
     func testGroupDraftSurvivesTabsAndKeyboard() {
         let app = launch(); room(app)
-        let input = app.textViews["room.input"]; input.tap(); input.typeText("保留输入内容")
+        let input = app.textViews["room.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 6))
+        input.tap()
+        guard app.keyboards.firstMatch.waitForExistence(timeout: 5) else {
+            capture(app, "chat-room-input-keyboard-missing")
+            XCTFail("Input precondition failed: keyboard did not appear before typing")
+            return
+        }
+        input.typeText("保留输入内容")
+        let completeInput = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "保留输入内容"), object: input)
+        guard XCTWaiter.wait(for: [completeInput], timeout: 5) == .completed else {
+            capture(app, "chat-room-input-incomplete-before-tabs")
+            XCTFail("Input precondition failed before tab switch; draft restoration was not exercised")
+            return
+        }
         capture(app, "chat-room-keyboard"); app.buttons["room.tab.search"].tap(); app.buttons["room.tab.messages"].tap()
         XCTAssertEqual(app.textViews["room.input"].value as? String, "保留输入内容"); capture(app, "chat-room-draft-restored")
     }

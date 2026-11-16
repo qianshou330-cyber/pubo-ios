@@ -108,6 +108,12 @@ struct RichNoteText: UIViewRepresentable {
         var onTap: (() -> Void)?
         var menuActions: [ChatMenuAction] = []
         func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+                // Never log message text, URLs, action titles, identifiers or account data.
+                print("PUBO_MENU_DIAG path=uikit_editMenu selectionLength=\(range.length) customCount=\(menuActions.count) suggestedCount=\(suggestedActions.count) firstResponder=\(textView.isFirstResponder) attached=\(textView.window != nil)")
+            }
+            #endif
             guard !menuActions.isEmpty else { return nil }
             // Keep system selection/copy/translation/link commands unchanged.
             let commands: [UIMenuElement] = menuActions.map { $0.uiAction }

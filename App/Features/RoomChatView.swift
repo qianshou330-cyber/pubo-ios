@@ -243,7 +243,7 @@ struct RoomChatView: View {
                         }
                     }.padding(.horizontal, 12).padding(.vertical, 8).background(mine ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: mine), fillStyle: FillStyle(eoFill: false))
                         .accessibilityIdentifier("room.bubble." + message.id)
-                        .contextMenu { messageMenu(message, mine: mine) }
+                        .contextMenu { messageMenu(message, mine: mine, diagnosticContext: true) }
                     if !mine { messageOverflow(message, mine: mine) }
                 }
                 if message["recalledAt"].isNull && !ChatContentPolicy.previewLinks(message.text).isEmpty {
@@ -271,8 +271,15 @@ struct RoomChatView: View {
         .accessibilityLabel("群消息菜单")
         .accessibilityIdentifier("room.menu." + message.id)
     }
-    private func messageMenu(_ message: Record, mine: Bool) -> some View {
-        ChatMenuButtons(actions: messageActions(message, mine: mine))
+    private func messageMenu(_ message: Record, mine: Bool, diagnosticContext: Bool = false) -> some View {
+        let actions = messageActions(message, mine: mine)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            // Construction is NOT proof of presentation. No message/account data is logged.
+            print("PUBO_MENU_DIAG path=\(diagnosticContext ? "swiftui_context_builder" : "swiftui_overflow_builder") customCount=\(actions.count)")
+        }
+        #endif
+        return ChatMenuButtons(actions: actions)
     }
     private func messageActions(_ message: Record, mine: Bool) -> [ChatMenuAction] {
         guard message["recalledAt"].isNull else { return [] }
