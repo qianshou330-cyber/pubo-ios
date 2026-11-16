@@ -19,7 +19,14 @@ def boot(identifier, receipt):
                 if attempt == 1:
                     raise
                 print('Simulator startup stalled; one task-owned restart before any tests.', flush=True)
-                subprocess.run(['xcrun', 'simctl', 'shutdown', identifier], check=False, timeout=60)
+                try:
+                    shutdown = subprocess.run(['xcrun', 'simctl', 'shutdown', identifier], check=False, timeout=60)
+                    attempts[-1]['shutdown'] = {'status': 'COMPLETED', 'returncode': shutdown.returncode}
+                except subprocess.TimeoutExpired:
+                    # A stalled shutdown must not bypass the existing bounded recovery.
+                    # Preserve the failure, then use the same CI-only service reset.
+                    attempts[-1]['shutdown'] = {'status': 'TIMEOUT', 'timeoutSeconds': 60}
+                    print('Task-owned simulator shutdown timed out; continuing bounded recovery.', flush=True)
                 # GitHub provides an isolated, disposable VM. A stalled simulator
                 # service can outlive the device; reset it only on that CI host.
                 # Never reset the user's local Simulator service.
@@ -27,3 +34,4 @@ def boot(identifier, receipt):
                     subprocess.run(['killall', '-TERM', 'com.apple.CoreSimulator.CoreSimulatorService'], check=False, timeout=30)
     finally:
         Path(receipt).write_text(json.dumps({'device': identifier, 'attempts': attempts}, indent=2))
+
