@@ -70,7 +70,7 @@ class SelectionTests(unittest.TestCase):
         pilot = workflow.split('  chat-alignment:\n', 1)[1].split('  package:\n', 1)[0]
         for required in ('    needs: checks', '      fail-fast: false',
                          '        size: [small, large]', '    timeout-minutes: 65',
-                         "          PUBO_UI_SHARD: 'chat-alignment'", "          PUBO_PREBUILT_TESTS: '1'",
+                         "          PUBO_UI_SHARD: 'chat-alignment-${{ matrix.part }}'", "          PUBO_PREBUILT_TESTS: '1'",
                          '          PUBO_SIM_SIZE: ${{ matrix.size }}',
                          'python3 scripts/simulator-tests.py', 'set -o pipefail',
                          '        if: always()', '            build/ui-*.xcresult',

@@ -133,12 +133,13 @@ jobs:
           retention-days: 14
           if-no-files-found: error
   chat-alignment:
-    # Nine real synthetic UI methods, independent of OCR preflight outcome.
+    # All ten methods in required disjoint 5+5 jobs per size; unchanged assertions/budget.
     needs: checks
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
+        part: [layout, actions]
     runs-on: macos-15-intel
     timeout-minutes: 65
     steps:
@@ -151,10 +152,10 @@ jobs:
           xcodegen generate
       - name: Compile Debug app and all UI test sources
         run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
-      - name: Nine chat-alignment tests with existing strict count gate and 30-minute test budget
+      - name: Five chat-alignment methods per required half, strict count and 30-minute budget
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
-          PUBO_UI_SHARD: 'chat-alignment'
+          PUBO_UI_SHARD: 'chat-alignment-${{ matrix.part }}'
           PUBO_PREBUILT_TESTS: '1'
         run: |
           set -o pipefail
@@ -162,7 +163,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: four-tabs-chat-alignment-${{ matrix.size }}-${{ github.sha }}
+          name: four-tabs-chat-alignment-${{ matrix.size }}-${{ matrix.part }}-${{ github.sha }}
           path: |
             build/*.json
             build/chat-alignment-tests.log

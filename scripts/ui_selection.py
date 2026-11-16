@@ -41,7 +41,29 @@ PRESENTATION_PARTS = {
     ],
 }
 
+
+# Exhaustive, disjoint 5+5 alignment selections. No assertions/animations change.
+ALIGNMENT_PARTS = {
+    'chat-alignment-layout': [
+        'testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize',
+        'testGroupDraftSurvivesTabsAndKeyboard',
+        'testLargeTextGroupComposerAndTabsStayReachable',
+        'testMixedConversationsAndHomeTabsBothThemes',
+        'testPrivateSearchDateAndReactionsBothThemes',
+    ],
+    'chat-alignment-actions': [
+        'testGroupSearchExactMessageReportAndMenuBothThemes',
+        'testTextSelectionMenuPreservesRoomActionsBothThemes',
+        'testGroupReactionDoesNotUseDirectMessagePermission',
+        'testReportUnknownOutcomeDisablesResubmission',
+        'testStaleOtherParticipantReactionCannotCancelExistingMine',
+    ],
+}
+
 def selection(shard):
+    if shard in ALIGNMENT_PARTS:
+        methods = ALIGNMENT_PARTS[shard]
+        return len(methods), ['-only-testing:PUBOUITests/ChatAlignmentUITests/' + name for name in methods]
     if shard in PRESENTATION_PARTS:
         methods = PRESENTATION_PARTS[shard]
         return len(methods), ['-only-testing:PUBOUITests/ChatComposerParityUITests/' + name for name in methods]
