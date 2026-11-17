@@ -40,16 +40,57 @@ extension XCTestCase {
         let started = Date()
         // Do not ask XCTest for an activation point while its AX window geometry is invalid.
         // This uses the same single 8-second readiness budget; invalid frames never pass.
+        // Buffer diagnostics only: no extra AX reads, screenshots, sleeps or retries.
+        // The cap limits storage, never the original predicate's evaluations.
+        var samples: [(index: Int, start: TimeInterval, windowTime: TimeInterval,
+                       frameTime: TimeInterval, hitTime: TimeInterval,
+                       window: CGRect, frame: CGRect, finite: Bool,
+                       windowPositive: Bool, framePositive: Bool,
+                       intersects: Bool, hittable: Bool?)] = []
+        samples.reserveCapacity(16)
+        var evaluations = 0
+        var phase = "not-started"
+        var phaseStarted: TimeInterval = 0
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            evaluations += 1
+            let sampleStart = Date().timeIntervalSince(started)
+            phase = "window-frame"
+            phaseStarted = sampleStart
             let window = app.windows.firstMatch.frame
+            let afterWindow = Date().timeIntervalSince(started)
+            phase = "button-frame"
+            phaseStarted = afterWindow
             let frame = button.frame
+            let afterFrame = Date().timeIntervalSince(started)
             let finite = [window.minX, window.minY, window.width, window.height,
                           frame.minX, frame.minY, frame.width, frame.height].allSatisfy { $0.isFinite }
-            guard finite, window.width > 0, window.height > 0,
-                  frame.width > 0, frame.height > 0, window.intersects(frame) else { return false }
-            return button.isHittable == true
+            let windowPositive = window.width > 0 && window.height > 0
+            let framePositive = frame.width > 0 && frame.height > 0
+            // Preserve the original short circuit before any hittability query.
+            let intersects = finite && windowPositive && framePositive && window.intersects(frame)
+            var hittable: Bool? = nil
+            if intersects {
+                phase = "button-hittable"
+                phaseStarted = afterFrame
+                hittable = button.isHittable
+            }
+            let afterHit = Date().timeIntervalSince(started)
+            phase = "sample-complete"
+            phaseStarted = afterHit
+            if samples.count < 16 {
+                samples.append((evaluations, sampleStart, afterWindow - sampleStart,
+                                afterFrame - afterWindow, afterHit - afterFrame,
+                                window, frame, finite, windowPositive, framePositive,
+                                intersects, hittable))
+            }
+            return hittable == true
         }, object: button)
         let result = XCTWaiter.wait(for: [ready], timeout: 8)
+        // Format and emit only after the unchanged waiter has returned.
+        print("PUBO tab readiness diagnostics \(title): evaluations=\(evaluations), retained=\(samples.count), phase=\(phase), phaseStarted=\(phaseStarted)")
+        for sample in samples {
+            print("PUBO tab readiness sample \(title): index=\(sample.index), start=\(sample.start), windowSeconds=\(sample.windowTime), frameSeconds=\(sample.frameTime), hitSeconds=\(sample.hitTime), window=\(sample.window), frame=\(sample.frame), finite=\(sample.finite), windowPositive=\(sample.windowPositive), framePositive=\(sample.framePositive), intersects=\(sample.intersects), hittable=\(sample.hittable.map { String($0) } ?? "not-queried")")
+        }
         print("PUBO tab ready wait \(title): \(Date().timeIntervalSince(started))s, result=\(result.rawValue)")
         XCTAssertEqual(result, .completed, title, file: file, line: line)
         guard result == .completed else { return }
@@ -75,4 +116,5 @@ extension XCTestCase {
         XCTAssertTrue(app.navigationBars["发现"].waitForExistence(timeout: 10))
     }
 }
+
 
