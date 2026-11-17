@@ -12,9 +12,22 @@ class TabGeometryReadinessTests(unittest.TestCase):
     def test_invalid_window_and_button_geometry_cannot_pass(self):
         for token in ('app.windows.firstMatch.frame', 'button.frame', '$0.isFinite',
                       'window.width > 0', 'window.height > 0', 'frame.width > 0',
-                      'frame.height > 0', 'window.intersects(frame)', 'else { return false }'):
+                      'frame.height > 0', 'window.intersects(frame)'):
             self.assertIn(token, self.tab)
-        self.assertLess(self.tab.index('guard finite'), self.tab.index('return button.isHittable == true'))
+        # C60 caches the one native hittability read for deferred diagnostics.
+        # Require the complete geometry conjunction to gate that read, rather
+        # than the former guard/return spelling. Invalid geometry retains nil
+        # and cannot satisfy the final cached Boolean proof.
+        predicate = self.tab.split('let ready = XCTNSPredicateExpectation', 1)[1].split('let result = XCTWaiter.wait', 1)[0]
+        self.assertIn('let intersects = finite && windowPositive && framePositive && window.intersects(frame)', predicate)
+        self.assertIn('var hittable: Bool? = nil', predicate)
+        self.assertIn('if intersects {', predicate)
+        self.assertIn('hittable = button.isHittable == true', predicate)
+        self.assertIn('return hittable == true', predicate)
+        self.assertEqual(predicate.count('button.isHittable'), 1)
+        self.assertLess(predicate.index('if intersects {'), predicate.index('hittable = button.isHittable == true'))
+        self.assertLess(predicate.index('hittable = button.isHittable == true'), predicate.index('return hittable == true'))
+        self.assertNotIn('return true', predicate)
 
     def test_single_unchanged_readiness_budget(self):
         self.assertIn('waitForExistence(timeout: 20)', self.tab)

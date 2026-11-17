@@ -72,7 +72,7 @@ extension XCTestCase {
             if intersects {
                 phase = "button-hittable"
                 phaseStarted = afterFrame
-                hittable = button.isHittable
+                hittable = button.isHittable == true
             }
             let afterHit = Date().timeIntervalSince(started)
             phase = "sample-complete"
