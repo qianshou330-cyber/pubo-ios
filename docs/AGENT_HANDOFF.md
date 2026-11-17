@@ -5,6 +5,14 @@ Snapshot: 2026-11-17 16:51 UTC. Refresh branch and Actions before acting; this i
 ## Repair records
 Every fix or diagnostic change must follow [AGENTS.md](../AGENTS.md) and append to [FIX_LOG.md](FIX_LOG.md), including failed attempts, verification gaps and follow-up results.
 
+## Latest checkpoint (2026-11-17 17:35 UTC)
+This section supersedes the earlier 16:51 status below; older details remain historical.
+- Original C61 completed failure. Confirmed no active/queued test-branch jobs before rerunning only candidate-package (old job 134162066990; active retry job 134235071422, same run 44117699042 and code SHA 55351e1). Upload result is pending; no new delivered IPA.
+- Verified original passes: both chat layout groups 5/5, both chat action groups 5/5, small states 4/4, large legacy 5/5, small video 4/4, checks and H5 reference.
+- Failures: small legacy/navigation, large video/states at Accessibility initialization; small composer at simulator-service recovery timeout; large composer snapshot timeout plus 1800s budget; large navigation exceeded its separate 2700s budget near final case; OCR same 3 positive controls; candidate artifact service failed after 5 upload attempts. Formal package skipped.
+- Do not repeat the candidate retry while it is active, push a cancelling code commit, or reinterpret a QA-incomplete candidate as acceptance. Follow the dated detail in FIX_LOG.md.
+- Only this documentation checkpoint uses skip ci. C61's genuine failed checks remain failed and visible.
+
 ## Source of truth
 - Repository: https://github.com/qianshou330-cyber/pubo-ios
 - Working branch: `ui-four-tabs-148-20261112`. Do not merge main or open PR/releases without separate authorization.
