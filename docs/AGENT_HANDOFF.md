@@ -98,3 +98,6 @@ C62 has ended failure; no active/queued work before C63. C62 large navigation pa
 
 ## C63 checkpoint (2026-11-17 22:39 UTC)
 Large layout passed5/5; both-theme private scenario successfully queries original chat.text IDs, real menu round-trips and unchanged geometry. Four attachments confirm44pt menus and13.33pt metadata, same C62 geometry. Small layout and independent recovery states still pending; do not generalize to full recovery/acceptance. Candidate artifact14374964353 exists but IPA not downloaded/verified in this check. Active jobs remain; do not push code/retry concurrently. Full details in FIX_LOG.md.
+
+## C63 checkpoint (2026-11-17 23:38 UTC)
+Small layout/actions5/5 confirmed; both-size text-ID/layout target passes. Independent recovery still fails: small retry video remains on loading at~192s, not merely missing AX identifier; large states never initializes. Do not claim full retry repair or call all failures environmental. Next bounded diagnosis must distinguish request/state synchronization/cancellation/epoch/loading phases without relaxing completion. Large actions remains active; no overlapping push. See FIX_LOG.md for raw evidence distinctions.
