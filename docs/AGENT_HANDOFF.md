@@ -80,3 +80,6 @@ Code: `55351e1922a1141ddc3eecd7e720f853bc4b232f`; [run 44117699042](https://gith
 - H5 is an actual public bundle snapshot with synthetic ChatParity fixtures and blocked production APIs, not a live production-account recording. iOS captures are Simulator screenshots, not physical-device verification.
 - Inspected private-small-light pair visibly differs in header, spacing and reaction rendering. Pair availability and passing scenario assertions do not establish 1:1 parity. Full visual review and outstanding failed suites remain open.
 - Changes: documentation only (`docs/FIX_LOG.md`, `docs/AGENT_HANDOFF.md`); no code, gate, retry or timeout changes and no new CI run.
+
+## OCR follow-up (2026-11-17 18:45 UTC)
+Full 189-sample read-only replay on the original Linux 5.5.0/Leptonica 1.84.1 stack exactly reproduces all saved decisions; the same pinned model and verified PNG inputs differ on CI macOS 5.5.3/Leptonica 1.87.0. This isolates environment-associated drift, NOT its exact version/platform/SIMD cause. No production gate changed and no current 5.5.3 pass is claimed. Three valid positives also improve on CI and one known clipped false accept disappears. Next: controlled same-platform engine/library comparison before a gate-preserving fix. See FIX_LOG.md for full results; do not rerun the recovered package upload or blind full UI.
