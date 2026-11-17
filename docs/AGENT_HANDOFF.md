@@ -89,3 +89,6 @@ Full 189-sample read-only replay on the original Linux 5.5.0/Leptonica 1.84.1 st
 
 ## C62 checkpoint (2026-11-17 20:35 UTC)
 Large private-chat both-theme scenario passed, including new geometry and menu round-trips; its layout job still failed 2/5 other methods. Menu 44x44pt / metadata 13.33pt confirmed by attachments, and actual light screenshot inspected. AX bubble frame is text bounds, not full padded bubble. Small-screen and remaining jobs still pending; no full acceptance. One failed tab-readiness sample completed at 8.127s despite valid geometry/hittability, directly showing AX queries exhausting the unchanged 8s budget. Do not weaken it. See FIX_LOG.md and run 44156868718; avoid overlapping pushes.
+
+## C62 checkpoint (2026-11-17 21:00 UTC)
+Small layout/actions now each pass 5/5; both-size private target scenario passes, not whole acceptance. C62 likely shadows existing chat.text.* with new ancestor chat.bubble.*; large recovery waits for chat.text.private0001 and fails. Local C63 removes ancestor identifier and measures original text identifier with unchanged strict geometry/menus; 140 Python + 2 Node pass, no Swift/CI yet. Do not push until remaining large navigation/composer finish. See FIX_LOG.md; no package is fully accepted.
