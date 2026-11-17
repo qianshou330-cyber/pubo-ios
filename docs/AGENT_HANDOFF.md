@@ -2,6 +2,9 @@
 
 Snapshot: 2026-11-17 16:51 UTC. Refresh branch and Actions before acting; this is not a live status page.
 
+## Repair records
+Every fix or diagnostic change must follow [AGENTS.md](../AGENTS.md) and append to [FIX_LOG.md](FIX_LOG.md), including failed attempts, verification gaps and follow-up results.
+
 ## Source of truth
 - Repository: https://github.com/qianshou330-cyber/pubo-ios
 - Working branch: `ui-four-tabs-148-20261112`. Do not merge main or open PR/releases without separate authorization.
