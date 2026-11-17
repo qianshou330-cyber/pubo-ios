@@ -95,3 +95,6 @@ Small layout/actions now each pass 5/5; both-size private target scenario passes
 
 ## Latest candidate C63 (2026-11-17 21:42 UTC)
 C62 has ended failure; no active/queued work before C63. C62 large navigation passed 13/13, formal package skipped. C63 removes the new ancestor chat.bubble identifier to preserve original chat.text accessibility, and measures that existing text element with identical geometry/menu gates. Local Python140/140, Node2/2 pass; Swift/runtime restoration not yet verified. Await C63 CI before claiming repair or using screenshots. Do not weaken existing recovery/geometry/time budgets; OCR and other failures remain open.
+
+## C63 checkpoint (2026-11-17 22:39 UTC)
+Large layout passed5/5; both-theme private scenario successfully queries original chat.text IDs, real menu round-trips and unchanged geometry. Four attachments confirm44pt menus and13.33pt metadata, same C62 geometry. Small layout and independent recovery states still pending; do not generalize to full recovery/acceptance. Candidate artifact14374964353 exists but IPA not downloaded/verified in this check. Active jobs remain; do not push code/retry concurrently. Full details in FIX_LOG.md.
