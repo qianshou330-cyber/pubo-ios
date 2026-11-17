@@ -3,8 +3,8 @@ import unittest
 P=Path(__file__).resolve().parents[1]/'App/Features/AccountSettingsView.swift'
 class ProbeTests(unittest.TestCase):
  def setUp(self): self.s=P.read_text().split('private struct PrivacySwitchEventProbe:',1)[1].split('\n#endif',1)[0]
- def test_fixture_islocked_only_timer(self):
-  self.assertIn('guard key == "isLocked"',self.s)
+ def test_fixture_two_failed_rows_only_timer(self):
+  self.assertIn('guard (key == "isLocked" || key == "hideOnlineStatus"),',self.s)
   self.assertIn('arguments.contains("--ui-testing")',self.s)
   self.assertIn('observationTimer == nil else { return }',self.s)
   self.assertIn('Timer(timeInterval: 0.5',self.s)
@@ -19,6 +19,16 @@ class ProbeTests(unittest.TestCase):
   self.assertIn('for _ in 0..<8',self.s)
   self.assertIn('guard emitted < 128 else { return }',self.s)
   self.assertIn('emitted += 1',self.s)
+ def test_heartbeat_is_sparse_independent_and_after_observation(self):
+  self.assertIn('self.observeNativeControl()\n                self.recordHeartbeat()',self.s)
+  start=self.s.index('private func recordHeartbeat()')
+  heartbeat=self.s[start:self.s.index('deinit',start)]
+  for text in ['heartbeatEmitted < 128','now - $0 >= 10','ProcessInfo.processInfo.systemUptime',
+               'pid=','probe=','sequence=','window=','timerValid=','attached=','lastObservedState=','quotaExhausted=']:
+   self.assertIn(text,heartbeat)
+  self.assertNotIn('log(',heartbeat)
+  self.assertNotIn('lastState =',heartbeat)
+  self.assertNotIn('emitted +=',heartbeat)
  def test_no_input_or_state_manipulation(self):
   for x in ['sendActions','setOn(','.isOn =','.isEnabled =','addGestureRecognizer']:
    self.assertNotIn(x,self.s)

@@ -129,6 +129,8 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
         private var lastState = ""
         private var observationTimer: Timer?
         private var emitted = 0
+        private var heartbeatEmitted = 0
+        private var lastHeartbeatUptime: TimeInterval?
         init(key: String) {
             self.key = key
             super.init(frame: .zero)
@@ -147,11 +149,11 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
             }
             scheduleObservation()
         }
-        // Only the failing synthetic isLocked row is polled. SwiftUI can
+        // Only the two failing synthetic privacy rows are polled. SwiftUI can
         // replace its native switch without laying out this background view.
         // Weak capture and window removal bound lifetime; scans and output stay capped.
         private func startBoundedObservation() {
-            guard key == "isLocked",
+            guard (key == "isLocked" || key == "hideOnlineStatus"),
                   ProcessInfo.processInfo.arguments.contains("--ui-testing"),
                   observationTimer == nil else { return }
             let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
@@ -160,9 +162,21 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
                     return
                 }
                 self.observeNativeControl()
+                self.recordHeartbeat()
             }
             observationTimer = timer
             RunLoop.main.add(timer, forMode: .common)
+        }
+        // Separate quota: heartbeat cannot consume native event evidence.
+        // A missing heartbeat is a coverage gap, never proof that no touch arrived.
+        private func recordHeartbeat() {
+            let now = ProcessInfo.processInfo.systemUptime
+            guard heartbeatEmitted < 128,
+                  lastHeartbeatUptime.map({ now - $0 >= 10 }) ?? true else { return }
+            lastHeartbeatUptime = now
+            heartbeatEmitted += 1
+            let message = "PUBO_PRIVACY_TEST heartbeat key=\(key) pid=\(ProcessInfo.processInfo.processIdentifier) uptime=\(now) probe=\(ObjectIdentifier(self)) sequence=\(heartbeatEmitted) window=\(window != nil) timerValid=\(observationTimer?.isValid ?? false) attached=\(observed != nil) lastObservedState=\(lastState) quotaExhausted=\(heartbeatEmitted == 128)"
+            Logger(subsystem: "com.pubo.privacy.diagnostics", category: "fixture-draft").notice("\(message, privacy: .public)")
         }
         deinit { observationTimer?.invalidate() }
         override func layoutSubviews() { super.layoutSubviews(); scheduleObservation() }
