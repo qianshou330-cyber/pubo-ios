@@ -804,12 +804,18 @@ final class PUBOUITests: XCTestCase {
             var observations: [String] = []
             let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 let probeStarted = ProcessInfo.processInfo.systemUptime
-                let exists = action.exists
-                let enabled = exists && action.isEnabled
+                // One immutable snapshot supplies existence, enabled state and frame.
+                // Hittability still uses XCTest's real activation-point query.
+                let snapshot: (any XCUIElementSnapshot)?
+                var snapshotError = ""
+                do { snapshot = try action.snapshot() }
+                catch { snapshot = nil; snapshotError = String(describing: error) }
+                let exists = snapshot != nil
+                let enabled = snapshot?.isEnabled == true
                 let hittable = enabled && action.isHittable
-                let frame = hittable ? action.frame : .null
+                let frame = hittable ? (snapshot?.frame ?? .null) : .null
                 let observedAt = ProcessInfo.processInfo.systemUptime
-                observations.append("sample=\(observations.count + 1) elapsed=\(observedAt - started) queryDuration=\(observedAt - probeStarted) exists=\(exists) enabled=\(enabled) hittable=\(hittable) frame=\(frame)")
+                observations.append("sample=\(observations.count + 1) elapsed=\(observedAt - started) queryDuration=\(observedAt - probeStarted) exists=\(exists) enabled=\(enabled) hittable=\(hittable) frame=\(frame) snapshotError=\(snapshotError)")
                 guard hittable else {
                     previousFrame = .null; stableSince = observedAt; return false
                 }
@@ -934,5 +940,6 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))
     }
 }
+
 
 
