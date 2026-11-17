@@ -32,6 +32,43 @@ final class ChatAlignmentUITests: XCTestCase {
         geometry.name = "chat-room-insets-" + stage; geometry.lifetime = .keepAlways; add(geometry)
         XCTAssertEqual(result, .completed, "Group insets must remain stable during " + stage)
     }
+    private func assertPrivateMetadataLayout(_ app: XCUIApplication, theme: String) {
+        for id in ["private0001", "private0002"] {
+            let menu = app.buttons["chat.menu." + id]
+            let bubble = app.descendants(matching: .any).matching(identifier: "chat.bubble." + id).firstMatch
+            let metadata = app.descendants(matching: .any).matching(identifier: "chat.metadata." + id).firstMatch
+            XCTAssertTrue(menu.waitForExistence(timeout: 6))
+            XCTAssertTrue(bubble.waitForExistence(timeout: 6))
+            XCTAssertTrue(metadata.waitForExistence(timeout: 6))
+            // The existing message entrance animation may still be running
+            // when AX first exposes the elements. Wait for the same strict
+            // geometry, never for a weaker substitute or a coordinate fallback.
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let target = menu.frame, body = bubble.frame, details = metadata.frame
+                guard puboTouchRectMeetsMinimum(target), menu.isHittable,
+                      body.width > 0, body.height > 0, details.width > 0, details.height > 0,
+                      body.minX.isFinite, body.minY.isFinite, body.maxX.isFinite, body.maxY.isFinite,
+                      details.minX.isFinite, details.minY.isFinite, details.maxX.isFinite, details.maxY.isFinite,
+                      !target.intersects(body), !target.intersects(details), details.height < 44,
+                      details.minY >= max(target.maxY, body.maxY),
+                      details.minY - max(target.maxY, body.maxY) <= 7 else { return false }
+                return true
+            }, object: nil)
+            let result = XCTWaiter.wait(for: [settled], timeout: 8)
+            let target = menu.frame, body = bubble.frame, details = metadata.frame
+            XCTAssertTrue(puboTouchRectMeetsMinimum(target), "Menu keeps its real 44pt touch target")
+            XCTAssertTrue(menu.isHittable)
+            XCTAssertFalse(target.intersects(body), "Menu must not cover selectable message content")
+            XCTAssertFalse(target.intersects(details), "Menu must not cover metadata")
+            XCTAssertLessThan(details.height, 44, "Ordinary fixture metadata must not inherit menu height")
+            XCTAssertGreaterThanOrEqual(details.minY, max(target.maxY, body.maxY))
+            XCTAssertLessThanOrEqual(details.minY - max(target.maxY, body.maxY), 7)
+            let geometry = XCTAttachment(string: "theme=\(theme)\nid=\(id)\nmenu=\(target)\nbubble=\(body)\nmetadata=\(details)\n")
+            geometry.name = "chat-private-metadata-" + theme + "-" + id
+            geometry.lifetime = .keepAlways; add(geometry)
+            XCTAssertEqual(result, .completed, "Private metadata geometry must settle without relaxing targets")
+        }
+    }
     private func room(_ app: XCUIApplication) {
         let row = app.buttons["conversation.room:socialroom"]
         for _ in 0..<4 where !row.isHittable { app.swipeUp() }
@@ -66,7 +103,19 @@ final class ChatAlignmentUITests: XCTestCase {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light", app = launch(dark ? ["--dark"] : []); peer(app)
             XCTAssertTrue(app.staticTexts["日期 11/3 · 11/2"].waitForExistence(timeout: 6))
+            assertPrivateMetadataLayout(app, theme: theme)
             XCTAssertTrue(app.buttons["取消反应 ❤"].exists); capture(app, "chat-private-" + theme)
+            for id in ["private0001", "private0002"] {
+                let menu = app.buttons["chat.menu." + id]
+                XCTAssertTrue(menu.isHittable); menu.tap()
+                let details = app.buttons["chat.actions." + id]
+                XCTAssertTrue(details.waitForExistence(timeout: 6)); details.tap()
+                let sheet = app.navigationBars["消息操作"]
+                XCTAssertTrue(sheet.waitForExistence(timeout: 6))
+                let close = sheet.buttons["关闭"]
+                XCTAssertTrue(close.waitForExistence(timeout: 6)); close.tap()
+                XCTAssertTrue(sheet.waitForNonExistence(timeout: 6))
+            }
             app.buttons["添加反应 ❤"].tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].exists, "Clicking another participant must not remove my reaction")
             app.buttons["取消反应 ❤"].tap(); XCTAssertTrue(app.buttons["取消反应 ❤"].waitForNonExistence(timeout: 6))
             app.buttons["chat.tab.search"].tap()

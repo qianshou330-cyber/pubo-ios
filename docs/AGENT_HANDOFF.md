@@ -2,6 +2,9 @@
 
 Snapshot: 2026-11-17 16:51 UTC. Refresh branch and Actions before acting; this is not a live status page.
 
+## Latest code candidate: C62 (2026-11-17 19:15 UTC)
+Private-chat metadata no longer carries the 44pt overflow menu; a visible sibling target matches the existing group-chat pattern. Menu actions, account guards and touch minimum stay unchanged. Local Python 139/139 and Node 2/2 pass. New both-theme frame checks and actual C62 screenshots remain pending CI, not acceptance. This does not fix OCR or the other C61 failures. Preserve all original gates. See FIX_LOG.md before continuing; do not import the separate unpushed OCR probe or start overlapping CI.
+
 ## Repair records
 Every fix or diagnostic change must follow [AGENTS.md](../AGENTS.md) and append to [FIX_LOG.md](FIX_LOG.md), including failed attempts, verification gaps and follow-up results.
 

@@ -211,37 +211,56 @@ struct ChatView: View {
                     Text(peer.displayName).font(.caption).foregroundStyle(PUBOTheme.secondary).lineLimit(2)
                         .accessibilityIdentifier("chat.sender." + message.id)
                 }
-                VStack(alignment: .leading, spacing: 7) {
-                    if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(PUBOTheme.secondary) }
-                    else {
-                        if !message["replyTo"].isNull {
-                            Button { if let id = message["replyToId"].string ?? message["replyTo"]["id"].string { Task { await openContext(id) } } } label: {
-                                Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
-                            }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
+                HStack(alignment: .bottom, spacing: 4) {
+                    if own { messageOverflow(message, own: own) }
+                    VStack(alignment: .leading, spacing: 7) {
+                        if !message["recalledAt"].isNull { Text("消息已撤回").foregroundStyle(PUBOTheme.secondary) }
+                        else {
+                            if !message["replyTo"].isNull {
+                                Button { if let id = message["replyToId"].string ?? message["replyTo"]["id"].string { Task { await openContext(id) } } } label: {
+                                    Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
+                                }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
+                            }
+                            if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, own: own)).font(.system(size: messageFont)) }
+                            ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
+                            if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                         }
-                        if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, own: own)).font(.system(size: messageFont)) }
-                        ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
-                        if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
-                    }
-                }.padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own), fillStyle: FillStyle(eoFill: false))
-                    .contextMenu { messageMenu(message, own: own) }
+                    }.padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own), fillStyle: FillStyle(eoFill: false))
+                        .accessibilityIdentifier("chat.bubble." + message.id)
+                        .contextMenu { messageMenu(message, own: own) }
+                    if !own { messageOverflow(message, own: own) }
+                }
                 if message["recalledAt"].isNull && !message["privateAttachmentFallback"].bool && !ChatContentPolicy.previewLinks(message.text).isEmpty {
                     ChatMessageLinkPreviews(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.links." + message.id)
                 }
                 HStack(spacing: 6) {
-                    if !own { Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id) }
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date) }
                     if own { Text(message["readState"].string == "read" ? "已读" : "已发送") }
                     if !message["editedAt"].isNull { Text("已编辑") }
-                    if own { Menu { messageMenu(message, own: own) } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }.accessibilityLabel("消息菜单").accessibilityIdentifier("chat.menu." + message.id) }
                 }.font(.caption2).foregroundStyle(PUBOTheme.secondary)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("chat.metadata." + message.id)
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
                     ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }
                 }
             }.task(id: "\(contextMode)-\(scenePhase == .active)-\(searching)") { if !own && !contextMode && !searching && scenePhase == .active { await markRead(message) } }
             if !own { Spacer(minLength: 28) }
         }
+    }
+    // Match the room layout: a visible sibling target, not a 44pt metadata
+    // row or an invisible overlay covering text/reactions.
+    private func messageOverflow(_ message: Record, own: Bool) -> some View {
+        Menu { messageMenu(message, own: own) } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.caption2)
+                .foregroundStyle(PUBOTheme.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("消息菜单")
+        .accessibilityIdentifier("chat.menu." + message.id)
     }
     private func messageMenu(_ message: Record, own: Bool) -> some View {
         ChatMenuButtons(actions: messageActions(message, own: own))
