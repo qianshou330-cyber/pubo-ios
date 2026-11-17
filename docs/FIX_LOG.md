@@ -16,6 +16,16 @@
 后续验证记录：时间、版本、新结果；保留前述历史
 ```
 
+## 2026-11-17 21:42 UTC / C63 / 恢复私聊正文可访问性标识
+状态：最小修复候选，本地验证通过；真实 AX 恢复与新版视觉结果待本提交 CI，不称验收完成。
+基线：813079a87ec0af095ee8e17ac5007729ac656843（产品 C62 58edda3）。提交前已核实 C62 全部结束，仓库无运行/排队工作。
+问题：C62 大屏恢复测试在 ChatComposerParityUITests.swift:224 等待原 chat.text.private0001 失败；新增祖先 chat.bubble 标识在实际附件返回正文尺寸，与既有祖先ID覆盖UIKit内层ID机制一致。属于本次改动引入的标识回归线索，不笼统归因环境。
+修改：移除 ChatView 的外层 chat.bubble 标识，保留原 ChatMessageContent 的 chat.text；几何测试直接测已有正文元素，附件用 text= 明确测量范围；新增契约防止祖先标识再次遮蔽。没有更改菜单布局、44pt点击区域、动作权限、元数据几何条件、真实菜单往返、旧恢复测试或任何等待/作业预算。
+涉及文件：App/Features/ChatView.swift；UITests/ChatAlignmentUITests.swift；scripts/test_chat_private_metadata_layout.py；docs/FIX_LOG.md；docs/AGENT_HANDOFF.md。
+测试：完整 Python 140/140、Node 收据2/2、git diff --check 通过。Linux无Swift/Xcode，本地未编译Swift或执行模拟器；需等待正常触发的完整CI验证，代码提交不使用skip ci。
+C62最终补充：大屏navigation成功13/13（原始日志及作业结束成功已核实），但整轮仍失败，formal package跳过。其他失败与局部成功保留前述记录，不用单组成功覆盖历史失败。
+下一步：本提交 CI 重点检查恢复状态用例重新找到 chat.text、私聊大小屏明暗几何与菜单、既有其他回归，并重新取得同版本截图。OCR与模拟器/AX慢查询等问题不在本修复范围。
+
 ## 2026-11-17 21:00 UTC / C62 小屏确认与正文标识回归线索
 状态：仍未整体验收，最后核查大屏导航/大屏composer仍运行；不启动重叠作业。
 代码58edda3；[run 44156868718](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44156868718)。

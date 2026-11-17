@@ -16,6 +16,15 @@ class PrivateMetadataLayoutTests(unittest.TestCase):
         self.assertIn('if !own { messageOverflow(message, own: own) }', row)
         self.assertIn('HStack(alignment: .bottom, spacing: 4)', row)
 
+    def test_existing_text_identifier_is_not_shadowed_by_bubble(self):
+        source = (ROOT/'App/Features/ChatView.swift').read_text()
+        self.assertIn('identifier: "chat.text." + message.id', source)
+        self.assertNotIn('.accessibilityIdentifier("chat.bubble."', source)
+        ui = (ROOT/'UITests/ChatAlignmentUITests.swift').read_text()
+        self.assertIn('matching(identifier: "chat.text." + id)', ui)
+        recovery = (ROOT/'UITests/ChatComposerParityUITests.swift').read_text()
+        self.assertIn('"chat.text.private0001"', recovery)
+
     def test_menu_keeps_real_shape_identifier_and_shared_actions(self):
         source = (ROOT/'App/Features/ChatView.swift').read_text()
         menu = source.split('    private func messageOverflow(', 1)[1].split('    private func messageMenu(', 1)[0]
@@ -27,7 +36,7 @@ class PrivateMetadataLayoutTests(unittest.TestCase):
     def test_existing_both_theme_test_measures_real_frames(self):
         source = (ROOT/'UITests/ChatAlignmentUITests.swift').read_text()
         helper = source.split('private func assertPrivateMetadataLayout(', 1)[1].split('private func room(', 1)[0]
-        for required in ['"private0001", "private0002"', 'menu.frame', 'bubble.frame', 'metadata.frame', 'puboTouchRectMeetsMinimum(target)', 'menu.isHittable', 'target.intersects(body)', 'target.intersects(details)', 'XCTAssertLessThan(details.height, 44', 'geometry.lifetime = .keepAlways', 'XCTWaiter.wait(for: [settled], timeout: 8)', 'XCTAssertEqual(result, .completed']:
+        for required in ['"private0001", "private0002"', 'menu.frame', 'text.frame', 'metadata.frame', 'puboTouchRectMeetsMinimum(target)', 'menu.isHittable', 'target.intersects(body)', 'target.intersects(details)', 'XCTAssertLessThan(details.height, 44', 'geometry.lifetime = .keepAlways', 'XCTWaiter.wait(for: [settled], timeout: 8)', 'XCTAssertEqual(result, .completed']:
             self.assertIn(required, helper)
         scenario = source.split('func testPrivateSearchDateAndReactionsBothThemes()',1)[1].split('func testGroupSearch',1)[0]
         self.assertIn('for dark in [false, true]',scenario)

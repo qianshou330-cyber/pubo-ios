@@ -35,16 +35,18 @@ final class ChatAlignmentUITests: XCTestCase {
     private func assertPrivateMetadataLayout(_ app: XCUIApplication, theme: String) {
         for id in ["private0001", "private0002"] {
             let menu = app.buttons["chat.menu." + id]
-            let bubble = app.descendants(matching: .any).matching(identifier: "chat.bubble." + id).firstMatch
+            // Measure the existing selectable text element. An ancestor identifier
+            // would replace chat.text.* and break recovery/accessibility clients.
+            let text = app.descendants(matching: .any).matching(identifier: "chat.text." + id).firstMatch
             let metadata = app.descendants(matching: .any).matching(identifier: "chat.metadata." + id).firstMatch
             XCTAssertTrue(menu.waitForExistence(timeout: 6))
-            XCTAssertTrue(bubble.waitForExistence(timeout: 6))
+            XCTAssertTrue(text.waitForExistence(timeout: 6))
             XCTAssertTrue(metadata.waitForExistence(timeout: 6))
             // The existing message entrance animation may still be running
             // when AX first exposes the elements. Wait for the same strict
             // geometry, never for a weaker substitute or a coordinate fallback.
             let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                let target = menu.frame, body = bubble.frame, details = metadata.frame
+                let target = menu.frame, body = text.frame, details = metadata.frame
                 guard puboTouchRectMeetsMinimum(target), menu.isHittable,
                       body.width > 0, body.height > 0, details.width > 0, details.height > 0,
                       body.minX.isFinite, body.minY.isFinite, body.maxX.isFinite, body.maxY.isFinite,
@@ -55,7 +57,7 @@ final class ChatAlignmentUITests: XCTestCase {
                 return true
             }, object: nil)
             let result = XCTWaiter.wait(for: [settled], timeout: 8)
-            let target = menu.frame, body = bubble.frame, details = metadata.frame
+            let target = menu.frame, body = text.frame, details = metadata.frame
             XCTAssertTrue(puboTouchRectMeetsMinimum(target), "Menu keeps its real 44pt touch target")
             XCTAssertTrue(menu.isHittable)
             XCTAssertFalse(target.intersects(body), "Menu must not cover selectable message content")
@@ -63,7 +65,7 @@ final class ChatAlignmentUITests: XCTestCase {
             XCTAssertLessThan(details.height, 44, "Ordinary fixture metadata must not inherit menu height")
             XCTAssertGreaterThanOrEqual(details.minY, max(target.maxY, body.maxY))
             XCTAssertLessThanOrEqual(details.minY - max(target.maxY, body.maxY), 7)
-            let geometry = XCTAttachment(string: "theme=\(theme)\nid=\(id)\nmenu=\(target)\nbubble=\(body)\nmetadata=\(details)\n")
+            let geometry = XCTAttachment(string: "theme=\(theme)\nid=\(id)\nmenu=\(target)\ntext=\(body)\nmetadata=\(details)\n")
             geometry.name = "chat-private-metadata-" + theme + "-" + id
             geometry.lifetime = .keepAlways; add(geometry)
             XCTAssertEqual(result, .completed, "Private metadata geometry must settle without relaxing targets")

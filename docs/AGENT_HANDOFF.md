@@ -92,3 +92,6 @@ Large private-chat both-theme scenario passed, including new geometry and menu r
 
 ## C62 checkpoint (2026-11-17 21:00 UTC)
 Small layout/actions now each pass 5/5; both-size private target scenario passes, not whole acceptance. C62 likely shadows existing chat.text.* with new ancestor chat.bubble.*; large recovery waits for chat.text.private0001 and fails. Local C63 removes ancestor identifier and measures original text identifier with unchanged strict geometry/menus; 140 Python + 2 Node pass, no Swift/CI yet. Do not push until remaining large navigation/composer finish. See FIX_LOG.md; no package is fully accepted.
+
+## Latest candidate C63 (2026-11-17 21:42 UTC)
+C62 has ended failure; no active/queued work before C63. C62 large navigation passed 13/13, formal package skipped. C63 removes the new ancestor chat.bubble identifier to preserve original chat.text accessibility, and measures that existing text element with identical geometry/menu gates. Local Python140/140, Node2/2 pass; Swift/runtime restoration not yet verified. Await C63 CI before claiming repair or using screenshots. Do not weaken existing recovery/geometry/time budgets; OCR and other failures remain open.

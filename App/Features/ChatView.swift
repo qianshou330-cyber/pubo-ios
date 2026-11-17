@@ -227,7 +227,6 @@ struct ChatView: View {
                         }
                     }.padding(.horizontal, 12).padding(.vertical, 8)
                         .background(own ? PUBOTheme.ownBubble : PUBOTheme.panel, in: PUBOChatBubble(own: own), fillStyle: FillStyle(eoFill: false))
-                        .accessibilityIdentifier("chat.bubble." + message.id)
                         .contextMenu { messageMenu(message, own: own) }
                     if !own { messageOverflow(message, own: own) }
                 }
