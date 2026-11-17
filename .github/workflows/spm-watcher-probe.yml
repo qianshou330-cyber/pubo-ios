@@ -8,7 +8,7 @@ on:
       - 'scripts/spm-watcher-probe/**'
 jobs:
   probe:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 40
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify same Xcode and fixture generator
         run: |
+          test "$(uname -m)" = x86_64
           xcodebuild -version
           command -v xcodegen || brew install xcodegen
       - name: Run source and timeout contracts
