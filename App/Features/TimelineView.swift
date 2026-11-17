@@ -85,6 +85,15 @@ struct TimelineView: View {
             ScrollViewReader { reader in
                 ScrollView {
                     timelineContent
+                        #if DEBUG
+                        .background {
+                            if ProcessInfo.processInfo.arguments.contains("--ui-testing") &&
+                                ProcessInfo.processInfo.arguments.contains("--refreshable-feed") {
+                                RefreshScrollProbe().frame(width: 0, height: 0)
+                                    .allowsHitTesting(false).accessibilityHidden(true)
+                            }
+                        }
+                        #endif
                 }.accessibilityIdentifier("timeline.scroll").coordinateSpace(name: "timeline").scrollPosition(id: $anchor, anchor: .top)
                     .onPreferenceChange(TimelineOffset.self, perform: updateOffset)
                     .onChange(of: anchor) { _, id in updateAnchor(id) }
@@ -641,4 +650,5 @@ struct NoteDetailView: View {
         } catch { self.error = error.localizedDescription }
     }
 }
+
 

@@ -128,7 +128,7 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
         private var scheduled = false
         private var lastState = ""
         private var observationTimer: Timer?
-        private var observationDeadline: Date?
+        private var emitted = 0
         init(key: String) {
             self.key = key
             super.init(frame: .zero)
@@ -141,7 +141,6 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
             if window == nil {
                 observationTimer?.invalidate()
                 observationTimer = nil
-                observationDeadline = nil
                 detach()
             } else {
                 startBoundedObservation()
@@ -150,15 +149,13 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
         }
         // Only the failing synthetic isLocked row is polled. SwiftUI can
         // replace its native switch without laying out this background view.
-        // Weak capture, a fixed deadline and window removal bound lifetime/cost.
+        // Weak capture and window removal bound lifetime; scans and output stay capped.
         private func startBoundedObservation() {
             guard key == "isLocked",
                   ProcessInfo.processInfo.arguments.contains("--ui-testing"),
-                  observationTimer == nil, observationDeadline == nil else { return }
-            observationDeadline = Date().addingTimeInterval(60)
+                  observationTimer == nil else { return }
             let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
-                guard let self, self.window != nil,
-                      let deadline = self.observationDeadline, Date() < deadline else {
+                guard let self, self.window != nil else {
                     timer.invalidate()
                     return
                 }
@@ -238,6 +235,8 @@ private struct PrivacySwitchEventProbe: UIViewRepresentable {
             guard lastState != state else { return }; lastState = state; log(state)
         }
         private func log(_ stage: String) {
+            guard emitted < 128 else { return }
+            emitted += 1
             let message = "PUBO_PRIVACY_TEST native key=\(key) \(stage)"
             Logger(subsystem: "com.pubo.privacy.diagnostics", category: "fixture-draft").notice("\(message, privacy: .public)")
         }
@@ -277,4 +276,5 @@ struct ContentMuteSettingsView: View {
         } catch { self.error = error.localizedDescription }
     }
 }
+
 

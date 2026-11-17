@@ -67,7 +67,13 @@ struct ChatListView: View {
                     if row.id == state.rows.first?.id && row.pinnedAt != nil { Text("置顶").font(.caption).foregroundStyle(.secondary).puboListRow() }
                     if row.pinnedAt == nil && state.rows.contains(where: { $0.pinnedAt != nil }) && row.id == state.rows.first(where: { $0.pinnedAt == nil })?.id { Text("最近会话").font(.caption).foregroundStyle(.secondary).puboListRow() }
                     HStack(spacing: 0) {
-                        NavigationLink { destination(row) } label: { conversation(row) }.buttonStyle(.plain)
+                        NavigationLink { destination(row) } label: {
+                            conversation(row)
+                                #if DEBUG
+                                .onAppear { ConversationDiagnostics.shared.record(.rowAppeared) }
+                                .onDisappear { ConversationDiagnostics.shared.record(.rowDisappeared) }
+                                #endif
+                        }.buttonStyle(.plain)
                             .accessibilityIdentifier("conversation." + row.id)
                         if row.kind == .user {
                             Menu {
@@ -86,7 +92,19 @@ struct ChatListView: View {
         }.puboList().refreshable { await state.load(session) }
     }
     @ViewBuilder private func destination(_ row: ChatConversation) -> some View {
-        if row.kind == .room { RoomChatView(roomID: row.target.id) } else { ChatView(peer: row.target) }
+        if row.kind == .room {
+            RoomChatView(roomID: row.target.id)
+                #if DEBUG
+                .onAppear { ConversationDiagnostics.shared.record(.destinationAppeared) }
+                .onDisappear { ConversationDiagnostics.shared.record(.destinationDisappeared) }
+                #endif
+        } else {
+            ChatView(peer: row.target)
+                #if DEBUG
+                .onAppear { ConversationDiagnostics.shared.record(.destinationAppeared) }
+                .onDisappear { ConversationDiagnostics.shared.record(.destinationDisappeared) }
+                #endif
+        }
     }
     private func conversation(_ row: ChatConversation) -> some View {
         HStack(spacing: 12) {
@@ -138,3 +156,4 @@ struct UserSearchView: View {
         }
     }
 }
+

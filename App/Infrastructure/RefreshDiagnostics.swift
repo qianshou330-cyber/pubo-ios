@@ -4,7 +4,7 @@ import Foundation
 import os
 #endif
 
-/// Passive fixture-only diagnostics. No UI nodes, additional gesture handlers or request data.
+/// Passive fixture-only diagnostics. No request data; scroll instrumentation is separately DEBUG/fixture gated.
 final class RefreshDiagnostics {
     enum Event: String, CaseIterable {
         case pullStarted, pullEnded, timelineDragEnded, loadAttempt, skippedError, skippedBusy, skippedEnd
@@ -19,6 +19,8 @@ final class RefreshDiagnostics {
     private let lock = NSLock()
     private var counts: [Event: Int] = [:]
     private var emitted = 0
+    private var scrollEmitted = 0
+    private var offsetEmitted = 0
     init(arguments: [String]) {
         enabled = arguments.contains("--ui-testing") && arguments.contains("--refreshable-feed")
     }
@@ -43,9 +45,28 @@ final class RefreshDiagnostics {
         if !afterVisible.subtracting(beforeVisible).isEmpty { record(.rowsApplied) }
         if !afterPending.subtracting(beforePending).isEmpty { record(.rowsPending) }
     }
+    /// Separate cap prevents high-frequency geometry samples from starving event counters.
+    /// Values are geometry/state only, never view text, identifiers or request content.
+    func recordScroll(event: String, offsetY: Double, insetTop: Double,
+                      panState: Int, refreshing: Bool, hasRefreshControl: Bool) {
+        guard enabled else { return }
+        lock.lock(); defer { lock.unlock() }
+        guard scrollEmitted < 128 else { return }
+        if event == "offset" {
+            guard offsetEmitted < 64 else { return }
+            offsetEmitted += 1
+        }
+        scrollEmitted += 1
+        let message = "PUBO_REFRESH_SCROLL_DIAG event=\(event);uptime=\(ProcessInfo.processInfo.systemUptime);pid=\(ProcessInfo.processInfo.processIdentifier);offsetY=\(offsetY);insetTop=\(insetTop);panState=\(panState);refreshing=\(refreshing);hasRefreshControl=\(hasRefreshControl)"
+        print(message)
+        #if canImport(os)
+        logger.notice("\(message, privacy: .public)")
+        #endif
+    }
     func snapshot() -> [Event: Int] {
         lock.lock(); defer { lock.unlock() }
         return counts
     }
 }
 #endif
+
