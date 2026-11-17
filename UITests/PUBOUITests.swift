@@ -796,7 +796,14 @@ final class PUBOUITests: XCTestCase {
             // A context menu is exposed to accessibility before its presentation
             // has settled. Wait for its real, stable hit target before one tap;
             // do not retry edits or weaken the conflict/uncertain-write checks.
-            let action = app.buttons["chat.actions.chatpreview002"].firstMatch
+            // C56 exposes the same action as a UIKit MenuItem after text selection.
+            // Match only the exact action in either native representation, in one
+            // existence budget; never fall back to coordinates or a direct handler.
+            let actionPredicate = NSPredicate(
+                format: "(elementType == %d AND identifier == %@) OR (elementType == %d AND label == %@)",
+                XCUIElement.ElementType.button.rawValue, "chat.actions.chatpreview002",
+                XCUIElement.ElementType.menuItem.rawValue, "编辑／撤回消息")
+            let action = app.descendants(matching: .any).matching(actionPredicate).firstMatch
             XCTAssertTrue(action.waitForExistence(timeout: 5))
             var previousFrame = CGRect.null
             var stableSince = ProcessInfo.processInfo.systemUptime
@@ -940,6 +947,7 @@ final class PUBOUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["暂无定时帖子"].waitForExistence(timeout: 5))
     }
 }
+
 
 
 
