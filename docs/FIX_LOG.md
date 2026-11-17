@@ -16,6 +16,16 @@
 后续验证记录：时间、版本、新结果；保留前述历史
 ```
 
+## 2026-11-17 18:00 UTC / C61 候选包上传恢复及 OCR 证据复核
+状态：仅上传恢复已验证；整体 QA 仍不完整，无产品修复或验收完成声明。
+代码版本：55351e1922a1141ddc3eecd7e720f853bc4b232f。
+行动/原因：针对原产物服务超时，仅重跑 candidate-package；新 job 134235071422 于 17:47:33 UTC 成功完成，未重跑其余 UI。
+产物：[QA-INCOMPLETE artifact 14352744864](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44117699042/artifacts/14352744864)；归档 5545059 字节，SHA256 ac535d489837d64da27ce4bbd64ebbdf1db9de328d39cf8da53cd2fa6832c55f。
+已下载核实：IPA 5581258 字节，SHA256 6f9ec9d7761bd291d5b31d3498dab8737c14f2e85dbe14eb084bce9c5492edf9；ZIP 完整性通过；Info.plist 标记 iPhoneOS、build148、最低 iOS17。同包 device-package.json 标记 arm64/iOS/UNSIGNED/PASS；candidate-status.json 明确 overallQA=INCOMPLETE。未做签名安装或真机测试。下载核实不等于已交付用户。
+只读 OCR 排查：下载 C61 原始报告，3 个失败样本的文本分别正确读为 1、99+、5，但置信度为 78.208992、55.412251、74.187180，低于未变的 80 门槛。因此拒绝来自置信度，不是文本不匹配。此证据不支持降低门槛或将正样本改成预期拒绝。
+涉及文件：仅 FIX_LOG.md、AGENT_HANDOFF.md 文档更新，无源码改动。
+剩余事项：保留前述 UI 初始化、快照、预算与 OCR 失败。后续 OCR 方案需保持独立像素读取、固定模型和完整 189 样本控制，不能按预期答案修正输出；剩余 UI 原因仍待验证。当前查询无活动/排队作业。
+
 ## 2026-11-17 17:35 UTC / C61 后续验证与候选包重跑
 状态：原轮结束失败；仅重跑候选打包，未完成交付。
 代码仍为 [55351e1](https://github.com/qianshou330-cyber/pubo-ios/commit/55351e1922a1141ddc3eecd7e720f853bc4b232f)，后续交接/日志提交只改文档。

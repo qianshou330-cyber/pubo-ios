@@ -5,7 +5,11 @@ Snapshot: 2026-11-17 16:51 UTC. Refresh branch and Actions before acting; this i
 ## Repair records
 Every fix or diagnostic change must follow [AGENTS.md](../AGENTS.md) and append to [FIX_LOG.md](FIX_LOG.md), including failed attempts, verification gaps and follow-up results.
 
-## Latest checkpoint (2026-11-17 17:35 UTC)
+## Latest checkpoint (2026-11-17 18:00 UTC)
+Candidate retry job 134235071422 succeeded at 17:47:33 UTC. [Artifact 14352744864](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44117699042/artifacts/14352744864) is present and downloaded/verified. IPA SHA256: `6f9ec9d7761bd291d5b31d3498dab8737c14f2e85dbe14eb084bce9c5492edf9`, 5581258 bytes. It is iPhoneOS arm64 unsigned build148, QA-INCOMPLETE, not full acceptance or verified installation. No active/queued runs were found. Do not rerun the recovered package upload.
+OCR raw reports confirm correct strings but confidence 78.208992 / 55.412251 / 74.187180 below unchanged 80. Do not lower the gate or relabel controls. See FIX_LOG.md for evidence and remaining failures.
+
+## Historical checkpoint (2026-11-17 17:35 UTC)
 This section supersedes the earlier 16:51 status below; older details remain historical.
 - Original C61 completed failure. Confirmed no active/queued test-branch jobs before rerunning only candidate-package (old job 134162066990; active retry job 134235071422, same run 44117699042 and code SHA 55351e1). Upload result is pending; no new delivered IPA.
 - Verified original passes: both chat layout groups 5/5, both chat action groups 5/5, small states 4/4, large legacy 5/5, small video 4/4, checks and H5 reference.
