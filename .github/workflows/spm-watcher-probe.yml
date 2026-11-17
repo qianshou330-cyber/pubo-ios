@@ -1,0 +1,31 @@
+# Diagnostic only. Does not replace or bypass any PUBO acceptance job.
+name: SwiftPM watcher investigation
+on:
+  push:
+    branches: [ui-four-tabs-148-20261112]
+    paths:
+      - '.github/workflows/spm-watcher-probe.yml'
+      - 'scripts/spm-watcher-probe/**'
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify same Xcode and fixture generator
+        run: |
+          xcodebuild -version
+          command -v xcodegen || brew install xcodegen
+      - name: Run source and timeout contracts
+        run: python3 -m unittest discover -s scripts/spm-watcher-probe -v
+      - name: Run isolated forward and reverse matrices serially
+        run: |
+          python3 scripts/spm-watcher-probe/probe.py --output "$RUNNER_TEMP/spm-probe/forward" --budget 120
+          python3 scripts/spm-watcher-probe/probe.py --output "$RUNNER_TEMP/spm-probe/reverse" --budget 120 --reverse
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spm-watcher-investigation
+          path: ${{ runner.temp }}/spm-probe/
