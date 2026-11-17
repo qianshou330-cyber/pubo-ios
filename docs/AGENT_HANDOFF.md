@@ -71,3 +71,12 @@ Open generated PUBO.xcodeproj for simulator development. Exact build-for-testing
 3. After C61 finishes, rerun only candidate-package if still needed to recover the upload failure. Do not rebuild everything merely for artifact transfer, suppress upload failures, or claim access to expired hosted-runner files.
 4. Investigate remaining reproducible failures; keep OCR controls, genuine interaction and QA gates intact. The short Intel SwiftPM probe succeeded but did not reproduce long simulator teardown hangs; do not keep rerunning it unchanged or claim a package-watcher root cause.
 5. For each deliverable, provide changes, real H5/iOS comparison images, exact commit/test results and limitations. Never replace requested comparison images with a webpage or call a QA-incomplete candidate fully accepted.
+
+## 2026-11-17 18:03 UTC / C61 screenshot evidence inventory
+Status: evidence inventory only; QA INCOMPLETE, not visual acceptance.
+Code: `55351e1922a1141ddc3eecd7e720f853bc4b232f`; [run 44117699042](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44117699042).
+- Verified 8 baseline pairs (private/room × small/large × light/dark), 16 original PNG files. Private captures are in layout artifacts 14352065341 / 14351519255; room captures in actions artifacts 14349472670 / 14349480581; H5 reference artifact 14343668173.
+- All 16 PNG files decode and have SHA-256 manifests in the prepared evidence archive. Small pairs are 750×1334 on both sides. Large iOS originals are 1320×2868, H5 880×1912 (different raster scale); do not compare unnormalized raw pixels.
+- H5 is an actual public bundle snapshot with synthetic ChatParity fixtures and blocked production APIs, not a live production-account recording. iOS captures are Simulator screenshots, not physical-device verification.
+- Inspected private-small-light pair visibly differs in header, spacing and reaction rendering. Pair availability and passing scenario assertions do not establish 1:1 parity. Full visual review and outstanding failed suites remain open.
+- Changes: documentation only (`docs/FIX_LOG.md`, `docs/AGENT_HANDOFF.md`); no code, gate, retry or timeout changes and no new CI run.
