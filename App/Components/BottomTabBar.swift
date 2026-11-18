@@ -13,7 +13,13 @@ struct BottomTabBar: View {
             ForEach(AppTab.allCases) { tab in
                 ZStack {
                     Button {
+                        #if DEBUG
+                        TabHitDiagnostics.selection(.actionEntered, from: session.selectedTab, to: tab)
+                        #endif
                         if session.selectedTab != tab { session.selectedTab = tab }
+                        #if DEBUG
+                        TabHitDiagnostics.selection(.actionReturned, from: tab, to: session.selectedTab)
+                        #endif
                     } label: {
                         VStack(spacing: 2) {
                             icon(tab).frame(width: 28, height: 26)

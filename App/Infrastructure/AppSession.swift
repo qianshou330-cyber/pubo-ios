@@ -18,7 +18,15 @@ final class AppSession {
     var recentEmojis: [String] = []
     var error: String?
     var restoring = true
-    var selectedTab = AppTab.messages
+    var selectedTab = AppTab.messages {
+        didSet {
+            #if DEBUG
+            if oldValue != selectedTab {
+                TabHitDiagnostics.selection(.selectionChanged, from: oldValue, to: selectedTab)
+            }
+            #endif
+        }
+    }
     var conversationTabLeases: [UUID: AppTab] = [:]
     var hidesBottomTabs: Bool { conversationTabLeases.values.contains(selectedTab) }
     var chatShowSenderName = false

@@ -1,6 +1,7 @@
 import SwiftUI
 #if DEBUG
 import UIKit
+import PUBOCore
 import OSLog
 
 /// Synthetic-only UIKit observations. Never dispatches a touch or supplies test readiness.
@@ -9,6 +10,14 @@ import OSLog
         !ProcessInfo.processInfo.arguments.contains("--isolated-backend") &&
         (ProcessInfo.processInfo.arguments.contains("--chat-preview-failure") ||
          ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--video-poster-fixture=") }))
+    enum SelectionEvent: String { case actionEntered, actionReturned, selectionChanged }
+    private static var selectionEvents = 0
+    static func selection(_ event: SelectionEvent, from: AppTab, to: AppTab) {
+        guard enabled, selectionEvents < 64 else { return }
+        selectionEvents += 1
+        let message = "event=\(event.rawValue) pid=\(ProcessInfo.processInfo.processIdentifier) uptime=\(ProcessInfo.processInfo.systemUptime) from=\(from.rawValue) to=\(to.rawValue)"
+        logger.notice("\(message, privacy: .public)")
+    }
     static var started = false
     static let logger = Logger(subsystem: "com.pubo.tabhit.diagnostics", category: "window-hit")
     static func marker(_ event: String) {
