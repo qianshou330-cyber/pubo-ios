@@ -1,5 +1,16 @@
 ## C65 final review / C66 report-action diagnostic — 2026-11-18 08:31 UTC
 
+## 2026-11-18 20:42 UTC / C70 interim verified evidence
+Code `d97eefee5e78ef4322e309b53fa50a4221d34aac`; [run 44384559161](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44384559161) still has active/queued jobs. No overlapping run or code push.
+- Raw checks job 135085439322 verifies **185 Swift tests / 0 failures**, including all five LoadRequestOwnershipTests. These validate request-token ownership under controlled completion ordering, not a full SwiftUI leave/reappear UI reproduction.
+- Large states job 135089135557 is **3/4, failed overall**. InitialFailureHasExplicitRetryAndRecovers passed (467.304s); loading/empty and room sender-name cases passed. Link-preview case failed at initial 消息 selection (line 14), BEFORE link retry behavior.
+- Artifact **14467907805** downloaded and inspected. Private original failed screenshot 41583ADB-5A86-4DBA-9138-168F1FFCBE03.png shows error and 重新加载; recovered screenshot 16C0CEED-D2DF-4796-9550-67AB53643A07.png visibly shows both synthetic messages. Manifest also contains failed/recovered room screenshots 62121FD6-8DB4-481D-882E-D278E6A9F94F.png / 8C5845F5-9E70-4CDF-BBBB-F1A8540F5873.png (listed, not visually reviewed in this check).
+- Private lifecycle logs: fail-once/transport-exit 20:18:19.651/19.654; caught 19.669; load-exit loading=false/error=true 19.678; retry-enter 20:18:25.111; new timeline request; timeline-return 20:18:35.863; published loaded=true/count=2 and load-exit loading=false/error=false 35.869/35.870. This verifies that one genuine retry UI flow, not causality for C69's delayed continuation or the independent leave/reappear bug.
+- Small navigation job 135089135440 failed runner AX initialization; product tests not verified. Small legacy job 135089135458 ran 5 tests / 1 failure: privacy autoAccept/locked both-theme case passed; edit-conflict case failed at initial edit-action existence (PUBOUITests:807), before conflict handling. Other three passed. Do not relabel that failure as a failed conflict-resolution operation.
+- Snapshot: checks, H5 and large video succeeded. Large states, small navigation and small legacy failed. Large layout/navigation/composer, small states and large legacy running; small video, OCR, both actions, small layout/composer and candidate queued. Run-level API reports queued despite active jobs; job states are retained, not reported completed.
+- Only FIX_LOG and AGENT_HANDOFF updated with [skip ci]. Existing CI remains untouched. Await all remaining results; no complete candidate acceptance.
+
+
 ## 2026-11-18 19:49 UTC / C70 private-chat request ownership
 Status: code fix prepared; local contracts passed; Swift/runtime/Simulator validation pending. Based on C69 code `13b2c02638a59671cc9bcac56bc69b20fa168abf` and final evidence docs `a5018326f29b67c71cd23632ac41f83543f70e3f`.
 
