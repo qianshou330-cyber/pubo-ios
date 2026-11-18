@@ -1,3 +1,9 @@
+### C64 follow-up — 2026-11-18 00:39 UTC (partial, running)
+- Code SHA 236cc491176045e72f992e3a64f39a7d6047f013; [run 44206712654](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44206712654) is still running. Checks, candidate-package and H5 reference succeeded; small states, large layout/composer and both video shards are running; remaining shards/OCR queued at this snapshot.
+- Raw checks log confirms Swift 178/178, Python 143/143 and Node receipt 2/2. Candidate raw log confirms two BUILD SUCCEEDED entries (simulator/device packaging). Artifact 14383994072 exists and remains QA-INCOMPLETE; not downloaded or installation-verified, not an accepted release.
+- No states artifact has uploaded yet. Recovery-stage logging and retry outcome are therefore still UNVERIFIED; a successful package is not evidence that recovery works. No code changes, retries, cancellations or new diagnostic runs started in this check.
+- This follow-up touches documentation only with skip ci, preserving active C64. Wait for states evidence before choosing a product fix; retain all gates.
+
 # Current checkpoint: 2026-11-18 00:18 UTC
 C63 run 44182546174 has ended failure; all jobs completed. Large actions failed but raw log fetch returned BlobNotFound, exact cause unverified. C64 is observation-only recovery diagnostics, not a repair: inspect synthetic private load stages and transport stages in existing states artifacts. Preserve all gates; no accepted release. Local Python 143/143 and Node 2/2 pass; Swift/Xcode unavailable locally. See latest FIX_LOG entry. The earlier snapshots below are historical.
 
