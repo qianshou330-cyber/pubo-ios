@@ -234,3 +234,9 @@ Code: `55351e1922a1141ddc3eecd7e720f853bc4b232f`; [run 44117699042](https://gith
 - Original UI test source, 20-second existence / 8-second readiness / actual click and selection assertion, 15-second recovery, fixture responses, OCR and workflow concurrency untouched. No warm-up launch, reordered cases, fake frame, cached geometry or threshold changes. Normal full CI required; code does not use skip ci.
 - Local passed: Python147/147, Node2/2, Python compilation, diff check. Swift/Xcode unavailable here, actual native compilation and simulator validation pending. Code reviewed for MainActor ownership, bounded/cancellable sampling and passive geometry; do not treat source contracts as runtime proof.
 - Next: align failed AX query UTC intervals with same-process pulse/scene/layout records. Normal pulses plus valid app layout during a failed query narrow the fault toward accessibility snapshot/query handling; long pulse gaps require further host/app evidence. C63 retry root cause and overall acceptance remain unresolved.
+
+
+### C65 partial CI checkpoint — 2026-11-18 06:34 UTC
+- Code fa7faa575afce408fffc444c613b79a7abf9bc91, [run 44250136745](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44250136745) active. Small states running, large states queued; no states artifacts yet. Startup/main-layout timing evidence and app compilation cannot yet be asserted from completed core checks.
+- Read raw completed logs: Swift core178/178, Python147/147, Node2/2 pass; H5 job success. OCR policyRegression FAIL on the same three previously readable controls (DejaVuSans-3x-10pt-1, 10pt-99plus, 12pt-5). Gate and corpus remain unchanged.
+- Candidate build and other simulator jobs running/queued. No code push, rerun, cancellation or new experiment during active work. No stage/geometry/root-cause conclusion without actual states artifacts. Documentation-only skip-ci checkpoint; overall acceptance remains incomplete.

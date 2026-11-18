@@ -1,3 +1,8 @@
+### C65 partial CI checkpoint — 2026-11-18 06:34 UTC
+- Code fa7faa575afce408fffc444c613b79a7abf9bc91, [run 44250136745](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44250136745) active. Small states running, large states queued; no states artifacts yet. Startup/main-layout timing evidence and app compilation cannot yet be asserted from completed core checks.
+- Read raw completed logs: Swift core178/178, Python147/147, Node2/2 pass; H5 job success. OCR policyRegression FAIL on the same three previously readable controls (DejaVuSans-3x-10pt-1, 10pt-99plus, 12pt-5). Gate and corpus remain unchanged.
+- Candidate build and other simulator jobs running/queued. No code push, rerun, cancellation or new experiment during active work. No stage/geometry/root-cause conclusion without actual states artifacts. Documentation-only skip-ci checkpoint; overall acceptance remains incomplete.
+
 ## C65 — 2026-11-18 06:16 UTC — bounded startup/main-layout diagnostics, NOT a product fix
 - Starting from a2710b438e6f040c632470be10c77bc78a596bd4, inspected AppSession construction, PUBOApp task/scene lifecycle, BottomTabBarInset and native UI readiness helper. Construction performs synchronous fixture store/cache setup; later startup uses awaited fixture install. Existing logs cannot attribute the cold-entry 7.25s AX window query to either work, so no production behavior change is justified.
 - Changes: new App/Infrastructure/StartupAccessibilityDiagnostics.swift; DEBUG hooks in App/Infrastructure/AppSession.swift and App/PUBOApp.swift; background-only modifier in App/Components/BottomTabBar.swift; states-only export in scripts/simulator-tests.py; source contracts in scripts/test_startup_accessibility_diagnostics.py.
