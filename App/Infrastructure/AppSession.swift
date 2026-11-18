@@ -67,6 +67,10 @@ final class AppSession {
     let security = AdminAuthorization(requiresManager: false)
 
     init() {
+        #if DEBUG
+        StartupAccessibilityDiagnostics.record(.sessionInitStart)
+        defer { StartupAccessibilityDiagnostics.record(.sessionInitReturned) }
+        #endif
         URLCache.shared = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 64 * 1024 * 1024, diskPath: "PUBOPublicMedia")
         let testing: Bool
         let isolated: Bool

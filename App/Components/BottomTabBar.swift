@@ -49,6 +49,7 @@ struct BottomTabBar: View {
         .overlay(alignment: .top) { PUBOTheme.divider.frame(height: 0.5) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app.tabBar")
+        .modifier(StartupTabLayoutDiagnostics())
     }
 
     @ViewBuilder private func icon(_ tab: AppTab) -> some View {

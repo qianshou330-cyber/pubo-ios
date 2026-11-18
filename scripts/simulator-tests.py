@@ -233,6 +233,18 @@ for index, template in enumerate(selected):
             except (subprocess.TimeoutExpired, OSError) as error:
                 capture['error'] = type(error).__name__
             (root / f'chatload-capture-{index}.json').write_text(json.dumps(capture, indent=2))
+        if shard == 'chat-presentation-states':
+            startup_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Main scheduling and bar layout only; never AX/hittability or acceptance proof'}
+            try:
+                startup_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '1h', '--predicate',
+                    'subsystem == "com.pubo.startup.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'startup-diagnostics-{index}.json').write_text(startup_logs.stdout)
+                startup_capture['exitCode'] = startup_logs.returncode
+                startup_capture['status'] = 'CAPTURED' if startup_logs.returncode == 0 and 'event=pulseStart' in startup_logs.stdout else 'INCOMPLETE'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                startup_capture['error'] = type(error).__name__
+            (root / f'startup-capture-{index}.json').write_text(json.dumps(startup_capture, indent=2))
         if shard == 'video-poster':
             # Diagnostic collection cannot turn a failed test into a pass.
             capture = {'status': 'UNAVAILABLE'}

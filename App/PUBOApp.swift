@@ -32,7 +32,20 @@ struct PUBOApp: App {
                 .environment(\.dynamicTypeSize, largeTestText ? .accessibility3 : systemTypeSize)
                 .modifier(TimelineWindowTypeSize(largeTestText: largeTestText))
                 .preferredColorScheme(session.testMode && !ProcessInfo.processInfo.arguments.contains("--system-appearance") ? (ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : .light) : nil)
-                .task { await session.start() }
+                .task {
+                    #if DEBUG
+                    StartupAccessibilityDiagnostics.record(.rootStart)
+                    #endif
+                    await session.start()
+                    #if DEBUG
+                    StartupAccessibilityDiagnostics.record(.rootReturned)
+                    #endif
+                }
+                .task {
+                    #if DEBUG
+                    await StartupAccessibilityDiagnostics.sampleMainScheduling()
+                    #endif
+                }
                 .task(id: "\(session.generation)-\(session.user?.id ?? "guest")-\(session.streamRevision)-\(scenePhase == .active)") {
                     if scenePhase == .active { await session.refreshUnread() }
                 }
@@ -48,6 +61,7 @@ struct PUBOApp: App {
                 }
                 .onChange(of: scenePhase) { _, phase in
                     #if DEBUG
+                    StartupAccessibilityDiagnostics.record(phase == .active ? .sceneActive : (phase == .background ? .sceneBackground : .sceneInactive))
                     if phase == .background { RefreshDiagnostics.shared.record(.sceneBackground) }
                     if phase == .active { RefreshDiagnostics.shared.record(.sceneActive) }
                     #endif
