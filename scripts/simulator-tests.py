@@ -245,6 +245,18 @@ for index, template in enumerate(selected):
             except (subprocess.TimeoutExpired, OSError) as error:
                 startup_capture['error'] = type(error).__name__
             (root / f'startup-capture-{index}.json').write_text(json.dumps(startup_capture, indent=2))
+        if shard == 'chat-alignment-actions':
+            report_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Action/state lifecycle only; no visual proof or gate override'}
+            try:
+                report_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '1h', '--predicate',
+                    'subsystem == "com.pubo.roomreport.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'roomreport-diagnostics-{index}.json').write_text(report_logs.stdout)
+                report_capture['exitCode'] = report_logs.returncode
+                report_capture['status'] = 'CAPTURED' if report_logs.returncode == 0 and 'event=actionEntered' in report_logs.stdout else 'INCOMPLETE'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                report_capture['error'] = type(error).__name__
+            (root / f'roomreport-capture-{index}.json').write_text(json.dumps(report_capture, indent=2))
         if shard == 'video-poster':
             # Diagnostic collection cannot turn a failed test into a pass.
             capture = {'status': 'UNAVAILABLE'}

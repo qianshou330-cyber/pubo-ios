@@ -206,7 +206,24 @@ struct RoomChatView: View {
             .onDisappear { invalidateMessageDeletion(); active = false; loadEpoch = UUID(); uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
              .sheet(isPresented: $choosingFile) { DrivePicker { file in draft.file = file; persist() } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &draft.text, selection: &textSelection) } }
-            .sheet(item: $reporting) { message in ReportView(userID: message["fromUserId"].string ?? "", context: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id).absoluteString + "\n-----\n") }
+            .onChange(of: reporting?.id) { _, value in
+                #if DEBUG
+                RoomReportDiagnostics.record(value == nil ? .stateCleared : .statePresent)
+                #endif
+            }
+            .sheet(item: $reporting) { message in
+                ReportView(userID: message["fromUserId"].string ?? "", context: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id).absoluteString + "\n-----\n")
+                    .onAppear {
+                        #if DEBUG
+                        RoomReportDiagnostics.record(.sheetAppeared)
+                        #endif
+                    }
+                    .onDisappear {
+                        #if DEBUG
+                        RoomReportDiagnostics.record(.sheetDisappeared)
+                        #endif
+                    }
+            }
             .photosPicker(isPresented: $choosingPhoto, selection: $selectedPhoto, matching: .any(of: [.images, .videos]))
             .onChange(of: selectedPhoto) { _, item in uploadTask = Task { await uploadPhoto(item) } }
             .fileImporter(isPresented: $importingFile, allowedContentTypes: [.item]) { result in uploadTask = Task { await uploadFile(result) } }
@@ -287,11 +304,28 @@ struct RoomChatView: View {
         let owner = session.user?.id
         func command(_ id: String, _ title: String, destructive: Bool = false, enabled: Bool = true, _ perform: @escaping () -> Void) -> ChatMenuAction {
             ChatMenuAction(id: id, title: title, destructive: destructive, enabled: enabled) {
+                #if DEBUG
+                if RoomReportDiagnostics.enabled && id.hasPrefix("room.report.") { RoomReportDiagnostics.record(.actionEntered) }
+                #endif
                 guard active, scenePhase == .active, section == "messages", preview == nil,
                       epoch == session.generation, owner == session.user?.id,
                       let current = messages.first(where: { $0.id == message.id }),
-                      current["recalledAt"].isNull, current.raw == message.raw else { return }
+                      current["recalledAt"].isNull, current.raw == message.raw else {
+                    #if DEBUG
+                    if RoomReportDiagnostics.enabled && id.hasPrefix("room.report.") {
+                        let matches = messages.first(where: { $0.id == message.id }).map { $0["recalledAt"].isNull && $0.raw == message.raw } ?? false
+                        RoomReportDiagnostics.record(.rejected, flags: [active, scenePhase == .active, section == "messages", preview == nil, epoch == session.generation, owner == session.user?.id, matches])
+                    }
+                    #endif
+                    return
+                }
+                #if DEBUG
+                if RoomReportDiagnostics.enabled && id.hasPrefix("room.report.") { RoomReportDiagnostics.record(.accepted) }
+                #endif
                 perform()
+                #if DEBUG
+                if RoomReportDiagnostics.enabled && id.hasPrefix("room.report.") { RoomReportDiagnostics.record(.stateAssigned, flags: [reporting != nil]) }
+                #endif
             }
         }
         var actions: [ChatMenuAction] = []
