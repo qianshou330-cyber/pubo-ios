@@ -2,6 +2,24 @@ import XCTest
 @testable import PUBOCore
 
 final class AccountSettingsPolicyTests: XCTestCase {
+    func testConfirmedPrivacyDraftDoesNotRevertUntouchedRemoteChange() {
+        let confirmed: JSONValue = .object(["isLocked": .bool(true), "hideOnlineStatus": .bool(true), "name": .string("not editable here")])
+        let draft = AccountSettingsPolicy.confirmedPrivacyDraft(confirmed, editableKeys: ["isLocked", "hideOnlineStatus"])
+        XCTAssertEqual(draft["isLocked"], .bool(true))
+        XCTAssertEqual(draft["hideOnlineStatus"], .bool(true))
+        XCTAssertNil(draft["name"])
+        XCTAssertTrue(draft.filter { confirmed[$0.key] != $0.value }.isEmpty)
+        var next = draft
+        next["isLocked"] = .bool(false)
+        XCTAssertEqual(Set(next.filter { confirmed[$0.key] != $0.value }.keys), ["isLocked"])
+    }
+    func testConfirmedPrivacyDraftRetainsDisabledPreferenceAndMissingKeys() {
+        let confirmed: JSONValue = .object(["isLocked": .bool(false), "autoAcceptFollowed": .bool(true)])
+        let draft = AccountSettingsPolicy.confirmedPrivacyDraft(confirmed, editableKeys: ["isLocked", "autoAcceptFollowed", "followingVisibility", "isLocked"])
+        XCTAssertEqual(draft["autoAcceptFollowed"], .bool(true))
+        XCTAssertEqual(draft["followingVisibility"], .null)
+        XCTAssertEqual(draft.count, 3)
+    }
     func testAutoAcceptRequiresLockedAccount() {
         for locked in [false, true] {
             XCTAssertEqual(AccountSettingsPolicy.canEditPrivacyOption("autoAcceptFollowed", values: ["isLocked": .bool(locked)], loaded: true, busy: false), locked)

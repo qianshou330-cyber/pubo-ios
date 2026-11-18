@@ -109,6 +109,9 @@ struct PrivacySettingsView: View {
             guard changed.allSatisfy({ fresh[$0.key] == original[$0.key] }) else { throw APIError(code: "CONFLICT", message: "设置已在其他设备改变，请重新进入核对。") }
             do { _ = try await session.call("i/update", changed, mutation: true) } catch { if (error as? APIError)?.code != "OUTCOME_UNKNOWN" { throw error } }
             let confirmed = try await session.call("i"); guard changed.allSatisfy({ confirmed[$0.key] == $0.value }) else { throw APIError.uncertain }
+            // The baseline and draft must advance together. Otherwise an
+            // untouched setting changed remotely becomes a false local edit.
+            values = AccountSettingsPolicy.confirmedPrivacyDraft(confirmed, editableKeys: Array(values.keys))
             original = confirmed; try await session.refreshUser(); error = "已保存"
         } catch { self.error = error.localizedDescription }
     }
