@@ -1,5 +1,19 @@
 ## C65 final review / C66 report-action diagnostic — 2026-11-18 08:31 UTC
 
+## 2026-11-18 19:49 UTC / C70 private-chat request ownership
+Status: code fix prepared; local contracts passed; Swift/runtime/Simulator validation pending. Based on C69 code `13b2c02638a59671cc9bcac56bc69b20fa168abf` and final evidence docs `a5018326f29b67c71cd23632ac41f83543f70e3f`.
+
+Problem: a retained ChatView can disappear while load A is suspended; disappearance invalidates content syncEpoch but previously leaves loading=true. A reappearance's load B is skipped; A then returns stale and clears loading without guaranteeing another load. Initial context loads have the analogous contextBusy sequence. This is a code-demonstrable interleaving, NOT a reproduced cause of C69's no-disappear continuation/render delay.
+
+Fix: use separate ordinary/context LoadRequestOwnership tokens. Disappearance invalidates both; only the owning completion may release its busy indicator. Content syncEpoch remains independent, so send/action/context invalidations do not strand busy. Cancelled lifecycle tasks cannot reacquire after refreshPeer. Preserve content/account/cancellation validation, add active/epoch/cancel guards after context scrolling yields. No message reset, retry limit, timeout, assertion gate, diagnostic expansion, Room code or CI workflow change.
+
+Files: App/Features/ChatView.swift; Sources/PUBOCore/LoadRequestOwnership.swift; Tests/PUBOCoreTests/LoadRequestOwnershipTests.swift; scripts/test_chat_load_ownership.py; scripts/test_chat_load_trace.py; docs/FIX_LOG.md; docs/AGENT_HANDOFF.md.
+Tests: five Swift regressions cover normal/duplicate begin, stale completion while a new request owns busy, reverse completion/repeated invalidation, content epoch independence, separate context ownership. These exercise the actual product helper in controlled completion order, not full asynchronous SwiftUI reappearance. Three new Python wiring contracts preserve cancellation/security and context/timeline separation. Existing trace contract updated from unconditional bool clear to owning-token finish, preserving all trace-stage and UI gates.
+Local: Python **162/162**, Node **2/2**, simulator script py_compile and git diff --check passed. Initial local contract run failed only because the old trace test required literal loading=false; corrected to assert owning-token release, then full suite passed. Independent review found no blocker. Linux lacks Swift/Xcode: no local Swift or Simulator pass claimed.
+
+Next: normal code push on the authorized branch after confirming no active/queued run, then inspect full C70 CI (including the five native unit tests and states/navigation). Do not call C69 delay fixed or claim UI acceptance from helper tests. Previous OCR, initialization, timeout and UI failures remain recorded in C69 final evidence. No main/PR/release or new branch.
+
+
 ## 2026-11-18 19:44 UTC / C69 final evidence (not accepted)
 Code: `13b2c02638a59671cc9bcac56bc69b20fa168abf`; [run 44351644804](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44351644804), completed **failure**. Branch head rechecked; no in-progress run. This update changes documentation only, not app behavior, diagnostics or gates.
 

@@ -27,7 +27,8 @@ struct ChatView: View {
     @State private var reply: Record?
     @State private var error: String?
     @State private var busy = false
-    @State private var loading = false
+    @State private var loadOwnership = LoadRequestOwnership()
+    private var loading: Bool { loadOwnership.isLoading }
     @State private var hasMore = false
     @State private var initialLoadCompleted = false
     @State private var loadError: String?
@@ -50,7 +51,8 @@ struct ChatView: View {
     @State private var syncEpoch = UUID()
     @State private var needsFullState = false
     @State private var contextMode = false
-    @State private var contextBusy = false
+    @State private var contextOwnership = LoadRequestOwnership()
+    private var contextBusy: Bool { contextOwnership.isLoading }
     @State private var hasNewer = false
     @State private var highlightedID: String?
     @State private var scrollTarget: String?
@@ -137,9 +139,11 @@ struct ChatView: View {
     private var chatLifecycle: some View {
         chatLayout
             .task {
+                guard !Task.isCancelled else { return }
                 active = true; traceLoad("appear"); session.stream.showChat(peer.id)
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
                 await refreshPeer()
+                guard !Task.isCancelled, active else { return }
                 if let initialMessageID { await openContext(initialMessageID) } else { await load() }; await loadConversation()
             }
             .task(id: session.generation) { await session.restoreChatPreferences() }
@@ -152,7 +156,7 @@ struct ChatView: View {
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stickerTask?.cancel(); recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
             .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil }
-            .onDisappear { active = false; traceLoad("disappear"); stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+            .onDisappear { active = false; loadOwnership.invalidate(); contextOwnership.invalidate(); traceLoad("disappear"); stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
     }
     var body: some View {
         chatLifecycle
@@ -355,12 +359,11 @@ struct ChatView: View {
         // successful timeline from the intentionally skipped latest endpoint.
         if contextMode && messages.isEmpty && !older { return }
         if reconcileAll { needsFullState = true }
-        guard active, !loading else { traceLoad("guard-skipped"); return }
+        guard active, !Task.isCancelled, let request = loadOwnership.begin() else { traceLoad("guard-skipped"); return }
         let attempt = UUID().uuidString
-        loading = true
         traceLoad("load-start", attempt: attempt)
         let epoch = syncEpoch
-        defer { loading = false; traceLoad("load-exit", attempt: attempt, current: epoch == syncEpoch) }
+        defer { loadOwnership.finish(request); traceLoad("load-exit", attempt: attempt, current: epoch == syncEpoch) }
         retryOlder = older; loadError = nil
         do {
             var fields: [String: JSONValue] = ["userId": .string(peer.id), "limit": .number(50)]
@@ -407,7 +410,7 @@ struct ChatView: View {
         }
     }
     private func openContext(_ id: String) async {
-        guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
+        guard active, !Task.isCancelled, let request = contextOwnership.begin() else { return }; defer { contextOwnership.finish(request) }
         syncEpoch = UUID(); let epoch = syncEpoch; scrollTarget = nil
         if messages.isEmpty { loadError = nil }
         do {
@@ -419,7 +422,7 @@ struct ChatView: View {
             }) else { throw APIError.invalidResponse }
             contextMode = true; messages = ChatRecords.merge([], rows); hasMore = value["hasOlder"].bool; hasNewer = value["hasNewer"].bool
             highlightedID = id; error = nil; initialLoadCompleted = true; loadError = nil
-            await Task.yield(); guard epoch == syncEpoch else { return }; scrollTarget = id
+            await Task.yield(); guard active, epoch == syncEpoch, !Task.isCancelled else { return }; scrollTarget = id
         } catch {
             if active, epoch == syncEpoch, !Task.isCancelled {
                 let message = "无法定位原消息：" + error.localizedDescription
@@ -428,13 +431,13 @@ struct ChatView: View {
         }
     }
     private func returnToLatest() async {
-        guard !contextBusy else { return }; contextBusy = true; defer { contextBusy = false }
+        guard active, !Task.isCancelled, let request = contextOwnership.begin() else { return }; defer { contextOwnership.finish(request) }
         syncEpoch = UUID(); let epoch = syncEpoch
         do {
             let rows = Record.list(try await session.call("chat/messages/user-timeline", ["userId": .string(peer.id), "limit": .number(50)]))
             guard epoch == syncEpoch, !Task.isCancelled else { return }
             messages = ChatRecords.merge([], rows); contextMode = false; hasNewer = false; highlightedID = nil; hasMore = rows.count == 50; error = nil; initialLoadCompleted = true; loadError = nil
-            scrollTarget = nil; await Task.yield(); scrollTarget = "bottom"
+            scrollTarget = nil; await Task.yield(); guard active, epoch == syncEpoch, !Task.isCancelled else { return }; scrollTarget = "bottom"
         } catch { if epoch == syncEpoch { self.error = error.localizedDescription } }
     }
     private func refreshPeer() async {

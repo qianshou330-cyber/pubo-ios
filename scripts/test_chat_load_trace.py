@@ -16,7 +16,7 @@ class ChatLoadTraceTests(unittest.TestCase):
             self.assertIn('traceLoad("'+x+'"',s)
         block=s.split('private func load(older:',1)[1].split('private func updateDraft',1)[0]
         self.assertEqual(block.count('guard epoch == syncEpoch, !Task.isCancelled else { return }'),2)
-        self.assertIn('defer { loading = false;',block)
+        self.assertIn('defer { loadOwnership.finish(request);',block)
     def test_collection_cannot_override_acceptance(self):
         s=(ROOT/'scripts/simulator-tests.py').read_text()
         block=s.split("if shard == 'chat-presentation-states':",1)[1].split("if shard == 'video-poster':",1)[0]
