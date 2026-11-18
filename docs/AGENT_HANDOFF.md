@@ -1,3 +1,6 @@
+# Current checkpoint: 2026-11-18 00:18 UTC
+C63 run 44182546174 has ended failure; all jobs completed. Large actions failed but raw log fetch returned BlobNotFound, exact cause unverified. C64 is observation-only recovery diagnostics, not a repair: inspect synthetic private load stages and transport stages in existing states artifacts. Preserve all gates; no accepted release. Local Python 143/143 and Node 2/2 pass; Swift/Xcode unavailable locally. See latest FIX_LOG entry. The earlier snapshots below are historical.
+
 # PUBO agent handoff
 
 Snapshot: 2026-11-17 16:51 UTC. Refresh branch and Actions before acting; this is not a live status page.

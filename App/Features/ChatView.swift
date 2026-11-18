@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import PhotosUI
 import UniformTypeIdentifiers
 import PUBOCore
@@ -136,7 +137,7 @@ struct ChatView: View {
     private var chatLifecycle: some View {
         chatLayout
             .task {
-                active = true; session.stream.showChat(peer.id)
+                active = true; traceLoad("appear"); session.stream.showChat(peer.id)
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
                 await refreshPeer()
                 if let initialMessageID { await openContext(initialMessageID) } else { await load() }; await loadConversation()
@@ -151,7 +152,7 @@ struct ChatView: View {
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stickerTask?.cancel(); recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
             .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil }
-            .onDisappear { active = false; stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+            .onDisappear { active = false; traceLoad("disappear"); stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
     }
     var body: some View {
         chatLifecycle
@@ -337,7 +338,15 @@ struct ChatView: View {
         guard restored, let account = session.user?.id, account == ownerID else { return }
         do { try session.store?.save(ChatDraft(text: text, attachments: attachments, reply: reply, lastFailure: error), account: account, key: draftKey) } catch { self.error = "草稿保存失败。" }
     }
+    // C64: synthetic-only lifecycle evidence, never message/account/error contents.
+    private func traceLoad(_ stage: String, attempt: String = "none", current: Bool = true) {
+        #if DEBUG
+        guard session.testMode, ProcessInfo.processInfo.arguments.contains("--chat-load-fail-once") else { return }
+        Logger(subsystem: "com.pubo.chatload.diagnostics", category: "private").notice("stage=\(stage, privacy: .public) attempt=\(attempt, privacy: .public) active=\(active) loading=\(loading) loaded=\(initialLoadCompleted) errorPresent=\(loadError != nil) count=\(messages.count) current=\(current) cancelled=\(Task.isCancelled)")
+        #endif
+    }
     private func retryInitialLoad() async {
+        traceLoad("retry-enter")
         if contextMode && messages.isEmpty, let initialMessageID { await openContext(initialMessageID) }
         else { await load() }
     }
@@ -346,13 +355,19 @@ struct ChatView: View {
         // successful timeline from the intentionally skipped latest endpoint.
         if contextMode && messages.isEmpty && !older { return }
         if reconcileAll { needsFullState = true }
-        guard active, !loading else { return }; loading = true; defer { loading = false }
+        guard active, !loading else { traceLoad("guard-skipped"); return }
+        let attempt = UUID().uuidString
+        loading = true
+        traceLoad("load-start", attempt: attempt)
         let epoch = syncEpoch
+        defer { loading = false; traceLoad("load-exit", attempt: attempt, current: epoch == syncEpoch) }
         retryOlder = older; loadError = nil
         do {
             var fields: [String: JSONValue] = ["userId": .string(peer.id), "limit": .number(50)]
             if older, let id = messages.first?.id { fields["untilId"] = .string(id) }
+            traceLoad("timeline-request", attempt: attempt)
             let result = contextMode && !older ? [] : Record.list(try await session.call("chat/messages/user-timeline", fields))
+            traceLoad("timeline-return", attempt: attempt, current: epoch == syncEpoch)
             guard epoch == syncEpoch, !Task.isCancelled else { return }
             messages = Array(ChatRecords.merge(messages, result).suffix(2_000))
             if !contextMode || older { if older || messages.count <= 50 { hasMore = result.count == 50 && messages.count < 2_000 } }
@@ -361,7 +376,9 @@ struct ChatView: View {
             let ids = Array(Set((all ? messages.map(\.id) : []) + Array(session.changedChatIDs)).union(ChatReferences.ids(messages, draft: reply))).sorted()
             for offset in stride(from: 0, to: ids.count, by: 100) {
                 let batch = Array(ids[offset..<min(offset + 100, ids.count)])
+                traceLoad("state-request", attempt: attempt)
                 let state = try await session.call("chat/messages/state", ["userId": .string(peer.id), "messageIds": .strings(batch)])
+                traceLoad("state-return", attempt: attempt, current: epoch == syncEpoch)
                 guard epoch == syncEpoch, !Task.isCancelled else { return }
                 guard case .array = state["messages"], case .array = state["missingIds"] else { throw APIError.invalidResponse }
                 let updates = Record.list(state["messages"]).filter { batch.contains($0.id) }
@@ -375,7 +392,9 @@ struct ChatView: View {
             }
             if all { needsFullState = false }
             initialLoadCompleted = true; loadError = nil
+            traceLoad("published", attempt: attempt)
         } catch {
+            traceLoad("caught", attempt: attempt, current: epoch == syncEpoch)
             if active, epoch == syncEpoch, !Task.isCancelled { loadError = error.localizedDescription }
         }
     }

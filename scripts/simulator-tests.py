@@ -220,6 +220,19 @@ for index, template in enumerate(selected):
         if test_exit:
             diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot',
                         str(screenshots / 'runner-failure.png')], timeout=30)
+        if shard == 'chat-presentation-states':
+            # Observe synthetic load stages without changing test results or timeouts.
+            capture = {'status': 'UNAVAILABLE', 'interpretation': 'Diagnostics only; absent stages are not proof of success'}
+            try:
+                logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '30m', '--predicate',
+                    'subsystem == "com.pubo.chatload.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'chatload-diagnostics-{index}.json').write_text(logs.stdout)
+                capture['exitCode'] = logs.returncode
+                capture['status'] = 'CAPTURED' if logs.returncode == 0 and 'load-start' in logs.stdout else 'INCOMPLETE'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                capture['error'] = type(error).__name__
+            (root / f'chatload-capture-{index}.json').write_text(json.dumps(capture, indent=2))
         if shard == 'video-poster':
             # Diagnostic collection cannot turn a failed test into a pass.
             capture = {'status': 'UNAVAILABLE'}

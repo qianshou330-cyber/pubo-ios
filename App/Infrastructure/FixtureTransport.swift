@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import PUBOCore
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -188,6 +189,14 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        let traceAttempt = UUID().uuidString
+        let traceEnabled = args.contains("--chat-load-fail-once") && path == "chat/messages/user-timeline"
+        func traceResponse(_ stage: String) {
+            guard traceEnabled else { return }
+            Logger(subsystem: "com.pubo.chatload.diagnostics", category: "fixture").notice("stage=\(stage, privacy: .public) request=\(traceAttempt, privacy: .public) cancelled=\(Task.isCancelled)")
+        }
+        traceResponse("transport-enter")
+        defer { traceResponse("transport-exit") }
         // Scoped to actual conversation reads, so the home list remains usable.
         // These synthetic-only flags never affect a production API transport.
         if ["chat/messages/user-timeline", "chat/messages/room-timeline"].contains(path) {
@@ -195,8 +204,10 @@ actor FixtureTransport: HTTPTransport {
                 try await ChatFixtureResponseGate.wait(path: path)
             }
             if args.contains("--chat-load-delay") { try await Task.sleep(for: .seconds(5)) }
+            traceResponse("delay-stage-exit")
             if args.contains("--chat-load-fail-once"), !chatParityFailedPaths.contains(path) {
                 chatParityFailedPaths.insert(path)
+                traceResponse("fail-once")
                 throw URLError(.notConnectedToInternet)
             }
             if args.contains("--chat-load-empty") {
