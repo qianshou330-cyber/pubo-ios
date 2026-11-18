@@ -245,6 +245,18 @@ for index, template in enumerate(selected):
             except (subprocess.TimeoutExpired, OSError) as error:
                 startup_capture['error'] = type(error).__name__
             (root / f'startup-capture-{index}.json').write_text(json.dumps(startup_capture, indent=2))
+        if shard in ('chat-presentation-states', 'video-poster'):
+            hit_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Synthetic bar-center UIKit hit observations, not AX readiness or acceptance'}
+            try:
+                hit_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '1h', '--predicate',
+                    'subsystem == "com.pubo.tabhit.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'tabhit-diagnostics-{index}.json').write_text(hit_logs.stdout)
+                hit_capture['exitCode'] = hit_logs.returncode
+                hit_capture['status'] = 'CAPTURED' if hit_logs.returncode == 0 and 'event=sample' in hit_logs.stdout else 'INCOMPLETE'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                hit_capture['error'] = type(error).__name__
+            (root / f'tabhit-capture-{index}.json').write_text(json.dumps(hit_capture, indent=2))
         if shard == 'chat-alignment-actions':
             report_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Action/state lifecycle only; no visual proof or gate override'}
             try:

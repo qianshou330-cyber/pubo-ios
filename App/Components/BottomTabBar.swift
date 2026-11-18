@@ -50,6 +50,7 @@ struct BottomTabBar: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app.tabBar")
         .modifier(StartupTabLayoutDiagnostics())
+        .modifier(TabHitDiagnosticsModifier())
     }
 
     @ViewBuilder private func icon(_ tab: AppTab) -> some View {
