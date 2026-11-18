@@ -141,9 +141,15 @@ struct ChatView: View {
             .task {
                 guard !Task.isCancelled else { return }
                 active = true; traceLoad("appear"); session.stream.showChat(peer.id)
+                #if DEBUG
+                ChatNavigationDiagnostics.record(.privateTaskEntered, session: session)
+                #endif
                 if !restored { restored = true; ownerID = session.user?.id; restore() }
                 await refreshPeer()
                 guard !Task.isCancelled, active else { return }
+                #if DEBUG
+                ChatNavigationDiagnostics.record(.privatePeerReturned, session: session)
+                #endif
                 if let initialMessageID { await openContext(initialMessageID) } else { await load() }; await loadConversation()
             }
             .task(id: session.generation) { await session.restoreChatPreferences() }
@@ -156,7 +162,11 @@ struct ChatView: View {
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stickerTask?.cancel(); recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
             .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil }
-            .onDisappear { active = false; loadOwnership.invalidate(); contextOwnership.invalidate(); traceLoad("disappear"); stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+            .onDisappear {
+                #if DEBUG
+                ChatNavigationDiagnostics.record(.privateDisappear, session: session)
+                #endif
+                active = false; loadOwnership.invalidate(); contextOwnership.invalidate(); traceLoad("disappear"); stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
     }
     var body: some View {
         chatLifecycle

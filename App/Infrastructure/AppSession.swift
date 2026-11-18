@@ -27,13 +27,27 @@ final class AppSession {
             #endif
         }
     }
-    var conversationTabLeases: [UUID: AppTab] = [:]
+    var conversationTabLeases: [UUID: AppTab] = [:] {
+        didSet {
+            #if DEBUG
+            ChatNavigationDiagnostics.record(.leasesChanged, session: self)
+            #endif
+        }
+    }
     var hidesBottomTabs: Bool { conversationTabLeases.values.contains(selectedTab) }
     var chatShowSenderName = false
     private var chatPreferenceLoaded = false
     private var chatPreferenceAttempt = UUID()
     var streamConnection = ChatConnectionPhase.idle
-    var messagesPath = NavigationPath()
+    var messagesPath = NavigationPath() {
+        didSet {
+            #if DEBUG
+            if oldValue.count != messagesPath.count {
+                ChatNavigationDiagnostics.record(.messagesPathChanged, session: self, previousDepth: oldValue.count)
+            }
+            #endif
+        }
+    }
     var friendsPath = NavigationPath()
     var worldPath = NavigationPath()
     var mePath = NavigationPath()

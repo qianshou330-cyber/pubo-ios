@@ -119,6 +119,11 @@ struct BottomTabBarInset: ViewModifier {
             keyboardVisible = false
         }
         .onDisappear { keyboardVisible = false }
+        #if DEBUG
+        .onChange(of: keyboardVisible) { _, visible in
+            ChatNavigationDiagnostics.record(visible ? .keyboardVisible : .keyboardHidden, session: session)
+        }
+        #endif
     }
 }
 

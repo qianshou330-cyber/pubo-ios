@@ -220,6 +220,18 @@ for index, template in enumerate(selected):
         if test_exit:
             diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot',
                         str(screenshots / 'runner-failure.png')], timeout=30)
+        if shard == 'chat-presentation-composer':
+            navigation_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Passive counts/lifecycle only; not native Back touch, complete navigation stack, or acceptance proof'}
+            try:
+                navigation_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '1h', '--predicate',
+                    'subsystem == "com.pubo.chatnavigation.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'chatnavigation-diagnostics-{index}.json').write_text(navigation_logs.stdout)
+                navigation_capture['exitCode'] = navigation_logs.returncode
+                navigation_capture['status'] = 'CAPTURED' if navigation_logs.returncode == 0 and 'event=privateTaskEntered' in navigation_logs.stdout else 'INCOMPLETE'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                navigation_capture['error'] = type(error).__name__
+            (root / f'chatnavigation-capture-{index}.json').write_text(json.dumps(navigation_capture, indent=2))
         if shard == 'chat-presentation-states':
             # Observe synthetic load stages without changing test results or timeouts.
             capture = {'status': 'UNAVAILABLE', 'interpretation': 'Diagnostics only; absent stages are not proof of success'}
