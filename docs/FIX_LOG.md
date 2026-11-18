@@ -1,5 +1,23 @@
 # 修复日志
 
+## 2026-11-18 19:44 UTC / C69 final evidence (not accepted)
+Code: `13b2c02638a59671cc9bcac56bc69b20fa168abf`; [run 44351644804](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44351644804), completed **failure**. Branch head rechecked; no in-progress run. This update changes documentation only, not app behavior, diagnostics or gates.
+
+- Passed jobs: checks (180 Swift tests including both new confirmed-privacy-draft regressions; 159 Python tests), H5 reference, both layout sizes, small video, large actions, large states. Candidate packaging succeeded only as **QA-INCOMPLETE**; formal package skipped.
+- OCR: known three positive confidence failures remain; original thresholds and negative protections unchanged.
+- Small navigation (job 134974652479): cancelled overall after 13 tests / 1 assertion failure and later simulator shutdown timeout. Failure is initial syntheticpeer row absence at FourTabNavigationUITests:372, BEFORE any account switch. Original recording `616C185A-ADD4-42DC-B181-FBF8333BE01B.mp4` (artifact 14454964979) shows message-list spinner. Do not label account-isolation failure or repaired loading.
+- Large navigation (134974652304): 12 individual test pass records, final test started but no final result; runner exceeded 2700 seconds. Incomplete suite, not 13/13.
+- Small legacy (134974652321) and small composer (134974652372): UI runner AX initialization timeout, not product assertion failures.
+- Large legacy (134974652344): 5 tests / 1 failure at initial 我的 tab readiness, BEFORE privacy edit/save. The C69 privacy helper is unit-verified, but the end-to-end privacy UI save flow was NOT verified by this run.
+- Large video (134974652341): 4 tests / 1 failure at initial 世界圈 readiness in broken-thumbnail case, before thumbnail decoding assertion.
+- Large composer (134974652351): all four individual test pass records, but runner exceeded the 30-minute budget and result bundle metadata/export failed. Job remains failed/incomplete, not fully accepted.
+- Small actions (134974652529): 5 tests / 1 failure at initial 消息 readiness in group reaction case; group permission behavior was not reached in that failed case.
+- Small states (134974652599): 4 tests / 1 failure; initial-failure-retry case failed at ChatComposerParityUITests:23 querying chat.input after opening private chat. Retry was NOT attempted. Other three tests passed. Artifact 14460397554 contains original recording `59FCAD98-E800-4F9C-B16B-AEC7F4606F8B.mp4`, query attachment `799AFD39-8450-4860-B485-C1FBE2E87927.txt`, and lifecycle logs.
+- Small states PID 18944: timeline request 18:43:51.492; transport fail-once/exit 18:43:56.561/56.563; catch 18:45:36.209; load-exit 18:45:36.222 with loading=false/errorPresent=true. Approximately 99.65 seconds between transport exit and catch. Original video inspected near its end still displays 正在加载消息. Startup probe also records 102.31-second and 30.99-second pulse gaps. These establish delayed continuation/visible progress, NOT a proven CPU/main-thread deadlock, transport hang or failed retry. Test/host suspension, scheduler/AX overhead, diagnostics overhead and delayed rendering remain possible; timestamps alone cannot distinguish them.
+
+Changes/files: only this log and AGENT_HANDOFF. No rerun, code change, lowered gate, new branch, PR, release or accepted IPA. Next: investigate the existing synthetic loading/lifecycle path and correlate original video/logs before selecting a reproducible fix. Existing ChatList task already invalidates stale epochs; do not reintroduce or claim that old fix as new. Preserve all failure and incomplete-run evidence.
+
+
 按最新记录在前追加。此规范根据项目要求建立；以下仅补录可核实的最近 C60/C61，**不是全部历史修复清单**。旧记录不足时写“未核实”，不补造结果。
 
 ## 记录模板
