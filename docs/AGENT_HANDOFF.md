@@ -1,5 +1,19 @@
 ## C65 final review / C66 report-action diagnostic — 2026-11-18 08:31 UTC
 
+## 2026-11-18 20:45 UTC / C70 ongoing follow-up, no rerun
+[Run 44384559161](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44384559161), code d97eefee5e78ef4322e309b53fa50a4221d34aac. Existing run remains active; no code changes or concurrent CI.
+- New completed small states job 135089135723 failed UI runner initialization: Timed out waiting for AX loaded notification. No retry/leave-return product test result can be inferred.
+- New completed large legacy job 135089135827: **5 tests / 2 failures**. AutoAccept/locked both-theme case failed at initial 我的 readiness (AccountSettingsParityUITests:21). NativePrivacyAndVerificationStatus reached privacy.hideOnlineStatus: real switch tap at 20:40:01.665, expected value 1 did not satisfy original 8-second transition gate; failure at PUBOUITests:159. Do not conflate this with initial navigation, failed saving, or the C69 confirmed-draft helper. Raw log proves a transition failure, not its cause. Artifact 14468728682 contains evidence and still needs attachment/video/probe correlation. Other three cases, including edit conflict/lost response, passed on large; the analogous small edit case failed before its action appeared.
+- Still running at snapshot: large layout, small video, large navigation/actions/composer. Queued: OCR, small actions/layout/composer, candidate. Keep current run intact; completed failures do not justify preemptive restart.
+
+Read-only design for a future stable leave/reappear regression (NOT implemented or executed):
+1. Retain the SAME ChatView identity through a real supported navigation excursion; ordinary pop-and-create-new is insufficient because it resets @State. Verify the route actually sends disappear/appear while retaining that state, rather than assuming sheet presentation does.
+2. Hold initial synthetic timeline request A at a per-request transport barrier; enter a real navigation destination then return; hold fresh B independently. Release A while B remains suspended, verify loading remains and no stale content is published; release B and assert its exact synthetic content, loading disappearance, and real composer, with unchanged existing budgets and genuine UI actions. Repeat opposite completion order and context case.
+3. Current ChatLoadingTestGate is one global release per launch, only timeline endpoints, cancellation-aware with 50ms sleeps. It cannot independently order A/B, cover context, or guarantee old work remains suspended across cancellation. Reusing it unchanged would produce a timing-dependent false regression. A deterministic extension would require narrowly scoped DEBUG synthetic per-request barriers/receipts, bounded cleanup, no user data and no UI-state fabrication. Evaluate that separately; do not add blindly during this running CI.
+4. Five C70 helper tests remain valid controlled-order unit coverage, but not evidence this retained-view route has run end-to-end. C69 delayed continuation still has no established causal explanation.
+Documentation only (FIX_LOG/AGENT_HANDOFF), [skip ci]; all original gates retained.
+
+
 ## 2026-11-18 20:42 UTC / C70 interim verified evidence
 Code `d97eefee5e78ef4322e309b53fa50a4221d34aac`; [run 44384559161](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44384559161) still has active/queued jobs. No overlapping run or code push.
 - Raw checks job 135085439322 verifies **185 Swift tests / 0 failures**, including all five LoadRequestOwnershipTests. These validate request-token ownership under controlled completion ordering, not a full SwiftUI leave/reappear UI reproduction.
