@@ -573,3 +573,95 @@ jobs:
             build/timeline-capture-bench/attempt-*/stderr.txt
           retention-days: 14
           if-no-files-found: error
+  diagnostic-world-sparse:
+    # Independent from every required/UI/package job. A valid no-hit is NOT a green diagnostic.
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/ui-four-tabs-148-20261112' && contains(github.event.head_commit.message, '[world-sparse-probe]')
+    runs-on: macos-15-intel
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+      PYTHONDONTWRITEBYTECODE: '1'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    steps:
+      - name: Start independent sparse diagnostic context (before checkout)
+        shell: bash
+        run: |
+          set -eu
+          root="$RUNNER_TEMP/pubo-sparse-host"
+          mkdir -m 700 "$root"
+          printf 'repo=%s\nref=%s\nhead=%s\nrun=%s\nattempt=%s\njob=%s\n' "$GITHUB_REPOSITORY" "$GITHUB_REF" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" > "$root/context.txt"
+          printf 'UNAVAILABLE\n' > "$root/status.txt"
+      - uses: actions/checkout@v4
+        timeout-minutes: 10
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact host, head, C79 archive and manual probe fingerprints
+        timeout-minutes: 4
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pubo-sparse-host"
+          py=''
+          for name in python3 python3.13 python3.12 python3.11; do
+            if command -v "$name" >/dev/null && "$name" -c 'import sys; sys.exit(not ((3,11)<=sys.version_info<(4,)))'; then py="$(command -v "$name")"; break; fi
+          done
+          test -n "$py" || { echo 'Need preinstalled Python 3.11+'; exit 1; }
+          printf 'SPARSE_PY=%s\n' "$py" >> "$GITHUB_ENV"
+          "$py" diagnostics/world-sparse/hosted.py preflight "$root" 2>&1 | tee "$root/preflight.log"
+      - name: Verify pinned Xcode and prepare original XcodeGen tooling
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pubo-sparse-host"
+          {
+            xcodebuild -version
+            test "$(xcodebuild -version)" = "$(printf 'Xcode 26.0.1\nBuild version 17A400')"
+            if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+            xcodegen --version
+            "$SPARSE_PY" --version
+          } 2>&1 | tee "$root/setup.log"
+      - name: Execute the sole instrumented sparse method and retain its native exit
+        shell: bash
+        timeout-minutes: 80
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pubo-sparse-host"
+          tmp="$(cd -P "$RUNNER_TEMP" && pwd)/pubo-sparse-source-tmp"
+          mkdir -m 700 "$tmp"
+          export TMPDIR="$tmp"
+          rc=0
+          "$SPARSE_PY" diagnostics/world-sparse/run.py --repo "$GITHUB_WORKSPACE" --out "$root/native" > "$root/driver.log" 2>&1 || rc=$?
+          printf '%s\n' "$rc" > "$root/native-exit.txt"
+      - name: Classify real native receipts, never infer a hit from XCTest passing
+        if: always() && !cancelled()
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pubo-sparse-host"
+          if [[ -f "$root/native-exit.txt" ]]; then
+            "$SPARSE_PY" diagnostics/world-sparse/hosted.py classify "$root" 2>&1 | tee "$root/classification.log"
+          fi
+          printf 'Sparse World (instrumented C79 simulator only): **%s**. A no-hit is not a passed diagnostic; this is not a release gate.\n' "$(cat "$root/status.txt")" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic-world-sparse-pro-max-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pubo-sparse-host/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+      - name: Report binary hit, unexercised route, or unavailable evidence distinctly
+        if: always() && !cancelled()
+        shell: bash
+        run: |
+          set -eu
+          case "$(cat "$RUNNER_TEMP/pubo-sparse-host/status.txt")" in
+            EXERCISED_SYNTHETIC) echo 'Actual synthetic post-baseline sparse capture verified.' ;;
+            UNEXERCISED) echo '::warning::UNEXERCISED: valid run and movement, no qualifying capture. Not a pass or product regression.'; exit 3 ;;
+            *) echo '::error::UNAVAILABLE: setup, native execution, or evidence validation incomplete/failed. Inspect the retained diagnostic.'; exit 1 ;;
+          esac
