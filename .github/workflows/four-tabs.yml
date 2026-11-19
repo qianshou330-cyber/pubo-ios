@@ -70,6 +70,7 @@ jobs:
       fail-fast: false
       matrix:
         size: [small, large]
+        shard: [routing, interaction]
     runs-on: macos-15-intel
     timeout-minutes: 65
     steps:
@@ -86,11 +87,12 @@ jobs:
       - name: Four-tab synthetic UI and real simulator screenshots
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_NAV_SHARD: ${{ matrix.shard }}
         run: python3 scripts/four-tabs-tests.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: four-tabs-evidence-${{ matrix.size }}-${{ github.sha }}
+          name: four-tabs-evidence-${{ matrix.size }}-${{ matrix.shard }}-${{ github.sha }}-a${{ github.run_attempt }}
           path: |
             build/four-tabs*.json
             build/badge-ocr-setup.json
@@ -98,6 +100,22 @@ jobs:
             build/screenshots/
           retention-days: 14
           if-no-files-found: error
+  navigation-evidence:
+    # A complete result requires all four shards from this exact workflow attempt.
+    needs: navigation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: four-tabs-evidence-*-${{ github.sha }}-a${{ github.run_attempt }}
+          path: build/navigation-shards
+          merge-multiple: false
+      - name: Verify every case and badge receipt for both sizes
+        run: python3 scripts/verify_navigation_shards.py build/navigation-shards
   legacy-regression:
     needs: checks
     strategy:
@@ -316,7 +334,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
   package:
-    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]
+    needs: [checks, ocr-validation, navigation, navigation-evidence, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]
     runs-on: macos-15-intel
     timeout-minutes: 30
     steps:
@@ -399,4 +417,3 @@ jobs:
             build/source-sha.txt
           retention-days: 14
           if-no-files-found: error
-

@@ -78,7 +78,7 @@ class SelectionTests(unittest.TestCase):
             self.assertIn(required, pilot)
         self.assertNotIn('PUBO_REGRESSION_147_ONLY', pilot)
         self.assertNotIn('skip-testing', pilot)
-        self.assertIn('    needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', workflow)
+        self.assertIn('    needs: [checks, ocr-validation, navigation, navigation-evidence, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', workflow)
         candidate = workflow.split('  candidate-package:', 1)[1]
         self.assertIn('    needs: checks', candidate)
         self.assertIn('QA-INCOMPLETE', candidate)
@@ -104,7 +104,7 @@ class SelectionTests(unittest.TestCase):
                          'four-tabs-chat-presentation-${{ matrix.size }}-${{ matrix.part }}-${{ github.sha }}']:
             self.assertIn(required, job)
         package = workflow.split('  package:\n', 1)[1].split('  candidate-package:', 1)[0]
-        self.assertIn('needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', package)
+        self.assertIn('needs: [checks, ocr-validation, navigation, navigation-evidence, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', package)
         self.assertNotIn('continue-on-error', job)
         self.assertNotIn('skip-testing', job)
         runner = (root / 'scripts/simulator-tests.py').read_text()
@@ -148,7 +148,7 @@ class SelectionTests(unittest.TestCase):
         self.assertNotIn('continue-on-error', job)
         self.assertNotIn('skip-testing', job)
         package = workflow.split('  package:\n', 1)[1].split('  candidate-package:', 1)[0]
-        self.assertIn('needs: [checks, ocr-validation, navigation, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', package)
+        self.assertIn('needs: [checks, ocr-validation, navigation, navigation-evidence, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]', package)
         self.assertFalse(complete(dict(passedTests=3, failedTests=0, skippedTests=1, expectedFailures=0), 4))
 
     def test_unknown_fails_closed(self):
