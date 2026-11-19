@@ -26,7 +26,7 @@ class NavigationDiagnosticsTests(unittest.TestCase):
   self.assertIn('waitForExistence(timeout: 8)',ui)
  def test_export_cannot_override_results(self):
   s=(ROOT/'scripts/simulator-tests.py').read_text()
-  block=s.split("if shard == 'chat-presentation-composer':",1)[1].split("if shard == 'chat-presentation-states':",1)[0]
+  block=s.split("if shard == 'chat-presentation-composer' or private_back_probe:",1)[1].split("if shard == 'chat-presentation-states':",1)[0]
   for x in ['timeout=60',"'INCOMPLETE'",'chatnavigation-capture','event=privateTaskEntered']:
    self.assertIn(x,block)
   self.assertNotIn('test_exit =',block)

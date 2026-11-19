@@ -60,7 +60,14 @@ ALIGNMENT_PARTS = {
     ],
 }
 
+PRIVATE_BACK_DIAGNOSTICS = {
+    'private-back-without-picker': 'testDarkPrivateSecondNativeBackWithoutPicker',
+    'private-back-after-picker': 'testDarkPrivateSecondNativeBackAfterPicker',
+}
+
 def selection(shard):
+    if shard in PRIVATE_BACK_DIAGNOSTICS:
+        return 1, ['-only-testing:PUBOUITests/PrivateNativeBackIsolationUITests/' + PRIVATE_BACK_DIAGNOSTICS[shard]]
     if shard in ALIGNMENT_PARTS:
         methods = ALIGNMENT_PARTS[shard]
         return len(methods), ['-only-testing:PUBOUITests/ChatAlignmentUITests/' + name for name in methods]

@@ -32,6 +32,9 @@ shard = os.environ.get("PUBO_UI_SHARD", "")
 if shard and (focused or any(os.environ.get(key) == "1" for key in ("PUBO_SOCIAL_ALIGNMENT", "PUBO_AUTH_VIDEO", "PUBO_HOME_MOTION", "PUBO_AUTH_APPEARANCE"))):
     raise SystemExit("UI shard cannot combine with another selection")
 shard_selection = selection(shard) if shard else None
+private_back_probe = shard in ('private-back-without-picker', 'private-back-after-picker')
+if private_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'large' or 'Max' not in selected[0]['name']):
+    raise SystemExit('Private Back comparison requires the iPhone Max iOS 26 simulator')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -59,6 +62,7 @@ for index, template in enumerate(selected):
     screenshots.mkdir(parents=True, exist_ok=True)
     test_exit = 1
     process = None
+    back_video = None
     try:
         print('Booting fresh simulator: ' + device['name'], flush=True)
         boot(identifier, root / f'boot-{index}.json')
@@ -146,6 +150,9 @@ for index, template in enumerate(selected):
         if os.environ.get('PUBO_PREBUILT_TESTS') == '1':
             if command[-1] != 'test': raise RuntimeError('Unexpected test action')
             command[-1] = 'test-without-building'
+        if private_back_probe:
+            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
+                                           str(screenshots / 'private-native-back.mp4')])
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
@@ -181,7 +188,7 @@ for index, template in enumerate(selected):
                 video.send_signal(signal.SIGINT)
                 try: video.wait(timeout=30)
                 except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
-        if test_exit == 0 and index == 0 and not focused:
+        if test_exit == 0 and index == 0 and not focused and not private_back_probe:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                       str(screenshots / 'loading-skeleton.mp4')])
@@ -206,6 +213,10 @@ for index, template in enumerate(selected):
             try: process.wait(timeout=20)
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=10)
+        if back_video is not None and back_video.poll() is None:
+            back_video.send_signal(signal.SIGINT)
+            try: back_video.wait(timeout=30)
+            except subprocess.TimeoutExpired: back_video.kill(); back_video.wait(timeout=10)
         if bundle.exists():
             try:
                 result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)],
@@ -220,7 +231,7 @@ for index, template in enumerate(selected):
         if test_exit:
             diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot',
                         str(screenshots / 'runner-failure.png')], timeout=30)
-        if shard == 'chat-presentation-composer':
+        if shard == 'chat-presentation-composer' or private_back_probe:
             navigation_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Passive counts/lifecycle only; not native Back touch, complete navigation stack, or acceptance proof'}
             try:
                 navigation_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
