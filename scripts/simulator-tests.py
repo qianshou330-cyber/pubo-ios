@@ -35,6 +35,9 @@ shard_selection = selection(shard) if shard else None
 private_back_probe = shard in ('private-back-without-picker', 'private-back-after-picker')
 if private_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'large' or 'Max' not in selected[0]['name']):
     raise SystemExit('Private Back comparison requires the iPhone Max iOS 26 simulator')
+room_back_probe = shard in ('room-back-without-picker', 'room-back-after-picker')
+if room_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'small' or 'SE' not in selected[0]['name']):
+    raise SystemExit('Room Back comparison requires the iPhone SE iOS 26 simulator')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -150,9 +153,9 @@ for index, template in enumerate(selected):
         if os.environ.get('PUBO_PREBUILT_TESTS') == '1':
             if command[-1] != 'test': raise RuntimeError('Unexpected test action')
             command[-1] = 'test-without-building'
-        if private_back_probe:
+        if private_back_probe or room_back_probe:
             back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
-                                           str(screenshots / 'private-native-back.mp4')])
+                                           str(screenshots / ('room-native-back.mp4' if room_back_probe else 'private-native-back.mp4'))])
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
@@ -188,7 +191,7 @@ for index, template in enumerate(selected):
                 video.send_signal(signal.SIGINT)
                 try: video.wait(timeout=30)
                 except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
-        if test_exit == 0 and index == 0 and not focused and not private_back_probe:
+        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                       str(screenshots / 'loading-skeleton.mp4')])
@@ -243,6 +246,19 @@ for index, template in enumerate(selected):
             except (subprocess.TimeoutExpired, OSError) as error:
                 navigation_capture['error'] = type(error).__name__
             (root / f'chatnavigation-capture-{index}.json').write_text(json.dumps(navigation_capture, indent=2))
+        if room_back_probe:
+            room_capture = {'status': 'UNAVAILABLE', 'roomLifecycleVerified': False,
+                            'interpretation': 'Synthetic room control: existing lease/path/keyboard counts only; no room lifecycle or delivered touch-duration proof'}
+            try:
+                room_logs = subprocess.run(['xcrun', 'simctl', 'spawn', identifier, 'log', 'show',
+                    '--style', 'json', '--last', '1h', '--predicate',
+                    'subsystem == "com.pubo.chatnavigation.diagnostics"'], capture_output=True, text=True, timeout=60)
+                (root / f'room-back-navigation-diagnostics-{index}.json').write_text(room_logs.stdout)
+                room_capture['exitCode'] = room_logs.returncode
+                room_capture['status'] = 'CAPTURED_COUNTS' if room_logs.returncode == 0 and 'event=leasesChanged' in room_logs.stdout else 'INCOMPLETE'
+            except (subprocess.TimeoutExpired, OSError) as error:
+                room_capture['error'] = type(error).__name__
+            (root / f'room-back-navigation-capture-{index}.json').write_text(json.dumps(room_capture, indent=2))
         if shard == 'chat-presentation-states':
             # Observe synthetic load stages without changing test results or timeouts.
             capture = {'status': 'UNAVAILABLE', 'interpretation': 'Diagnostics only; absent stages are not proof of success'}

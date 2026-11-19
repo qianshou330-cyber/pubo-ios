@@ -65,7 +65,14 @@ PRIVATE_BACK_DIAGNOSTICS = {
     'private-back-after-picker': 'testDarkPrivateSecondNativeBackAfterPicker',
 }
 
+ROOM_BACK_DIAGNOSTICS = {
+    'room-back-without-picker': 'testLightRoomSecondNativeBackWithoutPicker',
+    'room-back-after-picker': 'testLightRoomSecondNativeBackAfterPicker',
+}
+
 def selection(shard):
+    if shard in ROOM_BACK_DIAGNOSTICS:
+        return 1, ['-only-testing:PUBOUITests/RoomNativeBackIsolationUITests/' + ROOM_BACK_DIAGNOSTICS[shard]]
     if shard in PRIVATE_BACK_DIAGNOSTICS:
         return 1, ['-only-testing:PUBOUITests/PrivateNativeBackIsolationUITests/' + PRIVATE_BACK_DIAGNOSTICS[shard]]
     if shard in ALIGNMENT_PARTS:
