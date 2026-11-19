@@ -19,6 +19,7 @@ actor FixtureTransport: HTTPTransport {
     private var timelineReads = 0
     private var timelineOlderFailureSent = false
     #if DEBUG
+    private var page2PosterSawSeed = false
     private var notificationFixtures = NotificationFixtureState()
     private var fourTabFriendReads = 0
     private var chatParityFailedPaths = Set<String>()
@@ -475,6 +476,11 @@ actor FixtureTransport: HTTPTransport {
                 if !body["withReplies"].bool { rows = rows.filter { $0["replyId"].isNull } }
                 if args.contains("--timeline-short-page") { rows = Array(rows.prefix(5)) }
                 response = .array(Array(rows.prefix(body["limit"].int > 0 ? body["limit"].int : 20)))
+                #if DEBUG
+                if TimelineTestFixtures.page2Enabled {
+                    response = TimelineTestFixtures.page2Response(response, body: body.object, path: path, sawSeed: &page2PosterSawSeed)
+                }
+                #endif
             } else if args.contains("--refreshable-feed"), path != "users/notes" {
                 timelineReads += 1
                 #if DEBUG

@@ -498,3 +498,78 @@ jobs:
             build/source-sha.txt
           retention-days: 14
           if-no-files-found: error
+  diagnostic-world-page2-poster:
+    # Independently opted in by the test branch's head commit; not a package/QA gate.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/ui-four-tabs-148-20261112' && contains(github.event.head_commit.message, '[world-page2-probe]')
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Record the exact run before setup
+        run: |
+          mkdir -p build/page2-context
+          git rev-parse HEAD > build/page2-context/commit.txt
+          test "$(cat build/page2-context/commit.txt)" = "$GITHUB_SHA"
+          printf '%s/%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > build/page2-context/run-attempt.txt
+      - name: Prepare pinned Xcode and generate the project
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          brew install xcodegen
+          swift scripts/brand-assets.swift
+          xcodegen generate
+      - name: Build the opt-in bundle and observe one native second-page video on Pro Max
+        run: python3 scripts/world_page2_probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic-world-page2-poster-pro-max-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: |
+            build/page2-context/
+            build/page2-probe-evidence/
+          retention-days: 14
+          if-no-files-found: error
+  diagnostic-timeline-capture-host:
+    # Host-only microbenchmark; no required gate or package depends on this job.
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Record host and exact workflow identity
+        run: |
+          mkdir -p build/timeline-capture-bench
+          python3 - <<'PY'
+          import json, os, pathlib, platform, subprocess
+          keys = ('GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_REF', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB')
+          record = {key: os.environ.get(key) for key in keys}
+          record.update(checkoutSHA=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), host=platform.platform(), architecture=platform.machine(), scope='HOST_ONLY_NOT_IPHONE_HITCHES')
+          pathlib.Path('build/timeline-capture-bench/run-identity.json').write_text(json.dumps(record, indent=2))
+          assert record['checkoutSHA'] == record['GITHUB_SHA']
+          assert record['architecture'] == 'x86_64'
+          PY
+          xcodebuild -version
+          swift --version
+      - name: Validate benchmark contracts then measure genuine Core in Release
+        run: |
+          set -o pipefail
+          python3 -m unittest discover -s scripts -p 'test_timeline_capture_bench.py' -v 2>&1 | tee build/timeline-capture-bench/contracts.log
+          python3 scripts/timeline-capture-bench/run.py 2>&1 | tee build/timeline-capture-bench/driver.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic-timeline-capture-host-${{ github.sha }}-a${{ github.run_attempt }}
+          path: |
+            build/timeline-capture-bench/run-identity.json
+            build/timeline-capture-bench/*.log
+            build/timeline-capture-bench/attempt-*/report.json
+            build/timeline-capture-bench/attempt-*/stdout.txt
+            build/timeline-capture-bench/attempt-*/stderr.txt
+          retention-days: 14
+          if-no-files-found: error
