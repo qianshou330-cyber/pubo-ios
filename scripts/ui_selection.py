@@ -70,7 +70,14 @@ ROOM_BACK_DIAGNOSTICS = {
     'room-back-after-picker': 'testLightRoomSecondNativeBackAfterPicker',
 }
 
+WORLD_SCROLL_DIAGNOSTICS = {
+    'world-scroll-cross-page': 'testSyntheticWorldCrossPageAndReadingPosition',
+    'world-scroll-signposts': 'testSyntheticWorldScrollSignpostSamples',
+}
+
 def selection(shard):
+    if shard in WORLD_SCROLL_DIAGNOSTICS:
+        return 1, ['-only-testing:PUBOUITests/WorldScrollDiagnosticUITests/' + WORLD_SCROLL_DIAGNOSTICS[shard]]
     if shard in ROOM_BACK_DIAGNOSTICS:
         return 1, ['-only-testing:PUBOUITests/RoomNativeBackIsolationUITests/' + ROOM_BACK_DIAGNOSTICS[shard]]
     if shard in PRIVATE_BACK_DIAGNOSTICS:

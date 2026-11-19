@@ -38,6 +38,10 @@ if private_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'large' or 'Max' n
 room_back_probe = shard in ('room-back-without-picker', 'room-back-after-picker')
 if room_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'small' or 'SE' not in selected[0]['name']):
     raise SystemExit('Room Back comparison requires the iPhone SE iOS 26 simulator')
+world_scroll_probe = shard in ('world-scroll-cross-page', 'world-scroll-signposts')
+if world_scroll_probe and (os.environ.get('PUBO_SIM_SIZE') not in ('small', 'large') or
+                           ('SE' if os.environ['PUBO_SIM_SIZE'] == 'small' else 'Max') not in selected[0]['name']):
+    raise SystemExit('World scroll comparison requires explicit SE or Max iOS 26 simulator')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -156,6 +160,9 @@ for index, template in enumerate(selected):
         if private_back_probe or room_back_probe:
             back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                            str(screenshots / ('room-native-back.mp4' if room_back_probe else 'private-native-back.mp4'))])
+        if world_scroll_probe:
+            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
+                                           str(screenshots / 'world-scroll.mp4')])
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
@@ -191,7 +198,7 @@ for index, template in enumerate(selected):
                 video.send_signal(signal.SIGINT)
                 try: video.wait(timeout=30)
                 except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
-        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe:
+        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe and not world_scroll_probe:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                       str(screenshots / 'loading-skeleton.mp4')])
@@ -234,6 +241,13 @@ for index, template in enumerate(selected):
         if test_exit:
             diagnostic(['xcrun', 'simctl', 'io', identifier, 'screenshot',
                         str(screenshots / 'runner-failure.png')], timeout=30)
+        if world_scroll_probe:
+            # Raw XCTest bundle owns metrics. No absent metric becomes a zero/pass.
+            scope = {'status': 'NOT_EVALUATED', 'physicalDevice': False,
+                     'smoothnessAcceptance': 'NOT_EVALUATED', 'shard': shard,
+                     'metricEvidence': 'Inspect raw xcresult; missing/nonfinite/empty samples are UNAVAILABLE',
+                     'recordingOverhead': 'simctl video active; simulator/host and recording affect performance'}
+            (root / f'world-scroll-measurement-scope-{index}.json').write_text(json.dumps(scope, indent=2))
         if shard == 'chat-presentation-composer' or private_back_probe:
             navigation_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Passive counts/lifecycle only; not native Back touch, complete navigation stack, or acceptance proof'}
             try:
