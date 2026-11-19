@@ -1,8 +1,6 @@
-# C77 local host diagnostic draft (not an optimization)
+# C78 experimental binary lookup host comparison (not wired into App)
 
-Base: `6ba9ef65b669fa8728b50cf5e2a44e328033bb3f`. Overlay only this directory and
-`scripts/test_timeline_capture_bench.py` into the full pinned repository.
-The local draft's App/Core/Package copies are reference inputs, NOT changes.
+Base: `84c3469fd849006578acf861c3a26d42391fd17d`. This draft adds an experimental query to TimelineState, six differential Swift tests, a fourth benchmark arm, schema-v2 validation, and documentation. App, StreamClient, root Package and workflows are unchanged. All other copied Core inputs are exact reference files, NOT changes.
 
 Run manually on an authorized Swift/macOS host:
 
@@ -17,6 +15,14 @@ root package. Each attempt writes under a new build/timeline-capture-bench/attem
 The validation reconciles warmup and measured slots, raw batch durations, and reported median/p95 before writing report.json.
 Swift is unavailable on the draft host: no native compile or timing results exist.
 
+## Experimental contract
+
+Schema 2 has 480 measured batches and 540 schedule slots; schema-1/three-arm reports cannot satisfy this comparison. Original three labels and operations remain. All arms now use the same fixture populated via actual TimelineState.page, with descending unique notes; selected-eight order is intentionally immaterial to the identity union. This changes fixture ordering versus C77, so compare four arms within this run, not cross-run speedup from C77. Source pin for TimelineState intentionally changes to the exact candidate; App/Record/root Package pins remain fixed.
+
+The lookup reads current Records with binary search per visible Set member, then invokes the unchanged genuine capturedIDs. No persistent map, stale row object, derived index, caching or delayed/coalesced capture. All state writers preserve unique descending String root IDs: page/receive/reveal merge and sort, apply retains root IDs and only filters, reset clears. Pending is excluded until revealed. The tests assert both notes and pending invariants after targeted and 400 fixed-seed mutation steps. Any future writer breaking this invariant must change/test the lookup before shipping.
+
+Run `swift test --filter TimelineCaptureLookupTests` first on an authorized native host. Six new test methods are NOT executed locally without Swift. Local Python contracts are structural checks only. App still performs its original filter; benchmark evidence cannot imply a shipped improvement. No stream-owner/90-ID policy, release timing or reconnect behavior changes. Large visible sets may make binary selection slower; fixed-eight evidence is not a universal win.
+
 ## What this measures
 
 - Active=true `notes.filter { visibleIDs.contains($0.id) }`, followed by genuine
@@ -24,10 +30,10 @@ Swift is unavailable on the draft host: no native compile or timing results exis
 - Exactly eight visible records in each of two precomputed alternating sets.
   Each wrapper has a reply chain extending beyond depth4 and one renote. Exact
   expected identity sets are checked before timing (depth0..3 + renote only).
-- Five warmup rounds, forty recorded rounds, 100 operations/batch. All nine
+- Five warmup rounds, forty recorded rounds, 100 operations/batch. All twelve
   size/arm combinations are reproducibly shuffled each round with logged order.
 - Arms: full filter+traversal, already-selected eight traversal (not an app fix),
-  and no-op returning the same expected Set. Each includes the same noinline
+  no-op returning the same expected Set, and `experimental-binary-plus-capturedIDs`. Each includes the same noinline
   observable consumption. No-op is overhead context, NEVER subtracted.
 - Raw monotonic nanoseconds, batch ns/op, median and nearest-rank p95 of batch
   means. This p95 is NOT an individual visibility-event p95. Review raw samples

@@ -9,12 +9,12 @@ import shutil
 import subprocess
 import tempfile
 
-BASE = '6ba9ef65b669fa8728b50cf5e2a44e328033bb3f'
+BASE = '84c3469fd849006578acf861c3a26d42391fd17d'
 SOURCES = {
     'Package.swift': 'bf7a9c5937c5e3b57bc1729aa53d86b13ed5cf22',
     'Sources/PUBOCore/JSONValue.swift': '3db70244d9f404407066d01333163870f2489559',
     'App/Features/TimelineView.swift': 'e5865efad9002420c34f1f98246aa88c85254453',
-    'Sources/PUBOCore/TimelineState.swift': 'd947940cf38a920dc725336501634828fb46b1bc',
+    'Sources/PUBOCore/TimelineState.swift': '5579ffd90fbafc1e64024ac96451787630f65bf7',
 }
 
 def source_checks(root):
@@ -31,16 +31,16 @@ def source_checks(root):
 def validate_report(report):
     if (report['schemaVersion'], report['status'], report['smoothnessAcceptance'],
         report['warmupRounds'], report['rounds'], report['operationsPerBatch']) != (
-            1, 'MEASURED_HOST_ONLY', 'NOT_EVALUATED', 5, 40, 100):
+            2, 'MEASURED_HOST_ONLY', 'NOT_EVALUATED', 5, 40, 100):
         raise ValueError('Invalid scope')
     rows = report['raw']
     order = report['orderIncludingWarmup']
     summaries = report['summaries']
-    if len(rows) != 40 * 9 or len(order) != 45 * 9 or len(summaries) != 9:
+    if len(rows) != 40 * 12 or len(order) != 45 * 12 or len(summaries) != 12:
         raise ValueError('Missing samples, schedule entries, or summaries')
     if report['clock'] != 'DispatchTime.uptimeNanoseconds' or not report['checksum'] > 0:
         raise ValueError('Missing monotonic time or observable work')
-    arms = ('filter-plus-capturedIDs', 'capturedIDs-only-8', 'noop-return-same-set')
+    arms = ('filter-plus-capturedIDs', 'capturedIDs-only-8', 'noop-return-same-set', 'experimental-binary-plus-capturedIDs')
     expected = {(n, arm) for n in (20, 200, 2000) for arm in arms}
     def case(r):
         return r['loadedRecords'], r['arm']
@@ -49,7 +49,7 @@ def validate_report(report):
     slots = {}
     for round_id in range(-5, 40):
         group = [entry for entry in order if entry['round'] == round_id]
-        if len(group) != 9 or {r['position'] for r in group} != set(range(9)) or {case(r) for r in group} != expected:
+        if len(group) != 12 or {r['position'] for r in group} != set(range(12)) or {case(r) for r in group} != expected:
             raise ValueError('Incomplete or duplicate schedule')
         slots.update({slot(r): case(r) for r in group})
     sample_slots = set()
@@ -96,7 +96,7 @@ def main():
     completed.check_returncode()
     report = validate_report(json.loads(completed.stdout))
     report['build'] = dict(baseSourceCommit=BASE, sourceGitBlobs=fingerprints, swiftVersion=version,
-                          architecture=platform.machine(), optimization='release')
+                          architecture=platform.machine(), optimization='release', experiment='C78_NOT_WIRED_IN_APP')
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(output / 'report.json')
 

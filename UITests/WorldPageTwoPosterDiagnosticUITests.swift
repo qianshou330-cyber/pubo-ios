@@ -114,7 +114,7 @@ final class WorldPageTwoPosterDiagnosticUITests: XCTestCase {
             let rendered = red > 0.35
             let ready = pre == post && ["video-frame", "cached"].contains(post)
             observations.append(["index":eligibleCaptures, "drags":drags, "shotBracketUptime":[captureStart,captureEnd],
-                                 "cropPoints":NSStringFromCGRect(r0.intersection(r1)), "appFramePoints":NSStringFromCGRect(appFrame),
+                                 "cropPoints":NSCoder.string(for: r0.intersection(r1)), "appFramePoints":NSCoder.string(for: appFrame),
                                  "preState":pre, "postState":post, "redFraction":red, "pixelSignatureSeen":rendered])
             attach(shot, "page2-eligible-" + String(eligibleCaptures))
             if ready && rendered {

@@ -80,6 +80,23 @@ public struct TimelineState: Sendable {
     public private(set) var olderCursor: String?
     public init() {}
     public mutating func reset() { self = Self() }
+    /// Experimental lookup only; not wired into App. All notes writers preserve
+    /// unique descending String IDs. Read current records, never cached row values.
+    public func experimentalCapturedIDs(visibleIDs: Set<String>) -> Set<String> {
+        var selected: [Record] = []
+        for id in visibleIDs {
+            var lower = 0, upper = notes.count
+            while lower < upper {
+                let middle = lower + (upper - lower) / 2
+                if notes[middle].id > id { lower = middle + 1 }
+                else { upper = middle }
+            }
+            if lower < notes.count, notes[lower].id == id { selected.append(notes[lower]) }
+        }
+        // Order is immaterial to this union; retain the genuine bounded traversal.
+        return TimelinePresentation.capturedIDs(selected)
+    }
+
     private func cleaned(_ items: [Record], accountID: String?) -> [Record] {
         items.filter { !deleted.contains($0.id) && !(NoteContext.isRepost($0) && deleted.contains(NoteContext.displayed($0).id)) }.map { record in
             deleted.reduce(record) { result, id in NoteStreamEvent(id: id, kind: "deleted", body: .null).applying(to: result, accountID: accountID) }

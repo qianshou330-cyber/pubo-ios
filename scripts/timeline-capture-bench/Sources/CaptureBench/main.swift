@@ -31,6 +31,7 @@ func nested(_ base: String, depth: Int = 0) -> JSONValue {
 }
 struct Fixture {
     let count: Int
+    let state: TimelineState
     let notes: [Record]
     let visible: [Set<String>]
     let selected: [[Record]]
@@ -46,18 +47,23 @@ struct Fixture {
             })
         }
         self.count = count
-        notes = records; selected = selections
+        var current = TimelineState()
+        current.page(records, older: false, preferences: TimelinePreferences(), accountID: nil)
+        state = current
+        notes = current.notes; selected = selections
         visible = selections.map { Set($0.map(\.id)) }; expected = expectedIDs
     }
 }
 let fixtures = [20, 200, 2000].map(Fixture.init)
-let arms = ["filter-plus-capturedIDs", "capturedIDs-only-8", "noop-return-same-set"]
+let arms = ["filter-plus-capturedIDs", "capturedIDs-only-8", "noop-return-same-set", "experimental-binary-plus-capturedIDs"]
 let warmupRounds = 5, rounds = 40, operationsPerBatch = 100
 func operation(_ fixture: Fixture, arm: String, variant: Int) -> Set<String> {
     switch arm {
     case "filter-plus-capturedIDs": return filteredCapture(fixture.notes, fixture.visible[variant])
     case "capturedIDs-only-8": return selectedCapture(fixture.selected[variant])
-    default: return noOpControl(fixture.expected[variant])
+    case "experimental-binary-plus-capturedIDs": return fixture.state.experimentalCapturedIDs(visibleIDs: fixture.visible[variant])
+    case "noop-return-same-set": return noOpControl(fixture.expected[variant])
+    default: preconditionFailure("Unknown arm")
     }
 }
 // Correctness prerequisite, outside measurement: exact identities include depth3,
@@ -105,7 +111,7 @@ for fixture in fixtures {
     }
 }
 let report: [String: Any] = [
-    "schemaVersion": 1, "status": "MEASURED_HOST_ONLY", "smoothnessAcceptance": "NOT_EVALUATED",
+    "schemaVersion": 2, "status": "MEASURED_HOST_ONLY", "smoothnessAcceptance": "NOT_EVALUATED",
     "os": ProcessInfo.processInfo.operatingSystemVersionString,
     "warmupRounds": warmupRounds, "rounds": rounds, "operationsPerBatch": operationsPerBatch,
     "seed": "0xC77020261119", "clock": "DispatchTime.uptimeNanoseconds", "checksum": checksum,

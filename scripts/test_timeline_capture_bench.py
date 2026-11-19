@@ -26,6 +26,28 @@ class CaptureBenchContracts(unittest.TestCase):
         self.assertIn('nearest rank across batch means', source)
         self.assertIn('smoothnessAcceptance": "NOT_EVALUATED', source)
 
+    def test_candidate_scope_and_current_record_invariant(self):
+        core = (ROOT / 'Sources/PUBOCore/TimelineState.swift').read_text()
+        app = (ROOT / 'App/Features/TimelineView.swift').read_text()
+        bench = (BENCH / 'Sources/CaptureBench/main.swift').read_text()
+        self.assertNotIn('experimentalCapturedIDs', app)
+        candidate = core.split('public func experimentalCapturedIDs', 1)[1].split('private func cleaned', 1)[0]
+        self.assertIn('notes[middle].id > id', candidate)
+        self.assertIn('selected.append(notes[lower])', candidate)
+        self.assertIn('TimelinePresentation.capturedIDs(selected)', candidate)
+        self.assertNotIn('Task', candidate)
+        self.assertNotIn('Dictionary', candidate)
+        self.assertIn('public private(set) var notes:', core)
+        self.assertIn('current.page(records, older: false', bench)
+        self.assertIn('notes = current.notes', bench)
+        self.assertIn('fixture.state.experimentalCapturedIDs', bench)
+        self.assertIn('preconditionFailure("Unknown arm")', bench)
+        self.assertIn('"schemaVersion": 2', bench)
+        tests = (ROOT / 'Tests/PUBOCoreTests/TimelineCaptureLookupTests.swift').read_text()
+        self.assertIn('0xC78020261119', tests)
+        self.assertIn('for step in 0..<400', tests)
+        self.assertIn('for records in [state.notes, state.pending]', tests)
+
     def test_source_pins_current_expression(self):
         self.assertEqual(runner.source_checks(ROOT), runner.SOURCES)
 
@@ -43,18 +65,27 @@ class CaptureBenchContracts(unittest.TestCase):
 
     def test_fabricated_shape_validation_and_bad_values(self):
         cases = [(n, a) for n in (20, 200, 2000)
-                 for a in ('filter-plus-capturedIDs', 'capturedIDs-only-8', 'noop-return-same-set')]
+                 for a in ('filter-plus-capturedIDs', 'capturedIDs-only-8', 'noop-return-same-set', 'experimental-binary-plus-capturedIDs')]
         order = [dict(round=r, position=i, loadedRecords=n, arm=a)
                  for r in range(-5, 40) for i, (n, a) in enumerate(cases)]
         rows = [dict(entry, visibleRecords=8, operations=100, batchNanoseconds=100, nanosecondsPerOperation=1.0)
                 for entry in order if entry['round'] >= 0]
         summaries = [dict(loadedRecords=n, arm=a, samples=40, visibleRecords=8,
                           medianNanosecondsPerOperation=1.0, p95NanosecondsPerOperation=1.0) for n, a in cases]
-        report = dict(schemaVersion=1, status='MEASURED_HOST_ONLY', smoothnessAcceptance='NOT_EVALUATED',
+        report = dict(schemaVersion=2, status='MEASURED_HOST_ONLY', smoothnessAcceptance='NOT_EVALUATED',
                       warmupRounds=5, rounds=40, operationsPerBatch=100,
                       clock='DispatchTime.uptimeNanoseconds', checksum=1, raw=rows,
                       orderIncludingWarmup=order, summaries=summaries)
         runner.validate_report(report) # Schema only; invented inputs are never benchmark evidence.
+        report['schemaVersion'] = 1
+        with self.assertRaises(ValueError): runner.validate_report(report)
+        report['schemaVersion'] = 2
+        report['raw'] = [row for row in rows if row['arm'] != 'experimental-binary-plus-capturedIDs']
+        with self.assertRaises(ValueError): runner.validate_report(report)
+        report['raw'] = rows
+        summaries[-1]['arm'] = 'noop-return-same-set'
+        with self.assertRaises(ValueError): runner.validate_report(report)
+        summaries[-1]['arm'] = 'experimental-binary-plus-capturedIDs'
         for bad in (float('nan'), float('inf'), 0, -1, 2):
             rows[0]['nanosecondsPerOperation'] = bad
             with self.assertRaises(ValueError): runner.validate_report(report)
