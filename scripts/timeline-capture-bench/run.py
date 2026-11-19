@@ -9,12 +9,12 @@ import shutil
 import subprocess
 import tempfile
 
-BASE = '84c3469fd849006578acf861c3a26d42391fd17d'
+BASE = 'c1850dd33db9271977607f4ef0242ccda1bdc076'
 SOURCES = {
     'Package.swift': 'bf7a9c5937c5e3b57bc1729aa53d86b13ed5cf22',
     'Sources/PUBOCore/JSONValue.swift': '3db70244d9f404407066d01333163870f2489559',
-    'App/Features/TimelineView.swift': 'e5865efad9002420c34f1f98246aa88c85254453',
-    'Sources/PUBOCore/TimelineState.swift': '5579ffd90fbafc1e64024ac96451787630f65bf7',
+    'App/Features/TimelineView.swift': '3472342fb7da16f1b845e3a14809750d017a92ca',
+    'Sources/PUBOCore/TimelineState.swift': '35897552813bb69d84bc0afed42f7b4e91c60d58',
 }
 
 def source_checks(root):
@@ -96,7 +96,7 @@ def main():
     completed.check_returncode()
     report = validate_report(json.loads(completed.stdout))
     report['build'] = dict(baseSourceCommit=BASE, sourceGitBlobs=fingerprints, swiftVersion=version,
-                          architecture=platform.machine(), optimization='release', experiment='C78_NOT_WIRED_IN_APP')
+                          architecture=platform.machine(), optimization='release', experiment='C79_ROW_CALLBACK_INTEGRATION_BENCHMARK_STILL_C78_FOUR_ARMS')
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(output / 'report.json')
 

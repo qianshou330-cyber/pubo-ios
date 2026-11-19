@@ -155,7 +155,7 @@ struct TimelineView: View {
                                 .id(note.id)
                                 .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity))
                                 .onAppear { appeared(note, index: index) }
-                                .onDisappear { visibleIDs.remove(note.id); captureVisible() }
+                                .onDisappear { visibleIDs.remove(note.id); captureVisibleAfterRowChange() }
                         }
     }
     private func updateOffset(_ offset: CGFloat) {
@@ -188,7 +188,7 @@ struct TimelineView: View {
     }
     private func appeared(_ note: Record, index: Int) {
         visibleIDs.insert(note.id)
-        captureVisible()
+        captureVisibleAfterRowChange()
         if index >= feed.notes.count - 5 && hasMore && error == nil {
             Task { await load(older: true, automatic: true) }
         }
@@ -244,6 +244,7 @@ struct TimelineView: View {
     }
     private func day(_ note: Record) -> String { guard let date = puboDate(note["createdAt"].string) else { return "" }; return date.formatted(.dateTime.month().day()) }
     private func captureVisible() { session.stream.captureNotes(active ? TimelinePresentation.capturedIDs(feed.notes.filter { visibleIDs.contains($0.id) }) : []) }
+    private func captureVisibleAfterRowChange() { session.stream.captureNotes(active ? feed.capturedIDsForVisibilityChange(visibleIDs: visibleIDs) : []) }
     private func startReconnect() {
         guard active, firstLoadFinished, reconnectingContext != context else { return }
         reconnectTask?.cancel()

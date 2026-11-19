@@ -80,7 +80,8 @@ public struct TimelineState: Sendable {
     public private(set) var olderCursor: String?
     public init() {}
     public mutating func reset() { self = Self() }
-    /// Experimental lookup only; not wired into App. All notes writers preserve
+    /// Binary lookup; row visibility callers use the conservative policy below.
+    /// All notes writers preserve
     /// unique descending String IDs. Read current records, never cached row values.
     public func experimentalCapturedIDs(visibleIDs: Set<String>) -> Set<String> {
         var selected: [Record] = []
@@ -95,6 +96,19 @@ public struct TimelineState: Sendable {
         }
         // Order is immaterial to this union; retain the genuine bounded traversal.
         return TimelinePresentation.capturedIDs(selected)
+    }
+
+    public enum VisibilityCapturePath: Equatable, Sendable { case filter, binary }
+    /// Conservative measured workload envelope, not a latency/crossover guarantee.
+    /// Small or denser visible sets retain the original filter path.
+    public func visibilityCapturePath(visibleCount: Int) -> VisibilityCapturePath {
+        notes.count >= 200 && (1...8).contains(visibleCount) ? .binary : .filter
+    }
+    public func capturedIDsForVisibilityChange(visibleIDs: Set<String>) -> Set<String> {
+        switch visibilityCapturePath(visibleCount: visibleIDs.count) {
+        case .binary: return experimentalCapturedIDs(visibleIDs: visibleIDs)
+        case .filter: return TimelinePresentation.capturedIDs(notes.filter { visibleIDs.contains($0.id) })
+        }
     }
 
     private func cleaned(_ items: [Record], accountID: String?) -> [Record] {

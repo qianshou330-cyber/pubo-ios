@@ -1,3 +1,7 @@
+## C79 integration note (test branch candidate, native validation pending)
+
+The source pins now identify the C79 App/Core changes based on c1850dd33db9271977607f4ef0242ccda1bdc076. Only row visibility callbacks use binary selection at >=200 loaded and 1...8 visible IDs; other cases and reconnect retain filtering. This is a conservative structural policy, not a timing gate. The unchanged schema-2/four-arm executable below still measures the underlying C78 algorithms, not policy dispatch, the entire App callback, stream side effects or device frames. Original C78 design/history follows; its “not wired” status refers to C78, not this candidate. No new native measurement exists locally.
+
 # C78 experimental binary lookup host comparison (not wired into App)
 
 Base: `84c3469fd849006578acf861c3a26d42391fd17d`. This draft adds an experimental query to TimelineState, six differential Swift tests, a fourth benchmark arm, schema-v2 validation, and documentation. App, StreamClient, root Package and workflows are unchanged. All other copied Core inputs are exact reference files, NOT changes.

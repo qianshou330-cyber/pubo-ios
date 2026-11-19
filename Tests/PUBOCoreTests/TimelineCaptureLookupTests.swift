@@ -15,8 +15,40 @@ final class TimelineCaptureLookupTests: XCTestCase {
         }
         let oracle = TimelinePresentation.capturedIDs(state.notes.filter { visible.contains($0.id) })
         XCTAssertEqual(state.experimentalCapturedIDs(visibleIDs: visible), oracle, file: file, line: line)
+        XCTAssertEqual(state.capturedIDsForVisibilityChange(visibleIDs: visible), oracle, file: file, line: line)
         let reversed = Array(state.notes.reversed()).filter { visible.contains($0.id) }
         XCTAssertEqual(oracle, TimelinePresentation.capturedIDs(reversed), file: file, line: line)
+    }
+    func testVisibilityPolicyBoundaryAndExactSetsOnBothPaths() {
+        let p = TimelinePreferences()
+        for count in [0, 20, 199, 200, 201, 2000] {
+            var state = TimelineState()
+            state.page((0..<count).map { note(String(format: "%06d", $0), child: "shared") }, older: false, preferences: p, accountID: nil)
+            for visibleCount in [0, 1, 8, 9, 2001] {
+                let visible = Set((0..<visibleCount).map { String(format: "%06d", $0) })
+                let expected: TimelineState.VisibilityCapturePath = count >= 200 && (1...8).contains(visibleCount) ? .binary : .filter
+                XCTAssertEqual(state.visibilityCapturePath(visibleCount: visible.count), expected)
+                verify(state, visible)
+            }
+            // A sparse unknown ID stays empty even when the binary path is selected.
+            verify(state, ["unknown"])
+        }
+    }
+    func testSparsePolicyStillReadsReplacedRecordsAndExcludesRemovedIDs() {
+        var state = TimelineState(); let p = TimelinePreferences()
+        state.page((0..<201).map { note(String(format: "%06d", $0), child: "old") }, older: false, preferences: p, accountID: nil)
+        let visible: Set<String> = ["000001"]
+        XCTAssertEqual(state.visibilityCapturePath(visibleCount: 1), .binary)
+        state.apply(.init(id: "000001", kind: "replaced", body: note("000001", child: "new").raw), accountID: nil)
+        verify(state, visible)
+        XCTAssertEqual(state.capturedIDsForVisibilityChange(visibleIDs: visible), ["000001", "new", "new-reply"])
+        state.apply(.init(id: "000001", kind: "deleted", body: .null), accountID: nil)
+        verify(state, visible)
+        XCTAssertEqual(state.capturedIDsForVisibilityChange(visibleIDs: visible), [])
+        state.apply(.init(id: "000002", kind: "deleted", body: .null), accountID: nil)
+        XCTAssertEqual(state.visibilityCapturePath(visibleCount: 1), .filter)
+        verify(state, ["000003"])
+        state.reset(); verify(state, visible)
     }
     func testLexicalEmptyUnknownDuplicateVisibleAndBothPageDirections() {
         var state = TimelineState(); let p = TimelinePreferences()
