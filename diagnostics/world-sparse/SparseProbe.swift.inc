@@ -1,5 +1,6 @@
 #if DEBUG && PUBO_SPARSE_WORLD_PROBE
 import UIKit
+import CoreFoundation
 import PUBOCore
 
 enum SparseFixture {
@@ -129,6 +130,9 @@ enum SparseFixture {
             let bytes = try JSONSerialization.data(withJSONObject:data,options:[.sortedKeys])
             try bytes.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("pubo-sparse-"+SparseFixture.nonce+".json"),
                             options:.atomic)
+            // No data in the notification. Only a successful atomic write may acknowledge this launch.
+            let name = CFNotificationName(rawValue: ("com.bolubo.native.sparse.flush." + SparseFixture.nonce) as CFString)
+            CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), name, nil, nil, true)
         } catch { /* Collector treats an absent receipt as UNAVAILABLE. */ }
     }
 }

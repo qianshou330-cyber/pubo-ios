@@ -17,7 +17,7 @@ def fixtures():
     r={'schema':1,'nonce':n,'scope':'instrumented synthetic simulator only','ready':True,'invalid':False,'recordedAt':20,
        'drags':[11.2,15.7],'events':events,'merged':[{'count':k,'oldest':ids[k-1]} for k in range(20,201,20)],
        'pages':[{'cursor':ids[i-1] if i else '', 'ids':ids[i:i+20]} for i in range(0,200,20)]}
-    g={'nonce':n,'baselineEnd':8,'drags':[[10,13],[14,16]],'end':18,
+    g={'nonce':n,'baselineEnd':8,'drags':[[10,13],[14,16]],'end':18,'flush':{'requested':18.5,'checked':21,'ack':True},
        'before':{'note.open.w80-0200':220},'after':{'note.open.w80-0198':250}}
     return r,g
 
@@ -31,6 +31,18 @@ class Evidence(unittest.TestCase):
             r,g=fixtures()
             for f in select:r['events'][2][f].remove('w80-leaf')
             with self.assertRaises(ValueError):verify(r,g)
+    def test_durable_ack_and_nonce_matched_post_home_bytes_are_both_required(self):
+        for issue in ('missing', 'timeout', 'wrongnonce', 'during-gestures','stale','replaced','nonfinite'):
+            r,g=fixtures()
+            if issue=='missing':del g['flush']
+            if issue=='timeout':g['flush']['ack']=False
+            if issue=='wrongnonce':g['nonce']='EA96A767-05E2-48C6-9502-E12C447C1307'
+            if issue=='during-gestures':g['flush']['requested']=12
+            if issue=='stale':r['recordedAt']=18.1
+            if issue=='replaced':r['recordedAt']=21.1
+            if issue=='nonfinite':g['flush']['checked']=float('nan')
+            with self.subTest(issue=issue),self.assertRaises(ValueError):verify(r,g)
+
     def test_generation_and_pages(self):
         for typ in ['nonce','invalid','wrongcursor','dup','missing','wrongdepth','newgeneration']:
             r,g=fixtures()
@@ -92,6 +104,22 @@ class Source(unittest.TestCase):
         stream=self.src[mat.REL[2]].decode()
         self.assertLess(stream.index('captureOwners[owner] = ids'),stream.index('SparseObserver.received(ids,stored:captureOwners[owner] ?? [],owner:owner)'))
         self.assertLess(stream.index('SparseObserver.received'),stream.index('let next = Set(captureOwners'))
+    def test_nonce_ack_emitted_only_after_atomic_save_and_wait_registered_before_home(self):
+        s=self.src['App/Infrastructure/SparseProbe.swift'].decode().split('static func saveInactive()',1)[1]
+        self.assertLess(s.index('try bytes.write'),s.index('options:.atomic)'))
+        self.assertLess(s.index('options:.atomic)'),s.index('CFNotificationCenterPostNotification('))
+        self.assertNotIn('CFNotificationCenterPostNotification(',s.split('} catch',1)[1])
+        u=self.src['UITests/SparseWorldUITests.swift'].decode()
+        self.assertIn('"com.bolubo.native.sparse.flush." + SparseFixture.nonce',s)
+        self.assertIn('"com.bolubo.native.sparse.flush." + nonce',u)
+        ordered=['shot(app,"sparse-after")','XCTDarwinNotificationExpectation(','let requested = now','XCUIDevice.shared.press(.home)',
+                 'XCTWaiter.wait(for:[durable],timeout:15)','let verifiedBy = now','a.name="sparse-gestures"','XCTAssertEqual(result,.completed']
+        self.assertEqual([u.index(x) for x in ordered],sorted(u.index(x) for x in ordered))
+        self.assertNotIn('runningBackground',u)
+        host=(Path(__file__).parent/'run.py').read_text()
+        self.assertIn("receipts[0].name=='pubo-sparse-'+g['nonce']+'.json'",host)
+        self.assertIn("rc==0 and common.counts(summary,True)",host)
+
     def test_synthetic_only_and_two_real_drags(self):
         s=self.src['App/Infrastructure/SparseProbe.swift'].decode();u=self.src['UITests/SparseWorldUITests.swift'].decode()
         for x in ['a.contains("--ui-testing")','a.contains("--timeline-align")','!a.contains("--isolated-backend")',

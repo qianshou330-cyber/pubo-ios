@@ -46,13 +46,19 @@ final class SparseWorldUITests: XCTestCase {
         let moved = Set(before.keys) != Set(after.keys) || before.contains { k,v in abs((after[k] ?? v)-v)>8 }
         XCTAssertTrue(moved,"Viewport evidence did not advance; not an exercised scroll")
         shot(app,"sparse-after"); let finish = now
+        // Register before the Home action. Never infer a write from SpringBoard's AX process state.
+        let durable = XCTDarwinNotificationExpectation(notificationName: "com.bolubo.native.sparse.flush." + nonce)
+        let requested = now
+        XCUIDevice.shared.press(.home)
+        let result = XCTWaiter.wait(for:[durable],timeout:15)
+        let verifiedBy = now
         let evidence: [String:Any] = ["nonce":nonce,"baselineEnd":baselineEnd,"drags":times,"end":finish,
-                                      "before":before,"after":after]
+                                      "before":before,"after":after,
+                                      "flush":["requested":requested,"checked":verifiedBy,"ack":result == .completed] as [String:Any]]
         let data = try JSONSerialization.data(withJSONObject:evidence,options:[.sortedKeys])
         let a = XCTAttachment(data:data,uniformTypeIdentifier:"public.json");a.name="sparse-gestures";a.lifetime = .keepAlways; add(a)
-        // Only after final observation, let the app flush bounded in-memory evidence.
-        XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for:.runningBackground,timeout:15) || app.state == .runningBackgroundSuspended)
+        // Preserve the gesture evidence even if the acknowledgement never arrives.
+        XCTAssertEqual(result,.completed,"No acknowledgement of this launch's atomic receipt write")
     }
 }
 #endif

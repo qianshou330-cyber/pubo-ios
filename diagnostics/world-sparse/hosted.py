@@ -8,19 +8,19 @@ import sys
 from pathlib import Path
 
 BASE = 'c8227e6bceb62129c018b9b3f70f5c9324a01782'
-VARIANT = '9dd758c0e0b906ab972a4152fa3477c772723511c5cc1ddfbe8381fc81be14f6'
+VARIANT = '151d642df874307ebeffee7d0f325bb5ab9d5046d5d17ce4bd768a260dd11a0a'
 REPO = 'qianshou330-cyber/pubo-ios'
 REF = 'refs/heads/ui-four-tabs-148-20261112'
 MARK = '[world-sparse-probe]'
 METHOD = '-only-testing:PUBOUITests/SparseWorldUITests/testActiveWorldRowCaptureAfterRealDrags'
 PIN = {
-    'README.md':'2d459831e65760a45993fc5a7ead55d407113bdc21996175d0a7280a37b6f262',
-    'SparseProbe.swift.inc':'4abef3ec66de7490b2d992328f85d0b4c2a47dee883c4ebbde6bf32c895319db',
-    'SparseWorldUITests.swift.inc':'196a90900877d13ed98647fff3e701102feee62c449f1f46a477d6e200ee868b',
+    'README.md':'926c6e97950d75d9a9075a48d47d89f585a22baa739c19313ffa4132a4977aea',
+    'SparseProbe.swift.inc':'b9b559218ee22b111de5bf13783e5ff8273c5c3ac84b061c5168b05955a759ca',
+    'SparseWorldUITests.swift.inc':'1440def330a02bc116b77e8c7f67fa2797f7d5cdb11b582794972af7b6422ea3',
     'materialize.py':'bd62d0a11492123ead516f9531bfecf71d72e676183065869d00044f03995791',
-    'run.py':'e851035e164cc71a681fd9ee70c9a074ace7999797673ebb7d98ab18ef319f92',
-    'test_sparse.py':'1e63a3634813443b6dbd265f6793e505c8a7b4989f69101bb23ee75614aad896',
-    'verify.py':'00d3c781418d0ae254598c45bf5819d9bd55562f08c08af74d2fea3477cd9e8a',
+    'run.py':'4d327e8a175e2e068f100a88bcf1dc82862ce909d300ec3cafbd0b1b78420621',
+    'test_sparse.py':'090a9e45c1a05be0910384e39db21c3beddfb0d97a4e1f2f405b6bffbf2e3d3b',
+    'verify.py':'94841055e724d13e441df6c3696330e8a1e49251398d86500978c254eafc9a8b',
 }
 
 def check(ok, msg):

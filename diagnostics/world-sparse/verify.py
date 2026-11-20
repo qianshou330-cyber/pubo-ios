@@ -25,6 +25,10 @@ def verify(r,g):
             m=={'count':end,'oldest':ids[end-1]},'Filter/cursor/merge proof failed')
     intervals=g['drags']; end=g['end']; start=g['baselineEnd']; freeze=r['recordedAt']
     check(all(map(num,[start,end,freeze])) and 0<start<end<=freeze and 1<=len(intervals)<=3,'Invalid observation window')
+    flush=g.get('flush')
+    check(type(flush) is dict and flush.get('ack') is True and
+          all(num(flush.get(k)) for k in ('requested','checked')) and
+          end<=flush['requested']<=freeze<=flush['checked'], 'No matching post-Home durable flush bracket')
     boundaries=[start]
     for pair in intervals:
         check(isinstance(pair,list) and len(pair)==2 and all(map(num,pair)) and boundaries[-1]<=pair[0]<pair[1]<=end,'Invalid gesture ordering');boundaries+=pair

@@ -66,6 +66,7 @@ def main(repo,out):
                     check(common.png_size(before.read_bytes())==common.png_size(after.read_bytes()) and common.sha(before)!=common.sha(after),'Missing distinct native captures')
                     manifest['screens']={'before':common.sha(before),'after':common.sha(after)}
                     g=json.loads(get('sparse-gestures').read_text());r=json.loads((out/'app-receipt.json').read_text())
+                    check(len(receipts)==1 and receipts[0].name=='pubo-sparse-'+g['nonce']+'.json','Wrong durable receipt filename')
                     result=verify(r,g);common.save(out/'observation.json',result)
                     manifest.update(phase='finished',status=result['status']);return 0 if result['status']=='EXERCISED_SYNTHETIC' else 3
                 finally:
