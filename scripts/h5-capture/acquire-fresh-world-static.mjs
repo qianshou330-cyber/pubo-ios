@@ -5,12 +5,14 @@ import {fileURLToPath} from 'node:url';
 import {SOURCE,SHA,digest,cacheName,pinnedRead} from './world-replay.mjs';
 import {
   FRESH_SCOPE,CAP,MAX_ROUNDS,MAX_TOTAL_BYTES,allowedPath,seedPaths,checkFresh,readFreshLock,
-  verifyLocalAssetTree,acceptedProbe,canonicalJSON,describeBootstrapShape,assetEvidence,
+  verifyLocalAssetTree,acceptedProbe,canonicalJSON,describeBootstrapShape,assetEvidence,classifyInitialRootDrift,
 } from './fresh-world-lock.mjs';
 const MIME={js:['text/javascript','application/javascript'],css:['text/css'],
   woff2:['font/woff2','application/font-woff2','application/octet-stream'],woff:['font/woff','application/font-woff','application/octet-stream'],
   png:['image/png'],svg:['image/svg+xml'],webp:['image/webp'],gif:['image/gif'],ico:['image/x-icon','image/vnd.microsoft.icon']};
 const MAX_BODY=12*1024*1024;
+const rootDriftReports=new WeakMap();
+export const readInitialRootDrift=error=>rootDriftReports.get(error);
 
 export async function publicStaticGET(path,marker,{transport=fetch}={}) {
   if(path!=='/' && !allowedPath(path,marker)) throw Error('Disallowed fresh static path: '+path);
@@ -48,9 +50,22 @@ async function pinBody(path,marker,transport) {
   if(!one.equals(two)) throw Error('Public static bytes changed between independent reads: '+path);
   return one;
 }
-function rootObservation(data,base,clock) {
+function rootObservation(data,base,clock,initial) {
   const sha256=digest(data);
-  if(sha256!==base)throw Error('Public HTML changed during fresh snapshot; restart with new receipt');
+  if(sha256!==base) {
+    const error=Error('Public HTML changed during fresh snapshot; restart with new receipt');
+    if(initial) {
+      let classification='ROOT_DIFF_UNCLASSIFIED', seedIdentity='UNRECOGNIZED';
+      try {classification=classifyInitialRootDrift(initial.body,data);} catch {/* fixed fallback */}
+      try {
+        const next=seedPaths(data.toString('utf8'));
+        seedIdentity=next.marker===initial.seed.marker && next.clientEntry===initial.seed.clientEntry &&
+          next.refs.length===initial.seed.refs.length && next.refs.every((p,i)=>p===initial.seed.refs[i])?'SAME':'DIFFERENT';
+      } catch {/* fixed fallback; no assets authorized by the second body */}
+      rootDriftReports.set(error,{classification,seedIdentity,expectedSHA256:base,observedSHA256:sha256});
+    }
+    throw error;
+  }
   return {sha256,at:clock()};
 }
 async function captureNewPaths(dir,m,paths,transport,clientEntry) {
@@ -91,11 +106,12 @@ export async function initSnapshot(dir,candidateCommit,{transport=fetch,clock=ut
   await mkdir(join(dir,'cache'));
   const html=await publicStaticGET('/',null,{transport});
   const htmlSHA256=digest(html);
-  const {marker,refs,clientEntry}=seedPaths(html.toString('utf8'));
+  const seed=seedPaths(html.toString('utf8'));
+  const {marker,refs,clientEntry}=seed;
   const m={schema:1,scope:FRESH_SCOPE,origin:SOURCE,fixtureBaselineCommit:SHA,candidateCommit,status:'DRAFT',round:0,
     htmlSHA256,marker,entries:{},rootChecks:[rootObservation(html,htmlSHA256,clock)]};
   await captureNewPaths(dir,m,refs,transport,clientEntry);
-  m.rootChecks.push(rootObservation(await publicStaticGET('/',null,{transport}),htmlSHA256,clock));
+  m.rootChecks.push(rootObservation(await publicStaticGET('/',null,{transport}),htmlSHA256,clock,{body:html,seed}));
   await writeFile(join(dir,'public-home.html'),html,{flag:'wx'});
   return commitManifest(dir,m,true);
 }
@@ -133,7 +149,9 @@ if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url))
     if(process.argv[2]==='inspect-bootstrap-shape') {
       console.error(JSON.stringify({probe:'H5_BOOTSTRAP_SHAPE_ONLY',verdict:'ROOT_FETCH_OR_SHAPE_BLOCKED'}));
     } else {
-      console.error(JSON.stringify({scope:FRESH_SCOPE,status:'BLOCKED',failure:String(error)}));
+      const rootMismatch=readInitialRootDrift(error);
+      console.error(JSON.stringify({scope:FRESH_SCOPE,status:'BLOCKED',failure:String(error),
+        ...(rootMismatch?{rootMismatch}:{})}));
     }
     process.exitCode=1;
   }

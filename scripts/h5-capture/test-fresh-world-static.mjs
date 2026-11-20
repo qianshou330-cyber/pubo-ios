@@ -4,8 +4,8 @@ import {mkdtemp,readFile,writeFile,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {SOURCE,SHA,ORIGIN,ROUTE,EXPECTED,digest,cacheName} from './world-replay.mjs';
-import {FRESH_SCOPE,allowedPath,seedPaths,readFreshLock,verifyLocalAssetTree,acceptedProbe,canonicalJSON} from './fresh-world-lock.mjs';
-import {publicStaticGET,initSnapshot,progressSnapshot,inspectBootstrapShape} from './acquire-fresh-world-static.mjs';
+import {FRESH_SCOPE,allowedPath,seedPaths,readFreshLock,verifyLocalAssetTree,acceptedProbe,canonicalJSON,classifyInitialRootDrift} from './fresh-world-lock.mjs';
+import {publicStaticGET,initSnapshot,progressSnapshot,inspectBootstrapShape,readInitialRootDrift} from './acquire-fresh-world-static.mjs';
 const marker='sE2FIylr5', candidate='f'.repeat(40);
 const entry='/vite/zh-CN/'+marker+'-2--13OMV.js';
 const css='/vite/assets/'+marker+'-4RTeR85g.css';
@@ -261,4 +261,65 @@ test('compiled-shell fallback does not excuse root-byte drift, including data-ge
   await assert.rejects(initSnapshot(dir,candidate,control),/Public HTML changed/);
   assert.ok(!(await readdir(dir)).some(name=>name.endsWith('.json')||name==='public-home.html'));
   assert.equal(control.counts.get('/'),2);
+});
+
+const stamps=['1795183301100','1795183301200','1795183302100','1795183302200'];
+const contextTag=`<script type="application/json" id="misskey_clientCtx" data-generated-at="${stamps[1]}">{"opaque":"TOKEN_VALUE_Z1","其他":"保持不变"}</script>`;
+const observedRoot=compiledRoot.replace('source-compatible synthetic fixture','公开壳 fixture comment')
+  .replace('data-generated-at="123"',`data-generated-at="${stamps[0]}"`)
+  .replace('<style>',contextTag+'<style>');
+const stampOnly=observedRoot.replace(stamps[0],stamps[2]).replace(stamps[1],stamps[3]);
+
+test('initial mismatch emits only fixed diagnostic evidence and still refuses timestamp-only drift', async()=>{
+  const extra=Object.fromEntries(stylesheetPaths.map(p=>[p,['fixture CSS','text/css']]));
+  const control=stub({extra:{...extra,'/':[observedRoot,'text/html']},
+    rewrite:(p,n,row)=>p==='/'&&n===2?[stampOnly,'text/html']:row});
+  const {dir}=await mk();
+  await assert.rejects(initSnapshot(dir,candidate,{...control,clock:fixedClock}),error=>{
+    assert.equal(String(error),'Error: Public HTML changed during fresh snapshot; restart with new receipt');
+    const report=readInitialRootDrift(error);
+    assert.deepEqual(report,{classification:'ROOT_DIFF_FIXED_RENDER_STAMPS_ONLY',seedIdentity:'SAME',
+      expectedSHA256:digest(observedRoot),observedSHA256:digest(stampOnly)});
+    assert.deepEqual(Object.values(report).filter(x=>!/^[a-f0-9]{64}$/.test(x)),['ROOT_DIFF_FIXED_RENDER_STAMPS_ONLY','SAME']);
+    for(const value of [...stamps,'TOKEN_VALUE_Z1','/vite/','https://','<script','保持不变']) {
+      assert.ok(!JSON.stringify(report).includes(value));
+    }
+    assert.equal(readInitialRootDrift({rootMismatch:'untrusted string'}),undefined);
+    return true;
+  });
+  assert.ok(!(await readdir(dir)).some(name=>name.endsWith('.json')||name.endsWith('.sha256')||name==='public-home.html'));
+  assert.equal(control.hits.length,36); // Original seed bracket, no diagnostic requests.
+  assert.equal(control.hits[0],'/');assert.equal(control.hits.at(-1),'/');
+  assert.ok([...control.counts.values()].every(n=>n===2));
+  assert.equal(control.counts.has(lazy),false);
+});
+
+test('unrelated changed bytes, fake stamp placement or ambiguous structure stay unclassified', async()=>{
+  const unknown='ROOT_DIFF_UNCLASSIFIED', b=Buffer.from;
+  assert.equal(classifyInitialRootDrift(b(observedRoot),b(observedRoot)),unknown);
+  for(const changed of [stampOnly.replace('TOKEN_VALUE_Z1','TOKEN_VALUE_Z2'),stampOnly.replace('>fixture</body>','>Fixture</body>')]) {
+    assert.equal(changed.length,observedRoot.length);
+    assert.equal(classifyInitialRootDrift(b(observedRoot),b(changed)),unknown);
+  }
+  const duplicate=observedRoot.replace(contextTag,contextTag+contextTag);
+  const malformed=observedRoot.replace('id="misskey_meta" data-generated-at=','id="misskey_meta" irrelevant="EXTRA_TOKEN" data-generated-at=');
+  const inert=observedRoot.replace(contextTag,'<!--'+contextTag+'-->');
+  const outside=observedRoot.replace(contextTag,'').replace('</body>',contextTag+'</body>');
+  const oversize=observedRoot.replace('<html>','<!--'+'x'.repeat(1024*1024)+'--><html>');
+  for(const candidateHTML of [duplicate,malformed,inert,outside,oversize]) {
+    assert.equal(classifyInitialRootDrift(b(candidateHTML),b(candidateHTML.replaceAll(stamps[1],stamps[3]))),unknown);
+  }
+  const extra=Object.fromEntries(stylesheetPaths.map(p=>[p,['fixture CSS','text/css']]));
+  const other=stampOnly.replace('TOKEN_VALUE_Z1','TOKEN_VALUE_Z2');
+  const control=stub({extra:{...extra,'/':[observedRoot,'text/html']},
+    rewrite:(p,n,row)=>p==='/'&&n===2?[other,'text/html']:row});
+  const {dir}=await mk();
+  await assert.rejects(initSnapshot(dir,candidate,{...control,clock:fixedClock}),error=>{
+    assert.equal(String(error),'Error: Public HTML changed during fresh snapshot; restart with new receipt');
+    assert.deepEqual(readInitialRootDrift(error),{classification:unknown,seedIdentity:'SAME',
+      expectedSHA256:digest(observedRoot),observedSHA256:digest(other)});
+    return true;
+  });
+  assert.equal(control.hits.length,36);
+  assert.ok(!(await readdir(dir)).some(name=>name.endsWith('.json')||name==='public-home.html'));
 });

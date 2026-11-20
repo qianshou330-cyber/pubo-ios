@@ -90,6 +90,65 @@ function readTagAttrs(attributes) {
   return attrs;
 }
 
+// Bounded, intentionally narrow recognition of the pinned HTML generator.
+// Latin-1 maps the prefix one-to-one to byte offsets even with UTF-8 content.
+function renderStampSpans(body) {
+  const head=body.toString('latin1',0,1024*1024);
+  const prologue=/^\s*<!DOCTYPE html>\s*(?:<!--[\s\S]*?-->\s*)*<html>\s*<head>/i.exec(head);
+  if(!prologue)return;
+  const open=/<(script|link|meta|style|title)(?=[\s/>])((?:[^"'<>]|"[^"]*"|'[^']*')*)>/iy;
+  const whitespace=/\s*/y;
+  const stamp=/^<script type="application\/json" id="(misskey_(?:meta|clientCtx))" data-generated-at="([1-9][0-9]{12})">$/d;
+  const slots=new Set(), spans=[];
+  let i=prologue[0].length;
+  while(i<head.length) {
+    whitespace.lastIndex=i; whitespace.exec(head); i=whitespace.lastIndex;
+    if(head.startsWith('</head>',i))return slots.has('misskey_meta')?spans:undefined;
+    if(head.startsWith('<!--',i)) {
+      const end=head.indexOf('-->',i+4);
+      if(end<0)return;
+      i=end+3;continue;
+    }
+    open.lastIndex=i;
+    const item=open.exec(head);
+    if(!item)return;
+    const kind=item[1].toLowerCase();
+    const raw=item[0], attributes=readTagAttrs(item[2]);
+    const knownID=attributes.get('id')?.toLowerCase();
+    if(knownID==='misskey_meta'||knownID==='misskey_clientctx') {
+      const fixed=stamp.exec(raw);
+      if(!fixed||slots.has(fixed[1]))return;
+      slots.add(fixed[1]);
+      spans.push({slot:fixed[1],start:i+fixed.indices[2][0],end:i+fixed.indices[2][1]});
+    }
+    i=open.lastIndex;
+    if(kind==='script'||kind==='style'||kind==='title') {
+      const close=new RegExp('</'+kind+'\\s*>','gi');
+      close.lastIndex=i;
+      if(!close.exec(head))return;
+      i=close.lastIndex;
+    }
+  }
+}
+
+// Diagnostic only. Compare all bytes outside the recognized digit spans; no
+// input is changed or serialized. Ambiguity and ANY unrelated change stay unknown.
+export function classifyInitialRootDrift(first,second) {
+  const unknown='ROOT_DIFF_UNCLASSIFIED';
+  const a=renderStampSpans(first),b=renderStampSpans(second);
+  if(!a||!b||a.length!==b.length||first.length!==second.length)return unknown;
+  let offset=0, changed=false;
+  for(let i=0;i<a.length;i++) {
+    const x=a[i],y=b[i];
+    if(x.slot!==y.slot||x.start!==y.start||x.end!==y.end||
+       !first.subarray(offset,x.start).equals(second.subarray(offset,x.start)))return unknown;
+    if(!first.subarray(x.start,x.end).equals(second.subarray(x.start,x.end)))changed=true;
+    offset=x.end;
+  }
+  return changed&&first.subarray(offset).equals(second.subarray(offset))?
+    'ROOT_DIFF_FIXED_RENDER_STAMPS_ONLY':unknown;
+}
+
 // Diagnostic only: none of these shape categories authorizes an asset. No
 // input text, attribute value, path, prefix, meta field, or match is returned.
 export function describeBootstrapShape(body) {

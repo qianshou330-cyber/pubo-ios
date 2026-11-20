@@ -3,6 +3,33 @@ import re
 import unittest
 from ui_selection import SHARDS, FOCUSED, PRESENTATION_PARTS, selection, complete
 
+# C86 intentionally compiles two suites from this one existing project member.
+# The Friends root probe owns its opt-in selector, not an original SHARDS slot.
+FOLLOW_LIST_REQUIRED = 'FollowListParityUITests'
+FOLLOW_LIST_SHARED_INVENTORY = {
+    FOLLOW_LIST_REQUIRED: (
+        'testFirstPageRetryClearsErrorAndPaginationReachesLastUser',
+        'testEmptyFollowersAreNotAnErrorOrEndlessLoadMore',
+    ),
+    'FriendsRootRetryUITests': ('testOlderFailureRetriesAtExistingCursor',),
+}
+
+
+def shared_follow_list_inventory(source):
+    methods = r'^\s+func (test\w+)\('
+    sections = re.split(r'^\s*(?:final )?class (\w+): XCTestCase \{\s*$', source, flags=re.M)
+    if re.search(methods, sections[0], re.M):
+        raise ValueError('Unscoped XCTest method in shared follow-list source')
+    inventory = {}
+    for suite, body in zip(sections[1::2], sections[2::2]):
+        if suite in inventory:
+            raise ValueError('Repeated XCTest suite in shared follow-list source: ' + suite)
+        inventory[suite] = tuple(re.findall(methods, body, re.M))
+    if inventory != FOLLOW_LIST_SHARED_INVENTORY:
+        raise ValueError('Untracked or missing XCTest in shared follow-list source: ' + repr(inventory))
+    return inventory
+
+
 class SelectionTests(unittest.TestCase):
     def test_disjoint_complete_original_coverage(self):
         expected = {'SocialAlignmentUITests', 'ParityBatchUITests', 'FollowRequestParityUITests',
@@ -21,8 +48,27 @@ class SelectionTests(unittest.TestCase):
             actual = 0
             for suite in suites:
                 if '/' in suite: actual += 1
+                elif suite == FOLLOW_LIST_REQUIRED:
+                    source = (root / (suite + '.swift')).read_text()
+                    actual += len(shared_follow_list_inventory(source)[suite])
                 else: actual += len(re.findall(r'^\s+func test\w+\(', (root / (suite + '.swift')).read_text(), re.M))
             self.assertEqual(count, actual)
+
+    def test_shared_follow_list_rejects_untracked_methods_and_keeps_optional_out(self):
+        root = pathlib.Path(__file__).resolve().parents[1]
+        source = (root / 'UITests/FollowListParityUITests.swift').read_text()
+        self.assertEqual(shared_follow_list_inventory(source), FOLLOW_LIST_SHARED_INVENTORY)
+        optional = 'FriendsRootRetryUITests'
+        all_required = [item for shard in SHARDS for item in selection(shard)[1]]
+        self.assertIn('-only-testing:PUBOUITests/FollowListParityUITests', all_required)
+        self.assertFalse(any(optional in item for item in all_required + FOCUSED))
+        for suite in FOLLOW_LIST_SHARED_INVENTORY:
+            header = f'class {suite}: XCTestCase {{'
+            self.assertIn(header, source)
+            with self.subTest(suite=suite), self.assertRaisesRegex(ValueError, 'Untracked or missing'):
+                shared_follow_list_inventory(source.replace(header, header + '\n    func testUntracked() {}', 1))
+        with self.assertRaisesRegex(ValueError, 'Untracked or missing'):
+            shared_follow_list_inventory(source.replace('testOlderFailureRetriesAtExistingCursor', 'testRenamed', 1))
     def test_chat_pilot_exact_methods_and_disjoint_original_coverage(self):
         expected = {
             'testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize',
