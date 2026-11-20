@@ -62,7 +62,7 @@ class WorldScrollDiagnosticTests(unittest.TestCase):
 
     def test_runner_keeps_time_budget_and_evidence(self):
         for text in ['if elapsed >= 1800:', 'world-scroll.mp4', 'and not world_scroll_probe:',
-                     'back_video.send_signal(signal.SIGINT)', 'explicit SE or Max']:
+                     'back_video.send_signal(signal.SIGINT)', 'explicit QA profile']:
             self.assertIn(text, self.runner)
 
     def test_optional_matrix_and_artifact_scope(self):

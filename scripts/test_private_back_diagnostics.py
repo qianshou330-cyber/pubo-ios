@@ -35,7 +35,7 @@ class PrivateBackDiagnosticTests(unittest.TestCase):
 
     def test_runner_wires_video_and_existing_passive_receipt(self):
         runner = (ROOT / 'scripts/simulator-tests.py').read_text()
-        self.assertIn('Private Back comparison requires the iPhone Max', runner)
+        self.assertIn('Private Back comparison requires the large QA profile', runner)
         self.assertIn('private-native-back.mp4', runner)
         self.assertIn("if shard == 'chat-presentation-composer' or private_back_probe:", runner)
         self.assertIn('not focused and not private_back_probe', runner)

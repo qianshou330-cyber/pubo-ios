@@ -289,7 +289,7 @@ jobs:
           xcodegen generate
       - name: Compile Debug app and all UI test sources
         run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
-      - name: Run one light room-chat double-Back control on a fresh SE simulator
+      - name: Run one light room-chat double-Back control on the fresh standard-size QA simulator
         env:
           PUBO_SIM_SIZE: small
           PUBO_UI_SHARD: 'room-back-${{ matrix.scenario }}'
@@ -402,7 +402,7 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
-      - name: Capture actual H5 small and large views in both themes
+      - name: Capture actual H5 at the standard and large simulator profiles in both themes
         working-directory: scripts/h5-chat
         run: npm run capture
       - uses: actions/upload-artifact@v4

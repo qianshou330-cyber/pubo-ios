@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from iphone_qa_matrix import MATRIX, RUNTIME
 from four_tabs_gate import (SHARDS, SUITE, complete, declared_tests, expected_method_ids,
                             selected_methods, selectors, successful_method_ids, validate_scope)
 
@@ -116,7 +117,9 @@ class RunnerContractTests(unittest.TestCase):
         commands = []
         waits = []
         proof_calls = []
-        device_id = 'synthetic-udid'
+        device_id = 'aabbccdd-1111-2222-3333-aabbccddeeff'
+        profile = MATRIX['small']
+        created = []
         class FakeProcess:
             pid = 12345
             def __init__(self):
@@ -130,10 +133,15 @@ class RunnerContractTests(unittest.TestCase):
             def poll(self): return 0 if self.done else None
         def output(command, **kwargs):
             if command[:4] == ['xcrun', 'simctl', 'list', 'devices']:
-                return json.dumps({'devices': {'com.apple.CoreSimulator.SimRuntime.iOS-26-1': [
-                    {'name': 'iPhone SE', 'deviceTypeIdentifier': 'small'},
-                    {'name': 'iPhone Max', 'deviceTypeIdentifier': 'large'}]}}).encode()
-            if command[:3] == ['xcrun', 'simctl', 'create']: return device_id
+                rows = [dict(name=profile['model'], deviceTypeIdentifier=profile['deviceTypeIdentifier'],
+                             udid='template-udid', isAvailable=True)]
+                rows += created
+                return json.dumps({'devices': {RUNTIME: rows}}).encode()
+            if command[:3] == ['xcrun', 'simctl', 'create']:
+                self.assertEqual(command[3:], ['PUBO four tabs small', profile['deviceTypeIdentifier'], RUNTIME])
+                created.append(dict(name=command[3], deviceTypeIdentifier=command[4],
+                                    udid=device_id, isAvailable=True))
+                return device_id
             if command[0] == 'git': return 'a' * 40
             return 'Xcode 26.0.1'
         def popen(command, **kwargs):
@@ -147,7 +155,11 @@ class RunnerContractTests(unittest.TestCase):
                 if fault == 'reader_error': raise subprocess.CalledProcessError(1, command)
                 if command[4] == 'summary':
                     value = summary_for(shard)
+                    value['devicesAndConfigurations'] = [dict(value, device={
+                        'deviceId': device_id, 'modelName': profile['model'], 'platform': 'iOS Simulator',
+                        'osVersion': MATRIX['osVersion']})]
                     if fault == 'summary': value['skippedTests'] = 1
+                    if fault == 'wrong-device': value['devicesAndConfigurations'][0]['device']['modelName'] = 'iPhone SE'
                 else:
                     value = tree_for(shard)
                     if fault == 'identity': cases(value)[0]['nodeIdentifier'] = 'OtherSuite/testSubstitute()'
@@ -187,6 +199,8 @@ class RunnerContractTests(unittest.TestCase):
             self.assertEqual((record['runId'], record['runAttempt'], record['shard']), ('123', '2', shard))
             self.assertEqual(record['repository'], 'qianshou330-cyber/pubo-ios')
             self.assertEqual(record['testExitCode'], 0)
+            self.assertEqual((record['device'], record['deviceTypeIdentifier'], record['runtime']),
+                             ('iPhone 17', MATRIX['small']['deviceTypeIdentifier'], RUNTIME))
             self.assertEqual(waits[0], 2700)
             self.assertEqual(record['exportedPNGs'], 8)
             if shard == 'interaction':
@@ -198,7 +212,7 @@ class RunnerContractTests(unittest.TestCase):
             self.assertEqual([c for c in command if c.startswith('-only-testing:')], selectors(shard))
 
     def test_fail_closed_negative_execution(self):
-        for fault in ('timeout', 'nonzero', 'reader_error', 'identity', 'summary', 'screenshots', 'badge'):
+        for fault in ('timeout', 'nonzero', 'reader_error', 'identity', 'summary', 'wrong-device', 'screenshots', 'badge'):
             with self.subTest(fault=fault):
                 code, record, *_ = self.run_fake(fault=fault)
                 self.assertNotEqual(code, 0)

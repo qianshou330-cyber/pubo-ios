@@ -55,8 +55,8 @@ class RoomBackDiagnosticTests(unittest.TestCase):
         self.assertNotIn('debugDescription', tap_segment)
 
     def test_runner_size_video_and_no_synthetic_post_run(self):
-        self.assertIn("room_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'small' or 'SE' not in selected[0]['name'])", self.runner)
-        self.assertIn('Room Back comparison requires the iPhone SE', self.runner)
+        self.assertIn("room_back_probe and size != 'small'", self.runner)
+        self.assertIn('Room Back comparison requires the standard-size QA profile', self.runner)
         self.assertIn('if private_back_probe or room_back_probe:', self.runner)
         self.assertIn('room-native-back.mp4', self.runner)
         self.assertIn('not focused and not private_back_probe and not room_back_probe', self.runner)

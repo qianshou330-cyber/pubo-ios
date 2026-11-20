@@ -4,6 +4,8 @@ import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const dir = dirname(fileURLToPath(import.meta.url));
+const matrix = JSON.parse(await readFile(`${dir}/../iphone-qa-matrix.json`, 'utf8'));
+const viewports = ['small', 'large'].map(name => ({name, ...matrix[name]}));
 const out = resolve(process.env.OUTPUT_DIR || `${dir}/artifacts`);
 await mkdir(out, {recursive:true});
 // Remove this harness's known outputs only, never unrelated evidence files.
@@ -22,7 +24,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 try {
  let ready=false; for(let n=0;n<50;n++){if(server.exitCode!==null)throw Error(`server exited ${server.exitCode}`);try{if((await fetch(origin+'/__health')).ok){ready=true;break;}}catch{}await sleep(1000);} if(!ready)throw Error('server timeout');
  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
- for(const size of [{name:'small',width:375,height:667},{name:'large',width:440,height:956}]) for(const theme of ['light','dark']) for(const kind of ['private','room']) {
+ for(const size of viewports) for(const theme of ['light','dark']) for(const kind of ['private','room']) {
   const name=`${kind}-${size.name}-${theme}`;
   const c={name,size,theme,kind,errors:[],consoleErrors:[],expectedConsoleErrors:[],expectedMissingKeys:[],blocked:[],failedResponses:[],responses:[],bundles:0,passed:false};report.cases.push(c);
   const context=await browser.newContext({viewport:{width:size.width,height:size.height},deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'zh-CN',timezoneId:'UTC',colorScheme:theme,serviceWorkers:'block'});

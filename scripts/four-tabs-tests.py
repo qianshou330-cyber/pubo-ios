@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from simulator_boot import boot
+from iphone_qa_matrix import available_inventory, create_device, select_template, summary_matches_device
 from four_tabs_gate import (SUITE, complete, declared_tests, validate_scope,
                             selected_methods, expected_method_ids, selectors, successful_method_ids)
 from badge_pixel_gate import verify_badge_phases
@@ -20,23 +21,16 @@ if size not in ('small', 'large'):
 shard = os.environ.get('PUBO_NAV_SHARD', 'all')
 validate_scope(declared_tests())
 expected = len(selected_methods(shard))
-devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], timeout=30))['devices']
-phones = [dict(d, runtime=runtime) for runtime, rows in devices.items()
-          if '.iOS-26-' in runtime for d in rows if d['name'].startswith('iPhone')]
-small = next((d for d in phones if 'SE' in d['name']), None)
-large = next((d for d in phones if 'Max' in d['name']), None)
-# Do not silently replace the small-screen contract with an ordinary full-size phone.
-if small is None or large is None:
-    raise SystemExit('Both iPhone SE and iPhone Max iOS26 simulator templates are required')
-template = small if size == 'small' else large
-identifier = subprocess.check_output(['xcrun', 'simctl', 'create', 'PUBO four tabs ' + size,
-    template['deviceTypeIdentifier'], template['runtime']], text=True, timeout=60).strip()
-record = dict(size=size, device=template['name'], runtime=template['runtime'], udid=identifier,
+template = select_template(available_inventory(), size)
+device = create_device(size, template, 'PUBO four tabs ' + size)
+identifier = device['udid']
+record = dict(size=size, device=device['model'], deviceTypeIdentifier=device['deviceTypeIdentifier'],
+              runtime=device['runtime'], udid=identifier,
               commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True, timeout=15).strip(),
               hostArchitecture=platform.machine(),
               xcode=subprocess.check_output(['xcodebuild', '-version'], text=True, timeout=30).strip(),
               suite=SUITE, expectedTests=expected, tests='NOT_RUN', scope='four-tab-first-batch-only',
-              schemaVersion=1, repository=os.environ.get('GITHUB_REPOSITORY', ''),
+              schemaVersion=2, repository=os.environ.get('GITHUB_REPOSITORY', ''),
               runId=os.environ.get('GITHUB_RUN_ID', ''), runAttempt=os.environ.get('GITHUB_RUN_ATTEMPT', ''),
               shard=shard, selectedMethods=expected_method_ids(shard), successfulMethodIDs=[],
               methodGate='FAIL', testExitCode=None, exportedPNGs=0, boot='PENDING',
@@ -77,6 +71,8 @@ try:
     record['successfulMethodIDs'] = successful_method_ids(json.loads(tree_result.stdout), shard)
     if not complete(summary, expected):
         raise ValueError(f'Exactly {expected} passing tests; zero failed, skipped or expected failures required')
+    if not summary_matches_device(summary, size, identifier, expected):
+        raise ValueError('xcresult simulator identity or per-device counts do not match the QA profile')
     record['methodGate'] = 'PASS'
     record['tests'] = 'PASS' if exit_code == 0 else 'FAIL'
 except BaseException as error:

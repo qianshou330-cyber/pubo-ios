@@ -11,6 +11,7 @@ import uuid
 import zlib
 
 import four_tabs_gate
+from iphone_qa_matrix import MATRIX, RUNTIME
 from verify_navigation_shards import verify, GateError
 
 SHA = 'a' * 40
@@ -46,7 +47,9 @@ class AggregateTests(unittest.TestCase):
                 shots.mkdir(parents=True)
                 udid = str(uuid.uuid4())
                 methods = [f'FourTabNavigationUITests/{name}()' for name in names]
-                receipt = dict(schemaVersion=1, repository='qianshou330-cyber/pubo-ios',
+                receipt = dict(schemaVersion=2, repository='qianshou330-cyber/pubo-ios',
+                               device=MATRIX[size]['model'], runtime=RUNTIME,
+                               deviceTypeIdentifier=MATRIX[size]['deviceTypeIdentifier'],
                                commit=SHA, runId='123', runAttempt='2', size=size, shard=shard,
                                udid=udid, tests='PASS', boot='READY', suite='FourTabNavigationUITests',
                                expectedTests=len(names), selectedMethods=methods, successfulMethodIDs=methods,
@@ -69,7 +72,11 @@ class AggregateTests(unittest.TestCase):
                                 sha256=hashlib.sha256(png_bytes()).hexdigest(), timestamp=110. + i * 10)
                         proof['phases'].append(dict(phase=phase, ocr={'text': '2'}, attachments=attachments))
                 self.write(directory / 'four-tabs-badge-pixels.json', proof)
-                self.write(directory / 'four-tabs-summary.json', dict(passedTests=len(methods), failedTests=0, skippedTests=0, expectedFailures=0))
+                counts = dict(passedTests=len(methods), failedTests=0, skippedTests=0, expectedFailures=0)
+                device = dict(deviceId=udid, modelName=MATRIX[size]['model'],
+                              osVersion=MATRIX['osVersion'], platform='iOS Simulator')
+                self.write(directory / 'four-tabs-summary.json',
+                           dict(counts, devicesAndConfigurations=[dict(counts, device=device)]))
                 self.write(directory / 'four-tabs-tests.json', {'testNodes': [dict(nodeType='Test Case', nodeIdentifier=m, result='Passed') for m in methods]})
                 path = directory / 'four-tabs-environment.json'
                 self.write(path, receipt)
@@ -95,7 +102,9 @@ class AggregateTests(unittest.TestCase):
         for key, value in [('commit', 'b'*40), ('runId', '124'), ('runAttempt', '1'),
                            ('size', 'large'), ('shard', 'interaction'), ('udid', ''),
                            ('tests', 'FAIL'), ('methodGate', 'FAIL'), ('testExitCode', 1),
-                           ('boot', 'NOT_READY'), ('schemaVersion', 2), ('repository', 'other/repo'),
+                           ('boot', 'NOT_READY'), ('schemaVersion', 1), ('repository', 'other/repo'),
+                           ('device', 'iPhone SE (3rd generation)'), ('runtime', 'iOS-26-0'),
+                           ('deviceTypeIdentifier', MATRIX['large']['deviceTypeIdentifier']),
                            ('started', None), ('exportedPNGs', 8), ('pixelGate', 'NOT_APPLICABLE')]:
             with self.subTest(key=key):
                 path.write_text(original)
@@ -128,6 +137,22 @@ class AggregateTests(unittest.TestCase):
         path = self.receipts[0].parent / 'four-tabs-summary.json'
         self.mutate(path, lambda d: d.update(skippedTests=1))
         with self.assertRaises(ValueError): self.check()
+
+    def test_independent_xcresult_device_identity(self):
+        path = self.receipts[0].parent / 'four-tabs-summary.json'
+        original = path.read_text()
+        for key, value in [('deviceId', 'other'), ('modelName', 'iPhone SE'), ('osVersion', '26.0'),
+                           ('platform', 'iOS')]:
+            with self.subTest(key=key):
+                path.write_text(original)
+                self.mutate(path, lambda d: d['devicesAndConfigurations'][0]['device'].update({key: value}))
+                with self.assertRaisesRegex(ValueError, 'simulator identity'):
+                    self.check()
+        for value in ([], None):
+            path.write_text(original)
+            self.mutate(path, lambda d: d.update(devicesAndConfigurations=value))
+            with self.assertRaisesRegex(ValueError, 'simulator identity'):
+                self.check()
 
     def test_source_drift(self):
         self.source.write_text(self.source.read_text() + '\n    func testNew() {}')

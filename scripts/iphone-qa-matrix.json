@@ -1,0 +1,16 @@
+{
+  "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-1",
+  "osVersion": "26.1",
+  "small": {
+    "model": "iPhone 17",
+    "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+    "width": 402,
+    "height": 874
+  },
+  "large": {
+    "model": "iPhone 17 Pro Max",
+    "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max",
+    "width": 440,
+    "height": 956
+  }
+}

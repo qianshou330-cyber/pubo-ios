@@ -8,22 +8,17 @@ import signal
 import subprocess
 import time
 from simulator_boot import boot
+from iphone_qa_matrix import SIZES, available_inventory, create_device, select_template, summary_matches_device
 from ui_selection import FOCUSED, selection, complete
 from refresh_lifecycle import complete_lifecycle
 
 root = pathlib.Path('build')
 root.mkdir(exist_ok=True)
-devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
-iphones = [dict(d, runtime=runtime) for runtime, values in devices.items() if '.iOS-26-' in runtime for d in values if d['name'].startswith('iPhone')]
-if not iphones:
-    raise SystemExit('No available iPhone simulator runtime')
-small = next((d for d in iphones if 'SE' in d['name']), next((d for d in iphones if 'Max' not in d['name'] and 'Plus' not in d['name']), iphones[0]))
-large = next((d for d in iphones if 'Max' in d['name']), iphones[-1])
-selected = list({d['udid']: d for d in [small, large]}.values())
-if len(selected) < 2:
-    raise SystemExit('Two different iPhone sizes are required')
-if os.environ.get('PUBO_SIM_SIZE') in ('small', 'large'):
-    selected = [selected[0 if os.environ['PUBO_SIM_SIZE'] == 'small' else -1]]
+size = os.environ.get('PUBO_SIM_SIZE')
+if size is not None and size not in SIZES:
+    raise SystemExit('PUBO_SIM_SIZE must be small or large when set')
+inventory = available_inventory()
+selected = [(slot, select_template(inventory, slot)) for slot in ((size,) if size else SIZES)]
 focused = os.environ.get('PUBO_REGRESSION_147_ONLY') == '1'
 if focused and any(os.environ.get(key) == '1' for key in (
     'PUBO_SOCIAL_ALIGNMENT', 'PUBO_AUTH_VIDEO', 'PUBO_HOME_MOTION', 'PUBO_AUTH_APPEARANCE')):
@@ -33,15 +28,14 @@ if shard and (focused or any(os.environ.get(key) == "1" for key in ("PUBO_SOCIAL
     raise SystemExit("UI shard cannot combine with another selection")
 shard_selection = selection(shard) if shard else None
 private_back_probe = shard in ('private-back-without-picker', 'private-back-after-picker')
-if private_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'large' or 'Max' not in selected[0]['name']):
-    raise SystemExit('Private Back comparison requires the iPhone Max iOS 26 simulator')
+if private_back_probe and size != 'large':
+    raise SystemExit('Private Back comparison requires the large QA profile')
 room_back_probe = shard in ('room-back-without-picker', 'room-back-after-picker')
-if room_back_probe and (os.environ.get('PUBO_SIM_SIZE') != 'small' or 'SE' not in selected[0]['name']):
-    raise SystemExit('Room Back comparison requires the iPhone SE iOS 26 simulator')
+if room_back_probe and size != 'small':
+    raise SystemExit('Room Back comparison requires the standard-size QA profile')
 world_scroll_probe = shard in ('world-scroll-cross-page', 'world-scroll-signposts')
-if world_scroll_probe and (os.environ.get('PUBO_SIM_SIZE') not in ('small', 'large') or
-                           ('SE' if os.environ['PUBO_SIM_SIZE'] == 'small' else 'Max') not in selected[0]['name']):
-    raise SystemExit('World scroll comparison requires explicit SE or Max iOS 26 simulator')
+if world_scroll_probe and size not in SIZES:
+    raise SystemExit('World scroll comparison requires an explicit QA profile')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -50,16 +44,14 @@ def diagnostic(command, timeout):
     except (subprocess.TimeoutExpired, OSError) as error:
         print('Diagnostic unavailable: ' + str(error), flush=True)
 
-for index, template in enumerate(selected):
-    # GitHub's pre-created device reached Booted while testmanagerd was not ready.
-    # Use fresh, task-owned devices and wait for the complete boot sequence.
-    identifier = subprocess.check_output(['xcrun', 'simctl', 'create', 'PUBO ' + template['name'],
-                                         template['deviceTypeIdentifier'], template['runtime']], text=True, timeout=60).strip()
-    inventory = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', '--json']))['devices']
-    device = next(dict(d, runtime=runtime) for runtime, values in inventory.items() for d in values if d['udid'] == identifier)
+for index, (slot, template) in enumerate(selected):
+    # Use fresh task-owned devices; pre-created devices supply the exact type only.
+    device = create_device(slot, template, 'PUBO ' + template['name'])
+    identifier = device['udid']
     created.append(device)
     (root / 'simulators.json').write_text(json.dumps(created, indent=2))
-    record = {'device': device['name'], 'runtime': device['runtime'], 'udid': identifier, 'boot': 'PENDING', 'tests': 'NOT_RUN',
+    record = {'size': slot, 'device': device['model'], 'deviceTypeIdentifier': device['deviceTypeIdentifier'],
+              'runtime': device['runtime'], 'udid': identifier, 'boot': 'PENDING', 'tests': 'NOT_RUN',
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True, timeout=15).strip(),
               'hostArchitecture': platform.machine(),
               'xcode': subprocess.check_output(['xcodebuild', '-version'], text=True, timeout=30).strip()}
@@ -71,7 +63,7 @@ for index, template in enumerate(selected):
     process = None
     back_video = None
     try:
-        print('Booting fresh simulator: ' + device['name'], flush=True)
+        print('Booting fresh simulator: ' + device['model'], flush=True)
         boot(identifier, root / f'boot-{index}.json')
         record['boot'] = 'READY'
         if os.environ.get('PUBO_SOCIAL_ALIGNMENT') == '1':
@@ -184,6 +176,9 @@ for index, template in enumerate(selected):
             if not complete(gate, expected):
                 test_exit = 1
                 record['gateError'] = f'Exactly {expected} passing tests, zero failures/skips/expected failures required'
+            elif not summary_matches_device(gate, slot, identifier, expected):
+                test_exit = 1
+                record['gateError'] = 'xcresult simulator identity or per-device counts do not match the QA profile'
         record['tests'] = 'PASS' if test_exit == 0 else 'FAIL'
         if test_exit == 0 and os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
             subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', identifier,

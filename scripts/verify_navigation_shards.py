@@ -10,6 +10,7 @@ import struct
 import zlib
 
 from four_tabs_gate import SUITE, declared_tests, complete, successful_method_ids
+from iphone_qa_matrix import MATRIX, RUNTIME, summary_matches_device
 
 
 class GateError(ValueError):
@@ -97,7 +98,9 @@ def verify(artifact_root, sha, run, attempt, source=None):
             receipt = read_json(directory / 'four-tabs-environment.json')
             for key, expected in [('commit', sha), ('runId', str(run)), ('runAttempt', str(attempt)),
                                   ('size', size), ('shard', shard), ('tests', 'PASS'), ('suite', SUITE),
-                                  ('schemaVersion', 1), ('repository', 'qianshou330-cyber/pubo-ios'),
+                                  ('schemaVersion', 2), ('repository', 'qianshou330-cyber/pubo-ios'),
+                                  ('device', MATRIX[size]['model']), ('runtime', RUNTIME),
+                                  ('deviceTypeIdentifier', MATRIX[size]['deviceTypeIdentifier']),
                                   ('methodGate', 'PASS'), ('testExitCode', 0), ('boot', 'READY')]:
                 require(type(receipt.get(key)) is type(expected) and receipt[key] == expected, f'Receipt {key} mismatch')
             udid = receipt.get('udid')
@@ -110,7 +113,9 @@ def verify(artifact_root, sha, run, attempt, source=None):
             exact_methods(receipt.get('selectedMethods'), ids, 'Selected methods')
             exact_methods(receipt.get('successfulMethodIDs'), ids, 'Passing methods')
             require(type(receipt.get('expectedTests')) is int and receipt['expectedTests'] == len(ids), 'Wrong expected count')
-            require(complete(read_json(directory / 'four-tabs-summary.json'), len(ids)), 'Result summary failed')
+            summary = read_json(directory / 'four-tabs-summary.json')
+            require(complete(summary, len(ids)), 'Result summary failed')
+            require(summary_matches_device(summary, size, udid, len(ids)), 'Result simulator identity or per-device counts mismatch')
             exact_methods(successful_method_ids(read_json(directory / 'four-tabs-tests.json'), shard), ids, 'Raw xcresult methods')
             # Only count manifest-backed exported test images, never a runner-failure snapshot.
             shots = directory / 'screenshots'
