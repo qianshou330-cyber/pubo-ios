@@ -8,13 +8,17 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
-## 接力检查点 C88：对齐消息首页的私聊行，不改私聊或群聊内页
+## 接力检查点 C88：消息首页已复测，好友与「我的」仍分机型记录
 
-- **消息首页**：按归档 H5 的会话列表，私聊行在昵称旁补显示对方已有的 @账号，不发新请求；群聊、预览、四栏、加好友入口和跳转不改。窄屏优先保留昵称和时间，再显示账号；iOS 18+ 在原链接增加账号的无障碍值，旧系统保持原行为。原明暗主题用例补严格账号断言，尚待双模拟器复测。当前只有源码对照，没有同状态 H5 / iOS 图或 VoiceOver 结论。
-- **好友**：上轮标准 iPhone 17 已通过分页专项，17 Pro Max 上次 XCTest exit 65 的原因未明。C88 可选专项失败时只报告已核对的固定分类，不上传失败原始日志，不改变通过条件；原生分页逻辑不变。
-- **我的**：对照用同一组已加载设置分别验「关闭／禁用」和「开启／可用」，保存后的回读另测。历史 H5 切换即提交，iOS 显式保存，不能把未保存草稿与 H5 已提交画面作同状态对照；C87 两种开关失败都发生在保存之前。
-- **世界圈**：C87 已证实那次两份 H5 首页仅有固定生成时间字段不同，严格流程仍未产出图。独立合成页面原型未启用，不会把历史／合成参考冒充线上。C87 Pro Max 跨页回位通过；标准款在用例前初始化失败，不能当作性能或功能退步。
-- C87 全量验收未通过。路由两款各 6/6；交互 17 Pro Max 7/7，17 标准 6/7（关注申请用例失败），严格导航汇总与正式 IPA 均跳过。[C87 结果](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44780053031)。本阶段只用 iPhone 14 系列及以上，目前矩阵是两款 iPhone 17 / iOS 26.1 模拟器，未新增真机或新验收包。
+[精确源码 `1de74c2a87977235acfa436ebd1ec3737bf4f346`](https://github.com/qianshou330-cyber/pubo-ios/commit/1de74c2a87977235acfa436ebd1ec3737bf4f346) · [C88 主流程](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631)。主流程已结束，结论未通过；以下为已核对分片，不等于全量验收。限 iPhone 14 系列及以上；本轮为 iPhone 17 / 17 Pro Max、iOS 26.1 模拟器，无新增真机结果。
+
+- **消息首页**：[私聊行源码](https://github.com/qianshou330-cyber/pubo-ios/blob/1de74c2a87977235acfa436ebd1ec3737bf4f346/App/Features/ChatListView.swift)仅补显示对方已有的 @账号，不发新请求。群聊、预览、四栏、加好友入口和跳转不改；窄屏保留昵称和时间，iOS 18+ 在原链接添加无障碍值，旧系统保持原行为。原布局分片两款均 **5/5**，两款浅色、深色均核对私聊 `@friend`、群聊不显示该账号。[标准款原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14667149535) · [Pro Max 原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14668897323)。已交付标准款 [C87](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44780053031/artifacts/14660159773)→C88 同状态浅色原生前后图；这是 iOS 改动对照，不是 H5 配对，也未验证真人 VoiceOver 操作。
+- **好友**：C88 [Pro Max](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694699/artifacts/14664558357)「加载更多失败后按原游标重试」合成专项 **1/1**；[标准款](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694699/artifacts/14663314521) exit 65，失败阶段 `UNKNOWN`，未通过。C86 [标准款同功能专项](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44775987346/artifacts/14650274430)通过，只能作跨版本证据，不能记成 C88 双机同轮通过。分页和「关注申请」是两条不同路径；不代替整页、真机或 H5 验收。
+- **我的**：C88 [标准款](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14671939849)浅色、深色都验证锁定账号与「自动接受关注对象」的依赖关系，关锁禁用时仍保留已选值，重开后恢复可用；这项用例**不点保存**。同分片另一用例通过「隐藏在线状态」的隔离夹具保存及回读，不证明锁定/自动接受持久化或邀请创建。[Pro Max](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14670322501)复现首个浅色锁定开关点击后不变，失败发生在保存前；未定位为触摸投递或控件激活。历史 H5 切换即提交，iOS 显式保存；对齐应另取同一组已加载设置的「关闭／禁用」和「开启／可用」原图，保存后回读另测，不能把草稿与 H5 已提交状态对照。
+- **四栏导航**：[标准款交互](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/job/136537631311)和 [Pro Max 交互](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/job/136537631128)各 **7/7**，均走完关注申请和世界圈的交互用例。独立路由分片 [Pro Max](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/job/136537631032) **6/6**，[标准款](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/job/136537630905)在 XCTest 无障碍初始化超时，未开始路由用例。[严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/job/136616662858)被跳过。
+- **世界圈**：两款 iOS 模拟器均通过未发帖场景：键盘输入、关发布页、切栏返回并重开后草稿仍在；也验证合成加载骨架、大字错误态存在重试入口及继续切栏，不含点重试或恢复成功。[标准款交互原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14675194757) · [Pro Max 交互原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14676935092)。C88 标准款合成视频封面 4/4；Pro Max 3/4，缺失的损坏缩略图用例在世界圈底栏按钮点击前超时，未到解码。标准款仅采集到 3 次合成单页拖动和减速样本，无性能基线；Pro Max 无可用同口径样本。C88 跨页专项两款都没验证返回：标准款已到最旧帖但进详情前取图超时，Pro Max 在无障碍初始化阶段超时；历史 C85 双机合成回位有效，不能代替 C88。世界圈仍无同状态 H5 配对图；C87 严格取图失败及来源约束不变，合成外壳不冒充线上。精确分项链接和限制见 [修复日志](FIX_LOG.md)。
+- **打包**：C88 [未签名内部候选](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/artifacts/14667200060)仍标 `QA-INCOMPLETE`，不可直接安装、不替代顶部 C71 试用包。[正式 IPA 打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631/job/136616663318)被跳过，没有新正式验收包。保留所有原有测试、对照、权限和签名条件。
+- C87 全量验收未通过。路由两款各 6/6；交互 17 Pro Max 7/7，17 标准 6/7（关注申请用例失败），严格导航汇总与正式 IPA 均跳过。[C87 结果](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44780053031)。
 
 ## 接力检查点 C87：修正测试清单，继续确认世界圈 H5 取图阻塞
 
