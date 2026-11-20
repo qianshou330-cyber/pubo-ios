@@ -75,7 +75,15 @@ WORLD_SCROLL_DIAGNOSTICS = {
     'world-scroll-signposts': 'testSyntheticWorldScrollSignpostSamples',
 }
 
+ROOM_MENU_AB_SHARD = 'room-menu-ab'
+ROOM_MENU_AB_SUITE = 'RoomMenuABDiagnosticUITests'
+ROOM_MENU_AB_METHODS = {'text': 'test01OwnText', 'padding': 'test02OwnBubblePadding'}
+
+
 def selection(shard):
+    if shard == ROOM_MENU_AB_SHARD:
+        return len(ROOM_MENU_AB_METHODS), ['-only-testing:PUBOUITests/' + ROOM_MENU_AB_SUITE + '/' + name
+                                          for name in ROOM_MENU_AB_METHODS.values()]
     if shard in WORLD_SCROLL_DIAGNOSTICS:
         return 1, ['-only-testing:PUBOUITests/WorldScrollDiagnosticUITests/' + WORLD_SCROLL_DIAGNOSTICS[shard]]
     if shard in ROOM_BACK_DIAGNOSTICS:

@@ -665,3 +665,87 @@ jobs:
             UNEXERCISED) echo '::warning::UNEXERCISED: valid run and movement, no qualifying capture. Not a pass or product regression.'; exit 3 ;;
             *) echo '::error::UNAVAILABLE: setup, native execution, or evidence validation incomplete/failed. Inspect the retained diagnostic.'; exit 1 ;;
           esac
+  diagnostic-room-menu-ab:
+    # One opt-in synthetic standard-screen comparison; not a QA/package gate.
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/ui-four-tabs-148-20261112' && contains(github.event.head_commit.message, '[room-menu-ab-probe]')
+    runs-on: macos-15-intel
+    timeout-minutes: 85
+    permissions:
+      contents: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record run identity and verify C82 App/fixture source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/room-menu-ab
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          keys = dict(repository='GITHUB_REPOSITORY', ref='GITHUB_REF', commit='GITHUB_SHA',
+                      runId='GITHUB_RUN_ID', runAttempt='GITHUB_RUN_ATTEMPT')
+          context = {key: os.environ[name] for key, name in keys.items()}
+          Path('build/room-menu-ab/context.json').write_text(json.dumps(context, indent=2) + '\n')
+          PY
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(uname -m)" = 'x86_64'
+          test "$(xcodebuild -version)" = "$(printf 'Xcode 26.0.1\nBuild version 17A400')"
+          base=f901c5a871d423a43869f560d69b469ae82fe8b8
+          git merge-base --is-ancestor "$base" HEAD
+          git diff --exit-code "$base" HEAD -- App Sources Package.swift Package.resolved project.yml \
+            UITests/ChatAlignmentUITests.swift UITests/AppNavigationUITestSupport.swift scripts/brand-assets.swift \
+            scripts/iphone_qa_matrix.py scripts/iphone-qa-matrix.json
+          printf '%s\n' "$base" > build/room-menu-ab/c82-app-base.txt
+      - name: Build the opt-in XCTest bundle with pinned Xcode
+        timeout-minutes: 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          swift scripts/brand-assets.swift
+          xcodegen generate
+          xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug \
+            CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES \
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG PUBO_ROOM_MENU_AB_DIAGNOSTIC' \
+            build-for-testing 2>&1 | tee build/room-menu-ab/build.log
+      - name: Observe text versus same-bubble padding in two fresh app processes
+        timeout-minutes: 43
+        env:
+          PUBO_SIM_SIZE: small
+          PUBO_UI_SHARD: room-menu-ab
+          PUBO_PREBUILT_TESTS: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/simulator-tests.py 2>&1 | tee build/room-menu-ab/run.log
+      - name: Classify exact evidence without substituting a required test
+        timeout-minutes: 4
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p build/room-menu-ab
+          if [ -d build/ui-0.xcresult ]; then
+            xcrun xcresulttool get test-results tests --path build/ui-0.xcresult \
+              > build/room-menu-ab/tests.json 2> build/room-menu-ab/tests-export.log || true
+          fi
+          python3 scripts/verify_room_menu_ab.py build "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic-room-menu-ab-iphone17-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: |
+            build/room-menu-ab/
+            build/*.json
+            build/ui-0.xcresult
+            build/screenshots/
+          retention-days: 14
+          if-no-files-found: error

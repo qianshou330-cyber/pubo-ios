@@ -9,7 +9,7 @@ import subprocess
 import time
 from simulator_boot import boot
 from iphone_qa_matrix import SIZES, available_inventory, create_device, select_template, summary_matches_device
-from ui_selection import FOCUSED, selection, complete
+from ui_selection import FOCUSED, ROOM_MENU_AB_SHARD, selection, complete
 from refresh_lifecycle import complete_lifecycle
 
 root = pathlib.Path('build')
@@ -36,6 +36,9 @@ if room_back_probe and size != 'small':
 world_scroll_probe = shard in ('world-scroll-cross-page', 'world-scroll-signposts')
 if world_scroll_probe and size not in SIZES:
     raise SystemExit('World scroll comparison requires an explicit QA profile')
+room_menu_ab_probe = shard == ROOM_MENU_AB_SHARD
+if room_menu_ab_probe and (size != 'small' or os.environ.get('PUBO_PREBUILT_TESTS') != '1'):
+    raise SystemExit('Room menu A/B requires a prebuilt diagnostic bundle and the exact standard QA profile')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -66,6 +69,12 @@ for index, (slot, template) in enumerate(selected):
         print('Booting fresh simulator: ' + device['model'], flush=True)
         boot(identifier, root / f'boot-{index}.json')
         record['boot'] = 'READY'
+        if room_menu_ab_probe:
+            appearance = ['xcrun', 'simctl', 'ui', identifier, 'appearance']
+            subprocess.run(appearance + ['light'], check=True, timeout=30)
+            record['appearance'] = subprocess.check_output(appearance, text=True, timeout=30).strip()
+            if record['appearance'] != 'light':
+                raise RuntimeError('Room menu A/B requires verified Light appearance')
         if os.environ.get('PUBO_SOCIAL_ALIGNMENT') == '1':
             social_bundle = root / f'social-{index}.xcresult'
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264', str(screenshots / 'social-interactions.mp4')])
@@ -155,6 +164,9 @@ for index, (slot, template) in enumerate(selected):
         if world_scroll_probe:
             back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                            str(screenshots / 'world-scroll.mp4')])
+        if room_menu_ab_probe:
+            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
+                                           str(screenshots / 'room-menu-ab.mp4')])
         process = subprocess.Popen(command, start_new_session=True)
         started = time.monotonic()
         while process.poll() is None:
@@ -193,7 +205,7 @@ for index, (slot, template) in enumerate(selected):
                 video.send_signal(signal.SIGINT)
                 try: video.wait(timeout=30)
                 except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
-        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe and not world_scroll_probe:
+        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe and not room_menu_ab_probe and not world_scroll_probe:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                       str(screenshots / 'loading-skeleton.mp4')])
