@@ -2,11 +2,15 @@ import SwiftUI
 import PUBOCore
 
 struct FriendsView: View {
+    private struct LoadFailure {
+        let message: String
+        let reset: Bool
+    }
     @Environment(AppSession.self) private var session
     @State private var page = FollowListPage()
     @State private var busy = false
     @State private var loaded = false
-    @State private var error: String?
+    @State private var failure: LoadFailure?
     @State private var requestID = UUID()
     @State private var visible = false
     @State private var initializedGeneration: UUID?
@@ -61,9 +65,17 @@ struct FriendsView: View {
                         .accessibilityLabel("正在加载关注列表…")
                         .accessibilityIdentifier("friends.loading")
                     }
-                    if loaded && page.rows.isEmpty && error == nil { Text("还没有关注的人").foregroundStyle(.secondary).accessibilityIdentifier("friends.empty") }
-                    if let error { ErrorBanner(message: error, retryIdentifier: "friends.retry") { Task { await load(reset: true) } } }
-                    if loaded && page.hasMore { Button("加载更多关注") { Task { await load(reset: false) } }.disabled(busy) }
+                    if loaded && page.rows.isEmpty && failure == nil { Text("还没有关注的人").foregroundStyle(.secondary).accessibilityIdentifier("friends.empty") }
+                    if let failure {
+                        // Retry the failed read instead of resetting a successfully loaded page.
+                        ErrorBanner(message: failure.message, retryIdentifier: "friends.retry") {
+                            Task { await load(reset: failure.reset) }
+                        }
+                    }
+                    if loaded && page.hasMore {
+                        Button("加载更多关注") { Task { await load(reset: false) } }
+                            .disabled(busy).accessibilityIdentifier("friends.more")
+                    }
                 } header: { Text("我关注的人") } footer: { Text("这里沿用关注／互相关注关系。关注申请获批不等于双方已互相关注。") }
             }.puboList().navigationTitle("好友")
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
@@ -72,7 +84,7 @@ struct FriendsView: View {
                     guard taskVisible, visible, !Task.isCancelled, taskGeneration == session.generation else { return }
                     if initializedGeneration != session.generation {
                         initializedGeneration = session.generation
-                        page = FollowListPage(); loaded = false; error = nil
+                        page = FollowListPage(); loaded = false; failure = nil
                     }
                     if !loaded { await load(reset: true) }
                 }
@@ -93,9 +105,11 @@ struct FriendsView: View {
             try Task.checkCancellation()
             guard visible, requestID == ticket, generation == session.generation else { return }
             try page.apply(result, reset: reset, followers: false, limit: 30)
-            loaded = true; error = nil
+            loaded = true; failure = nil
         } catch {
-            if visible && requestID == ticket && generation == session.generation && !Task.isCancelled { self.error = error.localizedDescription }
+            if visible && requestID == ticket && generation == session.generation && !Task.isCancelled {
+                failure = LoadFailure(message: error.localizedDescription, reset: reset)
+            }
         }
     }
 }

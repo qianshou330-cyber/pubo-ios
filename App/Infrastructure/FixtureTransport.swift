@@ -22,6 +22,7 @@ actor FixtureTransport: HTTPTransport {
     private var page2PosterSawSeed = false
     private var notificationFixtures = NotificationFixtureState()
     private var fourTabFriendReads = 0
+    private var friendsOlderFailed = false
     private var chatParityFailedPaths = Set<String>()
     // Synthetic response barriers make race tests depend on a real overlapping request,
     // not on whether XCTest manages to tap within an arbitrary sleep window.
@@ -284,6 +285,13 @@ actor FixtureTransport: HTTPTransport {
                 return .object(["id": .string("relation-" + suffix), key: .object(["id": .string("relationuser-" + suffix), "username": .string("relation" + suffix), "name": .string("关系用户 " + suffix), "host": .null])])
             }
             let after = body["untilId"].string
+            #if DEBUG
+            if path == "users/following", args.contains("--friends-root-older-failure-once"),
+               after != nil, !friendsOlderFailed {
+                friendsOlderFailed = true
+                throw URLError(.timedOut)
+            }
+            #endif
             let rows = relations.filter { after == nil || ($0["id"].string ?? "") < after! }
             let value: JSONValue = args.contains("--follow-list-empty") ? .array([]) : .array(Array(rows.prefix(max(1, body["limit"].int))))
             return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)

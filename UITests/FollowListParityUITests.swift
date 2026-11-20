@@ -36,3 +36,37 @@ final class FollowListParityUITests: XCTestCase {
         capture(app, "followers-empty"); app.terminate()
     }
 }
+
+/// Optional focused case; not included in the current four-tab shard manifests.
+final class FriendsRootRetryUITests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false }
+
+    func testOlderFailureRetriesAtExistingCursor() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--reduce-motion", "--follow-list-preview", "--friends-root-older-failure-once"]
+        app.launch()
+        defer { app.terminate() }
+        puboSelectTab(app, "好友")
+        XCTAssertTrue(app.staticTexts["关系用户 031"].waitForExistence(timeout: 10))
+        let more = app.buttons["friends.more"]
+        for _ in 0..<18 where !more.isHittable { app.swipeUp() }
+        XCTAssertTrue(more.isHittable)
+        more.tap()
+        let retry = app.buttons["friends.retry"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 10))
+        for _ in 0..<3 where !retry.isHittable { app.swipeUp() }
+        XCTAssertTrue(retry.isHittable)
+        XCTAssertTrue(app.staticTexts["关系用户 002"].exists, "The already loaded first page stays present")
+        XCTAssertFalse(app.staticTexts["关系用户 001"].exists)
+        retry.tap()
+        let last = app.staticTexts["关系用户 001"]
+        for _ in 0..<5 where !last.isHittable { app.swipeUp() }
+        XCTAssertTrue(last.waitForExistence(timeout: 10), "Retry resumes at the cursor, not the first page")
+        XCTAssertFalse(retry.exists)
+        XCTAssertFalse(more.exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "friends-root-retry-existing-cursor"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+}

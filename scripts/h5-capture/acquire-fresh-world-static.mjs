@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {SOURCE,SHA,digest,cacheName,pinnedRead} from './world-replay.mjs';
 import {
   FRESH_SCOPE,CAP,MAX_ROUNDS,MAX_TOTAL_BYTES,allowedPath,seedPaths,checkFresh,readFreshLock,
-  verifyLocalAssetTree,acceptedProbe,canonicalJSON,describeBootstrapShape,
+  verifyLocalAssetTree,acceptedProbe,canonicalJSON,describeBootstrapShape,assetEvidence,
 } from './fresh-world-lock.mjs';
 const MIME={js:['text/javascript','application/javascript'],css:['text/css'],
   woff2:['font/woff2','application/font-woff2','application/octet-stream'],woff:['font/woff','application/font-woff','application/octet-stream'],
@@ -53,7 +53,7 @@ function rootObservation(data,base,clock) {
   if(sha256!==base)throw Error('Public HTML changed during fresh snapshot; restart with new receipt');
   return {sha256,at:clock()};
 }
-async function captureNewPaths(dir,m,paths,transport) {
+async function captureNewPaths(dir,m,paths,transport,clientEntry) {
   if(paths.length+Object.keys(m.entries).length>CAP)throw Error('Fresh static path budget exceeded');
   for(let i=0;i<paths.length;i+=6) {
     const batch=await Promise.allSettled(paths.slice(i,i+6).map(path=>pinBody(path,m.marker,transport)));
@@ -65,7 +65,7 @@ async function captureNewPaths(dir,m,paths,transport) {
       const path=paths[i+offset];
       await writeFile(join(dir,'cache',cacheName(path)),value,{flag:'wx'});
       m.entries[path]={sha256:digest(value),bytes:value.length,observations:2,round:m.round,
-                      evidence:m.round===0?'PUBLIC_HTML_LITERAL':'ISOLATED_WORLD_GET_GAP'};
+                      evidence:assetEvidence(path,m.round,clientEntry)};
     }
   }
 }
@@ -91,10 +91,10 @@ export async function initSnapshot(dir,candidateCommit,{transport=fetch,clock=ut
   await mkdir(join(dir,'cache'));
   const html=await publicStaticGET('/',null,{transport});
   const htmlSHA256=digest(html);
-  const {marker,refs}=seedPaths(html.toString('utf8'));
+  const {marker,refs,clientEntry}=seedPaths(html.toString('utf8'));
   const m={schema:1,scope:FRESH_SCOPE,origin:SOURCE,fixtureBaselineCommit:SHA,candidateCommit,status:'DRAFT',round:0,
     htmlSHA256,marker,entries:{},rootChecks:[rootObservation(html,htmlSHA256,clock)]};
-  await captureNewPaths(dir,m,refs,transport);
+  await captureNewPaths(dir,m,refs,transport,clientEntry);
   m.rootChecks.push(rootObservation(await publicStaticGET('/',null,{transport}),htmlSHA256,clock));
   await writeFile(join(dir,'public-home.html'),html,{flag:'wx'});
   return commitManifest(dir,m,true);

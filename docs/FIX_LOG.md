@@ -1,5 +1,15 @@
 # 修复日志
 
+## 2026-11-20 / C86：世界圈 H5 启动入口识别；好友加载更多失败恢复
+
+- 世界圈取证：C85 的[实测](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239092/job/136322174621)确认线上公开首页有 16 个样式引用、零个直接写出的中文 JS 种子和一个内联入口声明。C86 优先保留既有入口识别，只支持符合归档模板和现有静态白名单的单个额外中文入口，不执行内联声明作入口解析。保留既有 GET、无凭据、地址和字节复验边界；未确认线上字节变化的原因。离线 20 项通过，1 项隔离 Chromium 检查由托管 CI 执行。没有新的 H5 对照图结论。
+- 好友（实际 App 修复）：`FriendsView` 将失败的加载种类保留到重试，翻页失败继续原游标，首屏/刷新仍重试首屏。调试替身只模拟一次翻页超时，专项测试检查原有条目不丢、最早一条可继续载入；本地 11 项契约/边界检查通过，尚待 iPhone 17 / 17 Pro Max 模拟器各一例。没有改变底部四栏、好友关系语义或现有正式验收。
+- 触发：`[world-h5-fresh]` 与 `[friends-root-retry-probe]`，同时保留完整候选 CI。不发布新版 IPA、不宣称已完成整页对齐。后续须追加精确 CI 链接、截图核验及未覆盖设备。
+
+- C85 回归基线（独立于本轮变更）：世界圈跨页返回测试 1/1 各机型通过，[标准款 136323492605](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239035/job/136323492605)、[Pro Max 136323492685](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239035/job/136323492685)。短合成列表六次拖动、最旧帖→返回并回位，原始 PNG 各自字节完全一致；两边采样归档均上传，但不推出帧耗时/卡顿结论。
+- C85 隐私必测在两款模拟器的浅色模式发生一次保存前等待失败：标准款自动接受关注对象，Pro Max 重新打开锁定。事前/事后失败画面像素一致；没有对应草稿写入，尚未定位到触摸投递还是控件激活。未更改 SwiftUI 输入派发或既有断言。
+- C85 [完整验收](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239035) 已结束，未通过。四栏路由两款各 6/6；交互分片未得到有效用例结果（标准款结果元数据不可读，Pro Max 在无障碍初始化阶段失败），严格导航汇总和正式 IPA 打包均跳过。候选包不替代已交付试用包。
+
 ## 2026-11-20 / C85: one bounded H5 bootstrap shape observation
 
 - Comparison diagnostics only; no product code, previous capture modes, required CI or package gates changed. One opt-in `[world-h5-shape-only]` on the test branch runs the standard offline Chromium isolation smoke, then exits after one canonical credential-free anonymous homepage GET. It does not retrieve assets, start a network-connected browser, use accounts or call live APIs.

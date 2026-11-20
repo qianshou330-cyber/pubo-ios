@@ -10,12 +10,60 @@ const COMMIT=/^[a-f0-9]{40}$/;
 // Current observed generated names only, not a generic public-URL fetcher. Prefix is a
 // Vite locale marker, NOT proof of one deployment. The root bytes bracket all batches.
 const VITE=/^\/vite\/(?:zh-CN|assets)\/([A-Za-z0-9_]{8,24})-[A-Za-z0-9_-]{8}\.(?:js|css|woff2|woff|png|svg|webp|gif|ico)$/;
+const SOURCE_GLOBALS=/^\s*const\s+VERSION\s*=\s*'[^'\\\r\n]{1,128}'\s*;\s*const\s+CLIENT_ENTRY\s*=\s*"scripts\/([A-Za-z0-9_]{8,24}-[A-Za-z0-9_-]{8}\.js)"\s*;\s*const\s+CLIENT_PRELOADS\s*=\s*\[/;
+const CLIENT_ENTRY_EVIDENCE='PUBLIC_HTML_CLIENT_ENTRY_ZH_CN';
 const icons=new Set(['/static-assets/pubo-white-660-v1.webp','/favicon.ico','/apple-touch-icon.png']);
 export const allowedPath=(path,marker)=>typeof path==='string' && /^[A-Za-z0-9_]{8,24}$/.test(marker??'') && (VITE.exec(path)?.[1]===marker ||
   icons.has(path) || /^\/twemoji\/[a-f0-9]{2,8}(?:-[a-f0-9]{2,8}){0,6}\.svg$/.test(path));
 function literalViteRefs(html) {
   const refs=[...new Set([...html.matchAll(/["'](\/vite\/(?:zh-CN|assets)\/[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+)["']/g)].map(m=>m[1]))].sort();
   return refs;
+}
+
+// Source-compatible production shell: classic inline globals + stylesheet links.
+// Only map the one source-declared entry; never evaluate a script or seed preload
+// arrays. All other scripts discovered by the disconnected browser keep the old policy.
+function inlineClientEntry(html,refs,marker) {
+  if(!refs.length || refs.length>=24 || refs.some(p=>!p.startsWith('/vite/assets/')||!p.endsWith('.css'))) return;
+  const head=html.slice(0,1024*1024);
+  const scan=/<!--[\s\S]*?-->|<(script|link|style|title|template|noscript)\b((?:[^"'<>]|"[^"]*"|'[^']*')*)>|<head>|<\/head\s*>/gi;
+  let open=false,closed=false,entries=0,entry;
+  const styles=new Set();
+  for(let tag;(tag=scan.exec(head));) {
+    if(!tag[1]) {
+      if(tag[0].toLowerCase()==='<head>') {if(open)return;open=true;}
+      if(/^<\/head/i.test(tag[0])) {closed=open;break;}
+      continue;
+    }
+    const kind=tag[1].toLowerCase(), attrs=tag[2];
+    if(kind==='link') {
+      if(!open)continue;
+      const rel=readTagAttrs(attrs), href=rel.get('href');
+      if(rel.get('rel')?.toLowerCase().split(/\s+/).includes('stylesheet')) {
+        if(!refs.includes(href) || styles.has(href))return;
+        styles.add(href);
+      }
+      continue;
+    }
+    if(kind==='template'||kind==='noscript')return;
+    const end=new RegExp('</'+kind+'\\s*>','gi');
+    end.lastIndex=scan.lastIndex;
+    const close=end.exec(head);
+    if(!close)return;
+    if(open&&kind==='script') {
+      const fields=readTagAttrs(attrs);
+      if(fields.has('src')||fields.get('type')?.toLowerCase()==='module') return;
+      if(!fields.has('type') || /^(?:text|application)\/javascript$/i.test(fields.get('type'))) {
+        const script=head.slice(scan.lastIndex,close.index);
+        entries+=[...script.matchAll(/\bCLIENT_ENTRY\s*=(?!=)/g)].length;
+        if(!attrs.trim()) entry=SOURCE_GLOBALS.exec(script)?.[1]??entry;
+      }
+    }
+    scan.lastIndex=end.lastIndex;
+  }
+  if(!closed||styles.size!==refs.length||entries!==1||!entry)return;
+  const localized='/vite/zh-CN/'+entry;
+  if(VITE.exec(localized)?.[1]===marker) return localized;
 }
 
 export function seedPaths(html) {
@@ -25,8 +73,21 @@ export function seedPaths(html) {
   const refs=literalViteRefs(html);
   const boot=refs.filter(path=>path.startsWith('/vite/zh-CN/')&&path.endsWith('.js'));
   const markers=new Set(refs.map(path=>VITE.exec(path)?.[1]));
-  if(!boot.length || refs.length>24 || markers.size!==1 || markers.has(undefined)) throw Error('Unrecognized or mixed H5 bootstrap path family');
-  return {marker:[...markers][0],refs};
+  if(refs.length>24 || markers.size!==1 || markers.has(undefined)) throw Error('Unrecognized or mixed H5 bootstrap path family');
+  const [marker]=markers;
+  if(boot.length)return {marker,refs};
+  const clientEntry=inlineClientEntry(html,refs,marker);
+  if(!clientEntry) throw Error('Unrecognized or mixed H5 bootstrap path family');
+  return {marker,refs:[...refs,clientEntry].sort(),clientEntry};
+}
+
+function readTagAttrs(attributes) {
+  const attrs=new Map();
+  const tokens=/([^\s=/"'<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  for(const [,key,dq,sq,uq] of attributes.matchAll(tokens)) {
+    if(!attrs.has(key.toLowerCase())) attrs.set(key.toLowerCase(),dq??sq??uq??'');
+  }
+  return attrs;
 }
 
 // Diagnostic only: none of these shape categories authorizes an asset. No
@@ -59,11 +120,7 @@ export function describeBootstrapShape(body) {
       continue;
     }
     const tag=match[1].toLowerCase();
-    const attrs=new Map();
-    const tokens=/([^\s=/"'<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-    for(const [,key,dq,sq,uq] of match[2].matchAll(tokens)) {
-      if(!attrs.has(key.toLowerCase())) attrs.set(key.toLowerCase(),dq??sq??uq??'');
-    }
+    const attrs=readTagAttrs(match[2]);
     if(tag==='script') {
       const src=attrs.get('src');
       const module=attrs.get('type')?.trim().toLowerCase()==='module';
@@ -93,12 +150,17 @@ export function describeBootstrapShape(body) {
   const markerCount=new Set(accepted.filter(x=>x!==undefined)).size;
   const fixedHead=html.includes('<head>');
   const fixedMeta=/<script type="application\/json" id="misskey_meta"[^>]*>/.test(html);
-  const verdict=!fixedHead||!fixedMeta?'MARKER_MISSING':
-    !zhBoot||refs.length>24||markerCount!==1||unknownCount?'PATH_FAMILY_UNRECOGNIZED':'ACCEPTS_CURRENT_SHAPE';
+  let verdict=!fixedHead||!fixedMeta?'MARKER_MISSING':'PATH_FAMILY_UNRECOGNIZED';
+  if(fixedHead&&fixedMeta) {
+    try {seedPaths(html);verdict='ACCEPTS_CURRENT_SHAPE';} catch {/* fixed enum only */}
+  }
   return {probe:'H5_BOOTSTRAP_SHAPE_ONLY',htmlSHA256:digest(body),responseBytes:body.byteLength,verdict,
     fixedHead,fixedMeta,legacy:{uniqueQuotedRefs:refs.length,zhCNJsRefs:zhBoot,unknownCount,markerCount,overCap:refs.length>24},
     tagScan:headEnd?'HEAD_END':html.length>headScan.length?'BOUND_REACHED':'NO_HEAD_END',kinds,pathKinds};
 }
+
+export const assetEvidence=(path,round,clientEntry)=>round!==0?'ISOLATED_WORLD_GET_GAP':
+  path===clientEntry?CLIENT_ENTRY_EVIDENCE:'PUBLIC_HTML_LITERAL';
 
 export function checkFresh(m,{draft=false}={}) {
   if(m?.schema!==1 || m.scope!==FRESH_SCOPE || m.origin!==SOURCE || m.fixtureBaselineCommit!==SHA ||
@@ -114,7 +176,10 @@ export function checkFresh(m,{draft=false}={}) {
     const row=m.entries[path];
     if(!allowedPath(path,m.marker) || !HASH.test(row?.sha256??'') || !Number.isInteger(row.bytes) || row.bytes<1 ||
       row.bytes>12*1024*1024 || row.observations!==2 || !Number.isInteger(row.round) || row.round<0 || row.round>m.round ||
-      row.evidence!==(row.round===0?'PUBLIC_HTML_LITERAL':'ISOLATED_WORLD_GET_GAP')) throw Error('Invalid fresh asset receipt: '+path);
+        (row.evidence!==assetEvidence(path,row.round) && !(row.round===0 &&
+          path.startsWith('/vite/zh-CN/') && path.endsWith('.js') && row.evidence===CLIENT_ENTRY_EVIDENCE))) {
+      throw Error('Invalid fresh asset receipt: '+path);
+    }
     total+=row.bytes;
   }
   if(total>MAX_TOTAL_BYTES) throw Error('Fresh static byte budget exceeded');
@@ -130,7 +195,10 @@ export async function readFreshLock(snapshotRoot, expectedManifestSHA, {draft=fa
   if(draft && m.round!==round) throw Error('Draft round mismatch');
   const html=await pinnedRead(join(snapshotRoot,'public-home.html'),m.htmlSHA256);
   const seed=seedPaths(html.toString('utf8'));
-  if(seed.marker!==m.marker || seed.refs.some(path=>m.entries[path]?.round!==0)) throw Error('Bootstrap asset closure does not match root');
+  if(seed.marker!==m.marker || Object.values(m.entries).filter(row=>row.round===0).length!==seed.refs.length ||
+     seed.refs.some(path=>m.entries[path]?.round!==0 || m.entries[path].evidence!==assetEvidence(path,0,seed.clientEntry))) {
+    throw Error('Bootstrap asset closure does not match root');
+  }
   return m;
 }
 export async function verifyLocalAssetTree(dir,lock) {

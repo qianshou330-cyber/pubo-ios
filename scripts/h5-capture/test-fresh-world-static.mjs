@@ -11,12 +11,26 @@ const entry='/vite/zh-CN/'+marker+'-2--13OMV.js';
 const css='/vite/assets/'+marker+'-4RTeR85g.css';
 const lazy='/vite/zh-CN/'+marker+'-l8YPdAU1.js';
 const root=`<!doctype html><head><script type="application/json" id="misskey_meta">{"policies":{}}</script><script type="module" src="${entry}"></script><link rel="stylesheet" href="${css}"></head>`;
+const relativeEntry='scripts/'+entry.split('/').at(-1);
+const classic=`<script>const VERSION = '2026.9.0';
+  const CLIENT_ENTRY = "${relativeEntry}";
+  const CLIENT_PRELOADS = ["scripts/${lazy.split('/').at(-1)}"];
+  const WELCOME_PRELOADS = ["https://example.invalid/must-not-fetch"];
+  const WELCOME_CSS = []; const ICON_CSS = null; const LANGS = ["zh-CN"];</script>`;
+const stylesheetPaths=[css,...Array.from({length:15},(_,i)=>`/vite/assets/${marker}-${i.toString().padStart(8,'0')}.css`)];
+const stylesheetLinks=paths=>paths.map(path=>`<link rel="stylesheet" href="${path}">`).join('');
+const compiledRoot=`<!DOCTYPE html><!-- source-compatible synthetic fixture --><html><head>
+  ${classic}
+  <script type="application/json" id="misskey_meta" data-generated-at="123">{"policies":{}}</script>
+  <script>(() => { /* real bootstrap is not needed by mocked transport */ })();</script>
+  ${stylesheetLinks(stylesheetPaths)}
+  <style>body {color: blue}</style></head><body>fixture</body></html>`;
 const fixedClock=()=> '2026-11-20T09:30:00.000Z';
 const mk=async()=>{const base=await mkdtemp(join(tmpdir(),'pubo-fresh-static-test-'));return {base,dir:join(base,'fresh')};};
-function stub({rewrite=(path,count,row)=>row}={}) {
+function stub({rewrite=(path,count,row)=>row,extra={}}={}) {
   const hits=[],counts=new Map();
   const responses={
-    '/':[root,'text/html'],[entry]:['entry JS','text/javascript'],[css]:['body{color:red}','text/css'],[lazy]:['lazy JS','application/javascript'],
+    '/':[root,'text/html'],[entry]:['entry JS','text/javascript'],[css]:['body{color:red}','text/css'],[lazy]:['lazy JS','application/javascript'],...extra,
   };
   const transport=async(url,opts)=>{
     assert.equal(url.origin,new URL(SOURCE).origin);assert.equal(url.search,'');assert.equal(url.hash,'');
@@ -178,4 +192,73 @@ test('diagnostic distinguishes over-cap, unknown extension and mixed markers but
     for(const [name,item] of Object.entries(expected)) assert.equal(out.legacy[name],item);
     assert.deepEqual(control.hits,['/']);
   }
+});
+
+test('C85 shape: canonical source-declared entry plus sixteen literal stylesheets, no seed preload or extra fetch',async()=>{
+  const expected=[entry,...stylesheetPaths].sort();
+  assert.deepEqual(seedPaths(compiledRoot),{marker,refs:expected,clientEntry:entry});
+  const {dir}=await mk(), extra=Object.fromEntries(stylesheetPaths.map(p=>[p,['fixture CSS','text/css']]));
+  const control=stub({extra:{...extra,'/':[compiledRoot,'text/html']}});
+  const summary=await initSnapshot(dir,candidate,{...control,clock:fixedClock});
+  const manifest=await readFreshLock(dir,summary.manifestSHA256,{draft:true});
+  assert.deepEqual(Object.keys(manifest.entries).sort(),expected);
+  assert.equal(manifest.entries[entry].evidence,'PUBLIC_HTML_CLIENT_ENTRY_ZH_CN');
+  assert.ok(stylesheetPaths.every(p=>manifest.entries[p].evidence==='PUBLIC_HTML_LITERAL'));
+  assert.equal(control.hits[0],'/');assert.equal(control.hits.at(-1),'/');
+  assert.equal(control.hits.length,36);
+  assert.equal(control.counts.size,18);
+  assert.ok([...control.counts.values()].every(n=>n===2));
+  assert.equal(control.counts.has(lazy),false);
+  const raw=await readFile(join(dir,'draft-0.json'));
+  const retag=JSON.parse(raw);
+  retag.entries[entry].evidence='PUBLIC_HTML_LITERAL';
+  const retagBody=canonicalJSON(retag);
+  await writeFile(join(dir,'draft-0.json'),retagBody);
+  await assert.rejects(readFreshLock(dir,digest(retagBody),{draft:true}),/Bootstrap asset closure/);
+  await writeFile(join(dir,'draft-0.json'),raw);
+  const once=stub({extra:{'/':[compiledRoot,'text/html']}});
+  const report=await inspectBootstrapShape(once);
+  assert.deepEqual(report.legacy,{uniqueQuotedRefs:16,zhCNJsRefs:0,unknownCount:0,markerCount:1,overCap:false});
+  assert.equal(report.verdict,'ACCEPTS_CURRENT_SHAPE');
+  assert.deepEqual(once.hits,['/']);
+});
+
+test('compiled-shell fallback rejects ambiguous globals, noncanonical paths, unanchored styles, and cap overflow before any asset GET',async()=>{
+  const literalName=relativeEntry.split('/').at(-1);
+  const styles=stylesheetLinks(stylesheetPaths);
+  const variants=[
+    compiledRoot.replace(relativeEntry,'/vite/zh-CN/'+literalName+'?cache=1'),
+    compiledRoot.replace(relativeEntry,'https://bolubo.com/'+relativeEntry),
+    compiledRoot.replace(relativeEntry,'scripts/'+literalName+'?cache=1'),
+    compiledRoot.replace(relativeEntry,'scripts/'+literalName+'#fragment'),
+    compiledRoot.replace(relativeEntry,'scripts/../scripts/'+literalName),
+    compiledRoot.replace(relativeEntry,'scripts/'+literalName.replace(marker,'OtherMark0')),
+    compiledRoot.replace(relativeEntry,'scripts/%41'+literalName),
+    compiledRoot.replace(relativeEntry,'scripts/'+literalName.replace(/\.js$/,'.css')),
+    compiledRoot.replace(classic,'<!--'+classic+'-->'),
+    compiledRoot.replace(classic,'<template>'+classic+'</template>'),
+    compiledRoot.replace(classic,classic+classic),
+    compiledRoot.replace(classic,classic+'<script src="/vite/loader/boot.js"></script>'),
+    compiledRoot.replace(classic,'<script type="application/json">'+classic.slice(8)),
+    compiledRoot.replace(classic,'').replace('</body>',classic+'</body>'),
+    compiledRoot.replace(styles,'<!--'+styles+'-->'),
+    compiledRoot.replace(styles,'').replace('</body>',styles+'</body>'),
+    compiledRoot.replace(styles,stylesheetLinks([...stylesheetPaths,...Array.from({length:8},(_,i)=>`/vite/assets/${marker}-A000000${i}.css`)])),
+  ];
+  for(const html of variants) {
+    assert.throws(()=>seedPaths(html),/mixed H5 bootstrap path family/);
+    const stop=stub({extra:{'/':[html,'text/html']}});
+    await assert.rejects(initSnapshot((await mk()).dir,candidate,stop),/mixed H5 bootstrap path family/);
+    assert.deepEqual(stop.hits,['/']);
+  }
+});
+
+test('compiled-shell fallback does not excuse root-byte drift, including data-generated-at',async()=>{
+  const extra=Object.fromEntries(stylesheetPaths.map(p=>[p,['fixture CSS','text/css']]));
+  const control=stub({extra:{...extra,'/':[compiledRoot,'text/html']},
+    rewrite:(p,n,row)=>p==='/'&&n===2?[compiledRoot.replace('data-generated-at="123"','data-generated-at="124"'),'text/html']:row});
+  const {dir}=await mk();
+  await assert.rejects(initSnapshot(dir,candidate,control),/Public HTML changed/);
+  assert.ok(!(await readdir(dir)).some(name=>name.endsWith('.json')||name==='public-home.html'));
+  assert.equal(control.counts.get('/'),2);
 });

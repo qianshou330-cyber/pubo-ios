@@ -8,6 +8,19 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
+## 接力检查点 C86：世界圈 H5 对照与好友分页恢复
+
+- 非聊天页面独立推进。世界圈先取得同一批测试数据的 H5 / iOS 对照图，再核对列表、发布页草稿和视频首帧；好友先验证「加载更多 → 失败 → 重试」保留已加载页；消息首页和「我的」按各自对应的 H5 功能逐项对照，不等待私聊或群聊全部完成。
+- 世界圈：C85 [实测启动结构](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239092/job/136322174621) 有 16 个同构样式引用、没有静态写出的中文入口路径，只有一个内联 `CLIENT_ENTRY`。C86 按已公开的后端模板补齐这一种入口识别。不执行内联脚本来推导入口、不新增站点或扩大路由白名单、不放宽原始字节复验。暂没有本轮同数据 H5 / iOS 对照截图。
+- 好友：本轮修改「我关注的人」列表。加载下一页失败后，点「重试」继续用原游标，不从第一页重来；首次加载和刷新失败仍重试第一页。新增两台既定模拟器各一个合成数据专项测试。尚待 CI，不能当作设备通过或整页对齐。
+- 取证只用 iPhone 14 系列及更新机型。本轮矩阵仍为 iPhone 17 / 17 Pro Max（iOS 26.1 模拟器），没有新增真机结论。现有正式 CI 和 IPA 验收规则不变；未验收候选包不替换上一份试用包。IPA 下载与打包仓库入口见下方既有说明。每一项修复和未通过原因都记入 `docs/FIX_LOG.md`。
+
+### C85 已核验的基线（不是 C86 验收）
+
+- 世界圈短列表回位：iPhone 17 与 iPhone 17 Pro Max（iOS 26.1 模拟器）在合成多页帖子场景各完成六次拖动、进入最旧帖、返回并恢复阅读区域。首次补齐标准款；两款各自返回前后原图一致，最旧帖位置坐标一致。[标准款证据](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239035/artifacts/14642270128) · [Pro Max 证据](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239035/artifacts/14642076851)。不是滚动流畅度、首帧耗时或 H5 视觉对齐结论。
+- 我的 → 隐私：两款模拟器都在保存前出现一次点开关后画面不变，但分别涉及自动接受关注对象和锁定账号。现有证据未证明相同原因或真机问题，继续和 H5 的持久化语义分开排查。没有为取得通过而更改测试门槛。
+- C85 [完整验收](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44746239035) 已结束，未通过。四栏路由两款各 6/6；交互分片未得到有效用例结果（标准款结果元数据不可读，Pro Max 在无障碍初始化阶段失败），严格导航汇总和正式 IPA 打包均跳过。候选包不替代已交付试用包。
+
 ## 2026-11-20 / C85: one bounded H5 bootstrap shape observation
 
 - Comparison diagnostics only; no product code, previous capture modes, required CI or package gates changed. One opt-in `[world-h5-shape-only]` on the test branch runs the standard offline Chromium isolation smoke, then exits after one canonical credential-free anonymous homepage GET. It does not retrieve assets, start a network-connected browser, use accounts or call live APIs.
