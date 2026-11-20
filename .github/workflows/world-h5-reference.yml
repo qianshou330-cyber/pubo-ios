@@ -1,0 +1,102 @@
+name: PUBO World H5 comparison reference (optional)
+'on':
+  push:
+    branches: [ui-four-tabs-148-20261112]
+permissions:
+  contents: read
+jobs:
+  world-h5-reference:
+    # This standalone optional comparison is never a native, aggregate or package gate.
+    if: github.repository == 'qianshou330-cyber/pubo-ios' && github.event.deleted == false && (contains(github.event.head_commit.message, '[world-h5-parity]') || contains(github.event.head_commit.message, '[world-h5-fresh]'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      WORLD_REFERENCE_MODE: ${{ contains(github.event.head_commit.message, '[world-h5-fresh]') && 'fresh' || 'historical' }}
+    steps:
+      - name: Initialize non-gating evidence
+        run: |
+          set -euo pipefail
+          WORLD_SCRATCH="$RUNNER_TEMP/pubo-world-reference-work"
+          WORLD_EVIDENCE="$RUNNER_TEMP/pubo-world-reference-evidence"
+          WORLD_PUBLIC_EVIDENCE="$RUNNER_TEMP/pubo-world-reference-public-evidence"
+          printf '%s\n' "WORLD_SCRATCH=$WORLD_SCRATCH" "WORLD_EVIDENCE=$WORLD_EVIDENCE" \
+            "WORLD_PUBLIC_EVIDENCE=$WORLD_PUBLIC_EVIDENCE" >> "$GITHUB_ENV"
+          mkdir -p "$WORLD_EVIDENCE" "$WORLD_SCRATCH/home" "$WORLD_SCRATCH/tmp"
+          printf '%s\n' "$GITHUB_SHA" > "$WORLD_EVIDENCE/candidate-sha.txt"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Verify checkout, fixture, pinned harness and static-request policy
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --version | tee "$WORLD_EVIDENCE/node-version.txt"
+          sha256sum scripts/h5-capture/world-build-lock-c83.json > "$WORLD_EVIDENCE/static-lock-receipt.txt"
+          WORLD_VERIFIED_SOURCE="$GITHUB_WORKSPACE" node --test scripts/h5-capture/test-world-replay.mjs \
+            2>&1 | tee "$WORLD_EVIDENCE/offline-contracts.log"
+          node --test scripts/h5-capture/test-fresh-world-static.mjs \
+            2>&1 | tee "$WORLD_EVIDENCE/fresh-offline-contracts.log"
+      - name: Mirror only the previously attested public static bytes
+        if: env.WORLD_REFERENCE_MODE == 'historical'
+        timeout-minutes: 9
+        run: |
+          set -euo pipefail
+          node scripts/h5-capture/mirror-world-static.mjs \
+            "$WORLD_SCRATCH/static" "$WORLD_EVIDENCE/mirror.json" \
+            2>&1 | tee "$WORLD_EVIDENCE/mirror.log"
+      - name: Install the C83-locked Playwright Chromium outside the replay namespace
+        working-directory: scripts/h5-capture
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          export PLAYWRIGHT_BROWSERS_PATH="$WORLD_SCRATCH/playwright"
+          {
+            npm ci --ignore-scripts --no-audit --no-fund
+            ./node_modules/.bin/playwright install --with-deps chromium
+          } 2>&1 | tee "$WORLD_EVIDENCE/browser-install.log"
+      - name: Smoke test and capture synthetic World feed without network
+        if: env.WORLD_REFERENCE_MODE == 'historical'
+        timeout-minutes: 11
+        run: |
+          set -euo pipefail
+          host_netns=$(readlink /proc/self/ns/net)
+          node_bin=$(realpath "$(command -v node)")
+          runner_user=$(id -un)
+          # A fresh network namespace has no egress. Only loopback is enabled, for the
+          # local-only smoke sentinel. Run the replay as the original unprivileged user
+          # with a clean environment, no runner tokens, service workers or route fallback.
+          sudo --non-interactive /usr/bin/unshare --net -- /bin/bash -euc '
+            /usr/sbin/ip link set dev lo up
+            exec /usr/sbin/runuser -u "$1" -- /usr/bin/env -i \
+              HOME="$3/home" TMPDIR="$3/tmp" PATH="${7%/*}:/usr/sbin:/usr/bin:/bin" \
+              PLAYWRIGHT_BROWSERS_PATH="$3/playwright" WORLD_COMMIT="$5" WORLD_HOST_NETNS="$6" \
+              /bin/bash "$2/scripts/h5-capture/run-world-replay-isolated.sh" "$2" "$3" "$4"
+          ' -- "$runner_user" "$GITHUB_WORKSPACE" "$WORLD_SCRATCH" "$WORLD_EVIDENCE" \
+            "$GITHUB_SHA" "$host_netns" "$node_bin" 2>&1 | tee "$WORLD_EVIDENCE/isolation-launch.log"
+      - name: Seal observed fresh public static bytes then capture synthetic World without network
+        if: env.WORLD_REFERENCE_MODE == 'fresh'
+        timeout-minutes: 27
+        run: |
+          set -euo pipefail
+          bash scripts/h5-capture/run-fresh-world-hosted.sh "$GITHUB_WORKSPACE" "$WORLD_SCRATCH" "$WORLD_EVIDENCE" \
+            2>&1 | tee "$WORLD_EVIDENCE/fresh-orchestration.log"
+      - name: Vet only the comparison status, seal receipt and complete screenshots for publication
+        if: always()
+        env:
+          JOB_RESULT_BEFORE_UPLOAD: ${{ job.status }}
+        run: |
+          python3 scripts/h5-capture/pack-world-public-evidence.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: world-h5-${{ env.WORLD_REFERENCE_MODE }}-comparison-only-${{ github.sha }}
+          path: |
+            ${{ env.WORLD_PUBLIC_EVIDENCE }}/summary.json
+            ${{ env.WORLD_PUBLIC_EVIDENCE }}/seal-receipt.json
+            ${{ env.WORLD_PUBLIC_EVIDENCE }}/images/*.png
+          retention-days: 14
+          if-no-files-found: error

@@ -1,0 +1,94 @@
+/** Pure manifest and public-path policy shared by acquisition and disconnected replay. */
+import {join} from 'node:path';
+import {ORIGIN,SOURCE,ROUTE,SHA,EXPECTED,digest,pinnedRead,cacheName} from './world-replay.mjs';
+export const FRESH_SCOPE='FRESH_PUBLIC_H5_OBSERVED_SNAPSHOT';
+export const CAP=160;
+export const MAX_ROUNDS=8;
+export const MAX_TOTAL_BYTES=96*1024*1024;
+const HASH=/^[a-f0-9]{64}$/;
+const COMMIT=/^[a-f0-9]{40}$/;
+// Current observed generated names only, not a generic public-URL fetcher. Prefix is a
+// Vite locale marker, NOT proof of one deployment. The root bytes bracket all batches.
+const VITE=/^\/vite\/(?:zh-CN|assets)\/([A-Za-z0-9_]{8,24})-[A-Za-z0-9_-]{8}\.(?:js|css|woff2|woff|png|svg|webp|gif|ico)$/;
+const icons=new Set(['/static-assets/pubo-white-660-v1.webp','/favicon.ico','/apple-touch-icon.png']);
+export const allowedPath=(path,marker)=>typeof path==='string' && /^[A-Za-z0-9_]{8,24}$/.test(marker??'') && (VITE.exec(path)?.[1]===marker ||
+  icons.has(path) || /^\/twemoji\/[a-f0-9]{2,8}(?:-[a-f0-9]{2,8}){0,6}\.svg$/.test(path));
+export function seedPaths(html) {
+  if(!/<script type="application\/json" id="misskey_meta"[^>]*>/.test(html) || !html.includes('<head>')) {
+    throw Error('Root is not the expected public H5 bootstrap');
+  }
+  const refs=[...new Set([...html.matchAll(/["'](\/vite\/(?:zh-CN|assets)\/[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+)["']/g)].map(m=>m[1]))].sort();
+  const boot=refs.filter(path=>path.startsWith('/vite/zh-CN/')&&path.endsWith('.js'));
+  const markers=new Set(refs.map(path=>VITE.exec(path)?.[1]));
+  if(!boot.length || refs.length>24 || markers.size!==1 || markers.has(undefined)) throw Error('Unrecognized or mixed H5 bootstrap path family');
+  return {marker:[...markers][0],refs};
+}
+export function checkFresh(m,{draft=false}={}) {
+  if(m?.schema!==1 || m.scope!==FRESH_SCOPE || m.origin!==SOURCE || m.fixtureBaselineCommit!==SHA ||
+    !COMMIT.test(m.candidateCommit??'') || !HASH.test(m.htmlSHA256??'') || !/^[A-Za-z0-9_]{8,24}$/.test(m.marker??'') ||
+    m.status!==(draft?'DRAFT':'SEALED') || !Number.isInteger(m.round) || m.round<0 || m.round>MAX_ROUNDS ||
+    !m.entries || Array.isArray(m.entries) || typeof m.entries!=='object' ||
+    !Array.isArray(m.rootChecks) || m.rootChecks.length!==(m.round+1)*2+(draft?0:2) ||
+    m.rootChecks.some(x=>!Number.isFinite(Date.parse(x?.at)) || x.sha256!==m.htmlSHA256)) throw Error('Invalid fresh manifest or stage');
+  const paths=Object.keys(m.entries);
+  if(!paths.length || paths.length>CAP) throw Error('Invalid fresh asset count');
+  let total=0;
+  for(const path of paths) {
+    const row=m.entries[path];
+    if(!allowedPath(path,m.marker) || !HASH.test(row?.sha256??'') || !Number.isInteger(row.bytes) || row.bytes<1 ||
+      row.bytes>12*1024*1024 || row.observations!==2 || !Number.isInteger(row.round) || row.round<0 || row.round>m.round ||
+      row.evidence!==(row.round===0?'PUBLIC_HTML_LITERAL':'ISOLATED_WORLD_GET_GAP')) throw Error('Invalid fresh asset receipt: '+path);
+    total+=row.bytes;
+  }
+  if(total>MAX_TOTAL_BYTES) throw Error('Fresh static byte budget exceeded');
+  if(!draft && (!HASH.test(m.probeSHA256??'') || !HASH.test(m.sealedFromDraftSHA256??'') || !Number.isFinite(Date.parse(m.sealedAt)))) {
+    throw Error('Missing completed probe seal receipt');
+  }
+  return {...m,assets:Object.fromEntries(paths.map(path=>[path,m.entries[path].sha256]))};
+}
+export async function readFreshLock(snapshotRoot, expectedManifestSHA, {draft=false,round=0}={}) {
+  if(!HASH.test(expectedManifestSHA??'') || !Number.isInteger(round) || round<0 || round>MAX_ROUNDS) throw Error('Need exact external manifest digest and bounded round');
+  const filename=draft?'draft-'+round+'.json':'snapshot.sealed.json';
+  const m=checkFresh(JSON.parse(await pinnedRead(join(snapshotRoot,filename),expectedManifestSHA,1024*1024)),{draft});
+  if(draft && m.round!==round) throw Error('Draft round mismatch');
+  const html=await pinnedRead(join(snapshotRoot,'public-home.html'),m.htmlSHA256);
+  const seed=seedPaths(html.toString('utf8'));
+  if(seed.marker!==m.marker || seed.refs.some(path=>m.entries[path]?.round!==0)) throw Error('Bootstrap asset closure does not match root');
+  return m;
+}
+export async function verifyLocalAssetTree(dir,lock) {
+  for(const [path,entry] of Object.entries(lock.entries)) {
+    const bytes=await pinnedRead(join(dir,'cache',cacheName(path)),entry.sha256);
+    if(bytes.length!==entry.bytes) throw Error('Fresh asset size mismatch: '+path);
+  }
+}
+export function acceptedProbe(report,lock,sha,{seal=false}={}) {
+  const ns=report?.networkNamespace;
+  if(report?.referenceScope!==FRESH_SCOPE || report?.discoveryOnly!==true || report.pairEligible!==false ||
+    report?.candidateCommit!==lock.candidateCommit || report?.fresh?.manifestSHA256!==sha ||
+    report?.fresh?.htmlSHA256!==lock.htmlSHA256 || report?.fresh?.round!==lock.round ||
+    !/^net:\[\d+\]$/.test(ns?.host??'') || !/^net:\[\d+\]$/.test(ns?.replay??'') || ns.host===ns.replay ||
+    report.status!==(seal?'DISCOVERY_CONVERGED':'DISCOVERY_REQUIRED') || !Array.isArray(report.cases) ||
+    report.cases.length!==4 || report.cases.some(c=>c.screenshot || !Array.isArray(c.deniedRequests) ||
+      !Object.hasOwn(EXPECTED,c.slot) || Object.entries(EXPECTED[c.slot]).some(([k,v])=>c.size?.[k]!==v))) {
+    throw Error('Probe is not the exact screenshotless draft/session');
+  }
+  const tuples=report.cases.map(c=>[c.slot,c.theme].join('/'));
+  if(new Set(tuples).size!==4 || tuples.some(x=>!['small/light','small/dark','large/light','large/dark'].includes(x))) {
+    throw Error('Probe profile/theme mismatch');
+  }
+  const misses=report.cases.flatMap(c=>c.deniedRequests);
+  if(seal) {
+    if(misses.length||report.cases.some(c=>c.passed!==true || c.errors?.length!==0 ||
+      c.viewport?.width!==c.size.width || c.viewport?.height!==c.size.height || c.viewport?.dpr!==2 ||
+      c.timeline?.[0]?.path!==ROUTE || c.timeline[0].untilId!==null || c.timeline[0].ids?.[0]!=='at4tltest0025' ||
+      Object.keys(c.assets??{}).filter(x=>x.endsWith('.js')).length<2 ||
+      Object.entries(c.assets).some(([path,h])=>lock.assets[path]!==h))) throw Error('Probe did not exercise all four exact cases');
+    return [];
+  }
+  if(!misses.length || misses.some(x=>x.reason!=='STATIC_PATH_UNATTESTED' || x.origin!==ORIGIN ||
+      !allowedPath(x.path,lock.marker) || Object.hasOwn(lock.assets,x.path))) throw Error('Probe contains non-static or inadmissible missing paths');
+  return [...new Set(misses.map(x=>x.path))].sort();
+}
+export function canonicalJSON(value){return JSON.stringify(value,null,2)+'\n';}
+export const hashManifest=value=>digest(canonicalJSON(value));
