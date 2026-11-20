@@ -22,6 +22,13 @@ acquire="$repo/scripts/h5-capture/acquire-fresh-world-static.mjs"
 snapshot="$scratch/fresh"
 # Verify the runner's network isolation and browser transport before any H5 public GET.
 run_isolated fresh-smoke
+if [[ ${WORLD_BOOTSTRAP_SHAPE_ONLY:-0} == 1 ]]; then
+  # One canonical public GET; never create a static snapshot, replay, or image.
+  /usr/bin/env -i HOME="$scratch/home" TMPDIR="$scratch/tmp" \
+    PATH="${node_bin%/*}:/usr/sbin:/usr/bin:/bin" \
+    "$node_bin" "$acquire" inspect-bootstrap-shape
+  exit 0
+fi
 node "$acquire" init "$snapshot" "$GITHUB_SHA" | tee "$evidence/fresh-init.json"
 for round in {0..8}; do
   IFS= read -r draft_sha < "$snapshot/draft-$round.sha256"

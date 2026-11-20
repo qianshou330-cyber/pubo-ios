@@ -7,11 +7,12 @@ permissions:
 jobs:
   world-h5-reference:
     # This standalone optional comparison is never a native, aggregate or package gate.
-    if: github.repository == 'qianshou330-cyber/pubo-ios' && github.event.deleted == false && (contains(github.event.head_commit.message, '[world-h5-parity]') || contains(github.event.head_commit.message, '[world-h5-fresh]'))
+    if: github.repository == 'qianshou330-cyber/pubo-ios' && github.event.deleted == false && (contains(github.event.head_commit.message, '[world-h5-parity]') || contains(github.event.head_commit.message, '[world-h5-fresh]') || contains(github.event.head_commit.message, '[world-h5-shape-only]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
-      WORLD_REFERENCE_MODE: ${{ contains(github.event.head_commit.message, '[world-h5-fresh]') && 'fresh' || 'historical' }}
+      WORLD_REFERENCE_MODE: ${{ (contains(github.event.head_commit.message, '[world-h5-shape-only]') || contains(github.event.head_commit.message, '[world-h5-fresh]')) && 'fresh' || 'historical' }}
+      WORLD_BOOTSTRAP_SHAPE_ONLY: ${{ contains(github.event.head_commit.message, '[world-h5-shape-only]') && '1' || '0' }}
     steps:
       - name: Initialize non-gating evidence
         run: |
@@ -85,13 +86,13 @@ jobs:
           bash scripts/h5-capture/run-fresh-world-hosted.sh "$GITHUB_WORKSPACE" "$WORLD_SCRATCH" "$WORLD_EVIDENCE" \
             2>&1 | tee "$WORLD_EVIDENCE/fresh-orchestration.log"
       - name: Vet only the comparison status, seal receipt and complete screenshots for publication
-        if: always()
+        if: always() && env.WORLD_BOOTSTRAP_SHAPE_ONLY != '1'
         env:
           JOB_RESULT_BEFORE_UPLOAD: ${{ job.status }}
         run: |
           python3 scripts/h5-capture/pack-world-public-evidence.py
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && env.WORLD_BOOTSTRAP_SHAPE_ONLY != '1'
         with:
           name: world-h5-${{ env.WORLD_REFERENCE_MODE }}-comparison-only-${{ github.sha }}
           path: |

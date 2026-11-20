@@ -13,16 +13,93 @@ const VITE=/^\/vite\/(?:zh-CN|assets)\/([A-Za-z0-9_]{8,24})-[A-Za-z0-9_-]{8}\.(?
 const icons=new Set(['/static-assets/pubo-white-660-v1.webp','/favicon.ico','/apple-touch-icon.png']);
 export const allowedPath=(path,marker)=>typeof path==='string' && /^[A-Za-z0-9_]{8,24}$/.test(marker??'') && (VITE.exec(path)?.[1]===marker ||
   icons.has(path) || /^\/twemoji\/[a-f0-9]{2,8}(?:-[a-f0-9]{2,8}){0,6}\.svg$/.test(path));
+function literalViteRefs(html) {
+  const refs=[...new Set([...html.matchAll(/["'](\/vite\/(?:zh-CN|assets)\/[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+)["']/g)].map(m=>m[1]))].sort();
+  return refs;
+}
+
 export function seedPaths(html) {
   if(!/<script type="application\/json" id="misskey_meta"[^>]*>/.test(html) || !html.includes('<head>')) {
     throw Error('Root is not the expected public H5 bootstrap');
   }
-  const refs=[...new Set([...html.matchAll(/["'](\/vite\/(?:zh-CN|assets)\/[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+)["']/g)].map(m=>m[1]))].sort();
+  const refs=literalViteRefs(html);
   const boot=refs.filter(path=>path.startsWith('/vite/zh-CN/')&&path.endsWith('.js'));
   const markers=new Set(refs.map(path=>VITE.exec(path)?.[1]));
   if(!boot.length || refs.length>24 || markers.size!==1 || markers.has(undefined)) throw Error('Unrecognized or mixed H5 bootstrap path family');
   return {marker:[...markers][0],refs};
 }
+
+// Diagnostic only: none of these shape categories authorizes an asset. No
+// input text, attribute value, path, prefix, meta field, or match is returned.
+export function describeBootstrapShape(body) {
+  const html=body.toString('utf8');
+  const refs=literalViteRefs(html);
+  const accepted=refs.map(path=>VITE.exec(path)?.[1]);
+  const kinds={moduleScriptSrc:0,moduleScriptInline:0,classicScriptSrc:0,
+    modulePreload:0,stylesheet:0,loaderScriptSrc:0,clientEntryInlineAssignment:0,
+    clientEntryInlineScriptsShape:0};
+  const pathKinds={rootRelativeZhCN:0,rootRelativeOtherLocale:0,rootRelativeScripts:0,rootRelativeAssets:0,
+    absoluteSameOriginVite:0,queryOrFragment:0,other:0};
+  const headScan=html.slice(0,1024*1024);
+  const scan=/<!--[\s\S]*?-->|<(script|link)\b((?:[^"'<>]|"[^"]*"|'[^']*')*)>|<\/head\s*>/gi;
+  const closeScript=/<\/script\s*>/gi;
+  function countPath(value) {
+    if(/[?#]/.test(value)) pathKinds.queryOrFragment++;
+    else if(value.startsWith('/vite/zh-CN/')) pathKinds.rootRelativeZhCN++;
+    else if(value.startsWith('/vite/scripts/')) pathKinds.rootRelativeScripts++;
+    else if(value.startsWith('/vite/assets/')) pathKinds.rootRelativeAssets++;
+    else if(/^\/vite\/[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})+\//.test(value)) pathKinds.rootRelativeOtherLocale++;
+    else if(value.startsWith(SOURCE+'vite/')) pathKinds.absoluteSameOriginVite++;
+    else pathKinds.other++;
+  }
+  let headEnd=false;
+  for(let match;(match=scan.exec(headScan));) {
+    if(!match[1]) {
+      if(/^<\/head/i.test(match[0])) {headEnd=true;break;}
+      continue;
+    }
+    const tag=match[1].toLowerCase();
+    const attrs=new Map();
+    const tokens=/([^\s=/"'<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+    for(const [,key,dq,sq,uq] of match[2].matchAll(tokens)) {
+      if(!attrs.has(key.toLowerCase())) attrs.set(key.toLowerCase(),dq??sq??uq??'');
+    }
+    if(tag==='script') {
+      const src=attrs.get('src');
+      const module=attrs.get('type')?.trim().toLowerCase()==='module';
+      if(src) {
+        kinds[module?'moduleScriptSrc':'classicScriptSrc']++;
+        if(/^(?:\/)?loader\/boot\.js(?:[?#].*)?$/.test(src)) kinds.loaderScriptSrc++;
+        countPath(src);
+      } else if(module) kinds.moduleScriptInline++;
+      closeScript.lastIndex=scan.lastIndex;
+      const end=closeScript.exec(headScan);
+      if(!end) break;
+      if(!src && (module || !attrs.get('type') || /^(?:text|application)\/javascript$/i.test(attrs.get('type')))) {
+        const script=headScan.slice(scan.lastIndex,end.index);
+        if(/\bCLIENT_ENTRY\s*=(?!=)/.test(script)) kinds.clientEntryInlineAssignment++;
+        if(/\bCLIENT_ENTRY\s*=\s*['"]scripts\/[^"'\r\n]+['"]/.test(script)) kinds.clientEntryInlineScriptsShape++;
+      }
+      scan.lastIndex=closeScript.lastIndex;
+    } else {
+      const href=attrs.get('href');
+      const rel=attrs.get('rel')?.toLowerCase().split(/\s+/)??[];
+      if(rel.includes('modulepreload')) {kinds.modulePreload++;if(href)countPath(href);}
+      if(rel.includes('stylesheet')) {kinds.stylesheet++;if(href)countPath(href);}
+    }
+  }
+  const zhBoot=refs.filter(path=>path.startsWith('/vite/zh-CN/')&&path.endsWith('.js')).length;
+  const unknownCount=accepted.filter(x=>x===undefined).length;
+  const markerCount=new Set(accepted.filter(x=>x!==undefined)).size;
+  const fixedHead=html.includes('<head>');
+  const fixedMeta=/<script type="application\/json" id="misskey_meta"[^>]*>/.test(html);
+  const verdict=!fixedHead||!fixedMeta?'MARKER_MISSING':
+    !zhBoot||refs.length>24||markerCount!==1||unknownCount?'PATH_FAMILY_UNRECOGNIZED':'ACCEPTS_CURRENT_SHAPE';
+  return {probe:'H5_BOOTSTRAP_SHAPE_ONLY',htmlSHA256:digest(body),responseBytes:body.byteLength,verdict,
+    fixedHead,fixedMeta,legacy:{uniqueQuotedRefs:refs.length,zhCNJsRefs:zhBoot,unknownCount,markerCount,overCap:refs.length>24},
+    tagScan:headEnd?'HEAD_END':html.length>headScan.length?'BOUND_REACHED':'NO_HEAD_END',kinds,pathKinds};
+}
+
 export function checkFresh(m,{draft=false}={}) {
   if(m?.schema!==1 || m.scope!==FRESH_SCOPE || m.origin!==SOURCE || m.fixtureBaselineCommit!==SHA ||
     !COMMIT.test(m.candidateCommit??'') || !HASH.test(m.htmlSHA256??'') || !/^[A-Za-z0-9_]{8,24}$/.test(m.marker??'') ||

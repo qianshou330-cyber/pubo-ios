@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {SOURCE,SHA,ORIGIN,ROUTE,EXPECTED,digest,cacheName} from './world-replay.mjs';
 import {FRESH_SCOPE,allowedPath,seedPaths,readFreshLock,verifyLocalAssetTree,acceptedProbe,canonicalJSON} from './fresh-world-lock.mjs';
-import {publicStaticGET,initSnapshot,progressSnapshot} from './acquire-fresh-world-static.mjs';
+import {publicStaticGET,initSnapshot,progressSnapshot,inspectBootstrapShape} from './acquire-fresh-world-static.mjs';
 const marker='sE2FIylr5', candidate='f'.repeat(40);
 const entry='/vite/zh-CN/'+marker+'-2--13OMV.js';
 const css='/vite/assets/'+marker+'-4RTeR85g.css';
@@ -111,4 +111,71 @@ test('forged, stale, cross-origin, nonstatic or incomplete probe cannot authoriz
   }
   const falseSeal=probe(original,a.manifestSHA256,false);falseSeal.cases[0].timeline[0].ids=['unexpected'];
   assert.throws(()=>acceptedProbe(falseSeal,original,a.manifestSHA256,{seal:true}),/did not exercise/);
+});
+
+test('one-shot fresh bootstrap output never emits HTML, paths, config, prefix or arbitrary strings', async () => {
+  const sample = `<!doctype html><head>
+    <script type="application/json" id="misskey_meta">{"sensitive":"PRIVATE_CONFIG_CANARY","loader":"SHOULD_NEVER_LOG"}</script>
+    <script>const CLIENT_ENTRY = "scripts/FIRST_VISIT_PRIVATE_CANARY.js";</script>
+    <script src="/loader/boot.js"></script>
+    <script type="module" src='https://bolubo.com/vite/zh-CN/PRIVATE_ABS_CANARY.js'></script>
+    <script type="module">void "INLINE_PRIVATE_CANARY";</script>
+    <link rel="modulepreload" href="/vite/ja-JP/OTHER_LOCALE_CANARY.js">
+    <link rel="stylesheet" href="/vite/assets/CSS_PRIVATE_CANARY.css?token=QUERY_PRIVATE_CANARY">
+    <!-- <script src="COMMENT_PRIVATE_CANARY"></script> -->
+    </head><body><script src="BODY_PRIVATE_CANARY"></script></body>`;
+  let count=0;
+  const report=await inspectBootstrapShape({transport:async (url,options)=>{
+    assert.equal(++count,1);
+    assert.equal(url.href,SOURCE);assert.equal(url.pathname,'/');
+    assert.equal(options.method,'GET');assert.equal(options.credentials,'omit');assert.equal(options.redirect,'manual');
+    assert.deepEqual(Object.keys(options.headers),['user-agent']);
+    const r=new Response(sample,{status:200,headers:{'content-type':'text/html'}});
+    Object.defineProperty(r,'url',{value:url.href});return r;
+  }});
+  assert.equal(count,1);
+  assert.equal(report.responseBytes,Buffer.byteLength(sample));
+  assert.equal(report.htmlSHA256,digest(sample));
+  assert.equal(report.verdict,'PATH_FAMILY_UNRECOGNIZED');
+  assert.equal(report.tagScan,'HEAD_END');
+  assert.deepEqual(report.kinds,{moduleScriptSrc:1,moduleScriptInline:1,classicScriptSrc:1,
+    modulePreload:1,stylesheet:1,loaderScriptSrc:1,clientEntryInlineAssignment:1,clientEntryInlineScriptsShape:1});
+  assert.deepEqual(report.pathKinds,{rootRelativeZhCN:0,rootRelativeOtherLocale:1,rootRelativeScripts:0,
+    rootRelativeAssets:0,absoluteSameOriginVite:1,queryOrFragment:1,other:1});
+  const serialized=JSON.stringify(report);
+  for(const token of ['CANARY','SHOULD_NEVER_LOG','<script','PRIVATE','/vite/','https://','/loader/','sensitive']) {
+    assert.ok(!serialized.includes(token),'unexpected input value');
+  }
+  function strings(x) {
+    if(typeof x==='string') return [x];
+    if(x&&typeof x==='object')return Object.values(x).flatMap(strings);
+    return [];
+  }
+  assert.deepEqual(strings(report),['H5_BOOTSTRAP_SHAPE_ONLY',digest(sample),'PATH_FAMILY_UNRECOGNIZED','HEAD_END']);
+});
+
+test('diagnostic only: one root GET even if old shape passes, fail closed on a redirect', async () => {
+  const x=stub();
+  const report=await inspectBootstrapShape(x);
+  assert.equal(report.verdict,'ACCEPTS_CURRENT_SHAPE');
+  assert.deepEqual(x.hits,['/']);
+  assert.deepEqual(x.counts,new Map([['/',1]]));
+  const d=stub({rewrite:(_p,_n,[body,type])=>[body,type,302]});
+  await assert.rejects(inspectBootstrapShape(d),/redirect refused/);
+  assert.deepEqual(d.hits,['/']);
+});
+
+test('diagnostic distinguishes over-cap, unknown extension and mixed markers but never changes policy', async () => {
+  const many=Array.from({length:25},(_,i)=>'/vite/zh-CN/'+marker+'-'+String(i).padStart(8,'0')+'.js');
+  const mixed='/vite/zh-CN/MixedAbc0-nmN0ca45.js';
+  const unknown='/vite/assets/'+marker+'-mnop2345.mp3';
+  for(const [paths,expected] of [[many,{overCap:true}],[ [entry,mixed],{markerCount:2}],[[entry,unknown],{unknownCount:1}]]) {
+    const html=root.replace('</head>',paths.map(r=>`<link rel="modulepreload" href="${r}">`).join('')+'</head>');
+    const control=stub({rewrite:(p,_n,row)=>p==='/'?[html,'text/html']:row});
+    const out=await inspectBootstrapShape(control);
+    assert.throws(()=>seedPaths(html),/mixed H5 bootstrap path family/);
+    assert.equal(out.verdict,'PATH_FAMILY_UNRECOGNIZED');
+    for(const [name,item] of Object.entries(expected)) assert.equal(out.legacy[name],item);
+    assert.deepEqual(control.hits,['/']);
+  }
 });

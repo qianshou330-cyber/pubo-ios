@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {SOURCE,SHA,digest,cacheName,pinnedRead} from './world-replay.mjs';
 import {
   FRESH_SCOPE,CAP,MAX_ROUNDS,MAX_TOTAL_BYTES,allowedPath,seedPaths,checkFresh,readFreshLock,
-  verifyLocalAssetTree,acceptedProbe,canonicalJSON,
+  verifyLocalAssetTree,acceptedProbe,canonicalJSON,describeBootstrapShape,
 } from './fresh-world-lock.mjs';
 const MIME={js:['text/javascript','application/javascript'],css:['text/css'],
   woff2:['font/woff2','application/font-woff2','application/octet-stream'],woff:['font/woff','application/font-woff','application/octet-stream'],
@@ -79,6 +79,11 @@ async function commitManifest(dir,m,draft) {
   await writeFile(join(dir,stem+'.sha256'),sha256+'\n',{flag:'wx'});
   return {scope:FRESH_SCOPE,status:m.status,round:m.round,manifestSHA256:sha256,htmlSHA256:m.htmlSHA256};
 }
+// One anonymous canonical root GET, no static files, replay, or write path.
+export async function inspectBootstrapShape({transport=fetch}={}) {
+  const html=await publicStaticGET('/',null,{transport});
+  return describeBootstrapShape(html);
+}
 const utc=()=>new Date().toISOString();
 export async function initSnapshot(dir,candidateCommit,{transport=fetch,clock=utc}={}) {
   if(!/^[a-f0-9]{40}$/.test(candidateCommit??''))throw Error('Exact candidate commit required before acquisition');
@@ -113,14 +118,23 @@ export async function progressSnapshot(dir,round,sha,probePath,probeSHA,{seal=fa
 if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {
     const [mode,dir,a,b,c,d]=process.argv.slice(2);
-    if(!dir || !['init','extend','seal'].includes(mode) || (mode==='init'?process.argv.length!==5:process.argv.length!==8)) {
-      throw Error('Use init DIR COMMIT | extend/seal DIR ROUND DRAFT_SHA PROBE_JSON PROBE_SHA');
+    if(mode==='inspect-bootstrap-shape') {
+      if(process.argv.length!==3) throw Error('Wrong shape-only argument count');
+      console.log(JSON.stringify(await inspectBootstrapShape()));
+    } else {
+      if(!dir || !['init','extend','seal'].includes(mode) || (mode==='init'?process.argv.length!==5:process.argv.length!==8)) {
+        throw Error('Use init DIR COMMIT | extend/seal DIR ROUND DRAFT_SHA PROBE_JSON PROBE_SHA');
+      }
+      const result=mode==='init'?await initSnapshot(dir,a):
+        await progressSnapshot(dir,Number(a),b,c,d,{seal:mode==='seal'});
+      console.log(JSON.stringify(result));
     }
-    const result=mode==='init'?await initSnapshot(dir,a):
-      await progressSnapshot(dir,Number(a),b,c,d,{seal:mode==='seal'});
-    console.log(JSON.stringify(result));
   } catch(error) {
-    console.error(JSON.stringify({scope:FRESH_SCOPE,status:'BLOCKED',failure:String(error)}));
+    if(process.argv[2]==='inspect-bootstrap-shape') {
+      console.error(JSON.stringify({probe:'H5_BOOTSTRAP_SHAPE_ONLY',verdict:'ROOT_FETCH_OR_SHAPE_BLOCKED'}));
+    } else {
+      console.error(JSON.stringify({scope:FRESH_SCOPE,status:'BLOCKED',failure:String(error)}));
+    }
     process.exitCode=1;
   }
 }
