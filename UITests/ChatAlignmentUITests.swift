@@ -87,7 +87,9 @@ final class ChatAlignmentUITests: XCTestCase {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light", app = launch(dark ? ["--dark"] : [])
             XCTAssertTrue(app.staticTexts["99+"].waitForExistence(timeout: 8))
-            XCTAssertTrue(app.buttons["conversation.room:socialroom"].exists); XCTAssertTrue(app.buttons["conversation.user:syntheticpeer"].exists)
+            let directRow = app.buttons["conversation.user:syntheticpeer"]
+            XCTAssertTrue(app.buttons["conversation.room:socialroom"].exists); XCTAssertTrue(directRow.exists)
+            XCTAssertEqual(directRow.value as? String, "@friend")
             capture(app, "chat-home-" + theme)
             puboSelectTab(app, "好友"); puboTapVisible(app, "friends.rooms")
             XCTAssertTrue(app.navigationBars["群聊"].waitForExistence(timeout: 8))

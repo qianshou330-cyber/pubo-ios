@@ -106,6 +106,88 @@ def cmd(args, log, timeout, stdout=None):
                     process.wait(10)
 
 
+# Only a fixed enum may leave runner-private storage on an exit-65 failure.
+# The Xcode result does not identify the root cause or prove that startup failed.
+FAILURE_UNKNOWN = "UNKNOWN"
+FAILURE_MAX_JSON = 256 * 1024
+FAILURE_READ_TIMEOUT = 8
+
+
+def failed_test_classification(summary, tree, size, udid):
+    try:
+        expected_device = {
+            "architecture": "x86_64", "deviceId": udid, "modelName": MATRIX[size]["model"],
+            "osVersion": MATRIX["osVersion"], "platform": "iOS Simulator",
+        }
+
+        def is_device(device):
+            return all(device.get(key) == value for key, value in expected_device.items())
+
+        configs = summary["devicesAndConfigurations"]
+        devices, tree_configs = tree["devices"], tree["testPlanConfigurations"]
+        require(all(isinstance(items, list) and len(items) == 1
+                    for items in (configs, devices, tree_configs)))
+        run = configs[0]
+        require(is_device(run["device"]) and is_device(devices[0]))
+        config = run["testPlanConfiguration"]
+        require(isinstance(config, dict) and isinstance(tree_configs[0], dict)
+                and isinstance(config.get("configurationId"), str) and config["configurationId"]
+                and config == tree_configs[0])
+
+        failed = summary["failedTests"]
+        require(type(failed) is int and failed in (0, 1))
+        counts = {"passedTests": 0, "failedTests": failed, "skippedTests": 0, "expectedFailures": 0}
+        require(all(type(item.get(key)) is int and item[key] == value
+                    for item in (summary, run) for key, value in counts.items()))
+        require(type(summary.get("totalTestCount")) is int and summary["totalTestCount"] == failed)
+        failures = summary["testFailures"]
+        require(isinstance(failures, list) and len(failures) == failed)
+        require(all(row.get("targetName") == "PUBOUITests"
+                    and row.get("testIdentifierString") == IDENTIFIER for row in failures))
+
+        nodes = tree["testNodes"]
+        for kinds, name in ((("Test Plan",), "PUBO"), (("UI test bundle", "Test Bundle"), "PUBOUITests"),
+                            (("Test Suite",), SUITE)):
+            if not failed and nodes == []:
+                return "NO_CASE_RECORDED"
+            require(isinstance(nodes, list) and len(nodes) == 1)
+            parent = nodes[0]
+            require(parent.get("nodeType") in kinds and parent.get("name") == name)
+            nodes = parent.get("children", [])
+        if not failed and nodes == []:
+            return "NO_CASE_RECORDED"
+        require(failed == 1 and isinstance(nodes, list) and len(nodes) == 1)
+        case = nodes[0]
+        require(case.get("nodeType") == "Test Case" and case.get("nodeIdentifier") == IDENTIFIER
+                and case.get("result") == "Failed")
+        children = case.get("children", [])
+        require(isinstance(children, list) and all(child.get("nodeType") == "Failure Message"
+                                                   and child.get("children", []) == [] for child in children))
+        return "CASE_REPORTED_FAILED"
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return FAILURE_UNKNOWN
+
+
+def diagnose_exit_65(private, bundle, size, udid):
+    try:
+        result = Path(bundle)
+        if not result.is_dir() or result.is_symlink():
+            return FAILURE_UNKNOWN
+        data = []
+        for kind in ("summary", "tests"):
+            path = private / f"exit65-{kind}.json"
+            with path.open("xb") as output:
+                probe = subprocess.run(
+                    ["xcrun", "xcresulttool", "get", "test-results", kind, "--path", bundle],
+                    stdout=output, stderr=subprocess.DEVNULL, timeout=FAILURE_READ_TIMEOUT, check=False,
+                )
+            require(probe.returncode == 0 and 0 < path.stat().st_size <= FAILURE_MAX_JSON)
+            data.append(read_json(path))
+        return failed_test_classification(*data, size, udid)
+    except (OSError, ValueError, RecursionError, subprocess.SubprocessError):
+        return FAILURE_UNKNOWN
+
+
 def main(private, out):
     size = os.environ.get("PUBO_SIM_SIZE")
     out.mkdir(parents=True, exist_ok=False)
@@ -154,6 +236,8 @@ def main(private, out):
         end = time.time()
         receipt["testExitCode"] = rc
         receipt["status"] = "NOT_PASSED"
+        if rc == 65:
+            receipt["failureClassification"] = diagnose_exit_65(private, bundle, size, udid)
         require(rc == 0)
         receipt["stage"] = "EVIDENCE"
         receipt["status"] = "UNAVAILABLE"

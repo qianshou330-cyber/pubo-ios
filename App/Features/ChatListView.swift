@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import PUBOCore
 
@@ -66,15 +67,21 @@ struct ChatListView: View {
                 ForEach(state.rows) { row in
                     if row.id == state.rows.first?.id && row.pinnedAt != nil { Text("置顶").font(.caption).foregroundStyle(.secondary).puboListRow() }
                     if row.pinnedAt == nil && state.rows.contains(where: { $0.pinnedAt != nil }) && row.id == state.rows.first(where: { $0.pinnedAt == nil })?.id { Text("最近会话").font(.caption).foregroundStyle(.secondary).puboListRow() }
+                    let account = conversationAccount(row)
                     HStack(spacing: 0) {
-                        NavigationLink { destination(row) } label: {
-                            conversation(row)
+                        let link = NavigationLink { destination(row) } label: {
+                            conversation(row, account: account)
                                 #if DEBUG
                                 .onAppear { ConversationDiagnostics.shared.record(.rowAppeared) }
                                 .onDisappear { ConversationDiagnostics.shared.record(.rowDisappeared) }
                                 #endif
                         }.buttonStyle(.plain)
                             .accessibilityIdentifier("conversation." + row.id)
+                        if #available(iOS 18.0, *) {
+                            link.accessibilityValue(LocalizedStringResource("\(account ?? "")"), isEnabled: account != nil)
+                        } else {
+                            link
+                        }
                         if row.kind == .user {
                             Menu {
                                 Button(row.pinnedAt == nil ? "置顶" : "取消置顶") { Task { await settings(row, "pinned", row.pinnedAt == nil) } }
@@ -106,17 +113,25 @@ struct ChatListView: View {
                 #endif
         }
     }
-    private func conversation(_ row: ChatConversation) -> some View {
+    private func conversation(_ row: ChatConversation, account: String?) -> some View {
         HStack(spacing: 12) {
             Avatar(user: row.kind == .user ? row.target : Record(row.message["fromUser"]), size: 44)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 4) {
                     if row.kind == .room { Image(systemName: "person.2").font(.caption) }
                     Text(row.kind == .room ? (row.target["name"].string ?? "群聊") : row.target.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        .layoutPriority(account == nil ? 0 : 2)
+                    if let account {
+                        Text(verbatim: account).font(.caption2).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.tail).accessibilityHidden(true)
+                    }
                     if row.pinnedAt != nil { Image(systemName: "pin.fill").font(.caption2) }
                     if row.muted { Image(systemName: "bell.slash").font(.caption2) }
-                    Spacer(minLength: 0)
-                    if let date = puboDate(row.message["createdAt"].string) { ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                    Spacer(minLength: 0).layoutPriority(account == nil ? 0 : -1)
+                    if let date = puboDate(row.message["createdAt"].string) {
+                        ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                            .layoutPriority(account == nil ? 0 : 1)
+                    }
                 }
                 HStack {
                     Text((row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw)).font(.subheadline).lineLimit(1).foregroundStyle(.secondary)
@@ -127,6 +142,37 @@ struct ChatListView: View {
             }
         }.frame(minHeight: 48).contentShape(Rectangle())
     }
+    // This is a supplemental display token, not an account lookup or canonicalizer.
+    private func conversationAccount(_ row: ChatConversation) -> String? {
+        guard row.kind == .user, let rawUsername = row.target["username"].string,
+              rawUsername.rangeOfCharacter(from: .controlCharacters) == nil else { return nil }
+        let username = rawUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let host: String
+        switch row.target["host"] {
+        case .null:
+            host = ""
+        case .string(let rawHost):
+            guard rawHost.rangeOfCharacter(from: .controlCharacters) == nil else { return nil }
+            host = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        default:
+            return nil
+        }
+        if host.isEmpty {
+            guard username.range(of: #"\A[A-Za-z0-9_]{1,20}\z"#, options: .regularExpression) != nil else { return nil }
+            return "@\(username)"
+        }
+        // A malformed present host must not make a remote account look local.
+        let label = #"\A[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\z"#
+        guard username.utf8.count <= 128,
+              username.range(of: #"\A[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*\z"#, options: .regularExpression) != nil,
+              host.utf8.count <= 253,
+              host.split(separator: ".", omittingEmptySubsequences: false).allSatisfy({
+                  String($0).range(of: label, options: .regularExpression) != nil
+              }) else { return nil }
+        return "@\(username)@\(host)"
+    }
+
     private func settings(_ row: ChatConversation, _ key: String, _ value: Bool) async {
         guard !settingBusy, row.kind == .user else { return }; settingBusy = true; defer { settingBusy = false }
         do { _ = try await session.call("chat/conversation-settings/update", ["userId": .string(row.target.id), key: .bool(value)], mutation: true); await state.load(session); await session.refreshUnread(); error = nil }
