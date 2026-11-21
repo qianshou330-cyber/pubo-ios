@@ -8,7 +8,18 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
-## 接力检查点 C90b（候选）：校正世界圈诊断来源锁
+## 接力检查点 C90b：核心复测通过，原生验收未通过
+
+[精确 C90b `8341a860`](https://github.com/qianshou330-cyber/pubo-ios/commit/8341a860dfd66e2b96551f688defade5aa4eeaf3) 的[正常流程 44886917877](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44886917877) 于 2026-11-21 10:55:45 UTC 以失败结束。Swift 204/204、Python 249/249、Node 2/2；旧来源锁修复已通过托管复测。捕获宿主诊断 7/7，只有主机微基准，不代表 App、设备或实际帧性能。OCR 固定阈值和 C89 失败证据不变；严格导航汇总和正式打包均跳过。
+
+- **导航**：iOS 26.1 模拟器，iPhone 17 路由 5/6：账户切换场景生成了 World 点击，随后未通过即时选中断言，录像未覆盖点击结果。iPhone 17 Pro Max 交互 6/7：失败用例合成点按好友后，录屏样本仍停在消息页，未到达关注申请；不等于已知触点、路由或业务根因。
+- **隐私**：iPhone 17 旧回归在 XCTest 无障碍初始化报错，未进入用例。iPhone 17 Pro Max 旧回归 5/5，双主题联动开关证实的是本地未保存状态；只有另一个「隐藏在线状态」用例进行了合成保存与回读，无重启或线上持久化结论。可选隐私说明专项未运行。
+- **世界圈**：iPhone 17 Pro Max 合成跨页 1/1：进入指定帖子详情再返回，World 内容区和位置回执一致（状态栏除外），见[原始取证 artifact 14701649703](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44886917877/artifacts/14701649703)；iPhone 17 在测试初始化失败，没有跨页行为结论。
+- **合成视频封面**：[iPhone 17 原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44886917877/artifacts/14703587700) / [iPhone 17 Pro Max 原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44886917877/artifacts/14703881447)对应两机均 4/4：缺失与损坏缩略图回退到解码内置视频、有效服务端缩略图分支、不受信任样本拒绝。只证明合成用例，不证明线上覆盖或首帧延迟。两机合成首页滑动至减速结束均 1/1，三次均值分别 2.836 秒 / 2.652 秒，无配对基线，不作流畅度或性能改善结论。
+- **交付**：本轮只有 [`QA-INCOMPLETE` 候选 artifact 14701909787](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44886917877/artifacts/14701909787)。已独立核实为未签名 iPhoneOS arm64、0.10.0/build 148，IPA 5,631,727 字节，到期 2026-12-05 10:03:36 UTC。不是验收包、不可直接安装，未发布或替换 [C71 已交付未签名试用包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)。World H5 和好友专项跳过，没有新的同状态 H5/iOS 对照或真机结论；原 iPhone 14 系列及以上验证范围不变。
+- **下一候选，仅源码核对**：归档 H5 已开启内容警告且说明去掉空白后为空时禁用提交；原生 World 新发帖候选拟对齐这一行为。仅源码差异，未推送，尚无原生、H5 运行或线上行为结论；不混入回复/引用或草稿迁移。
+
+### C90b 修复经过
 
 [精确 C90 `2ee9aa78`](https://github.com/qianshou330-cyber/pubo-ios/commit/2ee9aa7819ce78a2b588739f9375d6982c1a8c94) 的[正常流程 44883463494](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44883463494)提前失败。Swift 204/204 通过（包括新增 6 项世界圈规则测试）；Python 共 249 项、1 个错误和 1 个失败：`test_source_pins_current_expression` 拒绝 `TimelineView.swift` 整文件来源漂移；`test_only_two_row_callbacks_change_and_original_app_is_recoverable` 的反向重建哈希从历史预期 `e5865efad9002420c34f1f98246aa88c85254453` 变为 `ce83359d39c0e635480733994397610e8a7c246b`。独立诊断宿主也拒绝同一整文件锁。后续原生 UI、OCR、诊断候选 IPA 与正式 IPA 作业跳过；没有新的原生截图、同状态 H5 对照、实测性能、真机或 IPA。原 C89 记录和 C71 已交付试用包不变。
 
