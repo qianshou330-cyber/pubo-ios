@@ -101,20 +101,38 @@ struct FavoritesView: View {
     @State private var error: String?
     @State private var more = true
     @State private var busy = false
+    @State private var hasLoadedFirstPage = false
+    private var presentation: FavoritesReadPresentation {
+        FavoritesReadPresentation(hasLoadedFirstPage: hasLoadedFirstPage, isLoading: busy,
+                                  hasError: error != nil, hasRows: !rows.isEmpty,
+                                  hasOlderCursor: more && rows.last != nil)
+    }
     var body: some View {
         List {
             ForEach(rows) { row in if !row["note"].isNull { NoteCard(note: Record(row["note"])) } }
-            if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
-            if busy { ProgressView() } else if more { Button("加载更多") { Task { await load() } } }
-            if !busy && rows.isEmpty && error == nil { Text("还没有收藏帖子") }
+            if presentation.showsError, let error {
+                ErrorBanner(message: error, retryIdentifier: "favorites.retry") { Task { await load(reset: true) } }
+            }
+            if presentation.showsLoading {
+                ProgressView().accessibilityLabel("正在加载收藏").accessibilityIdentifier("favorites.loading")
+            }
+            if presentation.showsLoadMore {
+                Button("加载更多") { Task { await load() } }.accessibilityIdentifier("favorites.loadMore")
+            }
+            if presentation.showsEmpty { Text("还没有收藏帖子").accessibilityIdentifier("favorites.empty") }
         }.puboList().navigationTitle("我的收藏").task { await load(reset: true) }.refreshable { await load(reset: true) }
     }
     private func load(reset: Bool = false) async {
         guard !busy else { return }; busy = true; defer { busy = false }
         var fields: [String: JSONValue] = ["limit": .number(30)]
         if !reset, let id = rows.last?.id { fields["untilId"] = .string(id) }
-        do { let result = Record.list(try await session.call("i/favorites", fields)); rows = reset ? result : Records.merge(rows, result, limit: 10_000); more = result.count == 30; error = nil }
-        catch { self.error = error.localizedDescription }
+        do {
+            let result = try FavoritesReadPresentation.pageRecords(try await session.call("i/favorites", fields))
+            rows = reset ? result : Records.merge(rows, result, limit: 10_000)
+            more = result.count == 30
+            hasLoadedFirstPage = true
+            error = nil
+        } catch { self.error = error.localizedDescription }
     }
 }
 

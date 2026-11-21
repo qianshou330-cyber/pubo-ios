@@ -67,7 +67,7 @@ struct FriendsView: View {
                         .accessibilityLabel("正在加载关注列表…")
                         .accessibilityIdentifier("friends.loading")
                     }
-                    if loaded && page.rows.isEmpty && failure == nil { Text("还没有关注的人").foregroundStyle(.secondary).accessibilityIdentifier("friends.empty") }
+                    if !busy && loaded && page.rows.isEmpty && failure == nil { Text("还没有关注的人").foregroundStyle(.secondary).accessibilityIdentifier("friends.empty") }
                     if let failure {
                         // Retry the failed read instead of resetting a successfully loaded page.
                         ErrorBanner(message: failure.message, retryIdentifier: "friends.retry") {
