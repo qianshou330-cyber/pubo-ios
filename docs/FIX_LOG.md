@@ -9,6 +9,12 @@
 
 [精确 C90 `2ee9aa78`](https://github.com/qianshou330-cyber/pubo-ios/commit/2ee9aa7819ce78a2b588739f9375d6982c1a8c94) 的[正常流程 44883463494](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44883463494)提前失败。Swift 204/204 通过（包括新增 6 项世界圈规则测试）；Python 共 249 项、1 个错误和 1 个失败：`test_source_pins_current_expression` 拒绝 `TimelineView.swift` 整文件来源漂移；`test_only_two_row_callbacks_change_and_original_app_is_recoverable` 的反向重建哈希从历史预期 `e5865efad9002420c34f1f98246aa88c85254453` 变为 `ce83359d39c0e635480733994397610e8a7c246b`。独立诊断宿主也拒绝同一整文件锁。后续原生 UI、OCR、诊断候选 IPA 与正式 IPA 作业跳过；没有新的原生截图、同状态 H5 对照、实测性能、真机或 IPA。原 C89 记录和 C71 已交付试用包不变。
 
+## 2026-11-21 / C91 候选：世界圈新发帖的内容提示必填
+
+- **基线/差异**：[归档 H5 发帖组件](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/components/MkPostForm.vue#L309-L328) 在开启内容警告且提示为空/只有空白时禁用提交。原生 C90b 有字数上限，但没有此空白检查。没有实际发送或线上故障结论。
+- **范围**：仅世界圈普通新发帖弹层及内嵌框，原按钮校验，异步提交在任何保存或请求之前再次拦截；不缓存重复提示。提示缺失时保留全部草稿并指明补提示或关闭警告。原字符上限、非空提示内容、保存与回读、可见性、定时、回复/引用/频道和聊天均不改。未改工作流、必测选择器、任何门槛或最低 iOS 声明。
+- **复测**：精确 C90b 应用底稿叠加产品补丁 `d649eea45e80b59fd6f54a54fcd304c547a15b3b4fe80f59127a5e59bcf3901b`，原 Python 249 项全过；本机 JS 枚举 1,112,064 个 Unicode 标量与空白规则一致（25 个空白），不是 Swift 执行。新增 Swift 核心 4 项待正常流水线；可选同一启动内「不发送、关掉再打开草稿」原生复测不进本次必测，未执行。没有这项的新原生/H5 图、真机或验收 IPA。
+
 ## 2026-11-21 / C90b 候选：校正世界圈诊断来源锁
 
 - **C90b 修复范围**：仅更新 `scripts/timeline-capture-bench/run.py` 的 `TimelineView.swift` 预期 blob（`3472342fb7da16f1b845e3a14809750d017a92ca` → `74ea71094189730c24c10c4f55c19bb02d2ba066`）以及 `scripts/test_visibility_capture_integration.py` 的反向重建预期 blob（`e5865efad9002420c34f1f98246aa88c85254453` → `ce83359d39c0e635480733994397610e8a7c246b`）。独立重建历史 C89 得到旧值，精确 C90 只保留已审查的世界圈转发入口差异并得到新值；原整文件锁及捕获表达式校验、两回调范围、反向重建断言和全部验收条件保持不变。不再改 App、不改工作流或触发条件。修的是测试基线，不代表 C90 原生 UI、性能或验收通过。

@@ -47,7 +47,16 @@ struct ComposeView: View {
     @State private var editingText = false
     private var key: String { "compose-" + (replyTo?.id ?? renote?.id ?? channelID ?? "new") }
     private var editable: Bool { restored && !busy && draft.outcome == "ready" }
-    private var sendProblem: String? { SendFeedback.limitError(draft.text, limit: max(1, session.meta["maxNoteTextLength"].int > 0 ? session.meta["maxNoteTextLength"].int : 1000), label: "正文") ?? (draft.useCW ? SendFeedback.limitError(draft.cw, limit: 100, label: "内容提示") : nil) }
+    private var needsWarningAnnotation: Bool {
+        // The two uncontextualized constructors are the World sheet and fixed composer.
+        WorldComposeWarning.needsAnnotation(enabled: draft.useCW, text: draft.cw,
+            isReply: replyTo != nil, isQuote: renote != nil, isChannel: channelID != nil)
+    }
+    private var sendProblem: String? {
+        SendFeedback.limitError(draft.text, limit: max(1, session.meta["maxNoteTextLength"].int > 0 ? session.meta["maxNoteTextLength"].int : 1000), label: "正文")
+            ?? (draft.useCW ? SendFeedback.limitError(draft.cw, limit: 100, label: "内容提示") : nil)
+            ?? (needsWarningAnnotation ? "请填写内容提示，或关闭内容警告。" : nil)
+    }
     private var canSend: Bool { editable && sendProblem == nil && (draft.visibility != "specified" || !(draft.visibleUsers ?? []).isEmpty) && (!draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.files.isEmpty || renote != nil || draft.poll != nil) }
     private var submitTitle: String { draft.scheduledAt != nil ? "定时发布" : replyTo != nil ? "回复" : renote != nil ? "引用" : "发帖" }
     private var submitIcon: String { replyTo != nil ? "arrowshape.turn.up.left" : renote != nil ? "quote.opening" : "paperplane" }
@@ -265,6 +274,7 @@ struct ComposeView: View {
     }
     private func send() async {
         guard !busy, draft.outcome == "ready" else { return }
+        guard !needsWarningAnnotation else { return }
         applyPrivacy()
         if draft.visibility == "specified" && (draft.visibleUsers ?? []).isEmpty { error = "请至少选择一位可见用户。"; return }
         if let sendProblem { error = sendProblem; return }
