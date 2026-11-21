@@ -8,6 +8,11 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
+## 接力检查点 C90（候选）：世界圈列表转发入口按可见性显示
+
+- **世界圈首页**：按[归档 H5 的转发可见性规则](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/composables/use-note.ts#L156-L165)，仅在世界圈列表中按实际展示的帖子决定是否显示可交互的转发菜单。公开、首页可见与本人仅关注者帖保留原菜单；其他范围或身份不明确时保留原位置、只显示不可交互标记。纯转发按原帖、带内容的引用按自身判断。回复、发送处理、其他页面、四栏和 API 不变。
+- **验证边界**：基线 [C89 交接 `a10cc025a`](https://github.com/qianshou330-cyber/pubo-ios/commit/a10cc025a717e2eccbe27374da4dccd6336a8c09)。补丁 SHA-256 `e75220b1a951141752cc03a4f0bb7474ab8b6c21b170912acb0308114712d6ac`，已核对基线和补丁可逆性。新增 6 项核心测试方法；本地未运行 Swift/Xcode，未验证模拟器上的布局或无障碍、线上 H5、真机及签名安装；无新的对照图或验收 IPA。走原有自动流程，不改工作流、选择器或验收门槛。C89 原结果与 C71 已交付试用包仍不变。
+
 ## 接力检查点 C89：主流程失败，保留原验收和交付
 
 [精确源码 `24d62f55`](https://github.com/qianshou330-cyber/pubo-ios/commit/24d62f55ffc2e167b3b06c13ec8f96f98a36a199) · [主流程 44852523698](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44852523698)。2026-11-21 04:15:24 UTC 终止为失败；[严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44852523698/job/136718023910)与[正式打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44852523698/job/136720703177)均跳过。候选打包成功只代表诊断包生成：artifact `14690533048` 标记 `QA-INCOMPLETE`，外层 ZIP 5,582,870 字节，未验收、不替换 [C71 已交付未签名试用包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)。

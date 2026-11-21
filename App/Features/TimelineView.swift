@@ -150,7 +150,8 @@ struct TimelineView: View {
                             TimelinePostRow(note: note, first: index == 0,
                                 last: index == feed.notes.count - 1,
                                 dateBreak: index > 0 && day(note) != day(feed.notes[index - 1]) ? day(note) : nil,
-                                hideSensitive: !preferences.withSensitive)
+                                hideSensitive: !preferences.withSensitive,
+                                usesWorldResharePolicy: true)
                                 .environment(\.dynamicTypeSize, feedTypeSize)
                                 .id(note.id)
                                 .transition(.asymmetric(insertion: .offset(y: -64).combined(with: .opacity), removal: .opacity))
@@ -396,6 +397,7 @@ struct NoteCard: View {
     var timelineStyle = false
     var hideSensitive = false
     var appearance: NoteAppearance = .standard
+    var usesWorldResharePolicy = false
     @ScaledMetric(relativeTo: .subheadline) private var actionSize = 16.3
     @ScaledMetric(relativeTo: .subheadline) private var actionCountSize = 12.6
     @State private var revealCW = false
@@ -522,11 +524,19 @@ struct NoteCard: View {
         Group {
             if session.user != nil { actionLayout {
                 Button { replying = true } label: { HStack(spacing: 4) { NoteIcon(system: "arrowshape.turn.up.left", web: "arrow-back-up", appearance: appearance, size: actionSize); if shown["repliesCount"].int > 0 { Text("\(shown["repliesCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption) } }.frame(minWidth: 44, minHeight: 44).feedHitShape(appearance) }.accessibilityLabel("回复").accessibilityIdentifier("note.reply." + rowID)
-                Menu {
-                    Button("转发") { Task { await renote() } }
-                    Button("引用转发") { quoting = true }
-                } label: { HStack(spacing: 3) { NoteIcon(system: "arrow.2.squarepath", web: "repeat", appearance: appearance, size: actionSize); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption2) } }.frame(minWidth: 44, minHeight: 44).feedHitShape(appearance) }
-                .accessibilityLabel("转发或引用").accessibilityIdentifier("note.renote." + rowID)
+                if !usesWorldResharePolicy || WorldReshareVisibility.canShowMenu(row: current ?? note, viewerID: session.user?.id) {
+                    Menu {
+                        Button("转发") { Task { await renote() } }
+                        Button("引用转发") { quoting = true }
+                    } label: { HStack(spacing: 3) { NoteIcon(system: "arrow.2.squarepath", web: "repeat", appearance: appearance, size: actionSize); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption2) } }.frame(minWidth: 44, minHeight: 44).feedHitShape(appearance) }
+                    .accessibilityLabel("转发或引用").accessibilityIdentifier("note.renote." + rowID)
+                } else {
+                    Image(systemName: "nosign").font(.system(size: actionSize))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel("此帖不可转发或引用")
+                        .accessibilityIdentifier("note.reshareUnavailable." + rowID)
+                        .allowsHitTesting(false)
+                }
                 Button {
                     if !shown["myReaction"].isNull { proposedReaction = nil; confirmReaction = true }
                     else if shown["reactionAcceptance"].string == "likeOnly" { Task { await react("❤️") } }

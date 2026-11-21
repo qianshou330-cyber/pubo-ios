@@ -55,6 +55,7 @@ struct TimelinePostRow: View {
     let last: Bool
     let dateBreak: String?
     let hideSensitive: Bool
+    var usesWorldResharePolicy = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -62,7 +63,8 @@ struct TimelinePostRow: View {
                 Text(dateBreak).font(.caption).foregroundStyle(PUBOTheme.secondary)
                     .padding(10).frame(maxWidth: .infinity)
             }
-            NoteCard(note: note, timelineStyle: true, hideSensitive: hideSensitive, appearance: .timeline)
+            NoteCard(note: note, timelineStyle: true, hideSensitive: hideSensitive, appearance: .timeline,
+                     usesWorldResharePolicy: usesWorldResharePolicy)
         }
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: first ? 12 : 0,
             bottomLeadingRadius: last ? 12 : 0, bottomTrailingRadius: last ? 12 : 0,

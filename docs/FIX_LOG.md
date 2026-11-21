@@ -1,5 +1,10 @@
 # 修复日志
 
+## 2026-11-21 / C90 候选：世界圈列表转发入口按可见性显示
+
+- **世界圈首页**：按[归档 H5 的转发可见性规则](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/composables/use-note.ts#L156-L165)，仅在世界圈列表中按实际展示的帖子决定是否显示可交互的转发菜单。公开、首页可见与本人仅关注者帖保留原菜单；其他范围或身份不明确时保留原位置、只显示不可交互标记。纯转发按原帖、带内容的引用按自身判断。回复、发送处理、其他页面、四栏和 API 不变。
+- **验证边界**：基线 [C89 交接 `a10cc025a`](https://github.com/qianshou330-cyber/pubo-ios/commit/a10cc025a717e2eccbe27374da4dccd6336a8c09)。补丁 SHA-256 `e75220b1a951141752cc03a4f0bb7474ab8b6c21b170912acb0308114712d6ac`，已核对基线和补丁可逆性。新增 6 项核心测试方法；本地未运行 Swift/Xcode，未验证模拟器上的布局或无障碍、线上 H5、真机及签名安装；无新的对照图或验收 IPA。走原有自动流程，不改工作流、选择器或验收门槛。C89 原结果与 C71 已交付试用包仍不变。
+
 ## 2026-11-21 / C89 候选：隐私登录查看说明；好友首页显示远端账号
 
 - **我的**：依据 [Misskey 脱敏快照 `0d9c495` 的隐私页](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/pages/settings/privacy.vue#L95-L106)，在现有「登录后才能查看内容」开关下增设静态说明，覆盖访客可见性、预览/嵌入和已分发内容的例外；无障碍标识 `privacy.requireSigninToViewContents.notice`。不是 H5 启用确认的完整对齐。无弹窗、额外请求、自动保存、开关或草稿行为变更；原保存冲突检查及回读保留。产品补丁 SHA-256 `fc3e0a2dfcf41662e9c10c13704375eae156c3119f6ce07ec91e731fa16c7fd2`。
