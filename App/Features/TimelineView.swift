@@ -639,25 +639,33 @@ struct NoteDetailView: View {
     @Environment(AppSession.self) private var session
     let noteID: String
     @State private var note: Record?
-    @State private var replies: [Record] = []
+    @State private var replyPage = NoteDetailReplyPage()
     @State private var error: String?
-    @State private var more = true
     @State private var busy = false
     var body: some View {
         List {
             if let note { NoteCard(note: note, detail: true) }
             if let error { ErrorBanner(message: error) { Task { await load() } } }
-            Section("回复") { ForEach(replies) { NoteCard(note: $0) }; if more { Button("加载更多回复") { Task { await load(older: true) } }.disabled(busy) } }
+            Section("回复") {
+                ForEach(replyPage.rows) { NoteCard(note: $0) }
+                if replyPage.olderCursor != nil {
+                    Button("加载更多回复") { Task { await load(older: true) } }.disabled(busy)
+                }
+            }
         }.puboList().navigationTitle("帖子").task { await load() }.refreshable { await load() }
     }
     private func load(older: Bool = false) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
+        guard !busy else { return }
+        let cursor = older ? replyPage.olderCursor : nil
+        guard !older || cursor != nil else { return }
+        busy = true; defer { busy = false }
         do {
             if !older { note = Record(try await session.call("notes/show", ["noteId": .string(noteID)])) }
-            var fields: [String: JSONValue] = ["noteId": .string(noteID), "limit": .number(30)]
-            if older, let id = replies.last?.id { fields["untilId"] = .string(id) }
-            let result = Record.list(try await session.call("notes/replies", fields))
-            replies = older ? Records.merge(replies, result, limit: 10_000) : result; more = result.count == 30; error = nil
+            var fields: [String: JSONValue] = ["noteId": .string(noteID), "limit": .number(Double(NoteDetailReplyPage.limit))]
+            if let cursor { fields["untilId"] = .string(cursor) }
+            let result = try await session.call("notes/replies", fields)
+            try replyPage.apply(result, older: older)
+            error = nil
         } catch { self.error = error.localizedDescription }
     }
 }

@@ -13,7 +13,7 @@ class VisibilityCaptureIntegrationContracts(unittest.TestCase):
         self.assertEqual(app.count('captureVisibleAfterRowChange()'), 3)
         restored = app.replace(helper, '').replace('visibleIDs.remove(note.id); captureVisibleAfterRowChange()', 'visibleIDs.remove(note.id); captureVisible()').replace('visibleIDs.insert(note.id)\n        captureVisibleAfterRowChange()', 'visibleIDs.insert(note.id)\n        captureVisible()')
         data = restored.encode()
-        self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), 'ce83359d39c0e635480733994397610e8a7c246b')
+        self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), '3255655f356a6da11e8b3202a8a5df398d8f97fa')
 
     def test_policy_conservative_and_original_filter_retained(self):
         core = (ROOT / 'Sources/PUBOCore/TimelineState.swift').read_text()
