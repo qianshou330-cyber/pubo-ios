@@ -68,10 +68,10 @@ struct FriendsView: View {
                         .accessibilityIdentifier("friends.loading")
                     }
                     if !busy && loaded && page.rows.isEmpty && failure == nil { Text("还没有关注的人").foregroundStyle(.secondary).accessibilityIdentifier("friends.empty") }
-                    if let failure {
+                    if !busy, let failure {
                         // Retry the failed read instead of resetting a successfully loaded page.
                         ErrorBanner(message: failure.message, retryIdentifier: "friends.retry") {
-                            Task { await load(reset: failure.reset) }
+                            Task { await load(reset: failure.reset, fromRetry: true) }
                         }
                     }
                     if loaded && page.hasMore {
@@ -95,8 +95,9 @@ struct FriendsView: View {
                 .refreshable { await load(reset: true) }
         }
     }
-    private func load(reset: Bool) async {
-        guard visible, !Task.isCancelled, let user = session.user, reset || (!busy && page.hasMore) else { return }
+    private func load(reset: Bool, fromRetry: Bool = false) async {
+        guard visible, !Task.isCancelled, let user = session.user,
+              (!fromRetry || !busy), reset || (!busy && page.hasMore) else { return }
         let ticket = UUID(), generation = session.generation
         requestID = ticket; busy = true
         defer { if requestID == ticket { busy = false } }
