@@ -6,6 +6,15 @@
 - **本地复测**：精确 [C93 基线](https://github.com/qianshou330-cyber/pubo-ios/commit/3e47427bb8ff92c524470b61fb7df49384bb3720) 上，改动可正向应用和原样回退，原 Python 249/249。两个整文件指纹按同一细节补丁重算，原精确来源校验和门槛不变。新增 6 项 Swift 核心测试本机未执行，按[分支的正常 CI](https://github.com/qianshou330-cyber/pubo-ios/actions?query=branch%3Aui-four-tabs-148-20261112)核对。失败→重试→空的模拟器取证未编译或执行；现有测试的进出详情不等于新分页逻辑验证。没有同状态 H5/iOS 新原图、真机或验收 IPA。
 - 产品补丁 SHA-256 `9d3bd8552058a64140325dbf66245bfff6b28a1c0160947df1ec4750134ef27b`；未改工作流、模拟器选型、必测选择器或测试素材。
 
+### C94 精确提交结果
+
+[精确 C94 `2c3c524e`](https://github.com/qianshou330-cyber/pubo-ios/commit/2c3c524ea7f85f246510b3d87aab20dadd0ca1ac) · [正常 CI 44947607398](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44947607398)。于 2026-11-21 22:47:30 UTC 未通过（16 通过、13 失败、5 跳过）。 [严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44947607398/job/137009521853)和[正式打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44947607398/job/137009522074)均跳过。Swift 220/220（含新增回复分页 6/6）、Python 249/249、Node 2/2 及捕获宿主通过；OCR 未通过，未改门槛。
+
+- **世界圈**：iPhone 17、iPhone 17 Pro Max 均为 iOS 26.1 模拟器。合成视频封面各 4/4，仅验证缩略图和回退，不代表视频播放、首帧耗时或真机表现。合成跨页各 1/1：标准机八次拖动、Pro Max 六次；打开旧帖详情后点原生返回，原行仍位于未遮挡阅读区并可点。[标准机原始归档](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44947607398/artifacts/14727275318)到期 2026-12-05 21:54:12 UTC；[Pro Max 原始归档](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44947607398/artifacts/14727399146)到期同日 22:21:08 UTC。没有像素位置不变、滚动流畅或新回复状态结论。Pro Max 独立首页滑动至减速结束三次为 3.462、2.760、7.237 秒，均值 4.486 秒，没有配对基线；标准机无障碍初始化停止，没有计时。
+- **非聊天导航和交互**：标准机路由 6/6；Pro Max 路由在无障碍初始化时停止，未进用例。两机交互 6/7，同一个四栏世界圈用例在查询无障碍快照时超时；独立的世界圈发帖键盘关闭（未发送）、加载/失败、好友普通重试、关注申请交互均分别通过。标准机旧回归在 SwiftPM 拉取 SDWebImage 的 DNS 阶段失败；Pro Max 旧回归在无障碍初始化停止。没有 C93 挂起重试、C92 新收藏状态、C94 详情分页专项的新直接 UI 证据。
+- **聊天隔离线**：两机聊天状态各 4/4。Pro Max 编辑器 4/4，标准机前三项通过，群聊键盘与草稿返回的第四项在外层时限内未完。Pro Max 深色私聊有/无选择器的两个双返回对照各 1/1；标准机群聊无选择器在无障碍初始化停止。标准机群聊有选择器也在无障碍初始化停止，未进入选择器或返回。不代表全量聊天验收。
+- **打包记录**：[试用候选 14726417956 · QA-INCOMPLETE](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44947607398/artifacts/14726417956)已独立核实为未签名 iPhoneOS arm64、0.10.0/build 148，IPA 5,637,313 字节，SHA-256 `5ea00f1b9fc961d5f8b2cca11d9829dbb4ca1a3b487295cbf887b55ec8840e6d`，到期 2026-12-05 21:57:45 UTC；17.0 仅为包内最低系统声明。未验收、未交付，不替换 [C71 最后已交付试用包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)。World H5 和好友专项可选流程跳过；无本次同状态 H5/iOS 原图或新增真机证据。
+
 ## 2026-11-21 / C93：好友重试时先显示加载，不显示旧错误按钮
 
 - **好友 → 我关注的人**：归档 H5 加载态优先于旧错误。原生 C92 已避免旧空态与刷新同时显示，但失败后点重试，原错误及按钮仍可能留在新请求的加载态；首次加载失败后，重复按旧按钮可启动另一次重置请求。本改动只在加载时隐藏原错误和按钮，并在重试入口阻止请求进行期间再次重试。保留缓存行、原错误状态、原游标、重试目标、下拉刷新及失败时恢复提示；不改变四栏、收藏、API 或工作流。
