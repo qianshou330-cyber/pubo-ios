@@ -8,6 +8,14 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
+## 接力检查点 C89（候选）：补登录查看的隐私提示，区分好友首页远端账号
+
+以 [交接基线 `fd42d22a`](https://github.com/qianshou330-cyber/pubo-ios/commit/fd42d22a454796edb4a29022c9aad3cb6456513c) 为底稿，仅推进以下两项非聊天改动；本段不把源码核对当作模拟器或 H5 验收。
+
+- **我的 → 隐私与内容偏好**：只在「登录后才能查看内容」的原开关下补说明：访客、链接预览和嵌入等限制，以及已分发到其他服务器的内容可能不受限制。依据[脱敏 H5 隐私源码](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/pages/settings/privacy.vue#L95-L106)，只对齐说明文字，不增加弹窗、不改开关/显式保存/回读或请求。单独可选的明暗主题取证用例本轮不会执行；不能把构建测试包当作画面通过，也未修复 C88 Pro Max 锁定开关的失败。
+- **好友首页 → 我关注的人**：原副标题仅在明确 `host: null` 时显示本地 `@用户名`；格式有效的远端显示 `@用户名@主机`；坏、空或缺失主机只省略账号副标题，不删关注条目。参考脱敏 H5 [关注列表](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/pages/user/follow-list.vue#L6-L13)与 [MkAcct](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/components/global/MkAcct.vue#L6-L13)，不增加请求，不改分页、路由或聊天。新增 5 项合成核心单测进入原 `swift test`。C88 好友重试专项固定旧 `FriendsView`，不在本轮触发；没有 C89 重试或新截图结论。
+- 本地只做源码和补丁核对，未编译 Swift、未运行原生或截图测试。提交后只走一轮原有主流程，不改工作流、标记、必测选择与数量或打包条件；进入原生测试编译时会编译可选 UI 类，但不会运行它，也不证明远端账号或隐私提示已正确渲染。待登记准确提交和 CI；没有同状态 H5 图、真机或新验收 IPA，C71 已交付试用包不变。详见 [修复日志](FIX_LOG.md)。
+
 ## 接力检查点 C88：消息首页已复测，好友与「我的」仍分机型记录
 
 [精确源码 `1de74c2a87977235acfa436ebd1ec3737bf4f346`](https://github.com/qianshou330-cyber/pubo-ios/commit/1de74c2a87977235acfa436ebd1ec3737bf4f346) · [C88 主流程](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44807694631)。主流程已结束，结论未通过；以下为已核对分片，不等于全量验收。限 iPhone 14 系列及以上；本轮为 iPhone 17 / 17 Pro Max、iOS 26.1 模拟器，无新增真机结果。

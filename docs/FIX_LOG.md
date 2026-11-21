@@ -1,5 +1,12 @@
 # 修复日志
 
+## 2026-11-21 / C89 候选：隐私登录查看说明；好友首页显示远端账号
+
+- **我的**：依据 [Misskey 脱敏快照 `0d9c495` 的隐私页](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/pages/settings/privacy.vue#L95-L106)，在现有「登录后才能查看内容」开关下增设静态说明，覆盖访客可见性、预览/嵌入和已分发内容的例外；无障碍标识 `privacy.requireSigninToViewContents.notice`。不是 H5 启用确认的完整对齐。无弹窗、额外请求、自动保存、开关或草稿行为变更；原保存冲突检查及回读保留。产品补丁 SHA-256 `fc3e0a2dfcf41662e9c10c13704375eae156c3119f6ce07ec91e731fa16c7fd2`。
+- **独立隐私取证**：另加一个可选的 `PrivacySignInNoticeDiagnosticUITests.testNoticeBesideOriginalSwitchInBothThemes`：只看原控件和相邻说明，无切换或保存；待真正运行并核对明暗原图后才判断显示。补丁 SHA-256 `87ac05eb159e829d4d44bf4414f8ca4ed1c0f0d063d3a9b1d916fcd19b4af440`。未修改既有隐私测试或其选择器；原主流程进入原生测试编译时会编译该类、不执行，不代表提示已渲染或 C88 Pro Max 锁定开关问题解决。
+- **好友首页**：[H5 关注列表](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/pages/user/follow-list.vue#L6-L13)采用 [MkAcct](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/components/global/MkAcct.vue#L6-L13)；归档 [服务端打包数据](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/backend/src/core/entities/UserEntityService.ts#L486-L494)已有 `username` 与 `host`。原生只替换「我关注的人」账号副标题：显式 `host: null` 显示本地 `@用户名`；通过既定格式检查的远端显示原 `@用户名@主机`；空、缺失或畸形主机不冒充本地，仅省略副标题。头像、昵称、标签、顺序、游标、路由、聊天及 API 不变，不验证真实账号身份。新增五项 `FolloweeDisplayHandleTests` 随原 `swift test` 后续运行；补丁 SHA-256 `469e013991af1805bba9310ebb7ed940dc555e70519419e575308af988d76398`。C88 好友可选重试专项仍固定旧 `FriendsView`，本轮不触发；不把 C86/C88 专项写成 C89 结果。
+- **验证与交付**：精确底稿 [`fd42d22a454796edb4a29022c9aad3cb6456513c`](https://github.com/qianshou330-cyber/pubo-ios/commit/fd42d22a454796edb4a29022c9aad3cb6456513c)。已做源码、独立审阅和脱离工作区的补丁核对；本地没有 Swift/Xcode，五项核心单测、原生编译、远端账号排版、隐私画面及截图均未运行或验证。本批提交后只跑一轮现有主 CI，保留工作流、触发标记、既有门槛以及必测选择和数量；不单独触发诊断。精确提交／作业及实际结果待登记。不新增同状态 H5、真机或签名安装结论；C88 候选仍为 `QA-INCOMPLETE`，[C71 已交付未签名试用包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)不替换。
+
 ## 2026-11-20 / C88：消息首页显示私聊对象账号，好友专项增加失败分类
 
 - App：消息首页私聊行补充已知对方账号，沿用原始会话资料；空或畸形值不添加新标识，合法远端标识仅展示、不改变资格或发请求。保护昵称和时间的排版，保持底部四栏、聊天内页、菜单、加号、预览和原链接。iOS 18+ 账号作为附加无障碍值；iOS 17 不改旧值。6 项离线检查通过。已有明暗主题布局测试添加 1 次账号值断言，沿用原选择器、等待和截图。托管复测及原图核对见下；历史 H5 源码不等于现在线上画面。

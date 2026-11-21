@@ -77,6 +77,13 @@ struct PrivacySettingsView: View {
                     #if DEBUG
                     .background(PrivacySwitchEventProbe(key: key))
                     #endif
+                if key == "requireSigninToViewContents" {
+                    Text("启用后，未登录的访客无法查看你发布的内容。链接预览、网页嵌入，以及不支持帖子引用的服务器，都不会显示这些内容。已分发到其他服务器的内容，可能不受此限制。")
+                        .font(.footnote)
+                        .foregroundStyle(PUBOTheme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("privacy.requireSigninToViewContents.notice")
+                }
             }
             ForEach([("followingVisibility", "关注列表可见性"), ("followersVisibility", "关注者可见性")], id: \.0) { key, title in
                 Picker(title, selection: Binding(get: { values[key]?.string ?? "public" }, set: { values[key] = .string($0) })) { Text("公开").tag("public"); Text("仅关注者").tag("followers"); Text("仅自己").tag("private") }.disabled(busy || original.isNull)

@@ -48,7 +48,9 @@ struct FriendsView: View {
                                 Avatar(user: user)
                                 VStack(alignment: .leading) {
                                     Text(user.displayName)
-                                    Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary)
+                                    if let handle = FolloweeDisplayHandle.text(for: user) {
+                                        Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                                    }
                                 }
                                 Spacer()
                                 Text(user["isFollowed"].bool ? "互相关注" : "已关注").font(.caption).foregroundStyle(.secondary)
