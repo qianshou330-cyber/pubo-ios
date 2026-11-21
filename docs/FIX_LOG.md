@@ -5,6 +5,16 @@
 - **世界圈首页**：按[归档 H5 的转发可见性规则](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/composables/use-note.ts#L156-L165)，仅在世界圈列表中按实际展示的帖子决定是否显示可交互的转发菜单。公开、首页可见与本人仅关注者帖保留原菜单；其他范围或身份不明确时保留原位置、只显示不可交互标记。纯转发按原帖、带内容的引用按自身判断。回复、发送处理、其他页面、四栏和 API 不变。
 - **验证边界**：基线 [C89 交接 `a10cc025a`](https://github.com/qianshou330-cyber/pubo-ios/commit/a10cc025a717e2eccbe27374da4dccd6336a8c09)。补丁 SHA-256 `e75220b1a951141752cc03a4f0bb7474ab8b6c21b170912acb0308114712d6ac`，已核对基线和补丁可逆性。新增 6 项核心测试方法；本地未运行 Swift/Xcode，未验证模拟器上的布局或无障碍、线上 H5、真机及签名安装；无新的对照图或验收 IPA。走原有自动流程，不改工作流、选择器或验收门槛。C89 原结果与 C71 已交付试用包仍不变。
 
+### C90 精确提交结果
+
+[精确 C90 `2ee9aa78`](https://github.com/qianshou330-cyber/pubo-ios/commit/2ee9aa7819ce78a2b588739f9375d6982c1a8c94) 的[正常流程 44883463494](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44883463494)提前失败。Swift 204/204 通过（包括新增 6 项世界圈规则测试）；Python 共 249 项、1 个错误和 1 个失败：`test_source_pins_current_expression` 拒绝 `TimelineView.swift` 整文件来源漂移；`test_only_two_row_callbacks_change_and_original_app_is_recoverable` 的反向重建哈希从历史预期 `e5865efad9002420c34f1f98246aa88c85254453` 变为 `ce83359d39c0e635480733994397610e8a7c246b`。独立诊断宿主也拒绝同一整文件锁。后续原生 UI、OCR、诊断候选 IPA 与正式 IPA 作业跳过；没有新的原生截图、同状态 H5 对照、实测性能、真机或 IPA。原 C89 记录和 C71 已交付试用包不变。
+
+## 2026-11-21 / C90b 候选：校正世界圈诊断来源锁
+
+- **C90b 修复范围**：仅更新 `scripts/timeline-capture-bench/run.py` 的 `TimelineView.swift` 预期 blob（`3472342fb7da16f1b845e3a14809750d017a92ca` → `74ea71094189730c24c10c4f55c19bb02d2ba066`）以及 `scripts/test_visibility_capture_integration.py` 的反向重建预期 blob（`e5865efad9002420c34f1f98246aa88c85254453` → `ce83359d39c0e635480733994397610e8a7c246b`）。独立重建历史 C89 得到旧值，精确 C90 只保留已审查的世界圈转发入口差异并得到新值；原整文件锁及捕获表达式校验、两回调范围、反向重建断言和全部验收条件保持不变。不再改 App、不改工作流或触发条件。修的是测试基线，不代表 C90 原生 UI、性能或验收通过。
+
+- **本地精确复验**：在完整 C90 源码副本运行原 CI 命令 `python3 -m unittest discover -s scripts -p 'test_*.py' -v`；未改版本共 249 项，复现 1 个错误和 1 个失败；仅更新上述两个哈希后，249/249 通过。独立跑两个模块合计 10/10，注入任意来源漂移时两个原门禁均拒绝。该结果不包含云端新提交的运行结果或新的 Swift/Xcode、模拟器、图像或性能测量。
+
 ## 2026-11-21 / C89 候选：隐私登录查看说明；好友首页显示远端账号
 
 - **我的**：依据 [Misskey 脱敏快照 `0d9c495` 的隐私页](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/pages/settings/privacy.vue#L95-L106)，在现有「登录后才能查看内容」开关下增设静态说明，覆盖访客可见性、预览/嵌入和已分发内容的例外；无障碍标识 `privacy.requireSigninToViewContents.notice`。不是 H5 启用确认的完整对齐。无弹窗、额外请求、自动保存、开关或草稿行为变更；原保存冲突检查及回读保留。产品补丁 SHA-256 `fc3e0a2dfcf41662e9c10c13704375eae156c3119f6ce07ec91e731fa16c7fd2`。
