@@ -134,7 +134,7 @@ struct ChatListView: View {
                     }
                 }
                 HStack {
-                    Text((row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw)).font(.subheadline).lineLimit(1).foregroundStyle(.secondary)
+                    Text((row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw)).font(.subheadline).lineLimit(2).foregroundStyle(.secondary)
                     Spacer(minLength: 0)
                     if let badge = row.badge { Text(badge).font(.caption2).padding(.horizontal, 6).padding(.vertical, 3).background(row.muted ? Color.gray : PUBOTheme.accent, in: Capsule()).foregroundStyle(.white) }
                     else if row.legacyUnread { Circle().fill(row.muted ? .gray : PUBOTheme.accent).frame(width: 8, height: 8).accessibilityLabel("有未读消息") }
