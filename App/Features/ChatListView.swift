@@ -2,7 +2,24 @@ import Foundation
 import SwiftUI
 import PUBOCore
 
+private enum MessagesHomePage: Hashable { case search }
+
+enum MessagesHomePalette {
+    static let canvas = PUBOTheme.adaptive(0xffffff, 0x0c1210)
+    static let primary = PUBOTheme.adaptive(0x141414, 0xeff3ee)
+    static let secondary = PUBOTheme.adaptive(0x666b68, 0xaebbb4)
+    static let field = PUBOTheme.adaptive(0xf1f2f3, 0x202a26)
+    static let accent = PUBOTheme.adaptive(0x477019, 0xb3d084)
+    static let badge = PUBOTheme.adaptive(0x477019, 0x496d2a)
+    static let addBackground = PUBOTheme.adaptive(0xe6edd9, 0x293b25)
+    static let rule = PUBOTheme.adaptive(0xe4e6e4, 0x334039)
+}
+
 struct ChatListView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 32
+    private let sideInset: CGFloat = 16
+    private let avatarSize: CGFloat = 50
+    private let rowSpacing: CGFloat = 12
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
     @State private var state = ChatHomeState()
@@ -18,14 +35,12 @@ struct ChatListView: View {
     var body: some View {
         @Bindable var session = session
         NavigationStack(path: $session.messagesPath) {
-            home.puboScreen().navigationTitle("消息")
-                .toolbar { ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button { scannedUserID = nil; scanner = true } label: { Label("扫一扫加好友", systemImage: "qrcode.viewfinder") }.accessibilityIdentifier("messages.scan")
-                        Button { search = true } label: { Label("输入用户名添加好友", systemImage: "person.badge.plus") }.accessibilityIdentifier("messages.addUsername")
-                    } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
-                        .accessibilityLabel("添加好友").accessibilityIdentifier("messages.add")
-                } }
+            home
+                .navigationTitle("消息")
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: MessagesHomePage.self) { _ in
+                    ChatSearchView(homeReadOnly: true)
+                }
                 .sheet(isPresented: $search) {
                     NavigationStack {
                         AddFriendView().toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { search = false }.accessibilityIdentifier("addFriend.close") } }
@@ -59,45 +74,129 @@ struct ChatListView: View {
         }
     }
     private var home: some View {
-        List {
-            if let chatProblem { Text(chatProblem).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat.availability").puboListRow() }
-            ChatSearchView(embedded: true)
-            Section {
-                if let issue = error ?? state.error { ErrorBanner(message: issue, retryIdentifier: "messages.retry") { Task { await state.load(session) } }.puboListRow() }
-                ForEach(state.rows) { row in
-                    if row.id == state.rows.first?.id && row.pinnedAt != nil { Text("置顶").font(.caption).foregroundStyle(.secondary).puboListRow() }
-                    if row.pinnedAt == nil && state.rows.contains(where: { $0.pinnedAt != nil }) && row.id == state.rows.first(where: { $0.pinnedAt == nil })?.id { Text("最近会话").font(.caption).foregroundStyle(.secondary).puboListRow() }
-                    let account = conversationAccount(row)
-                    HStack(spacing: 0) {
-                        let link = NavigationLink { destination(row) } label: {
-                            conversation(row, account: account)
-                                #if DEBUG
-                                .onAppear { ConversationDiagnostics.shared.record(.rowAppeared) }
-                                .onDisappear { ConversationDiagnostics.shared.record(.rowDisappeared) }
-                                #endif
-                        }.buttonStyle(.plain)
-                            .accessibilityIdentifier("conversation." + row.id)
-                        if #available(iOS 18.0, *) {
-                            link.accessibilityValue(LocalizedStringResource("\(account ?? "")"), isEnabled: account != nil)
-                        } else {
-                            link
-                        }
-                        if row.kind == .user {
-                            Menu {
-                                Button(row.pinnedAt == nil ? "置顶" : "取消置顶") { Task { await settings(row, "pinned", row.pinnedAt == nil) } }
-                                Button(row.muted ? "恢复提醒" : "免打扰") { Task { await settings(row, "isMuted", !row.muted) } }
-                            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.disabled(settingBusy).accessibilityLabel(row.target.displayName + "会话设置")
-                        }
-                    }.padding(12).background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 12)).puboListRow()
-                        .swipeActions(edge: .leading) { if row.kind == .user { Button(row.muted ? "恢复提醒" : "免打扰") { Task { await settings(row, "isMuted", !row.muted) } }.tint(.gray) } }
-                        .swipeActions { if row.kind == .user { Button(row.pinnedAt == nil ? "置顶" : "取消置顶") { Task { await settings(row, "pinned", row.pinnedAt == nil) } }.tint(PUBOTheme.accent) } }
+        VStack(spacing: 0) {
+            homeHeader
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if let chatProblem {
+                        Text(chatProblem).font(.caption).foregroundStyle(MessagesHomePalette.secondary)
+                            .accessibilityIdentifier("chat.availability")
+                            .padding(.vertical, 10)
+                    }
+                    if let issue = error ?? state.error {
+                        ErrorBanner(message: issue, retryIdentifier: "messages.retry") {
+                            Task { await state.load(session) }
+                        }.padding(.vertical, 10)
+                    }
+                    ForEach(state.rows) { row in
+                        conversationLink(row)
+                            .overlay(alignment: .bottomLeading) {
+                                if row.id != state.rows.last?.id {
+                                    MessagesHomePalette.rule.frame(height: 0.5)
+                                        .padding(.leading, avatarSize + rowSpacing)
+                                        .allowsHitTesting(false).accessibilityHidden(true)
+                                }
+                            }
+                    }
+                    if state.rows.isEmpty && !state.busy && state.error == nil && error == nil {
+                        Text("暂无最近会话").font(.subheadline).foregroundStyle(MessagesHomePalette.secondary)
+                            .accessibilityIdentifier("messages.empty").padding(.top, 24)
+                    }
+                    if state.busy {
+                        ProgressView().accessibilityIdentifier("messages.loading").padding(.vertical, 12)
+                    }
+                    if state.hasMore && !state.rows.isEmpty {
+                        Button("加载更多会话") { Task { await state.load(session, older: true) } }
+                            .disabled(state.busy).frame(minHeight: 44)
+                    }
                 }
-                if state.rows.isEmpty && !state.busy && state.error == nil && error == nil { Text("暂无最近会话").foregroundStyle(.secondary).accessibilityIdentifier("messages.empty").puboListRow() }
-                if state.busy { ProgressView().accessibilityIdentifier("messages.loading").puboListRow() }
-                if state.hasMore && !state.rows.isEmpty { Button("加载更多会话") { Task { await state.load(session, older: true) } }.disabled(state.busy).frame(minHeight: 44).puboListRow() }
-            } header: { Text("最近会话").font(.subheadline) }
-        }.puboList().refreshable { await state.load(session) }
+                .padding(.horizontal, sideInset)
+                .padding(.bottom, 8)
+            }
+            .accessibilityIdentifier("messages.conversations")
+            .refreshable { await state.load(session) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MessagesHomePalette.canvas.ignoresSafeArea())
+        .tint(MessagesHomePalette.accent)
     }
+
+    private var homeHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("消息")
+                    .font(.system(size: titleSize, weight: .bold))
+                    .foregroundStyle(MessagesHomePalette.primary)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("messages.title")
+                Spacer(minLength: 8)
+                Menu {
+                    Button { scannedUserID = nil; scanner = true } label: {
+                        Label("扫一扫", systemImage: "qrcode.viewfinder")
+                    }.accessibilityIdentifier("messages.scan")
+                    Button { search = true } label: {
+                        Label("输入用户名加好友", systemImage: "person.badge.plus")
+                    }.accessibilityIdentifier("messages.addUsername")
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(MessagesHomePalette.accent)
+                        .frame(width: 34, height: 34)
+                        .background(MessagesHomePalette.addBackground, in: Circle())
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("添加好友")
+                .accessibilityIdentifier("messages.add")
+            }
+            NavigationLink(value: MessagesHomePage.search) {
+                Label("搜索聊天记录", systemImage: "magnifyingglass")
+                    .font(.subheadline)
+                    .foregroundStyle(MessagesHomePalette.secondary)
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+                    .background(MessagesHomePalette.field, in: RoundedRectangle(cornerRadius: 11))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("messages.search.open")
+        }
+        .padding(.horizontal, sideInset)
+        .padding(.top, 10)
+        .padding(.bottom, 16)
+    }
+
+    @ViewBuilder private func conversationLink(_ row: ChatConversation) -> some View {
+        let account = conversationAccount(row)
+        let link = NavigationLink { destination(row) } label: {
+            conversation(row)
+                #if DEBUG
+                .onAppear { ConversationDiagnostics.shared.record(.rowAppeared) }
+                .onDisappear { ConversationDiagnostics.shared.record(.rowDisappeared) }
+                #endif
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("conversation." + row.id)
+        if row.kind == .user {
+            link.accessibilityValue(Text(verbatim: account ?? ""))
+                .contextMenu {
+                    Button(pinTitle(row)) { Task { await settings(row, "pinned", row.pinnedAt == nil) } }
+                        .disabled(settingBusy)
+                    Button(muteTitle(row)) { Task { await settings(row, "isMuted", !row.muted) } }
+                        .disabled(settingBusy)
+                }
+                .accessibilityAction(named: Text(pinTitle(row))) { Task { await settings(row, "pinned", row.pinnedAt == nil) } }
+                .accessibilityAction(named: Text(muteTitle(row))) { Task { await settings(row, "isMuted", !row.muted) } }
+        } else {
+            link
+        }
+    }
+
+    private func pinTitle(_ row: ChatConversation) -> String { row.pinnedAt == nil ? "置顶" : "取消置顶" }
+    private func muteTitle(_ row: ChatConversation) -> String { row.muted ? "恢复提醒" : "免打扰" }
+
     @ViewBuilder private func destination(_ row: ChatConversation) -> some View {
         if row.kind == .room {
             RoomChatView(roomID: row.target.id)
@@ -113,34 +212,56 @@ struct ChatListView: View {
                 #endif
         }
     }
-    private func conversation(_ row: ChatConversation, account: String?) -> some View {
-        HStack(spacing: 12) {
-            Avatar(user: row.kind == .user ? row.target : Record(row.message["fromUser"]), size: 44)
+    private func conversation(_ row: ChatConversation) -> some View {
+        HStack(spacing: rowSpacing) {
+            MessagesHomeAvatar(row: row, size: avatarSize)
             VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 4) {
-                    if row.kind == .room { Image(systemName: "person.2").font(.caption) }
-                    Text(row.kind == .room ? (row.target["name"].string ?? "群聊") : row.target.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                        .layoutPriority(account == nil ? 0 : 2)
-                    if let account {
-                        Text(verbatim: account).font(.caption2).foregroundStyle(.secondary)
-                            .lineLimit(1).truncationMode(.tail).accessibilityHidden(true)
-                    }
-                    if row.pinnedAt != nil { Image(systemName: "pin.fill").font(.caption2) }
-                    if row.muted { Image(systemName: "bell.slash").font(.caption2) }
-                    Spacer(minLength: 0).layoutPriority(account == nil ? 0 : -1)
-                    if let date = puboDate(row.message["createdAt"].string) {
-                        ChatRelativeTime(date: date).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                            .layoutPriority(account == nil ? 0 : 1)
-                    }
+                HStack(spacing: 5) {
+                    Text(verbatim: row.kind == .room ? (row.target["name"].string ?? "群聊") : row.target.displayName)
+                        .font(.headline.weight(.semibold)).foregroundStyle(MessagesHomePalette.primary)
+                        .lineLimit(1).truncationMode(.tail)
+                        .accessibilityIdentifier("messages.name." + row.id)
+                    if row.pinnedAt != nil { Image(systemName: "pin.fill").font(.caption2).accessibilityLabel("已置顶") }
+                    if row.muted { Image(systemName: "bell.slash").font(.caption2).accessibilityLabel("免打扰") }
                 }
-                HStack {
-                    Text((row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw)).font(.subheadline).lineLimit(2).foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    if let badge = row.badge { Text(badge).font(.caption2).padding(.horizontal, 6).padding(.vertical, 3).background(row.muted ? Color.gray : PUBOTheme.accent, in: Capsule()).foregroundStyle(.white) }
-                    else if row.legacyUnread { Circle().fill(row.muted ? .gray : PUBOTheme.accent).frame(width: 8, height: 8).accessibilityLabel("有未读消息") }
+                Text(verbatim: (row.message["fromUserId"].string == session.user?.id ? "你：" : "") + SendFeedback.messageSummary(row.message.raw))
+                    .font(.subheadline).foregroundStyle(MessagesHomePalette.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .accessibilityIdentifier("messages.preview." + row.id)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 5) {
+                if let date = puboDate(row.message["createdAt"].string) {
+                    ChatRelativeTime(date: date)
+                        .font(.caption).foregroundStyle(MessagesHomePalette.secondary)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("messages.time." + row.id)
+                }
+                ZStack(alignment: .trailing) {
+                    Color.clear.frame(width: 1, height: 20).accessibilityHidden(true)
+                    if let badge = row.badge {
+                        Text(verbatim: badge)
+                            .font(.caption.weight(.semibold)).monospacedDigit()
+                            .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                            .padding(.horizontal, 9).padding(.vertical, 3)
+                            .foregroundStyle(.white)
+                            .background(row.muted ? Color.gray : MessagesHomePalette.badge, in: Capsule())
+                            .accessibilityIdentifier("messages.unread." + row.id)
+                    } else if row.legacyUnread {
+                        Circle().fill(row.muted ? Color.gray : MessagesHomePalette.accent)
+                            .frame(width: 9, height: 9)
+                            .accessibilityLabel("有未读消息")
+                            .accessibilityIdentifier("messages.unread." + row.id)
+                    }
                 }
             }
-        }.frame(minHeight: 48).contentShape(Rectangle())
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
+        }
+        .foregroundStyle(MessagesHomePalette.secondary)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 80)
+        .contentShape(Rectangle())
     }
     // This is a supplemental display token, not an account lookup or canonicalizer.
     private func conversationAccount(_ row: ChatConversation) -> String? {
@@ -177,6 +298,41 @@ struct ChatListView: View {
         guard !settingBusy, row.kind == .user else { return }; settingBusy = true; defer { settingBusy = false }
         do { _ = try await session.call("chat/conversation-settings/update", ["userId": .string(row.target.id), key: .bool(value)], mutation: true); await state.load(session); await session.refreshUnread(); error = nil }
         catch { self.error = error.localizedDescription }
+    }
+}
+
+private struct MessagesHomeAvatar: View {
+    let row: ChatConversation
+    let size: CGFloat
+
+    private var url: URL? {
+        safeMediaURL(row.target["avatarUrl"].string)
+            ?? (row.kind == .room ? safeMediaURL(row.target["iconUrl"].string) : nil)
+    }
+
+    var body: some View {
+        Group {
+            if let url {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image { image.resizable().scaledToFill() }
+                    else { fallback }
+                }
+            } else {
+                fallback
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 11))
+        .accessibilityHidden(true)
+    }
+
+    private var fallback: some View {
+        ZStack {
+            (row.kind == .room ? MessagesHomePalette.badge : MessagesHomePalette.addBackground)
+            Image(systemName: row.kind == .room ? "waveform" : "person.fill")
+                .font(.system(size: 23, weight: .semibold))
+                .foregroundStyle(row.kind == .room ? Color(red: 0.78, green: 0.91, blue: 0.43) : MessagesHomePalette.accent)
+        }
     }
 }
 

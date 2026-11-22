@@ -75,12 +75,24 @@ WORLD_SCROLL_DIAGNOSTICS = {
     'world-scroll-signposts': 'testSyntheticWorldScrollSignpostSamples',
 }
 
+MESSAGES_REDESIGN_SHARD = 'messages-redesign'
+MESSAGES_REDESIGN_SUITE = 'MessagesRedesignUITests'
+MESSAGES_REDESIGN_METHODS = (
+    'testGlobalSearchPreviewsPrivateAndRoomWithoutMarkingRead',
+    'testPlusKeepsBothFriendSheetsAndRealClose',
+    'testDenseListLongNameBadgesAndLastRowBothThemes',
+    'testPrivateRowTrailingTouchOpensChatAndLongPressPreservesMenu',
+)
+
 ROOM_MENU_AB_SHARD = 'room-menu-ab'
 ROOM_MENU_AB_SUITE = 'RoomMenuABDiagnosticUITests'
 ROOM_MENU_AB_METHODS = {'text': 'test01OwnText', 'padding': 'test02OwnBubblePadding'}
 
 
 def selection(shard):
+    if shard == MESSAGES_REDESIGN_SHARD:
+        return len(MESSAGES_REDESIGN_METHODS), ['-only-testing:PUBOUITests/' + MESSAGES_REDESIGN_SUITE + '/' + name
+                                               for name in MESSAGES_REDESIGN_METHODS]
     if shard == ROOM_MENU_AB_SHARD:
         return len(ROOM_MENU_AB_METHODS), ['-only-testing:PUBOUITests/' + ROOM_MENU_AB_SUITE + '/' + name
                                           for name in ROOM_MENU_AB_METHODS.values()]

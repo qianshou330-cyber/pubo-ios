@@ -7,6 +7,7 @@ import PUBOCore
 struct BottomTabBar: View {
     @Environment(AppSession.self) private var session
     let profileAvatar: UIImage?
+    private var messagesHome: Bool { session.selectedTab == .messages && session.messagesPath.isEmpty }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -30,7 +31,7 @@ struct BottomTabBar: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(session.selectedTab == tab ? PUBOTheme.accent : PUBOTheme.secondary)
+                    .foregroundStyle(tabColor(tab))
                     .accessibilityLabel(tab.title)
                     .accessibilityValue(badgeDescription(tab))
                     .accessibilityAddTraits(session.selectedTab == tab ? .isSelected : [])
@@ -51,16 +52,23 @@ struct BottomTabBar: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .background(PUBOTheme.panel.ignoresSafeArea(.container, edges: .bottom))
-        .overlay(alignment: .top) { PUBOTheme.divider.frame(height: 0.5) }
+        .background((messagesHome ? MessagesHomePalette.canvas : PUBOTheme.panel).ignoresSafeArea(.container, edges: .bottom))
+        .overlay(alignment: .top) {
+            (messagesHome ? MessagesHomePalette.rule : PUBOTheme.divider).frame(height: 0.5)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app.tabBar")
         .modifier(StartupTabLayoutDiagnostics())
         .modifier(TabHitDiagnosticsModifier())
     }
 
+    private func tabColor(_ tab: AppTab) -> Color {
+        if messagesHome { return tab == .messages ? MessagesHomePalette.accent : MessagesHomePalette.secondary }
+        return session.selectedTab == tab ? PUBOTheme.accent : PUBOTheme.secondary
+    }
+
     @ViewBuilder private func icon(_ tab: AppTab) -> some View {
-        if tab == .me, let profileAvatar {
+        if tab == .me, !messagesHome, let profileAvatar {
             Image(uiImage: profileAvatar).resizable().scaledToFit()
                 .frame(width: 26, height: 26).clipShape(Circle())
         } else {
@@ -69,7 +77,7 @@ struct BottomTabBar: View {
     }
     private func symbol(_ tab: AppTab) -> String {
         switch tab {
-        case .messages: return "bubble.left.and.bubble.right"
+        case .messages: return messagesHome ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right"
         case .friends: return "person.2"
         case .world: return "globe"
         case .me: return "person.crop.circle"

@@ -77,6 +77,9 @@ final class ParityBatchUITests: XCTestCase {
     }
     func testChatSearchEmptyIsNotAnErrorOrUnfinishedQuery() {
         let app = launch(); puboSelectTab(app, "消息")
+        let openSearch = app.buttons["messages.search.open"]
+        XCTAssertTrue(openSearch.exists && openSearch.isHittable)
+        openSearch.tap()
         let query = app.textFields["chat.search.query"]; XCTAssertTrue(query.waitForExistence(timeout: 8))
         XCTAssertFalse(app.staticTexts["chat.search.empty"].exists)
         query.tap(); query.typeText("no-such-message-141")

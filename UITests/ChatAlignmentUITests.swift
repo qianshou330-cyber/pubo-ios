@@ -90,6 +90,9 @@ final class ChatAlignmentUITests: XCTestCase {
             let directRow = app.buttons["conversation.user:syntheticpeer"]
             XCTAssertTrue(app.buttons["conversation.room:socialroom"].exists); XCTAssertTrue(directRow.exists)
             XCTAssertEqual(directRow.value as? String, "@friend")
+            XCTAssertEqual(app.staticTexts["messages.title"].label, "消息")
+            XCTAssertTrue(app.buttons["messages.search.open"].exists)
+            XCTAssertFalse(app.textFields["chat.search.query"].exists)
             capture(app, "chat-home-" + theme)
             puboSelectTab(app, "好友"); puboTapVisible(app, "friends.rooms")
             XCTAssertTrue(app.navigationBars["群聊"].waitForExistence(timeout: 8))

@@ -9,7 +9,7 @@ import subprocess
 import time
 from simulator_boot import boot
 from iphone_qa_matrix import SIZES, available_inventory, create_device, select_template, summary_matches_device
-from ui_selection import FOCUSED, ROOM_MENU_AB_SHARD, selection, complete
+from ui_selection import FOCUSED, MESSAGES_REDESIGN_SHARD, ROOM_MENU_AB_SHARD, selection, complete
 from refresh_lifecycle import complete_lifecycle
 
 root = pathlib.Path('build')
@@ -39,6 +39,9 @@ if world_scroll_probe and size not in SIZES:
 room_menu_ab_probe = shard == ROOM_MENU_AB_SHARD
 if room_menu_ab_probe and (size != 'small' or os.environ.get('PUBO_PREBUILT_TESTS') != '1'):
     raise SystemExit('Room menu A/B requires a prebuilt diagnostic bundle and the exact standard QA profile')
+messages_redesign = shard == MESSAGES_REDESIGN_SHARD
+if messages_redesign and (size not in SIZES or os.environ.get('PUBO_PREBUILT_TESTS') != '1'):
+    raise SystemExit('Messages redesign requires one exact QA profile and a prebuilt Debug Simulator bundle')
 created = []
 environment = []
 def diagnostic(command, timeout):
@@ -205,7 +208,7 @@ for index, (slot, template) in enumerate(selected):
                 video.send_signal(signal.SIGINT)
                 try: video.wait(timeout=30)
                 except subprocess.TimeoutExpired: video.kill(); video.wait(timeout=10)
-        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe and not room_menu_ab_probe and not world_scroll_probe:
+        if test_exit == 0 and index == 0 and not focused and not private_back_probe and not room_back_probe and not messages_redesign and not room_menu_ab_probe and not world_scroll_probe:
             # A real simulator recording of synthetic loading, not a rendered mockup.
             video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
                                       str(screenshots / 'loading-skeleton.mp4')])

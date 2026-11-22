@@ -189,6 +189,74 @@ jobs:
             build/screenshots/
           retention-days: 14
           if-no-files-found: error
+  messages-redesign:
+    # Existing Xcode/runner and exact standard/Pro Max profiles; no device build or external reference.
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/ui-four-tabs-148-20261112' && github.event.deleted == false
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small, large]
+    runs-on: macos-15-intel
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify exact source and provision existing Simulator tools
+        run: |
+          set -euo pipefail
+          mkdir -p build/messages-redesign
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -f UITests/MessagesRedesignUITests.swift
+          git rev-parse HEAD > build/messages-redesign/source-sha.txt
+          git hash-object UITests/MessagesRedesignUITests.swift > build/messages-redesign/suite-blob.txt
+          printf '%s\n' "$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT" > build/messages-redesign/run-attempt.txt
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          xcodebuild -version | tee build/messages-redesign/xcode-version.txt
+          grep -Fx 'Xcode 26.0.1' build/messages-redesign/xcode-version.txt
+          grep -Fx 'Build version 17A400' build/messages-redesign/xcode-version.txt
+          test "$(uname -m)" = x86_64
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+          XCODEGEN="$(brew --prefix xcodegen)/bin/xcodegen"
+          test -x "$XCODEGEN"
+          "$XCODEGEN" --version | tee build/messages-redesign/xcodegen-version.txt
+          brew list --versions xcodegen > build/messages-redesign/xcodegen-brew-package.txt
+          swift scripts/brand-assets.swift
+          "$XCODEGEN" generate
+      - name: Build unsigned Debug Simulator test bundle only
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+      - name: Run only four dedicated synthetic Messages tests and validate real evidence
+        env:
+          PUBO_SIM_SIZE: ${{ matrix.size }}
+          PUBO_UI_SHARD: messages-redesign
+          PUBO_PREBUILT_TESTS: '1'
+        run: |
+          set -euo pipefail
+          if python3 scripts/simulator-tests.py 2>&1 | tee build/messages-redesign/test.log &&
+             python3 scripts/verify_messages_redesign_evidence.py --build build --size "$PUBO_SIM_SIZE"; then
+            exit 0
+          fi
+          python3 scripts/verify_messages_redesign_evidence.py --build build --size "$PUBO_SIM_SIZE" --partial || true
+          exit 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: messages-redesign-simulator-${{ matrix.size }}-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: |
+            build/messages-redesign/source-sha.txt
+            build/messages-redesign/suite-blob.txt
+            build/messages-redesign/run-attempt.txt
+            build/messages-redesign/xcode-version.txt
+            build/messages-redesign/xcodegen-version.txt
+            build/messages-redesign/xcodegen-brew-package.txt
+            build/messages-redesign/evidence.json
+            build/messages-redesign/partial-evidence.json
+            build/messages-redesign/partial-originals/*.png
+            build/messages-redesign/originals/*.png
+          retention-days: 14
+          if-no-files-found: error
   chat-presentation:
     # Required disjoint 4+4 methods per size; original eight and 30-minute budget stay intact.
     needs: checks

@@ -19,6 +19,28 @@ actor FixtureTransport: HTTPTransport {
     private var timelineReads = 0
     private var timelineOlderFailureSent = false
     #if DEBUG
+    private var messagesRedesignReadIDs = Set<String>()
+    private var messagesRedesignRoomRead = false
+    // Only the detached Messages redesign probe opts into these additional rows/readbacks.
+    private var messagesRedesignFixture: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return args.contains("--ui-testing") && args.contains("--chat-align") && args.contains("--messages-redesign-fixture")
+    }
+    private static func messagesRedesignRows() -> [JSONValue] {
+        (1...12).map { number in
+            let suffix = String(format: "%02d", number)
+            let user: JSONValue = .object([
+                "id": .string("layoutpeer" + suffix), "username": .string("layout" + suffix),
+                "name": .string("合成会话 " + suffix), "host": .null
+            ])
+            let message: JSONValue = .object([
+                "id": .string("layoutmsg" + suffix), "text": .string("隔离布局占位摘要 " + suffix),
+                "fromUserId": user["id"], "toUserId": Self.me["id"],
+                "createdAt": .string("2026-10-" + String(format: "%02d", 32 - number) + "T10:00:00Z")
+            ])
+            return .object(["user": user, "lastMessage": message, "unreadCount": .number(0)])
+        }
+    }
     private var page2PosterSawSeed = false
     private var notificationFixtures = NotificationFixtureState()
     private var fourTabFriendReads = 0
@@ -565,16 +587,49 @@ actor FixtureTransport: HTTPTransport {
             if !body["isMuted"].isNull { values["isMuted"] = body["isMuted"] }
             if !body["pinned"].isNull { values["pinnedAt"] = body["pinned"].bool ? .string("2026-11-03T10:00:00Z") : .null }
             conversationPreference = .object(values); response = conversationPreference
+        case "chat/messages/read":
+            #if DEBUG
+            if messagesRedesignFixture, body["userId"].string == Self.peer["id"].string,
+               body["messageIds"].array.contains(.string("private0001")) {
+                messagesRedesignReadIDs.insert("private0001")
+            }
+            #endif
+            response = .null
         case "chat/conversations":
             var row = conversationPreference.object
             row["user"] = args.contains("--chat-align") ? Self.chatParity["peer"] : Self.peer
             row["lastMessage"] = sent.last ?? .object(["id": .string("seedmessage"), "text": .string("点击开始聊天")])
             row["unreadCount"] = .number(args.contains("--chat-align") ? 120 : 0)
-            response = .array(body["pinned"].bool == !conversationPreference["pinnedAt"].isNull && body["untilId"].isNull ? [.object(row)] : [])
+            #if DEBUG
+            if messagesRedesignFixture {
+                var peer = row["user"]?.object ?? [:]
+                peer["name"] = .string("这是用于检验消息列表末尾截断而故意设置的很长很长的合成昵称")
+                row["user"] = .object(peer)
+                var summary = row["lastMessage"]?.object ?? [:]
+                summary["text"] = .string("这是一段用于观察消息列表单行摘要省略行为的很长测试文本，不包含真实用户数据。")
+                row["lastMessage"] = .object(summary)
+                // One designated visible incoming record out of 100 simulated unread.
+                row["unreadCount"] = .number(messagesRedesignReadIDs.isEmpty ? 100 : 99)
+            }
+            #endif
+            let matchesPin = body["pinned"].bool == !conversationPreference["pinnedAt"].isNull
+            var returned: [JSONValue] = matchesPin && body["untilId"].isNull ? [.object(row)] : []
+            #if DEBUG
+            if messagesRedesignFixture, !body["pinned"].bool, body["untilId"].isNull {
+                returned += Self.messagesRedesignRows()
+            }
+            #endif
+            response = .array(returned)
         case "chat/history":
             response = .array(rooms.compactMap { room in
                 guard let message = roomMessages.last(where: { $0["toRoomId"] == room["id"] }) else { return nil }
-                var row = message.object; row["toRoom"] = room; return .object(row)
+                var row = message.object; row["toRoom"] = room
+                #if DEBUG
+                if messagesRedesignFixture, room["id"].string == "socialroom", messagesRedesignRoomRead {
+                    row["isRead"] = .bool(true)
+                }
+                #endif
+                return .object(row)
             })
         case "chat/messages/user-timeline": response = .array(sent)
         case "chat/unread-summary": response = .object(["unreadCount": .number(12), "notificationUnreadCount": .number(args.contains("--parity-preview") ? 2 : 0), "hasNotificationLegacyUnread": .bool(false), "hasUnreadRoom": .bool(false)])
@@ -655,6 +710,12 @@ actor FixtureTransport: HTTPTransport {
         if path == "chat/rooms/members" { return .array([.object(["id": .string("membership"), "user": ProcessInfo.processInfo.arguments.contains("--chat-align") ? Self.chatParity["me"] : profile])]) }
         if path == "chat/messages/create-to-room" { counter += 1; var value = body.object; value.removeValue(forKey: "i"); value["id"] = .string("roommessage\(counter)"); value["fromUserId"] = Self.me["id"]; value["fromUser"] = profile; value["createdAt"] = .string(ISO8601DateFormatter().string(from: Date())); roomMessages.append(.object(value)); if ProcessInfo.processInfo.arguments.contains("--lost-room-response") { throw URLError(.networkConnectionLost) }; return .object(value) }
         if path == "chat/messages/room-timeline" {
+            #if DEBUG
+            if messagesRedesignFixture, body["roomId"].string == "socialroom" {
+                // The original room timeline is read-capable, including historical lookups.
+                messagesRedesignRoomRead = true
+            }
+            #endif
             if !body["sinceDate"].isNull { releasedStaleRoomReaction = true }
             let page = roomMessages.filter { $0["toRoomId"] == body["roomId"] }.reversed().map { row -> JSONValue in
                 guard ProcessInfo.processInfo.arguments.contains("--stale-room-reaction"), !releasedStaleRoomReaction else { return row }

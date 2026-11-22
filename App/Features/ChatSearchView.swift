@@ -8,6 +8,7 @@ struct ChatSearchView: View {
     var select: ((String) -> Void)?
     var embedded = false
     var selectMessage: ((Record) -> Void)?
+    var homeReadOnly = false
     @State private var query = ""
     @State private var rows: [Record] = []
     @State private var error: String?
@@ -15,10 +16,25 @@ struct ChatSearchView: View {
     @State private var completed = false
     private var content: some View {
         Group {
-            TextField("搜索聊天文字", text: $query).submitLabel(.search).puboInput().accessibilityIdentifier("chat.search.query").puboListRow()
-            Text("搜索结果不会标记消息已读。").font(.caption).foregroundStyle(.secondary)
+            TextField(homeReadOnly ? "搜索聊天记录" : "搜索聊天文字", text: $query)
+                .submitLabel(.search).puboInput().accessibilityIdentifier("chat.search.query").puboListRow()
+            if homeReadOnly {
+                Text("搜索结果不会标记消息已读。").font(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("messages.search.readOnlyNotice").puboListRow()
+            } else {
+                Text("搜索结果不会标记消息已读。").font(.caption).foregroundStyle(.secondary)
+            }
             ForEach(rows) { row in
-                if let selectMessage { Button { selectMessage(row) } label: { result(row) } }
+                if homeReadOnly {
+                    // A live timeline may acknowledge unread chat even on a fetch.
+                    // This preview uses only the already-returned search record.
+                    NavigationLink {
+                        readOnlyPreview(row)
+                    } label: {
+                        result(row)
+                    }.accessibilityIdentifier("messages.search.result." + row.id)
+                }
+                else if let selectMessage { Button { selectMessage(row) } label: { result(row) } }
                 else if let select { Button { select(row.id) } label: { result(row) } }
                 else if row["toRoomId"].isNull { NavigationLink { ChatSearchDestination(message: row) } label: { result(row) } }
                 else if let room = row["toRoomId"].string { NavigationLink { RoomChatView(roomID: room, initialMessage: row) } label: { result(row) } }
@@ -34,7 +50,11 @@ struct ChatSearchView: View {
     var body: some View {
         Group {
             if embedded { content }
-            else { List { content }.puboList().navigationTitle(roomID != nil ? "搜索本群" : (peer == nil ? "聊天搜索" : "搜索本会话")) }
+            else {
+                List { content }.puboList()
+                    .scrollDismissesKeyboard(homeReadOnly ? .interactively : .automatic)
+                    .navigationTitle(homeReadOnly ? "搜索聊天记录" : (roomID != nil ? "搜索本群" : (peer == nil ? "聊天搜索" : "搜索本会话")))
+            }
         }.task(id: query) {
                 rows = []; error = nil; busy = false; completed = false
                 guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -48,6 +68,30 @@ struct ChatSearchView: View {
                 } catch { if !Task.isCancelled { busy = false; self.error = error.localizedDescription } }
             }
     }
+    private func readOnlyPreview(_ row: Record) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(ChatSearchPresentation.sender(row, viewerID: session.user?.id))
+                    .font(.headline)
+                Text(ChatSearchPresentation.destination(row, viewerID: session.user?.id))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                if let date = puboDate(row["createdAt"].string) {
+                    Text(date.formatted()).font(.caption).foregroundStyle(.secondary)
+                }
+                Text(row["recalledAt"].isNull ? row.text : "消息已撤回")
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("messages.search.result.preview")
+                if row["recalledAt"].isNull && (!row["attachments"].array.isEmpty || !row["file"].isNull) {
+                    Label("包含附件", systemImage: "paperclip").font(.subheadline)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+        }
+        .puboScreen()
+        .navigationTitle("消息预览")
+    }
+
     private func result(_ row: Record) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(ChatSearchPresentation.sender(row, viewerID: session.user?.id)).font(.subheadline.weight(.semibold)).lineLimit(1)
