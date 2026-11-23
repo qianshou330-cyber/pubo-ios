@@ -31,7 +31,31 @@ def method_id(method):
     return f'{MESSAGES_REDESIGN_SUITE}/{method}()'
 
 
-def verify_methods(tree):
+def rejected_case_shape(node, suite, bundle):
+    """Project only this synthetic selector and bounded, enumerated metadata."""
+    def known(value, allowed):
+        return 'MISSING' if value is None else value if value in allowed else 'OTHER'
+
+    children = node.get('children', [])
+    sample = []
+    if isinstance(children, list):
+        kinds = ('Runtime Warning', 'Failure Message', 'Test Case Run', 'Test Case', 'Test Suite')
+        for child in children[:8]:
+            kind = child.get('nodeType') if isinstance(child, dict) else None
+            descendants = child.get('children', []) if isinstance(child, dict) else None
+            sample.append(dict(kind=known(kind, kinds), descendants=(
+                'INVALID' if not isinstance(descendants, list) else 'PRESENT' if descendants else 'NONE')))
+    return dict(
+        method=known(node.get('nodeIdentifier'), tuple(map(method_id, CAPTURES))),
+        suite=known(suite, (MESSAGES_REDESIGN_SUITE,)), bundle=known(bundle, ('PUBOUITests',)),
+        result=known(node.get('result'), ('Passed', 'Failed', 'Skipped', 'Expected Failure', 'Not Run')),
+        children='INVALID' if not isinstance(children, list) else 'PRESENT' if children else 'NONE',
+        childCount=len(children) if isinstance(children, list) else None,
+        childSample=sample, childSampleTruncated=isinstance(children, list) and len(children) > 8,
+    )
+
+
+def verify_methods(tree, rejection=None):
     def cases(nodes, suite=None, bundle=None):
         require(isinstance(nodes, list), 'Malformed result tree')
         for node in nodes:
@@ -48,14 +72,35 @@ def verify_methods(tree):
             else:
                 next_bundle = bundle
             if kind == 'Test Case':
-                require(suite == MESSAGES_REDESIGN_SUITE and bundle == 'PUBOUITests'
-                        and node.get('result') == 'Passed' and node.get('children', []) == [],
-                        'Nonpassing, retried, or wrong-suite test')
+                valid_case = (suite == MESSAGES_REDESIGN_SUITE and bundle == 'PUBOUITests'
+                              and node.get('result') == 'Passed' and node.get('children', []) == [])
+                if not valid_case and rejection is not None:
+                    rejection.update(rejected_case_shape(node, suite, bundle))
+                require(valid_case, 'Nonpassing, retried, or wrong-suite test')
                 yield node['nodeIdentifier']
             yield from cases(node.get('children', []), next_suite, next_bundle)
     expected = sorted(method_id(method) for method in CAPTURES)
     require(sorted(cases(tree['testNodes'])) == expected, 'Exactly four distinct passing methods required')
     return expected
+
+
+def verify_method_bytes(data, diagnostic, commit, run, attempt, size):
+    case = {}
+    try:
+        return verify_methods(json.loads(data), rejection=case)
+    except (ValueError, KeyError, TypeError, AttributeError, RecursionError):
+        # Keep the authoritative failure. Never serialize arbitrary xcresult strings.
+        report = dict(version=1, status='METHOD_TREE_REJECTED', case=case or None,
+                      commit=commit if re.fullmatch(r'[0-9a-f]{40}', commit) else None,
+                      run=run if re.fullmatch(r'[0-9]{1,20}', run) else None,
+                      attempt=attempt if re.fullmatch(r'[0-9]{1,6}', attempt) else None,
+                      profile=size if size in SIZES else None,
+                      inputBytes=len(data), inputSHA256=hashlib.sha256(data).hexdigest())
+        try:
+            diagnostic.write_text(json.dumps(report, indent=2) + '\n', encoding='ascii')
+        except OSError:
+            pass
+        raise
 
 
 def verify_captures(rows, shots, size, udid, partial=False):
@@ -126,7 +171,8 @@ def main():
                 'Summary device or passing counts mismatch')
         data = subprocess.check_output(['xcrun', 'xcresulttool', 'get', 'test-results', 'tests',
                                         '--path', str(root / 'ui-0.xcresult')], timeout=60)
-        methods = verify_methods(json.loads(data))
+        methods = verify_method_bytes(data, root / 'messages-redesign/method-tree-rejection.json',
+                                      sha, run, attempt, size)
     shots = root / 'screenshots/0'
     captures = verify_captures(read(shots / 'manifest.json'), shots, size, udid, partial=options.partial)
     originals = root / 'messages-redesign' / ('partial-originals' if options.partial else 'originals')

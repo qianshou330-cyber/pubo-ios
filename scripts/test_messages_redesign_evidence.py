@@ -1,5 +1,7 @@
 """Offline policy controls for synthetic proof; no Simulator claim."""
 import copy
+import hashlib
+import json
 from pathlib import Path
 import struct
 import tempfile
@@ -7,7 +9,7 @@ import unittest
 import zlib
 
 from ui_selection import selection, MESSAGES_REDESIGN_SHARD, MESSAGES_REDESIGN_SUITE
-from verify_messages_redesign_evidence import CAPTURES, method_id, verify_captures, verify_methods
+from verify_messages_redesign_evidence import CAPTURES, method_id, verify_captures, verify_method_bytes, verify_methods
 
 UDID = '12ABCDEF-1234-AAAA-BBBB-1234567890AB'
 
@@ -47,6 +49,58 @@ class MessagesRedesignEvidence(unittest.TestCase):
                       tree(test_suite=dict(suite, name='WrongSuite'))):
             with self.assertRaises(ValueError):
                 verify_methods(wrong)
+
+    def test_rejection_receipt_does_not_make_warning_or_retry_children_pass(self):
+        cases = [dict(nodeType='Test Case', nodeIdentifier=method_id(m), result='Passed') for m in CAPTURES]
+        suite = dict(nodeType='Test Suite', name=MESSAGES_REDESIGN_SUITE, children=cases)
+        bundle = dict(nodeType='UI test bundle', name='PUBOUITests', children=[suite])
+        tree = dict(testNodes=[dict(nodeType='Test Plan', children=[bundle])])
+        commit = 'b' * 40
+        with tempfile.TemporaryDirectory() as directory:
+            diagnostic = Path(directory) / 'method-tree-rejection.json'
+            raw = json.dumps(tree).encode()
+            self.assertEqual(len(verify_method_bytes(raw, diagnostic, commit, '12', '1', 'small')), 4)
+            self.assertFalse(diagnostic.exists())
+            for kind, descendants, tag in (('Runtime Warning', [], 'NONE'),
+                                            ('Test Case Run', [cases[1]], 'PRESENT')):
+                with self.subTest(kind=kind):
+                    cases[0]['children'] = [dict(nodeType=kind, children=descendants, name='/private/warning')]
+                    raw = json.dumps(tree).encode()
+                    with self.assertRaisesRegex(ValueError, 'Nonpassing, retried, or wrong-suite test'):
+                        verify_method_bytes(raw, diagnostic, commit, '12', '1', 'small')
+                    receipt = json.loads(diagnostic.read_text())
+                    self.assertEqual(receipt['status'], 'METHOD_TREE_REJECTED')
+                    self.assertEqual((receipt['commit'], receipt['run'], receipt['attempt'], receipt['profile']),
+                                     (commit, '12', '1', 'small'))
+                    self.assertEqual(receipt['inputSHA256'], hashlib.sha256(raw).hexdigest())
+                    self.assertEqual(receipt['inputBytes'], len(raw))
+                    self.assertEqual(receipt['case']['childSample'], [dict(kind=kind, descendants=tag)])
+                    self.assertEqual(receipt['case']['children'], 'PRESENT')
+                    self.assertEqual(receipt['case']['childCount'], 1)
+                    self.assertEqual(receipt['case']['result'], 'Passed')
+                    self.assertNotIn('/private/warning', diagnostic.read_text())
+
+    def test_rejection_receipt_bounds_and_redacts_unexpected_tree_values(self):
+        opaque = '/private/arbitrary annotation\n' * 128
+        case = dict(nodeType='Test Case', nodeIdentifier=opaque, result=opaque,
+                    children=[dict(nodeType=opaque, children=[], output=opaque)] * 64)
+        suite = dict(nodeType='Test Suite', name=opaque, children=[case])
+        tree = dict(testNodes=[dict(nodeType=opaque, name=opaque, children=[suite])])
+        with tempfile.TemporaryDirectory() as directory:
+            diagnostic = Path(directory) / 'method-tree-rejection.json'
+            with self.assertRaisesRegex(ValueError, 'Nonpassing, retried, or wrong-suite test'):
+                verify_method_bytes(json.dumps(tree).encode(), diagnostic, opaque, opaque, opaque, opaque)
+            text = diagnostic.read_text()
+            self.assertLess(len(text), 1600)
+            self.assertNotIn('/private/', text)
+            receipt = json.loads(text)
+            self.assertTrue(all(receipt[k] is None for k in ('commit', 'run', 'attempt', 'profile')))
+            case = receipt['case']
+            self.assertEqual([case[k] for k in ('method', 'suite', 'bundle', 'result')],
+                             ['OTHER', 'OTHER', 'MISSING', 'OTHER'])
+            self.assertEqual(case['childCount'], 64)
+            self.assertTrue(case['childSampleTruncated'])
+            self.assertEqual(case['childSample'], [dict(kind='OTHER', descendants='NONE')] * 8)
 
     def test_plus_canonical_names_match_xcresult_export_shape(self):
         # Capture label precedes _0_UUID; the old dotted identifier was treated as the suffix.

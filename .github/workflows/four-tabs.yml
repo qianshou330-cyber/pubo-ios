@@ -253,6 +253,7 @@ jobs:
             build/messages-redesign/xcodegen-brew-package.txt
             build/messages-redesign/evidence.json
             build/messages-redesign/partial-evidence.json
+            build/messages-redesign/method-tree-rejection.json
             build/messages-redesign/partial-originals/*.png
             build/messages-redesign/originals/*.png
           retention-days: 14

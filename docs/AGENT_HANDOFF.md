@@ -4,14 +4,16 @@
 
 - [公开 iOS 测试分支](https://github.com/qianshou330-cyber/pubo-ios/tree/ui-four-tabs-148-20261112) · [Actions](https://github.com/qianshou330-cyber/pubo-ios/actions?query=branch%3Aui-four-tabs-148-20261112) · [打包工作流](../.github/workflows/four-tabs.yml) · [逐次修复日志](FIX_LOG.md) · [公开 Misskey 脱敏源码交接](https://github.com/qianshou330-cyber/misskey/blob/pubo-source-handoff-20261118/docs/AGENT_HANDOFF.md)。
 - 换账号可匿名读源码和交接；写入 GitHub、下载受 GitHub 账号限制的 Actions 产物或签名安装，需要相应权限。只在授权的测试分支工作；不改主分支、不发 PR/Release、不提交真配置/数据/密钥。待本分支作业结束再推送，防止取消验证中的作业。
-- 最新已提供链接的是 [C96 未签名候选（build 148，QA-INCOMPLETE）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14752876118)，到期 2026-12-06 11:38:23 UTC；正式打包跳过，不可直接装机，也不是验收。此前 [C71 未签名试用基线](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)仍可作为历史引文，源码 `8b6ae1fb3ca360f58136d5fdb7e630dedcc2f1f0`；链接到期后按原工作流与精确提交重建并重新验收。C78–C81 的验证边界见[历史记录](FIX_LOG.md)。
+- 当前已核实的 [C97 未签名候选（0.10.0／build 148，QA-INCOMPLETE）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/artifacts/14795931077) 来自 `b6117bc3`，到期 2026-12-07 06:43:39 UTC。它是 iPhoneOS arm64 设备包，需签名才能装机；正式打包已跳过。这不是全量验收或 GitHub Release。[C96 上一候选](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14752876118) 与 [C71 试用基线](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)保留为历史；产物过期后按原工作流与精确提交重建并重新验收。
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
-## 当前消息首页：C96 未通过，C97 两项修正待原生复测
+## 当前消息首页：C97 两机专项 XCTest 通过，严格证据尚未通过
 
-- [C96 精确 CI](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/attempts/1)：单行昵称／摘要版在两款 iOS 26.1 模拟器通过普通首页浅／深色；浅色长列表末行被四栏挡住，两机没有走到深色长列表。独立加号入口通过不等于连续操作通过，Pro Max 关闭扫码后用户名阶段超时，原因待查。[精确结果和原始证据](FIX_LOG.md#c96-精确提交终态)。
-- C97 分别修消息首页滚动尾距与加号截图命名／测试包身份校验。不动用户名操作、真实四栏、原测试门槛或打包。先复测两机型同状态、同尺寸浅／深色末行和原始截图回执，独立查连续扫码→用户名超时；未有新原图、真机或完整验收。
+- [C97 `b6117bc3` 精确 CI](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/attempts/1)：iPhone 17 与 17 Pro Max 的合成模拟器专项 XCTest 均 4/4，含浅／深色末行和同次启动的两个加号面板。两机的严格结果树核对均未通过，现有原图仍为部分证据，不算整轮通过。整轮失败，正式打包跳过；[精确结果、原图及未签名候选](FIX_LOG.md#c97-精确提交终态)。
+- 下一步分别诊断消息专项的结果树、原四栏交互的验证器，以及 Pro Max 路由的无障碍启动超时。保留原门槛、打包方式和测试范围；不由截图推断真机、H5 一致性或其它页面通过。[C96 改动前证据](FIX_LOG.md#c96-精确提交终态)。
+- **C98 仅诊断（待 Actions 执行）**：若消息专项的原严格结果树被拒，只在现有合成模拟器产物追加不含原始日志／节点正文的最小分类回执。失败仍失败，不改产品、验收或打包。见[诊断记录](FIX_LOG.md#2026-11-23--c98-本地诊断候选消息首页结果树拒绝回执)。
+
 
 ## 历史检查点 C95（已被 C96 单行方案替代）：消息首页最近会话摘要最多两行
 

@@ -1,5 +1,10 @@
 # 修复日志
 
+## 2026-11-23 / C98 本地诊断候选：消息首页结果树拒绝回执
+
+- [精确 C97 `b6117bc`](https://github.com/qianshou330-cyber/pubo-ios/commit/b6117bc3b0a8c7ceb4ae959b49ab946c6b85fb01) 的 [标准机](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137509241472) 和 [Pro Max](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137509241475) 消息首页用例各 4/4。之后原结果树校验在同一组合条件拒绝。已发布回执没有结果树，不能断定是套件／测试包、结果标签还是子节点，也不拿 C96 导航的警告节点推断此处原因。
+- 只在现有专用合成模拟器验证拒绝同一次 `xcresulttool` 结果树时，保存 `method-tree-rejection.json`：精确来源标识、原输入字节数和 SHA-256，以及首个可定位用例的固定标签／匹配状态、子节点数和最多 8 项类别。不上传原树、日志、节点正文、任意字符串或路径；不追加采集命令，不改变失败结论。改动仅 `scripts/verify_messages_redesign_evidence.py`、对应 Python 单测与 `four-tabs.yml` 现有专用产物的单一路径。四项用例、13 张模拟器原图、原门槛、App 和打包均不变。
+- 本地：精确 C97 基线 Git tree `5dce82709f321adec6ef2f5f01ba7e54566de2e9`，补丁 SHA-256 `f241b175876e08de08acb175dd94108fbc15e55ea69269aa9efcb05073d0fa43`。取证单测 6/6、全部 Python 255/255、Node 2/2、432 个离线变体与原校验的结果／异常完全一致；正反向补丁检查通过。未发布、未运行新的 CI、模拟器、真机或 IPA。此变更只取证，不解除任何验收阻塞，也不证明 C97 结果树真实根因。
 
 ## C97 候选①：消息首页末行避开固定四栏
 - **复现**：精确 [C96 `655b818`](https://github.com/qianshou330-cyber/pubo-ios/commit/655b81839baef55924fc39f7625bca4677119e67) 的 [iPhone 17 Pro Max 模拟器作业（第 1 次）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/job/137192384951) 中，合成长列表真实拖动到末尾后，原版末行被固定四栏遮挡；[原生诊断截图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14754170109)与原 XCTest 末行整行可见、可点几何断言失败一致。这是改动前失败证据，不是修复后效果；标准机随后也复现，详见 C96 终态。
@@ -11,6 +16,15 @@
 - **复现**：精确 [C96 `655b818`](https://github.com/qianshou330-cyber/pubo-ios/commit/655b81839baef55924fc39f7625bca4677119e67) 的 [Pro Max 合成模拟器作业（第 1 次）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/job/137192384951) 已记录加号截图，但 `xcresulttool` 将带点号的截图标签当作扩展名处理（例如 `messages-redesign-plus-messages_0_UUID.addUsername`），不符合原回执按完整标签识别的规则。这是证据导出问题，不改变末行几何失败或原始 XCTest 结果。
 - **修改**：`UITests/MessagesRedesignUITests.swift` 的四个加号/面板截图使用不带点号的独立名称，保留原元素标识和用例操作。`scripts/verify_messages_redesign_evidence.py` 精确匹配新标签、兼容 Xcode 回传的 `UI test bundle` 与 `Test Bundle` 拼法，两种均要求真实的 `PUBOUITests` 及 `MessagesRedesignUITests`。保留原四项用例、13 张原图、设备及文件校验、失败只出部分回执；不改变生产代码、门槛、几何断言或打包。
 - **验证**：用典型 Xcode 导出形态的离线回归覆盖四个新标签、旧点号标签和错误/缺失测试包；精确基线和双向应用检查通过。Python 253/253（取证单测 4/4），Node 2/2。本地没有 Xcode／模拟器，尚无新一次 CI 或截图；需核对两机型新回执，不能把离线夹具或已导出截图当作原生验收。
+
+
+### C97 精确提交终态
+
+精确 [C97 `b6117bc3`](https://github.com/qianshou330-cyber/pubo-ios/commit/b6117bc3b0a8c7ceb4ae959b49ab946c6b85fb01) 的 [CI 45119018439 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/attempts/1) 于 2026-11-23 08:06:33 UTC 结束，整轮失败（15 通过、16 失败、5 跳过）。[严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137544392730)和[正式打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137562118703)均跳过。其它回归和 OCR 状态单独以本次 CI 为准。
+
+- **消息首页专项**：iPhone 17、iPhone 17 Pro Max 两部 iOS 26.1 合成模拟器的 XCTest 各 4/4；两机浅／深色长列表滚动末行均通过原断言；同次启动的扫码面板和用户名面板用例也通过。[标准机原始产物](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/artifacts/14794361965)／[Pro Max 原始产物](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/artifacts/14794096590)来自同轮，已核对四张末行原生图（两机各浅色、深色一张）及两机各自的两种面板原图，非设计稿。两机随后在严格结果树校验第 51 行失败，该行包含多项条件，现有信息不足以确定具体哪一项。已核实为部分证据，不等于严格专项通过；不扩大为真机或 H5 验收。
+- **原有回归**：标准机布局 5/5、路由 6/6、交互 XCTest 7/7；交互的独立验证器随后失败。Pro Max 原四栏路由在进入断言前的无障碍启动阶段超时，无路由通过结论。后续先分开取证再评估验证器和设备启动，不放宽测试断言，不从专项结果推断全量结论。
+- **未签名设备候选**：[候选作业 137509241572](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137509241572) 按原流程生成 [QA-INCOMPLETE 产物 14795931077](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/artifacts/14795931077)，GitHub 到期 2026-12-07 06:43:39 UTC。已核对精确提交 `b6117bc3` 和解包后的 `0.10.0`／build `148`，iPhoneOS arm64 未签名，内层 IPA SHA-256 `9b64c99bbd95b9fd4c8d95b23cd2e5f7fdedcb905ef2d3c2d98e008c0046e941`。它需要签名才可装机，并非正式打包、实体机验收或 GitHub Release。
 
 ## 2026-11-22 / 消息首页视觉改版（候选，待 iOS 模拟器验证）
 
