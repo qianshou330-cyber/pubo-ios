@@ -111,7 +111,8 @@ struct ChatListView: View {
                     }
                 }
                 .padding(.horizontal, sideInset)
-                .padding(.bottom, 8)
+                // Reserve one tab-bar body at the scroll tail; the shell owns the home-indicator inset.
+                .padding(.bottom, 8 + BottomTabBar.minimumContentHeight)
             }
             .accessibilityIdentifier("messages.conversations")
             .refreshable { await state.load(session) }

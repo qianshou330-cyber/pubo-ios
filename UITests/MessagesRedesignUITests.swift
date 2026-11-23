@@ -103,9 +103,10 @@ final class MessagesRedesignUITests: XCTestCase {
     func testPlusKeepsBothFriendSheetsAndRealClose() {
         let app = launch(); defer { app.terminate() }
         XCTAssertEqual(app.staticTexts["messages.title"].label, "消息", "Messages title")
-        for (itemID, closeID, proofID) in [
-            ("messages.scan", "scanner.close", "演示测试不启用相机，请使用用户名搜索。"),
-            ("messages.addUsername", "addFriend.close", "addFriend.username"),
+        // Keep accessibility IDs unchanged; an attachment label must have no filename extension.
+        for (itemID, closeID, proofID, attachmentID) in [
+            ("messages.scan", "scanner.close", "演示测试不启用相机，请使用用户名搜索。", "scan"),
+            ("messages.addUsername", "addFriend.close", "addFriend.username", "add-username"),
         ] {
             let plus = app.buttons["messages.add"]
             ready(plus, "Plus menu"); plus.tap()
@@ -113,12 +114,12 @@ final class MessagesRedesignUITests: XCTestCase {
             ready(scan, "Scan entry"); ready(username, "Username entry")
             XCTAssertFalse(app.buttons["创建群聊"].exists)
             XCTAssertFalse(app.buttons["建群"].exists)
-            capture(app, "plus-" + itemID)
+            capture(app, "plus-" + attachmentID)
             app.buttons[itemID].tap()
             XCTAssertTrue(element(app, proofID).waitForExistence(timeout: 8))
             XCTAssertFalse(app.alerts.firstMatch.exists, "Synthetic sheets must not request real permissions")
             let close = app.buttons[closeID]
-            ready(close, closeID); capture(app, "sheet-" + itemID); close.tap()
+            ready(close, closeID); capture(app, "sheet-" + attachmentID); close.tap()
             XCTAssertTrue(close.waitForNonExistence(timeout: 8))
             ready(app.buttons["messages.search.open"], "Messages after sheet dismissal")
             XCTAssertEqual(app.staticTexts["messages.title"].label, "消息")

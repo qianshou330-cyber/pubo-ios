@@ -1,5 +1,17 @@
 # 修复日志
 
+
+## C97 候选①：消息首页末行避开固定四栏
+- **复现**：精确 [C96 `655b818`](https://github.com/qianshou330-cyber/pubo-ios/commit/655b81839baef55924fc39f7625bca4677119e67) 的 [iPhone 17 Pro Max 模拟器作业（第 1 次）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/job/137192384951) 中，合成长列表真实拖动到末尾后，原版末行被固定四栏遮挡；[原生诊断截图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14754170109)与原 XCTest 末行整行可见、可点几何断言失败一致。这是改动前失败证据，不是修复后效果；标准机随后也复现，详见 C96 终态。
+- **源码与修复**：消息首页滚动内容原只留 8pt 尾距，当前 `TabView`／`NavigationStack` 路径的全局安全区没有让该末行在已观察到的机型上滚出四栏。仅为消息首页 `LazyVStack` 增加与现有四栏最小内容高度相同的 56pt（原按钮最小 44pt＋上下各 6pt）；保留原 8pt。共用同一布局常量，但不改变四栏尺寸、全局导航、系统底部白条或键盘安全区，不碰搜索、用户名、测试断言、截图校验和打包流程。涉及 `App/Features/ChatListView.swift`、`App/Components/BottomTabBar.swift`。
+- **本地验证**：精确基线树、双向补丁和静态作用域检查通过；`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'`：独立候选 252/252，与以下取证补丁合并后 253/253。无本地 Xcode／iOS 模拟器，未编译或复测原生几何，也没有新图或新包。待原有两机型浅/深色几何断言及同主题原图核验，另看大字体和已处理安全区时的额外尾部留白；不把源码修正当作验收。
+
+
+## C97 候选②：修正消息首页加号截图回执（仅测试）
+- **复现**：精确 [C96 `655b818`](https://github.com/qianshou330-cyber/pubo-ios/commit/655b81839baef55924fc39f7625bca4677119e67) 的 [Pro Max 合成模拟器作业（第 1 次）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/job/137192384951) 已记录加号截图，但 `xcresulttool` 将带点号的截图标签当作扩展名处理（例如 `messages-redesign-plus-messages_0_UUID.addUsername`），不符合原回执按完整标签识别的规则。这是证据导出问题，不改变末行几何失败或原始 XCTest 结果。
+- **修改**：`UITests/MessagesRedesignUITests.swift` 的四个加号/面板截图使用不带点号的独立名称，保留原元素标识和用例操作。`scripts/verify_messages_redesign_evidence.py` 精确匹配新标签、兼容 Xcode 回传的 `UI test bundle` 与 `Test Bundle` 拼法，两种均要求真实的 `PUBOUITests` 及 `MessagesRedesignUITests`。保留原四项用例、13 张原图、设备及文件校验、失败只出部分回执；不改变生产代码、门槛、几何断言或打包。
+- **验证**：用典型 Xcode 导出形态的离线回归覆盖四个新标签、旧点号标签和错误/缺失测试包；精确基线和双向应用检查通过。Python 253/253（取证单测 4/4），Node 2/2。本地没有 Xcode／模拟器，尚无新一次 CI 或截图；需核对两机型新回执，不能把离线夹具或已导出截图当作原生验收。
+
 ## 2026-11-22 / 消息首页视觉改版（候选，待 iOS 模拟器验证）
 
 - **依据与范围**：用户批准的第二张消息首页图替代此前 C95 的双行摘要布局；目标是「昵称一行、预览一行」，保留文字尾部截断。以精确公开基线 `b6f86ca9c336a1a3139d614db0208792cf8ecb2c` 开工；截图中的图像、文案、时间和未读值不是硬编码数据。仅修改消息首页及其专属搜索入口，其他页面、路由、生产 API、底部安全区机制和四栏顺序保持。
@@ -9,6 +21,15 @@
 - **本地执行**：`git diff --check` 通过；当前 Python 252/252（原有 249 项＋新增 3 项截图证据校验测试）、Node 2/2。依赖 Swift 的几何脚本在 Linux 找不到 `swiftc`，未执行编译验证；当前也无 Xcode，未运行 XCTest、模拟器或真机。没有改版后截图，不将设计参考图当作运行证据。
 - **下一步**：在相同 iPhone 17 / 17 Pro Max（iOS 26.1）配置下执行旧有布局和加号路由工具，并点选新增四项 XCTest。用 C95 [标准机](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44982623544/artifacts/14740394292) / [Pro Max](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44982623544/artifacts/14738952109) 同主题库存短摘要原图作改版前基线；另用长昵称合成图检查截断和 99+。`扫一扫` 模拟器只验入口和降级页；真机摄像头、同尺寸改版后原图和完整验收仍待。本地阶段未推送，发布后回填精确 CI；不改主分支、不发 GitHub Release、不上传生产数据或凭据。
 - **CI 与打包**：完整保留原同尺寸布局作业、正式打包和未签名候选的原设备编译/打包方式及条件。另加独立 iPhone 17 / 17 Pro Max 四项合成 UI 验证，仅当原始 XCTest PNG、同次运行设备、方法、提交均可验证才通过。未签名候选仍为 QA-INCOMPLETE；未经核验不报告通过、交付或可直接安装。
+
+
+### C96 精确提交终态
+
+精确 [C96 `655b818`](https://github.com/qianshou330-cyber/pubo-ios/commit/655b81839baef55924fc39f7625bca4677119e67) 的 [CI 45017177466 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/attempts/1) 于 2026-11-22 13:43 UTC 结束，整轮未通过（15 通过、16 失败、5 跳过）。Swift 220/220、Python 252/252、Node 2/2 通过；[严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/job/137227996492)和[正式打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/job/137227996949)均跳过。
+
+- **两部 iOS 26.1 合成模拟器**：新增专项目标 iPhone 17 为 3/4、17 Pro Max 为 2/4。两机只读私聊/群聊搜索和私聊整行点击/长按用例通过；两机浅色长列表末行被固定四栏遮挡，深色长列表阶段均未到达。[标准机诊断原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14754766591)／[Pro Max 诊断原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14754170109)均仅部分证据。两机分别从新启动的页面验扫码和用户名入口均通过；同一次启动连续操作时，Pro Max 在关闭扫码页后的用户名阶段超时，原因未确定，未以截图取证修补代替定位或放宽断言。
+- **原有布局与四栏**：旧布局两机各 4/5；普通消息首页浅/深色场景通过，[iPhone 17 原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14754775670)／[17 Pro Max 原图](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14754634586)只证明库存场景，不代表长列表。两机严格路由各 6/6；两机交互 XCTest 各 7/7，但原结果树严格核对均未通过；只在标准机确认有 `Runtime Warning` 子节点，不推定 Pro Max 原因。
+- **IPA 与边界**：按原方法生成的 [C96 未签名候选（QA-INCOMPLETE）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14752876118) 已提供下载链接，GitHub 记录到期 2026-12-06 11:38:23 UTC。需要签名才能装机，不是正式打包、全量验收或 GitHub Release。无同状态 H5 新图或实体 iPhone 复测。
 
 ## 2026-11-22 / C95 候选：消息首页最近会话摘要最多两行
 

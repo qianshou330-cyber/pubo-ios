@@ -15,7 +15,7 @@ from ui_selection import MESSAGES_REDESIGN_METHODS, MESSAGES_REDESIGN_SHARD, MES
 CAPTURES = dict(zip(MESSAGES_REDESIGN_METHODS, (
     ('search-preview-private0001', 'search-preview-room0001', 'unread-after-two-read-only-previews',
      'ordinary-chats-read-positive-control'),
-    ('plus-messages.scan', 'sheet-messages.scan', 'plus-messages.addUsername', 'sheet-messages.addUsername'),
+    ('plus-scan', 'sheet-scan', 'plus-add-username', 'sheet-add-username'),
     ('long-name-preview-unread-light', 'long-name-preview-unread-dark',
      'last-row-clear-of-tab-bar-light', 'last-row-clear-of-tab-bar-dark'),
     ('private-long-press-native-menu',),
@@ -40,12 +40,15 @@ def verify_methods(tree):
                 next_suite = node.get('name') or node.get('nodeIdentifier')
             else:
                 next_suite = suite
-            if kind == 'Test Bundle':
+            # xcresulttool uses "UI test bundle" on current Xcode; keep the other known spelling.
+            if kind.casefold() in ('test bundle', 'ui test bundle'):
+                require(bundle is None, 'Unexpected nested test bundle')
                 next_bundle = node.get('name') or node.get('nodeIdentifier')
+                require(next_bundle == 'PUBOUITests', 'Wrong test bundle')
             else:
                 next_bundle = bundle
             if kind == 'Test Case':
-                require(suite in (None, MESSAGES_REDESIGN_SUITE) and bundle in (None, 'PUBOUITests')
+                require(suite == MESSAGES_REDESIGN_SUITE and bundle == 'PUBOUITests'
                         and node.get('result') == 'Passed' and node.get('children', []) == [],
                         'Nonpassing, retried, or wrong-suite test')
                 yield node['nodeIdentifier']

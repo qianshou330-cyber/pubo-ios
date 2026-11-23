@@ -4,15 +4,16 @@
 
 - [公开 iOS 测试分支](https://github.com/qianshou330-cyber/pubo-ios/tree/ui-four-tabs-148-20261112) · [Actions](https://github.com/qianshou330-cyber/pubo-ios/actions?query=branch%3Aui-four-tabs-148-20261112) · [打包工作流](../.github/workflows/four-tabs.yml) · [逐次修复日志](FIX_LOG.md) · [公开 Misskey 脱敏源码交接](https://github.com/qianshou330-cyber/misskey/blob/pubo-source-handoff-20261118/docs/AGENT_HANDOFF.md)。
 - 换账号可匿名读源码和交接；写入 GitHub、下载受 GitHub 账号限制的 Actions 产物或签名安装，需要相应权限。只在授权的测试分支工作；不改主分支、不发 PR/Release、不提交真配置/数据/密钥。待本分支作业结束再推送，防止取消验证中的作业。
-- 最近一次交到用户手里的仍是 [C71 未签名试用包（build 148，非正式验收）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)，源码 `8b6ae1fb3ca360f58136d5fdb7e630dedcc2f1f0`；若产物过期，按工作流与精确提交重建后重新验收。C78 的正式打包被跳过，诊断 IPA 不替代已交付版本。C79 四栏导航通过，但全量验收未过，正式打包也跳过。C80 的 200 条诊断在取证收尾失败，正式 IPA 跳过。C81 只修诊断回执，还不是修复包。
+- 最新已提供链接的是 [C96 未签名候选（build 148，QA-INCOMPLETE）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/artifacts/14752876118)，到期 2026-12-06 11:38:23 UTC；正式打包跳过，不可直接装机，也不是验收。此前 [C71 未签名试用基线](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/44410867926/artifacts/14481209486)仍可作为历史引文，源码 `8b6ae1fb3ca360f58136d5fdb7e630dedcc2f1f0`；链接到期后按原工作流与精确提交重建并重新验收。C78–C81 的验证边界见[历史记录](FIX_LOG.md)。
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
-## 当前消息首页改版：待模拟器验证
+## 当前消息首页：C96 未通过，C97 两项修正待原生复测
 
-- 按批准设计改为单行昵称与单行摘要，验证两种原机型/主题、真实触控和搜索不改已读；[改版与检测范围](FIX_LOG.md)。沿用原未签名 IPA 打包方式和既有门槛；新原图、CI 与打包结果待回填。
+- [C96 精确 CI](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45017177466/attempts/1)：单行昵称／摘要版在两款 iOS 26.1 模拟器通过普通首页浅／深色；浅色长列表末行被四栏挡住，两机没有走到深色长列表。独立加号入口通过不等于连续操作通过，Pro Max 关闭扫码后用户名阶段超时，原因待查。[精确结果和原始证据](FIX_LOG.md#c96-精确提交终态)。
+- C97 分别修消息首页滚动尾距与加号截图命名／测试包身份校验。不动用户名操作、真实四栏、原测试门槛或打包。先复测两机型同状态、同尺寸浅／深色末行和原始截图回执，独立查连续扫码→用户名超时；未有新原图、真机或完整验收。
 
-## 接力检查点 C95（候选）：消息首页最近会话摘要最多两行
+## 历史检查点 C95（已被 C96 单行方案替代）：消息首页最近会话摘要最多两行
 
 - **消息首页 → 最近会话列表**：[归档 H5 会话列表](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/components/MkChatHistories.vue#L229-L237)的摘要最多两行，原生旧版最多一行。只放宽摘要的行数上限到两行；短摘要仍可用一行，不改变日期、账号、未读标记、独立菜单、导航及私聊/群聊详情。保留已批准的四栏，不声称整个首页 1:1。
 - **已核对**：[原生基线](https://github.com/qianshou330-cyber/pubo-ios/commit/6cec9bb6404356d93bf6630e2c7812d77df46a26)和精确产品源码一致；仅 `App/Features/ChatListView.swift` 一处修改，补丁 SHA-256 `1817e3af861b3b5dfe42542ffb685af47b070f932c1cad6632db65110ba0aadb`。源码及反向应用核对通过，原 Python 249/249、Node 2/2；本地未编译 Swift 或执行模拟器。保持原 CI、测试门槛和机型范围。

@@ -27,16 +27,46 @@ class MessagesRedesignEvidence(unittest.TestCase):
 
     def test_method_gate_rejects_missing_wrong_failed_and_duplicate(self):
         cases = [{'nodeType': 'Test Case', 'nodeIdentifier': method_id(m), 'result': 'Passed'} for m in CAPTURES]
-        tree = {'testNodes': [{'nodeType': 'Test Suite', 'name': MESSAGES_REDESIGN_SUITE, 'children': cases}]}
-        self.assertEqual(len(verify_methods(tree)), 4)
+        suite = dict(nodeType='Test Suite', name=MESSAGES_REDESIGN_SUITE, children=cases)
+
+        def tree(bundle_kind='UI test bundle', bundle_name='PUBOUITests', test_suite=suite):
+            bundle = dict(nodeType=bundle_kind, name=bundle_name, children=[test_suite])
+            return {'testNodes': [dict(nodeType='Test Plan', name='PUBO', children=[bundle])]}
+
+        for kind in ('UI test bundle', 'Test Bundle'):
+            with self.subTest(bundle_kind=kind):
+                self.assertEqual(len(verify_methods(tree(bundle_kind=kind))), 4)
+                with self.assertRaisesRegex(ValueError, 'Wrong test bundle'):
+                    verify_methods(tree(bundle_kind=kind, bundle_name='WrongBundle'))
         for replacement in (cases[:-1], cases + cases[:1],
                             [dict(cases[0], result='Skipped')] + cases[1:],
                             [dict(cases[0], nodeIdentifier='Other/method()')] + cases[1:]):
             with self.assertRaises(ValueError):
-                verify_methods({'testNodes': replacement})
-        tree['testNodes'][0]['name'] = 'WrongSuite'
-        with self.assertRaises(ValueError):
-            verify_methods(tree)
+                verify_methods(tree(test_suite=dict(suite, children=replacement)))
+        for wrong in ({'testNodes': [suite]}, tree(bundle_kind='Unknown bundle type'),
+                      tree(test_suite=dict(suite, name='WrongSuite'))):
+            with self.assertRaises(ValueError):
+                verify_methods(wrong)
+
+    def test_plus_canonical_names_match_xcresult_export_shape(self):
+        # Capture label precedes _0_UUID; the old dotted identifier was treated as the suffix.
+        example_id = '12000000-2000-4000-8000-900000000000'
+        labels = ('plus-scan', 'sheet-scan', 'plus-add-username', 'sheet-add-username')
+        with tempfile.TemporaryDirectory() as directory:
+            shots = Path(directory)
+            rows = [dict(testIdentifier='MessagesRedesignUITests/testPlusKeepsBothFriendSheetsAndRealClose()',
+                         attachments=[])]
+            for idx, label in enumerate(labels):
+                file = f'20000000-2000-4000-8000-90000000000{idx}.png'
+                (shots / file).write_bytes(png(1320, 2868))
+                rows[0]['attachments'].append(dict(suggestedHumanReadableName=f'messages-redesign-{label}_0_{example_id}.png',
+                    exportedFileName=file, deviceId=UDID, isAssociatedWithFailure=False))
+            self.assertEqual(set(verify_captures(rows, shots, 'large', UDID, partial=True)), set(labels))
+            for attachment, label in zip(rows[0]['attachments'],
+                    ('plus-messages.scan', 'sheet-messages.scan', 'plus-messages.addUsername', 'sheet-messages.addUsername')):
+                head, suffix = label.split('.')
+                attachment['suggestedHumanReadableName'] = f'messages-redesign-{head}_0_{example_id}.{suffix}'
+            self.assertEqual(verify_captures(rows, shots, 'large', UDID, partial=True), {})
 
     def test_each_profile_requires_original_named_captures(self):
         for size, dimensions in (('small', (1206, 2622)), ('large', (1320, 2868))):

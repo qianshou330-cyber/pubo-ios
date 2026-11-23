@@ -5,6 +5,10 @@ import PUBOCore
 /// Full-width native navigation. Only the opaque background extends below the
 /// safe area; buttons stay above the home indicator and content is inset.
 struct BottomTabBar: View {
+    private static let minimumButtonContentHeight: CGFloat = 44
+    private static let buttonVerticalPadding: CGFloat = 6
+    static let minimumContentHeight = minimumButtonContentHeight + 2 * buttonVerticalPadding
+
     @Environment(AppSession.self) private var session
     let profileAvatar: UIImage?
     private var messagesHome: Bool { session.selectedTab == .messages && session.messagesPath.isEmpty }
@@ -26,8 +30,8 @@ struct BottomTabBar: View {
                             icon(tab).frame(width: 28, height: 26)
                             Text(tab.title).font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, minHeight: Self.minimumButtonContentHeight)
+                        .padding(.vertical, Self.buttonVerticalPadding)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
