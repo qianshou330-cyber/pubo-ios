@@ -43,3 +43,24 @@ data. No extra row, rerun, telemetry, raw output, or package is requested.
   original screenshot gates are unchanged. No failed row publishes a PNG.
   Local CLI-boundary tests do not establish a real build, bundle, launch,
   simulator result or visual match.
+
+## Third run and single-build handoff
+
+[Run 45342259406, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45342259406)
+at `91e90c887039967594646879c6513ea16544acce` ended 0/4. All four state-only
+receipts recorded `BUILD_NONZERO` at `BUILD_FOR_TESTING`, build exit nonzero,
+native exit null. The identical generic build stopped before any simulator,
+selected test or screenshot. The receipts do not identify a Swift or other cause.
+
+This temporary **one-job build-only** mode runs that unsigned Debug build once.
+It creates no simulator, launches no tests, and never uploads build output,
+result bundles or images. The earlier strict UI driver stays unchanged; the
+normal test branch, stock workflow, app, project, and Release/IPA are untouched.
+Build success means only that the build returned zero on this runner.
+
+The receipt can identify one reported source file, not the overall root cause. `APP_PROFILE`, `APP_TIMELINE`, `APP_PROBE`, `APP_FIXTURE`,
+`TEST_FRIENDS` and `TEST_WORLD` stand for the six pinned C99 Swift source files.
+A line is included only for a single agreed position within that file. Reports
+from more than one file or from an unapproved path do not publish a location. The build
+bundle and capped console reads remain private to the runner. A missing result
+bundle or unsupported tool does not justify printing logs or rerunning a matrix.
