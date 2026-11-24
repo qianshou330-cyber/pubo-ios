@@ -1,5 +1,6 @@
 """C99 reconstructed Debug Simulator evidence only. No live transport or packaging."""
 import binascii
+from datetime import datetime
 from enum import Enum
 import hashlib
 import importlib.util
@@ -14,14 +15,15 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import zlib
 
-BASE = "3819229bbad12042dc9638cab9ae6d71f200eac8"
-BASE_TREE = "b538454c91632a5d9eb7495e012c7e1a25e14dfe"
+BASE = "c51edabe95a384de54666bd9fcfb951ae52b895a"
+BASE_TREE = "6bdaaa4ebf22363bae3b2f842624e529c114449d"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
-       "diagnostics/c99/README.md", "App/Infrastructure/C99WorldRetryProbe.swift"}
+       "diagnostics/c99/README.md"}
 STOCK = ".github/workflows/four-tabs.yml"
 PIN = {
     STOCK: "33762b7334f954b77c9ddedd65b4e7ff0d548447",
@@ -31,7 +33,7 @@ PIN = {
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "0ceeef5ff01943a607dcc83b65d7b6d8c7ad985c",
+    "diagnostics/c99/README.md": "bff644520d95ade434101f1c92a23fee57a983ce",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",
@@ -324,7 +326,103 @@ def qa_helper():
     return mod
 
 
-def native(private, state, size, area):
+TIME_MODE = "SUMMARY_TIME_DIAGNOSTIC"
+MISSING = object()
+# A timestamp-shaped string is only a diagnostic type, not an accepted input to
+# the legacy gate. Explicit timezone and bounded fractions only.
+RFC = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])")
+DECIMAL = re.compile(r"[+-]?[0-9]{1,17}(?:\.[0-9]{1,9})?")
+
+
+def observed_time(value):
+    if value is MISSING:
+        return "MISSING", None, None
+    if value is None:
+        return "NULL", None, None
+    if type(value) is bool:
+        return "BOOLEAN", None, None
+    if type(value) in (int, float):
+        try:
+            if math.isfinite(value):
+                return ("ZERO_NUMBER" if value == 0 else "NUMBER"), value, "EPOCH_NUMBER"
+        except (ValueError, OverflowError):
+            pass
+        return "OUT_OF_RANGE_NUMBER", None, None
+    if type(value) is str:
+        if len(value) <= 35 and RFC.fullmatch(value):
+            try:
+                return "RFC3339_TEXT", datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp(), "RFC3339"
+            except (ValueError, OverflowError, OSError):
+                pass
+        if len(value) <= 28 and DECIMAL.fullmatch(value):
+            return "NUMERIC_TEXT", None, None
+        return "OTHER_TEXT", None, None
+    return "OTHER_TYPE", None, None
+
+
+def clock_sample():
+    return time.time(), time.monotonic()
+
+
+def summary_time_diagnostic(summary, before, after):
+    s = summary if type(summary) is dict else {}
+    kinds, values, basis = zip(*(observed_time(s.get(key, MISSING)) for key in ("startTime", "finishTime")))
+    a, b = values
+    order = "UNKNOWN"
+    if a is not None and b is not None and basis[0] == basis[1]:
+        order = "ASCENDING" if a < b else "EQUAL" if a == b else "DESCENDING"
+    w0, m0 = before
+    w1, m1 = after
+    clock_ok = (all(math.isfinite(x) for x in (*before, *after)) and
+                w1 >= w0 and m1 >= m0 and abs((w1-w0)-(m1-m0)) <= 2)
+    def offset(value, kind):
+        if not clock_ok or value is None or kind == "ZERO_NUMBER":
+            return "UNKNOWN"
+        return "BEFORE" if value < w0-60 else "AFTER" if value > w1+60 else "NEAR"
+    count = s.get("totalTestCount")
+    count_status = "UNKNOWN"
+    if type(count) is int and count >= 0:
+        count_status = "ZERO_REPORTED" if count == 0 else "POSITIVE_REPORTED"
+    return dict(startType=kinds[0], finishType=kinds[1], order=order,
+                clock="CONSISTENT" if clock_ok else "UNSTABLE",
+                startOffset=offset(a, kinds[0]), finishOffset=offset(b, kinds[1]),
+                summaryReportedCount=count_status, plannedMethods="UNAVAILABLE")
+
+
+def planned_method_presence(tree, expected):
+    # Independent shape-only opinion when the time gate can't read case state.
+    # Never return a result enum, issue text, device name or identifier.
+    if (type(tree) is not dict or set(tree) != {"testNodes", "devices", "testPlanConfigurations"}
+        or type(tree["devices"]) is not list or type(tree["testPlanConfigurations"]) is not list):
+        return "UNRECOGNIZED"
+    klass = next(iter(expected)).split("/")[0]
+    nodes = tree["testNodes"]
+    for kind, name, uri in (("Test Plan", "PUBO", None), ("UI test bundle", "PUBOUITests", URL.rstrip("/")),
+                            ("Test Suite", klass, URL+klass)):
+        if type(nodes) is not list or len(nodes) > 1:
+            return "UNRECOGNIZED"
+        if not nodes:
+            return "NONE_REPORTED"
+        node = nodes[0]
+        if (type(node) is not dict or node.get("nodeType") != kind or node.get("name") != name
+            or (uri and node.get("nodeIdentifierURL") != uri)):
+            return "UNRECOGNIZED"
+        nodes = node.get("children")
+    if type(nodes) is not list or len(nodes) > len(expected):
+        return "UNRECOGNIZED"
+    seen = set()
+    for node in nodes:
+        if type(node) is not dict or node.get("nodeType") != "Test Case":
+            return "UNRECOGNIZED"
+        ident = node.get("nodeIdentifier")
+        if (type(ident) is not str or ident not in expected or ident in seen
+            or node.get("name") != ident.split("/")[1] or node.get("nodeIdentifierURL") != URL+ident[:-2]):
+            return "UNRECOGNIZED"
+        seen.add(ident)
+    return "PLANNED_METHOD_REPORTED" if seen else "NONE_REPORTED"
+
+
+def native(private, state, size, area, summary_only=False):
     expected = EXPECTED[area]
     state["status"] = "SETUP_UNAVAILABLE"
     preflight(state["commit"], state)
@@ -385,13 +483,37 @@ def native(private, state, size, area):
         args += ["-only-testing:PUBOUITests/"+method[:-2] for method in expected]
         args += ["CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "ARCHS=x86_64",
                  "ONLY_ACTIVE_ARCH=YES", "test-without-building"]
+        before = clock_sample() if summary_only else None
         rc = command(args, 1200, check=False).returncode
+        after = clock_sample() if summary_only else None
         state["nativeExitZero"] = rc == 0
         state["status"] = "RESULT_UNAVAILABLE"
         def result_json(kind):
             return parse(command(["xcrun", "xcresulttool", "get", "test-results", kind,
                                   "--path", str(result)], 90, capture=True).stdout)
         summary_phase(state, SummaryPhase.READ)
+        if summary_only:
+            errors = (OSError, ValueError, TypeError, OverflowError, RecursionError, subprocess.SubprocessError)
+            summary = MISSING
+            try:
+                summary = result_json("summary")
+            except errors:
+                pass
+            observation = summary_time_diagnostic(summary, before, after)
+            observation["summaryAvailability"] = ("UNAVAILABLE" if summary is MISSING else
+                                                   "OBJECT" if type(summary) is dict else "OTHER_TYPE")
+            try:
+                observation["plannedMethods"] = planned_method_presence(result_json("tests"), expected)
+            except errors:
+                pass
+            state["summaryDiagnostic"] = observation
+            if summary is MISSING:
+                raise Reject("RESULT_UNAVAILABLE")
+            try:
+                native_summary(summary, size, device, len(expected), state)
+            except OverflowError:
+                raise Reject("SUMMARY_REJECTED") from None
+            raise Reject("SUMMARY_DIAGNOSTIC_ONLY" if rc == 0 else "NATIVE_NONZERO")
         summary = result_json("summary")
         counts = native_summary(summary, size, device, len(expected), state)
         state["cases"] = case_state(summary, result_json("tests"), size, device, expected, counts, state)
@@ -416,8 +538,10 @@ def native(private, state, size, area):
                 pass
 
 
-def run(args, env, runner=native):
+def run(args, env, runner=native, summary_only=False):
     size, area = args
+    if summary_only:
+        need((size, area) == ("small", "friends"), "CONTEXT_REJECTED")
     head, run_id, attempt = env["GITHUB_SHA"], env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"]
     need(size in DIMS and area in EXPECTED and env.get("GITHUB_REPOSITORY") == REPO
          and env.get("GITHUB_REF") == REF and env.get("GITHUB_EVENT_NAME") == "push"
@@ -429,12 +553,18 @@ def run(args, env, runner=native):
     state = dict(schema=1, commit=head, run=run_id, attempt=attempt, area=area,
                  model=MODEL[size], os="26.1", xcodePin="26.0.1/17A400", cases={},
                  status="UNAVAILABLE", buildExitZero=None, nativeExitZero=None, captures={})
+    if summary_only:
+        state["mode"] = TIME_MODE
     with tempfile.TemporaryDirectory(dir=base) as tmp:
         private = Path(tmp)
         stage = private/"safe"
         stage.mkdir(mode=0o700)
         try:
-            captures = runner(private, state, size, area)
+            if summary_only:
+                runner(private, state, size, area, summary_only=True)
+                captures = {}  # no result from this mode can enter the image path
+            else:
+                captures = runner(private, state, size, area)
         except Reject as err:
             state["status"] = err.args[0]  # callers pass only fixed enum constants
             captures = {}
@@ -455,6 +585,6 @@ def run(args, env, runner=native):
 
 if __name__ == "__main__":
     try:
-        sys.exit(run(sys.argv[1:], os.environ))
+        sys.exit(run(sys.argv[1:], os.environ, summary_only=True))
     except Exception:
         sys.exit("C99 evidence not publishable")

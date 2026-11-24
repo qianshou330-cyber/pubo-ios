@@ -1,4 +1,4 @@
-name: C99 synthetic native focus
+name: C99 single Friends summary-time diagnostic
 'on':
   push:
     branches: [diag-c99-native-focus]
@@ -6,15 +6,10 @@ permissions:
   contents: read
 jobs:
   focus:
-    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == '3819229bbad12042dc9638cab9ae6d71f200eac8' && github.run_attempt == 1
-    name: C99 ${{ matrix.area }} / ${{ matrix.size }}
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'c51edabe95a384de54666bd9fcfb951ae52b895a' && github.run_attempt == 1
+    name: C99 Friends / iPhone 17 / summary only
     runs-on: macos-15-intel
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        size: [small, large]
-        area: [world, friends]
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
       HOMEBREW_NO_AUTO_UPDATE: '1'
@@ -25,23 +20,18 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 2
           persist-credentials: false
-      - name: Run exact synthetic XCTest selection and classify privately
+      - name: Observe exact Friends summary privately
         id: probe
         shell: bash
-        env:
-          SIZE: ${{ matrix.size }}
-          AREA: ${{ matrix.area }}
         run: |
           set -euo pipefail
           umask 077
-          test "$(git hash-object diagnostics/c99/focus.py)" = "d786d2ec48bb0d4c439fb57406c26884d03e784a"
-          python3 -B diagnostics/c99/focus.py "$SIZE" "$AREA" >/dev/null 2>&1
+          test "$(git hash-object diagnostics/c99/focus.py)" = "c39e49a157ab6e548c6602a314c5189f835efe2c"
+          python3 -B diagnostics/c99/focus.py small friends >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"
         with:
-          name: c99-${{ matrix.area }}-${{ matrix.size }}-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/c99-publish/state.json
-            ${{ runner.temp }}/c99-publish/original-*.png
+          name: c99-friends-time-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: ${{ runner.temp }}/c99-publish/state.json
           retention-days: 7
           if-no-files-found: error

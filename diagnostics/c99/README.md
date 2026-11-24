@@ -100,3 +100,28 @@ Friends on iPhone 17 and iPhone 17 Pro Max, one attempt on this diagnostic
 branch. Each row must first pass the same unsigned Debug build before starting
 its simulator and exact methods. Original result/device/case/PNG gates remain
 unchanged. No build-only outcome verifies product behavior; no Release or IPA.
+
+## Sixth run and reduced summary-time diagnostic
+
+[Run 45349455010, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45349455010)
+at `c51edabe95a384de54666bd9fcfb951ae52b895a` compiled all four Debug rows.
+World on iPhone 17 and Friends on both devices subsequently returned nonzero
+from the native command, with `SUMMARY_REJECTED / TIME_WINDOW`. Their summary
+keys were recognized, but the legacy check did not locate the type or ordering
+mismatch or verify any intended test case. World on iPhone 17 Pro Max stopped
+earlier at `SIM_BOOT_WAIT / TIMEOUT`. Only state receipts were verified, no
+originals or IPA. This does not establish an XCTest launch or product failure.
+
+This temporary successor executes the unchanged Friends/iPhone 17 lane once.
+A state-only observer distinguishes timestamp types, numeric-zero sentinels,
+ordering, and coarse offset from a paired host wall/monotonic window. It reports
+only categories for summary count and presence of known planned method records.
+A reported record is not proof a method body ran. An unrecognized tool output
+or absent result is not inferred to mean zero tests. Offsets do not authorize
+timestamp conversion for screenshot validation.
+
+The original strict summary, case, device and image gates remain unchanged.
+The diagnostic mode ends before any attachment export and cannot verify a
+product row. No raw times, error messages, tool output, case names, files or
+screenshots may leave the runner. Simulator boot policy and native arguments
+are unchanged; the iPhone 17 Pro Max timeout remains a separate question.
