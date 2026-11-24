@@ -125,3 +125,25 @@ The diagnostic mode ends before any attachment export and cannot verify a
 product row. No raw times, error messages, tool output, case names, files or
 screenshots may leave the runner. Simulator boot policy and native arguments
 are unchanged; the iPhone 17 Pro Max timeout remains a separate question.
+
+## Seventh run and one stock-invocation experiment
+
+[Run 45352573858, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45352573858)
+at `d716b298da70ec3eebd97093188b604dd1db682d` built the Friends iPhone 17
+row. Its native command returned nonzero, with equal finite summary times
+near a consistent host clock, zero reported tests and no planned method
+records. No case body or original image was verified. This does not locate
+the failure among selection, install, launch, or result collection.
+
+The next single Friends/iPhone 17 attempt uses the previously used C98
+prebuilt-test invocation settings, retaining the two exact method selections
+and the same private build, exact simulator, and strict evidence gates. It
+does not rely on assumed enumeration or prebuilt manifest schemas. Several
+native flags change together; a better result cannot establish which mattered.
+
+On a nonzero native exit only, a read-only lookup reports whether the app
+container is present on the job's simulator at that moment. Lookup failure
+is not proof the app was never installed. No lookup output, path, raw test
+result, or log is collected for publication. This is not runner-launch proof.
+Only fully gated original images are eligible on a successful synthetic row.
+No stock workflow, app, boot configuration, Release or IPA change.

@@ -18,8 +18,8 @@ import tempfile
 import time
 import zlib
 
-BASE = "c51edabe95a384de54666bd9fcfb951ae52b895a"
-BASE_TREE = "6bdaaa4ebf22363bae3b2f842624e529c114449d"
+BASE = "d716b298da70ec3eebd97093188b604dd1db682d"
+BASE_TREE = "6673448b8230c2c4b70c784ac162d84a6d11e9df"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
@@ -27,13 +27,14 @@ NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
 STOCK = ".github/workflows/four-tabs.yml"
 PIN = {
     STOCK: "33762b7334f954b77c9ddedd65b4e7ff0d548447",
+    "scripts/simulator-tests.py": "c72a25bcf3a337b1373caccbe124a3988aad52dd",
     "project.yml": "a8380cf91b2570ddbdfc71be2c59f8192ef44244",
     "diagnostics/c99/build_probe.py": "4804020597564a0d818a41c423be50c2a0e199e4",
     "scripts/iphone_qa_matrix.py": "88542174097d774ec808e915c4ad20fdd5587e76",
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "bff644520d95ade434101f1c92a23fee57a983ce",
+    "diagnostics/c99/README.md": "1c70785e93ad980b6e4d86e9cd25424c2d95b023",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",
@@ -422,7 +423,35 @@ def planned_method_presence(tree, expected):
     return "PLANNED_METHOD_REPORTED" if seen else "NONE_REPORTED"
 
 
-def native(private, state, size, area, summary_only=False):
+STOCK_MODE = "C98_STOCK_FRIENDS_FOCUS"
+
+
+def stock_test_argv(private, identifier, result, expected):
+    # C98's exact prebuilt launch command context. Only DD, result location,
+    # and the method-limited C99 selection belong to this diagnostic run.
+    return ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
+            "-destination", "platform=iOS Simulator,id="+identifier, "-destination-timeout", "90",
+            "-derivedDataPath", str(private/"dd"), "-resultBundlePath", str(result),
+            "-parallel-testing-enabled", "NO"] + [
+                "-only-testing:PUBOUITests/"+method[:-2] for method in expected
+            ] + ["CODE_SIGNING_ALLOWED=NO", "test-without-building"]
+
+
+def app_container_presence(identifier):
+    # Use the exact fresh device and the app bundle pinned by project.yml.
+    # No capture: paths and tool errors go to /dev/null. Nonzero is not
+    # evidence of absence; the runtime may already have cleaned up the app.
+    if type(identifier) is not str or not re.fullmatch(UUID, identifier):
+        return "NOT_CONFIRMED"
+    try:
+        rc = command(["xcrun", "simctl", "get_app_container", identifier, "com.bolubo.native", "app"],
+                     15, check=False).returncode
+    except (OSError, subprocess.SubprocessError):
+        return "NOT_CONFIRMED"
+    return "PRESENT" if rc == 0 else "NOT_CONFIRMED"
+
+
+def native(private, state, size, area, summary_only=False, stock_focus=False):
     expected = EXPECTED[area]
     state["status"] = "SETUP_UNAVAILABLE"
     preflight(state["commit"], state)
@@ -478,21 +507,26 @@ def native(private, state, size, area, summary_only=False):
         result = private / "focused.xcresult"
         state.pop("setupPhase", None)
         state["status"] = "NATIVE_UNAVAILABLE"
-        args = shared + ["-destination", "platform=iOS Simulator,id="+identifier, "-resultBundlePath", str(result),
-                "-parallel-testing-enabled", "NO", "-test-iterations", "1"]
-        args += ["-only-testing:PUBOUITests/"+method[:-2] for method in expected]
-        args += ["CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "ARCHS=x86_64",
-                 "ONLY_ACTIVE_ARCH=YES", "test-without-building"]
-        before = clock_sample() if summary_only else None
+        if stock_focus:
+            args = stock_test_argv(private, identifier, result, expected)
+        else:
+            args = shared + ["-destination", "platform=iOS Simulator,id="+identifier, "-resultBundlePath", str(result),
+                    "-parallel-testing-enabled", "NO", "-test-iterations", "1"]
+            args += ["-only-testing:PUBOUITests/"+method[:-2] for method in expected]
+            args += ["CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "ARCHS=x86_64",
+                     "ONLY_ACTIVE_ARCH=YES", "test-without-building"]
+        before = clock_sample() if summary_only or stock_focus else None
         rc = command(args, 1200, check=False).returncode
-        after = clock_sample() if summary_only else None
+        after = clock_sample() if summary_only or stock_focus else None
         state["nativeExitZero"] = rc == 0
         state["status"] = "RESULT_UNAVAILABLE"
         def result_json(kind):
             return parse(command(["xcrun", "xcresulttool", "get", "test-results", kind,
                                   "--path", str(result)], 90, capture=True).stdout)
         summary_phase(state, SummaryPhase.READ)
-        if summary_only:
+        if stock_focus and rc != 0:
+            state["appContainer"] = app_container_presence(identifier)
+        if summary_only or (stock_focus and rc != 0):
             errors = (OSError, ValueError, TypeError, OverflowError, RecursionError, subprocess.SubprocessError)
             summary = MISSING
             try:
@@ -538,10 +572,10 @@ def native(private, state, size, area, summary_only=False):
                 pass
 
 
-def run(args, env, runner=native, summary_only=False):
+def run(args, env, runner=native, summary_only=False, stock_focus=False):
     size, area = args
-    if summary_only:
-        need((size, area) == ("small", "friends"), "CONTEXT_REJECTED")
+    if summary_only or stock_focus:
+        need((size, area) == ("small", "friends") and not (summary_only and stock_focus), "CONTEXT_REJECTED")
     head, run_id, attempt = env["GITHUB_SHA"], env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"]
     need(size in DIMS and area in EXPECTED and env.get("GITHUB_REPOSITORY") == REPO
          and env.get("GITHUB_REF") == REF and env.get("GITHUB_EVENT_NAME") == "push"
@@ -555,6 +589,8 @@ def run(args, env, runner=native, summary_only=False):
                  status="UNAVAILABLE", buildExitZero=None, nativeExitZero=None, captures={})
     if summary_only:
         state["mode"] = TIME_MODE
+    if stock_focus:
+        state["mode"] = STOCK_MODE
     with tempfile.TemporaryDirectory(dir=base) as tmp:
         private = Path(tmp)
         stage = private/"safe"
@@ -563,6 +599,8 @@ def run(args, env, runner=native, summary_only=False):
             if summary_only:
                 runner(private, state, size, area, summary_only=True)
                 captures = {}  # no result from this mode can enter the image path
+            elif stock_focus:
+                captures = runner(private, state, size, area, stock_focus=True)
             else:
                 captures = runner(private, state, size, area)
         except Reject as err:
@@ -585,6 +623,6 @@ def run(args, env, runner=native, summary_only=False):
 
 if __name__ == "__main__":
     try:
-        sys.exit(run(sys.argv[1:], os.environ, summary_only=True))
+        sys.exit(run(sys.argv[1:], os.environ, stock_focus=True))
     except Exception:
         sys.exit("C99 evidence not publishable")

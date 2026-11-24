@@ -1,4 +1,4 @@
-name: C99 single Friends summary-time diagnostic
+name: C99 single Friends stock invocation
 'on':
   push:
     branches: [diag-c99-native-focus]
@@ -6,8 +6,8 @@ permissions:
   contents: read
 jobs:
   focus:
-    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'c51edabe95a384de54666bd9fcfb951ae52b895a' && github.run_attempt == 1
-    name: C99 Friends / iPhone 17 / summary only
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'd716b298da70ec3eebd97093188b604dd1db682d' && github.run_attempt == 1
+    name: C99 Friends / iPhone 17 / stock invocation
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
@@ -20,18 +20,20 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 2
           persist-credentials: false
-      - name: Observe exact Friends summary privately
+      - name: Run the exact Friends methods with stock prebuilt settings
         id: probe
         shell: bash
         run: |
           set -euo pipefail
           umask 077
-          test "$(git hash-object diagnostics/c99/focus.py)" = "c39e49a157ab6e548c6602a314c5189f835efe2c"
+          test "$(git hash-object diagnostics/c99/focus.py)" = "b3ae2ca6c6654cc134f99831021634cb94cd432e"
           python3 -B diagnostics/c99/focus.py small friends >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"
         with:
-          name: c99-friends-time-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
-          path: ${{ runner.temp }}/c99-publish/state.json
+          name: c99-friends-stock-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/c99-publish/state.json
+            ${{ runner.temp }}/c99-publish/original-*.png
           retention-days: 7
           if-no-files-found: error
