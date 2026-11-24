@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          test "$(git hash-object diagnostics/c99/focus.py)" = "34aa5630fb161654bb98d479c5e78e06f5127561"
+          test "$(git hash-object diagnostics/c99/focus.py)" = "e0fd085b5e71f0deba240c2f9f7bfc5676e55eef"
           python3 -B diagnostics/c99/focus.py "$SIZE" "$AREA" >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"

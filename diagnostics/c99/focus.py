@@ -16,8 +16,8 @@ import sys
 import tempfile
 import zlib
 
-BASE = "5f166189786cdccdcd4fd4157d8549afa3fcfa40"
-BASE_TREE = "85d25b332885229bed7ee084b9816d0c86b3ffd8"
+BASE = "864e4daace25ad3492fa8cdbde58bfa0a975d500"
+BASE_TREE = "e4f88cc9c34b3449030cc8abfa6ba1d368ebf906"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
@@ -29,7 +29,7 @@ PIN = {
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "4b16835daae2b67a54bf9646ab73e5ca152579a5",
+    "diagnostics/c99/README.md": "c229dee841ae8295f415b826eb582b57c0684207",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "d506d7b371ef155f60b448ae9adadc0c160bb759",
@@ -331,10 +331,6 @@ def native(private, state, size, area):
     setup_phase(state, SetupPhase.QA_MATRIX)
     need(qa.RUNTIME == RUNTIME and qa.MATRIX[size]["model"] == MODEL[size]
          and tuple(3*qa.MATRIX[size][k] for k in ("width", "height")) == DIMS[size], "DEVICE_REJECTED")
-    setup_phase(state, SetupPhase.SIM_INVENTORY)
-    inventory = qa.available_inventory()
-    setup_phase(state, SetupPhase.SIM_TEMPLATE)
-    template = qa.select_template(inventory, size)
     setup_phase(state, SetupPhase.XCODEGEN_CHECK)
     if not shutil.which("xcodegen"):
         setup_phase(state, SetupPhase.XCODEGEN_INSTALL)
@@ -343,6 +339,26 @@ def native(private, state, size, area):
     command(["swift", "scripts/brand-assets.swift"], 120)
     setup_phase(state, SetupPhase.PROJECT_GENERATE)
     command(["xcodegen", "generate"], 120)
+    # Stock unsigned Debug build-for-testing: no device, UI launch, or public build log.
+    state.pop("setupPhase", None)
+    state["status"] = "BUILD_UNAVAILABLE"
+    state["buildPhase"] = "BUILD_FOR_TESTING"
+    shared = ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
+              "-sdk", "iphonesimulator", "-derivedDataPath", str(private/"dd")]
+    try:
+        rc = command(shared + ["-destination", "generic/platform=iOS Simulator", "CODE_SIGNING_ALLOWED=NO",
+                               "ARCHS=x86_64", "ONLY_ACTIVE_ARCH=YES", "build-for-testing"],
+                     900, check=False).returncode
+    except subprocess.TimeoutExpired:
+        raise Reject("BUILD_TIMEOUT") from None
+    state["buildExitZero"] = rc == 0
+    need(rc == 0, "BUILD_NONZERO")
+    state.pop("buildPhase")
+    state["status"] = "SETUP_UNAVAILABLE"
+    setup_phase(state, SetupPhase.SIM_INVENTORY)
+    inventory = qa.available_inventory()
+    setup_phase(state, SetupPhase.SIM_TEMPLATE)
+    template = qa.select_template(inventory, size)
     name = "C99 " + MODEL[size]
     setup_phase(state, SetupPhase.SIM_CREATE)
     device = qa.create_device(size, template, name)
@@ -351,18 +367,23 @@ def native(private, state, size, area):
         setup_phase(state, SetupPhase.SIM_BOOT)
         command(["xcrun", "simctl", "boot", identifier], 90)
         setup_phase(state, SetupPhase.SIM_BOOT_WAIT)
-        command(["xcrun", "simctl", "bootstatus", identifier, "-b"], 240)
+        try:
+            command(["xcrun", "simctl", "bootstatus", identifier, "-b"], 240)
+        except subprocess.TimeoutExpired:
+            state["bootWaitFailure"] = "TIMEOUT"
+            raise
+        except (OSError, subprocess.CalledProcessError):
+            state["bootWaitFailure"] = "COMMAND_ERROR"
+            raise
         result = private / "focused.xcresult"
         state.pop("setupPhase", None)
         state["status"] = "NATIVE_UNAVAILABLE"
-        args = ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
-                "-sdk", "iphonesimulator", "-destination", "platform=iOS Simulator,id="+identifier,
-                "-derivedDataPath", str(private/"dd"), "-resultBundlePath", str(result),
+        args = shared + ["-destination", "platform=iOS Simulator,id="+identifier, "-resultBundlePath", str(result),
                 "-parallel-testing-enabled", "NO", "-test-iterations", "1"]
         args += ["-only-testing:PUBOUITests/"+method[:-2] for method in expected]
         args += ["CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "ARCHS=x86_64",
-                 "ONLY_ACTIVE_ARCH=YES", "test"]
-        rc = command(args, 2100, check=False).returncode
+                 "ONLY_ACTIVE_ARCH=YES", "test-without-building"]
+        rc = command(args, 1200, check=False).returncode
         state["nativeExitZero"] = rc == 0
         state["status"] = "RESULT_UNAVAILABLE"
         def result_json(kind):
@@ -405,7 +426,7 @@ def run(args, env, runner=native):
     need(not os.path.lexists(destination), "DESTINATION_EXISTS")
     state = dict(schema=1, commit=head, run=run_id, attempt=attempt, area=area,
                  model=MODEL[size], os="26.1", xcodePin="26.0.1/17A400", cases={},
-                 status="UNAVAILABLE", nativeExitZero=None, captures={})
+                 status="UNAVAILABLE", buildExitZero=None, nativeExitZero=None, captures={})
     with tempfile.TemporaryDirectory(dir=base) as tmp:
         private = Path(tmp)
         stage = private/"safe"
