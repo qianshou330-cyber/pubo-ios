@@ -16,23 +16,25 @@ import sys
 import tempfile
 import zlib
 
-BASE = "864e4daace25ad3492fa8cdbde58bfa0a975d500"
-BASE_TREE = "e4f88cc9c34b3449030cc8abfa6ba1d368ebf906"
+BASE = "3819229bbad12042dc9638cab9ae6d71f200eac8"
+BASE_TREE = "b538454c91632a5d9eb7495e012c7e1a25e14dfe"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
-       "diagnostics/c99/README.md"}
+       "diagnostics/c99/README.md", "App/Infrastructure/C99WorldRetryProbe.swift"}
 STOCK = ".github/workflows/four-tabs.yml"
 PIN = {
     STOCK: "33762b7334f954b77c9ddedd65b4e7ff0d548447",
+    "project.yml": "a8380cf91b2570ddbdfc71be2c59f8192ef44244",
+    "diagnostics/c99/build_probe.py": "4804020597564a0d818a41c423be50c2a0e199e4",
     "scripts/iphone_qa_matrix.py": "88542174097d774ec808e915c4ad20fdd5587e76",
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "c229dee841ae8295f415b826eb582b57c0684207",
+    "diagnostics/c99/README.md": "0ceeef5ff01943a607dcc83b65d7b6d8c7ad985c",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
-    "App/Infrastructure/C99WorldRetryProbe.swift": "d506d7b371ef155f60b448ae9adadc0c160bb759",
+    "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",
     "App/Infrastructure/FixtureTransport.swift": "9e8988d7c432b35e51f6a1fb6574f151deeb70ce",
     "UITests/C99FriendsChildHandlesUITests.swift": "11dca45c0a1dc0ecb985f2c8168d145b21622893",
     "UITests/C99WorldRetryUITests.swift": "d384ed7bb10485d9762bf3ac8efc766f726c8f1f",
@@ -113,8 +115,8 @@ def preflight(head, state):
          "SOURCE_REJECTED")
     # Compare tracked files, modes, changed names, and actual object identities before generating the project.
     need(not textout("git", "status", "--porcelain=v1", "--untracked-files=all"), "SOURCE_REJECTED")
-    changed = set(textout("git", "diff", "--no-renames", "--name-only", BASE, head).splitlines())
-    need(changed == NEW, "SOURCE_REJECTED")
+    changed = set(textout("git", "diff", "--no-renames", "--name-status", BASE, head).splitlines())
+    need(changed == {"M\t" + path for path in NEW}, "SOURCE_REJECTED")
     for p in NEW | set(SOURCE_PIN) | set(PIN):
         entry = textout("git", "ls-tree", head, "--", p).split()
         need(len(entry) == 4 and entry[:2] == ["100644", "blob"] and
@@ -420,7 +422,7 @@ def run(args, env, runner=native):
     need(size in DIMS and area in EXPECTED and env.get("GITHUB_REPOSITORY") == REPO
          and env.get("GITHUB_REF") == REF and env.get("GITHUB_EVENT_NAME") == "push"
          and re.fullmatch("[0-9a-f]{40}", head) and re.fullmatch("[1-9][0-9]{0,19}", run_id)
-         and re.fullmatch("[1-9][0-9]{0,5}", attempt), "CONTEXT_REJECTED")
+         and attempt == "1", "CONTEXT_REJECTED")
     base = Path(env["RUNNER_TEMP"])
     destination = base/"c99-publish"
     need(not os.path.lexists(destination), "DESTINATION_EXISTS")

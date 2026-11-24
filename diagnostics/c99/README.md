@@ -79,3 +79,24 @@ conservative diagnostic class or `UNKNOWN`; no evidence is inferred from build
 exit alone. Channel states distinguish no match, unavailable input and a schema
 that was not recognized. The historical receipt is unchanged. These new
 receipts remain build diagnostics only, never test or product verification.
+
+## Fifth run and DEBUG fixture compile repair
+
+[Run 45347343014, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45347343014)
+at `3819229bbad12042dc9638cab9ae6d71f200eac8` returned `BUILD_NONZERO`. The
+allowlisted console identified `TYPECHECK_COMPLEXITY` at line 76 in the pinned
+DEBUG World Retry probe. The independent result location was line 75, class
+`UNKNOWN`. The console line begins the nested map used to construct recovered
+fixture rows. No UI test or screenshot ran.
+
+This successor splits that DEBUG fixture into explicitly typed nonce, ID and text
+values, a simple loop, and separately assigned `JSONValue` fields. It preserves
+the five rows and their order, recovered receipt, response, cancellation and
+phase transitions. Product views, network paths, project, stock workflows, and
+native test code are unchanged.
+
+The temporary build-only mode is replaced by the original focus: World and
+Friends on iPhone 17 and iPhone 17 Pro Max, one attempt on this diagnostic
+branch. Each row must first pass the same unsigned Debug build before starting
+its simulator and exact methods. Original result/device/case/PNG gates remain
+unchanged. No build-only outcome verifies product behavior; no Release or IPA.

@@ -72,12 +72,21 @@ actor C99WorldRetryProbe {
                 try Task.checkCancellation()
                 guard phase == .held else { throw APIError.invalidResponse }
                 // Records.merge sorts by descending ID. The unique receipt must be the first visible row.
-                let prefix = nonce.replacingOccurrences(of: "-", with: "").lowercased().dropLast()
-                let rows: [JSONValue] = (1...5).map { index in
-                    .object(["id": .string(String(prefix) + String(6 - index)),
-                             "text": .string(index == 1 ? "推荐时间线已恢复" : "合成帖子 " + String(index)),
-                             "user": FixtureTransport.peer, "files": .array([]), "reactions": .object([:]),
-                             "createdAt": .string("2026-11-01T12:00:00Z"), "visibility": .string("public")])
+                let normalizedNonce: String = nonce.replacingOccurrences(of: "-", with: "").lowercased()
+                let prefix: Substring = normalizedNonce.dropLast()
+                var rows: [JSONValue] = []
+                for index in 1...5 {
+                    let id: String = String(prefix) + String(6 - index)
+                    let text: String = index == 1 ? "推荐时间线已恢复" : "合成帖子 " + String(index)
+                    var fields: [String: JSONValue] = [:]
+                    fields["id"] = JSONValue.string(id)
+                    fields["text"] = JSONValue.string(text)
+                    fields["user"] = FixtureTransport.peer
+                    fields["files"] = JSONValue.array([])
+                    fields["reactions"] = JSONValue.object([:])
+                    fields["createdAt"] = JSONValue.string("2026-11-01T12:00:00Z")
+                    fields["visibility"] = JSONValue.string("public")
+                    rows.append(JSONValue.object(fields))
                 }
                 let result = try reply(200, .array(rows))
                 try mark(.recovered, nonce)
