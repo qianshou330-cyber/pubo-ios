@@ -1,5 +1,6 @@
 """C99 reconstructed Debug Simulator evidence only. No live transport or packaging."""
 import binascii
+from enum import Enum
 import hashlib
 import importlib.util
 import json
@@ -15,17 +16,20 @@ import sys
 import tempfile
 import zlib
 
-BASE = "7abc4b1c1c9e2395350a9b15992e987243ceb303"
+BASE = "5f166189786cdccdcd4fd4157d8549afa3fcfa40"
+BASE_TREE = "85d25b332885229bed7ee084b9816d0c86b3ffd8"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
-NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py"}
+NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
+       "diagnostics/c99/README.md"}
 STOCK = ".github/workflows/four-tabs.yml"
 PIN = {
     STOCK: "33762b7334f954b77c9ddedd65b4e7ff0d548447",
     "scripts/iphone_qa_matrix.py": "88542174097d774ec808e915c4ad20fdd5587e76",
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
-CHANGED = {
+SOURCE_PIN = {
+    "diagnostics/c99/README.md": "4b16835daae2b67a54bf9646ab73e5ca152579a5",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "d506d7b371ef155f60b448ae9adadc0c160bb759",
@@ -50,6 +54,39 @@ CONFIG = "Test Scheme Action"
 RUNTIME = "com.apple.CoreSimulator.SimRuntime.iOS-26-1"
 
 
+class SetupPhase(Enum):
+    SOURCE_PREFLIGHT = "SOURCE_PREFLIGHT"
+    HOST_PREFLIGHT = "HOST_PREFLIGHT"
+    QA_HELPER_LOAD = "QA_HELPER_LOAD"
+    QA_MATRIX = "QA_MATRIX"
+    SIM_INVENTORY = "SIM_INVENTORY"
+    SIM_TEMPLATE = "SIM_TEMPLATE"
+    XCODEGEN_CHECK = "XCODEGEN_CHECK"
+    XCODEGEN_INSTALL = "XCODEGEN_INSTALL"
+    BRAND_ASSETS = "BRAND_ASSETS"
+    PROJECT_GENERATE = "PROJECT_GENERATE"
+    SIM_CREATE = "SIM_CREATE"
+    SIM_BOOT = "SIM_BOOT"
+    SIM_BOOT_WAIT = "SIM_BOOT_WAIT"
+
+
+def setup_phase(state, phase):
+    state["setupPhase"] = phase.value
+
+
+class SummaryPhase(Enum):
+    READ = "READ"
+    KEY_SHAPE = "KEY_SHAPE"
+    TIME_WINDOW = "TIME_WINDOW"
+    DEVICE_CONFIG = "DEVICE_CONFIG"
+    TEST_COUNTS = "TEST_COUNTS"
+    OUTCOME = "OUTCOME"
+
+
+def summary_phase(state, phase):
+    state["summaryPhase"] = phase.value
+
+
 class Reject(ValueError):
     """Only program-authored enum literals may reach the public state."""
 
@@ -68,19 +105,21 @@ def textout(*argv):
     return command(argv, capture=True).stdout.decode("utf-8").strip()
 
 
-def preflight(head):
+def preflight(head, state):
+    setup_phase(state, SetupPhase.SOURCE_PREFLIGHT)
     need(textout("git", "rev-parse", "HEAD") == head and
          textout("git", "log", "-1", "--format=%P") == BASE and
-         textout("git", "rev-parse", "HEAD^1^{tree}") == "c8521dbc2309cc74c2024157856c63488f98be77",
+         textout("git", "rev-parse", "HEAD^1^{tree}") == BASE_TREE,
          "SOURCE_REJECTED")
     # Compare tracked files, modes, changed names, and actual object identities before generating the project.
     need(not textout("git", "status", "--porcelain=v1", "--untracked-files=all"), "SOURCE_REJECTED")
     changed = set(textout("git", "diff", "--no-renames", "--name-only", BASE, head).splitlines())
-    need(changed == NEW | set(CHANGED), "SOURCE_REJECTED")
-    for p in NEW | set(CHANGED) | set(PIN):
+    need(changed == NEW, "SOURCE_REJECTED")
+    for p in NEW | set(SOURCE_PIN) | set(PIN):
         entry = textout("git", "ls-tree", head, "--", p).split()
         need(len(entry) == 4 and entry[:2] == ["100644", "blob"] and
-             entry[2] == (CHANGED | PIN).get(p, entry[2]) and entry[3] == p, "SOURCE_REJECTED")
+             entry[2] == (SOURCE_PIN | PIN).get(p, entry[2]) and entry[3] == p, "SOURCE_REJECTED")
+    setup_phase(state, SetupPhase.HOST_PREFLIGHT)
     need(platform.machine() == "x86_64" and platform.system() == "Darwin" and
          textout("xcodebuild", "-version") == "Xcode 26.0.1\nBuild version 17A400", "HOST_REJECTED")
 
@@ -96,28 +135,35 @@ def parse(data):
     return json.loads(data, object_pairs_hook=unique, parse_constant=lambda _: need(False, "UNSUPPORTED_SCHEMA"))
 
 
-def native_summary(summary, size, device, count):
-    need(set(summary) == {"devicesAndConfigurations", "environmentDescription", "expectedFailures", "failedTests",
+def native_summary(summary, size, device, count, state):
+    summary_phase(state, SummaryPhase.KEY_SHAPE)
+    need(type(summary) is dict and set(summary) == {"devicesAndConfigurations", "environmentDescription", "expectedFailures", "failedTests",
                           "finishTime", "passedTests", "result", "skippedTests", "startTime", "statistics",
                           "testFailures", "title", "topInsights", "totalTestCount"}, "SUMMARY_REJECTED")
+    summary_phase(state, SummaryPhase.TIME_WINDOW)
     need(all(type(summary[k]) in (int, float) and math.isfinite(summary[k]) for k in ("startTime", "finishTime"))
          and summary["startTime"] < summary["finishTime"], "SUMMARY_REJECTED")
+    summary_phase(state, SummaryPhase.DEVICE_CONFIG)
     configs = summary["devicesAndConfigurations"]
     need(type(configs) is list and len(configs) == 1, "SUMMARY_REJECTED")
     row = configs[0]
-    need(set(row) == {"device", "expectedFailures", "failedTests", "passedTests", "skippedTests",
+    need(type(row) is dict and set(row) == {"device", "expectedFailures", "failedTests", "passedTests", "skippedTests",
                       "testPlanConfiguration"}, "SUMMARY_REJECTED")
     want = {"deviceId": device["udid"], "deviceName": device["name"], "modelName": MODEL[size],
             "osVersion": "26.1", "platform": "iOS Simulator", "architecture": "x86_64"}
-    need(all(row["device"].get(k) == v for k, v in want.items()) and
-         row["testPlanConfiguration"]["configurationName"] == CONFIG, "DEVICE_REJECTED")
+    need(type(row["device"]) is dict and type(row["testPlanConfiguration"]) is dict and
+         all(row["device"].get(k) == v for k, v in want.items()) and
+         row["testPlanConfiguration"].get("configurationName") == CONFIG, "DEVICE_REJECTED")
+    summary_phase(state, SummaryPhase.TEST_COUNTS)
     need(type(summary.get("totalTestCount")) is int and summary["totalTestCount"] == count,
          "SUMMARY_REJECTED")
     keys = ("passedTests", "failedTests", "skippedTests", "expectedFailures")
     counts = {k: row.get(k) for k in keys}
     need(all(type(v) is int and v >= 0 and type(summary.get(k)) is int and summary[k] == v
              for k, v in counts.items()) and sum(counts.values()) == count, "SUMMARY_REJECTED")
+    summary_phase(state, SummaryPhase.OUTCOME)
     need(summary["result"] in ("Passed", "Failed"), "SUMMARY_REJECTED")
+    state.pop("summaryPhase", None)
     return counts
 
 
@@ -162,23 +208,28 @@ def case_tree(tree, expected):
     return seen
 
 
-def case_state(summary, tree, size, device, expected):
-    counts = native_summary(summary, size, device, len(expected))
+def case_state(summary, tree, size, device, expected, counts, state):
+    summary_phase(state, SummaryPhase.DEVICE_CONFIG)
     row = summary["devicesAndConfigurations"][0]
     need(tree["devices"] == [row["device"]] and
          set(row["device"]) == {"architecture", "deviceId", "deviceName", "modelName", "osBuildNumber", "osVersion", "platform"} and
          tree["testPlanConfigurations"] == [row["testPlanConfiguration"]] ==
          [{"configurationId": "1", "configurationName": CONFIG}], "DEVICE_REJECTED")
+    state.pop("summaryPhase", None)
     cases = case_tree(tree, expected)
+    summary_phase(state, SummaryPhase.TEST_COUNTS)
     for result, key in (("Passed", "passedTests"), ("Failed", "failedTests"),
                         ("Skipped", "skippedTests"), ("Expected Failure", "expectedFailures")):
         need(sum(case["result"] == result for case in cases.values()) == counts[key], "SUMMARY_REJECTED")
+    state.pop("summaryPhase", None)
     if counts["passedTests"] == len(expected):
         node = tree["testNodes"][0]
         for _ in range(3):
             need(node["result"] == "Passed", "TREE_REJECTED")
             node = node["children"][0]
+        summary_phase(state, SummaryPhase.OUTCOME)
         need(summary["result"] == "Passed" and summary["testFailures"] == [], "SUMMARY_REJECTED")
+        state.pop("summaryPhase", None)
     return cases
 
 
@@ -274,22 +325,35 @@ def qa_helper():
 def native(private, state, size, area):
     expected = EXPECTED[area]
     state["status"] = "SETUP_UNAVAILABLE"
-    preflight(state["commit"])
+    preflight(state["commit"], state)
+    setup_phase(state, SetupPhase.QA_HELPER_LOAD)
     qa = qa_helper()
+    setup_phase(state, SetupPhase.QA_MATRIX)
     need(qa.RUNTIME == RUNTIME and qa.MATRIX[size]["model"] == MODEL[size]
          and tuple(3*qa.MATRIX[size][k] for k in ("width", "height")) == DIMS[size], "DEVICE_REJECTED")
-    template = qa.select_template(qa.available_inventory(), size)
+    setup_phase(state, SetupPhase.SIM_INVENTORY)
+    inventory = qa.available_inventory()
+    setup_phase(state, SetupPhase.SIM_TEMPLATE)
+    template = qa.select_template(inventory, size)
+    setup_phase(state, SetupPhase.XCODEGEN_CHECK)
     if not shutil.which("xcodegen"):
+        setup_phase(state, SetupPhase.XCODEGEN_INSTALL)
         command(["brew", "install", "xcodegen"], 600)
+    setup_phase(state, SetupPhase.BRAND_ASSETS)
     command(["swift", "scripts/brand-assets.swift"], 120)
+    setup_phase(state, SetupPhase.PROJECT_GENERATE)
     command(["xcodegen", "generate"], 120)
     name = "C99 " + MODEL[size]
+    setup_phase(state, SetupPhase.SIM_CREATE)
     device = qa.create_device(size, template, name)
     identifier = device["udid"]
     try:
+        setup_phase(state, SetupPhase.SIM_BOOT)
         command(["xcrun", "simctl", "boot", identifier], 90)
+        setup_phase(state, SetupPhase.SIM_BOOT_WAIT)
         command(["xcrun", "simctl", "bootstatus", identifier, "-b"], 240)
         result = private / "focused.xcresult"
+        state.pop("setupPhase", None)
         state["status"] = "NATIVE_UNAVAILABLE"
         args = ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
                 "-sdk", "iphonesimulator", "-destination", "platform=iOS Simulator,id="+identifier,
@@ -304,8 +368,10 @@ def native(private, state, size, area):
         def result_json(kind):
             return parse(command(["xcrun", "xcresulttool", "get", "test-results", kind,
                                   "--path", str(result)], 90, capture=True).stdout)
+        summary_phase(state, SummaryPhase.READ)
         summary = result_json("summary")
-        state["cases"] = case_state(summary, result_json("tests"), size, device, expected)
+        counts = native_summary(summary, size, device, len(expected), state)
+        state["cases"] = case_state(summary, result_json("tests"), size, device, expected, counts, state)
         need(rc == 0, "NATIVE_NONZERO")
         need(all(c["result"] == "Passed" and c["runtimeWarningCount"] == 0 for c in state["cases"].values()),
              "CASE_GATE_REJECTED")
