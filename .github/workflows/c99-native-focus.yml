@@ -1,4 +1,4 @@
-name: C99 single shared build diagnostic
+name: C99 single shared build line diagnostic
 'on':
   push:
     branches: [diag-c99-native-focus]
@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   shared-build-only:
-    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == '91e90c887039967594646879c6513ea16544acce'
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == '387b746a7c911ce70d539a01e17d0fcaea6f4efb' && github.run_attempt == 1
     name: C99 shared Debug build only (no UI tests)
     runs-on: macos-15-intel
     timeout-minutes: 33
@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          test "$(git hash-object diagnostics/c99/build_probe.py)" = "924b9befb288da3c3818b5b31ba152f89ebba846"
+          test "$(git hash-object diagnostics/c99/build_probe.py)" = "4804020597564a0d818a41c423be50c2a0e199e4"
           python3 -I -B diagnostics/c99/build_probe.py >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"

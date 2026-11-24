@@ -64,3 +64,18 @@ A line is included only for a single agreed position within that file. Reports
 from more than one file or from an unapproved path do not publish a location. The build
 bundle and capped console reads remain private to the runner. A missing result
 bundle or unsupported tool does not justify printing logs or rerunning a matrix.
+
+## Fourth run and targeted line handoff
+
+[Run 45344707636, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45344707636)
+at `387b746a7c911ce70d539a01e17d0fcaea6f4efb` completed as one build-only job
+with `BUILD_NONZERO`, exact `APP_PROBE` from both accepted channels, and no line
+published because there were at least two distinct accepted positions across
+those channels. No precise reason, simulator, test, screenshot, or IPA.
+
+The successor keeps that exact build command and reports independent sorted line
+sets for the same pinned public 93-line source only. Each line has one fixed
+conservative diagnostic class or `UNKNOWN`; no evidence is inferred from build
+exit alone. Channel states distinguish no match, unavailable input and a schema
+that was not recognized. The historical receipt is unchanged. These new
+receipts remain build diagnostics only, never test or product verification.
