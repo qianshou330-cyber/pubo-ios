@@ -18,8 +18,8 @@ import tempfile
 import time
 import zlib
 
-BASE = "d716b298da70ec3eebd97093188b604dd1db682d"
-BASE_TREE = "6673448b8230c2c4b70c784ac162d84a6d11e9df"
+BASE = "a0954a837af3a5e68149b1cad65efa610f6740a6"
+BASE_TREE = "15fc261cddf46633fbb0da6c24952d41600d801c"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
@@ -34,7 +34,7 @@ PIN = {
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "1c70785e93ad980b6e4d86e9cd25424c2d95b023",
+    "diagnostics/c99/README.md": "b6b9b124cc29eea5e656d89f7df3a8726821c3aa",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",
@@ -423,6 +423,118 @@ def planned_method_presence(tree, expected):
     return "PLANNED_METHOD_REPORTED" if seen else "NONE_REPORTED"
 
 
+COUNT_KEYS = ("passedTests", "failedTests", "skippedTests", "expectedFailures")
+RECORD_KIND = {"Passed":"PASSED_RECORD", "Failed":"FAILED_RECORD", "Skipped":"SKIPPED_RECORD",
+               "Expected Failure":"EXPECTED_FAILURE_RECORD"}
+ROLES = {FOLLOWING: "following", FOLLOWERS: "followers"}
+
+
+def count_provenance(summary, want):
+    # Called only after the exact summary/device prefix of the existing gate.
+    total = summary.get("totalTestCount")
+    valid_total = type(total) is int and total >= 0
+    total_relation = ("INVALID" if not valid_total else "FEWER" if total < want
+                      else "MORE" if total > want else "EXPECTED")
+    row = summary["devicesAndConfigurations"][0]
+    top = [summary.get(k) for k in COUNT_KEYS]
+    local = [row.get(k) for k in COUNT_KEYS]
+    valid_buckets = all(type(n) is int and n >= 0 for n in (*top, *local))
+    return dict(totalRelation=total_relation,
+                bucketAgreement=("INVALID_BUCKET" if not valid_buckets else
+                                 "AGREES" if top == local else "DEVICE_DISAGREES"),
+                bucketSum=("UNKNOWN" if not valid_buckets or not valid_total else
+                           "AGREES" if sum(local) == total else "SUM_DISAGREES"))
+
+
+def failed_role_rows(summary, expected):
+    # Actual older PUBO XCResult summaries use these six fields. Only the exact
+    # test identifier, method and URI combination may attribute to either role.
+    unknown = {role: "UNKNOWN" for role in ROLES.values()}
+    items = summary.get("testFailures")
+    fields = {"failureText", "targetName", "testIdentifier", "testIdentifierString", "testIdentifierURL", "testName"}
+    if type(items) is not list or len(items) > 64:
+        return unknown
+    result = {role: "NOT_REPORTED" for role in ROLES.values()}
+    for item in items:
+        if (type(item) is not dict or set(item) != fields
+            or item["targetName"] != "PUBOUITests" or type(item["testIdentifier"]) is not int
+            or type(item["failureText"]) is not str):
+            return unknown
+        ident = item["testIdentifierString"]
+        if (type(ident) is not str or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}/[A-Za-z_][A-Za-z0-9_]{0,127}\(\)", ident)
+            or item["testName"] != ident.split("/")[1] or item["testIdentifierURL"] != URL+ident[:-2]):
+            return unknown
+        if ident in expected:
+            result[ROLES[ident]] = "MATCHED"
+    return result
+
+
+def bound_tree_provenance(summary, tree, expected):
+    blank = dict(tree="UNRECOGNIZED", systemFailureMarker="UNKNOWN", extraCases="UNKNOWN",
+                 following="UNKNOWN", followers="UNKNOWN")
+    if tree is MISSING:
+        return blank | {"tree":"UNAVAILABLE"}
+    row = summary["devicesAndConfigurations"][0]
+    if (type(tree) is not dict or set(tree) != {"testNodes", "devices", "testPlanConfigurations"}
+        or tree["devices"] != [row["device"]]
+        or tree["testPlanConfigurations"] != [row["testPlanConfiguration"]]
+        or tree["testPlanConfigurations"] != [{"configurationId": "1", "configurationName": CONFIG}]):
+        return blank
+    def one(nodes, kind, name, uri=None):
+        if (type(nodes) is not list or len(nodes) != 1 or type(nodes[0]) is not dict or
+            nodes[0].get("nodeType") != kind or nodes[0].get("name") != name or
+            (uri is not None and nodes[0].get("nodeIdentifierURL") != uri)):
+            return None
+        return nodes[0].get("children")
+    if tree["testNodes"] == []:
+        return dict(tree="BOUND", systemFailureMarker="NOT_REPORTED", extraCases="NOT_REPORTED",
+                    following="NOT_REPORTED", followers="NOT_REPORTED")
+    top = one(tree["testNodes"], "Test Plan", "PUBO")
+    suites = one(top, "UI test bundle", "PUBOUITests", URL.rstrip("/"))
+    if type(suites) is not list or len(suites) > 32:
+        return blank
+    records = {r:"NOT_REPORTED" for r in ROLES.values()}
+    seen = set()
+    saw_class, saw_system, saw_extra = False, False, False
+    class_name = next(iter(expected)).split("/")[0]
+    for suite in suites:
+        if type(suite) is not dict or suite.get("nodeType") != "Test Suite":
+            return blank
+        name = suite.get("name")
+        if name == "System Failures":
+            # Apple's producer uses a normal Test Suite with this fixed label;
+            # these pinned test sources do not define a suite by that name.
+            if saw_system:
+                return blank
+            saw_system = True
+            continue
+        leaves = suite.get("children")
+        if type(name) is not str or type(leaves) is not list or len(leaves) > 64:
+            return blank
+        wanted = name == class_name
+        if wanted:
+            if saw_class or suite.get("nodeIdentifierURL") != URL+class_name:
+                return blank
+            saw_class = True
+        for leaf in leaves:
+            if type(leaf) is not dict or leaf.get("nodeType") != "Test Case":
+                return blank
+            ident = leaf.get("nodeIdentifier")
+            status = leaf.get("result")
+            if (type(ident) is not str or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}/[A-Za-z_][A-Za-z0-9_]{0,127}\(\)", ident)
+                or ident in seen or ident.split("/")[0] != name or leaf.get("name") != ident.split("/")[1]
+                or leaf.get("nodeIdentifierURL") != URL+ident[:-2]
+                or type(status) is not str or status not in RECORD_KIND):
+                return blank
+            seen.add(ident)
+            if wanted and ident in expected:
+                records[ROLES[ident]] = RECORD_KIND[status]
+            else:
+                saw_extra = True
+    return dict(tree="BOUND", systemFailureMarker="PRESENT" if saw_system else "NOT_REPORTED",
+                extraCases="PRESENT" if saw_extra else "NOT_REPORTED", **records)
+
+
 STOCK_MODE = "C98_STOCK_FRIENDS_FOCUS"
 
 
@@ -536,8 +648,10 @@ def native(private, state, size, area, summary_only=False, stock_focus=False):
             observation = summary_time_diagnostic(summary, before, after)
             observation["summaryAvailability"] = ("UNAVAILABLE" if summary is MISSING else
                                                    "OBJECT" if type(summary) is dict else "OTHER_TYPE")
+            tree = MISSING
             try:
-                observation["plannedMethods"] = planned_method_presence(result_json("tests"), expected)
+                tree = result_json("tests")
+                observation["plannedMethods"] = planned_method_presence(tree, expected)
             except errors:
                 pass
             state["summaryDiagnostic"] = observation
@@ -547,6 +661,15 @@ def native(private, state, size, area, summary_only=False, stock_focus=False):
                 native_summary(summary, size, device, len(expected), state)
             except OverflowError:
                 raise Reject("SUMMARY_REJECTED") from None
+            finally:
+                # These phases prove the existing exact summary/device prefix;
+                # do not project case/issue hints for a misbound result.
+                if stock_focus and state.get("summaryPhase") in (None, "TEST_COUNTS", "OUTCOME"):
+                    state["failureDiagnostic"] = {
+                        "count": count_provenance(summary, len(expected)),
+                        "tree": bound_tree_provenance(summary, tree, expected),
+                        "summaryFailureRows": failed_role_rows(summary, expected),
+                    }
             raise Reject("SUMMARY_DIAGNOSTIC_ONLY" if rc == 0 else "NATIVE_NONZERO")
         summary = result_json("summary")
         counts = native_summary(summary, size, device, len(expected), state)

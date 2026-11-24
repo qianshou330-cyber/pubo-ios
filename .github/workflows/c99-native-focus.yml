@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   focus:
-    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'd716b298da70ec3eebd97093188b604dd1db682d' && github.run_attempt == 1
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'a0954a837af3a5e68149b1cad65efa610f6740a6' && github.run_attempt == 1
     name: C99 Friends / iPhone 17 / stock invocation
     runs-on: macos-15-intel
     timeout-minutes: 60
@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          test "$(git hash-object diagnostics/c99/focus.py)" = "b3ae2ca6c6654cc134f99831021634cb94cd432e"
+          test "$(git hash-object diagnostics/c99/focus.py)" = "9a36465ea03c613646aa4319b9b7bbd71870067a"
           python3 -B diagnostics/c99/focus.py small friends >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"

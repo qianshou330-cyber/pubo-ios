@@ -147,3 +147,24 @@ is not proof the app was never installed. No lookup output, path, raw test
 result, or log is collected for publication. This is not runner-launch proof.
 Only fully gated original images are eligible on a successful synthetic row.
 No stock workflow, app, boot configuration, Release or IPA change.
+
+## Eighth run and bounded failure attribution
+
+[Run 45357210757, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45357210757)
+at `a0954a837af3a5e68149b1cad65efa610f6740a6` built the Friends/iPhone 17 row.
+Its stock native command returned nonzero. The exact device summary had finite
+ascending times, a positive reported test count, and rejected the count gate.
+The earlier method projection did not recognize the tree, and the app lookup
+did not confirm a container. No case or original image was verified.
+
+This observation separates total-count mismatch, invalid numeric categories,
+summary/device disagreement, and arithmetic mismatch. It also distinguishes
+known method records and corroborating failed-method rows from an exact
+`System Failures` suite marker in the bound UI target. The marker is an Xcode
+report label, not a unique error code or confirmed launch cause. A record is
+not test-body proof. Only fixed categories are eligible in the state receipt.
+
+No native command, simulator/boot, app, test, or success/evidence-gate change.
+No additional provider tool call, raw diagnostics, or failure images. If the
+coarse result is still inconclusive, inspect in a separately authorized macOS
+environment; do not keep repeating the same hosted check.
