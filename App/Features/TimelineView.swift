@@ -141,8 +141,22 @@ struct TimelineView: View {
                         if preferences.fixedComposer && !composer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
                         if let notice = session.timelineNotice { Text(notice).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10) }
                         if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
-                        if let error, !failedOlderRequest { ErrorBanner(message: error) { Task { await load() } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }
-                        if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
+                        if loading && requestContext == context && feed.notes.isEmpty && error != nil && !failedOlderRequest {
+                            ProgressView("正在加载帖子…")
+                                .frame(maxWidth: .infinity).padding(24)
+                                .accessibilityIdentifier("timeline.initialRetryLoading")
+                        } else {
+                            if let error, !failedOlderRequest { ErrorBanner(message: error) { Task {
+                                #if DEBUG
+                                if C99WorldOrigin.enabled {
+                                    await C99WorldOrigin.$source.withValue(.retry) { await load() }
+                                    return
+                                }
+                                #endif
+                                await load()
+                            } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }
+                            if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
+                        }
         }
     }
     private var timelineRows: some View {
@@ -185,6 +199,12 @@ struct TimelineView: View {
                     if let owner = session.user?.id, let saved = try? session.store?.read(TimelineCache.self, account: "public-" + owner, key: "timeline-" + preferences.requestKey), Date().timeIntervalSince(saved.savedAt) < 86_400 {
                         feed.page(saved.notes, older: false, preferences: preferences, accountID: owner); cached = !saved.notes.isEmpty
                     }
+                    #if DEBUG
+                    if C99WorldOrigin.enabled {
+                        await C99WorldOrigin.$source.withValue(.initial) { await load() }
+                        return
+                    }
+                    #endif
                     await load()
     }
     private func appeared(_ note: Record, index: Int) {

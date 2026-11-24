@@ -1,0 +1,47 @@
+name: C99 synthetic native focus
+'on':
+  push:
+    branches: [diag-c99-native-focus]
+permissions:
+  contents: read
+jobs:
+  focus:
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false
+    name: C99 ${{ matrix.area }} / ${{ matrix.size }}
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small, large]
+        area: [world, friends]
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Run exact synthetic XCTest selection and classify privately
+        id: probe
+        shell: bash
+        env:
+          SIZE: ${{ matrix.size }}
+          AREA: ${{ matrix.area }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git hash-object diagnostics/c99/focus.py)" = "fdc4b1369f6fad0e2f3cd47564ff9bcf9e986368"
+          python3 -B diagnostics/c99/focus.py "$SIZE" "$AREA" >/dev/null 2>&1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: "!cancelled() && steps.probe.outputs.ready == 'true'"
+        with:
+          name: c99-${{ matrix.area }}-${{ matrix.size }}-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/c99-publish/state.json
+            ${{ runner.temp }}/c99-publish/original-*.png
+          retention-days: 7
+          if-no-files-found: error

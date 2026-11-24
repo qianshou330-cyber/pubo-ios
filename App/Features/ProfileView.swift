@@ -113,6 +113,15 @@ struct ProfileView: View {
     }
 }
 
+#if DEBUG
+private extension View {
+    @ViewBuilder
+    func c99ChildIdentifier(_ id: @autoclosure () -> String, when enabled: Bool) -> some View {
+        if enabled { accessibilityIdentifier(id()) } else { self }
+    }
+}
+#endif
+
 struct FollowListView: View {
     @Environment(AppSession.self) private var session
     let userID: String
@@ -125,17 +134,41 @@ struct FollowListView: View {
     @State private var visible = true
     @State private var requestID = UUID()
     private var context: String { session.generation.uuidString + "|" + userID + "|" + String(followers) }
+    #if DEBUG
+    private var c99ProbeEnabled: Bool {
+        session.testMode && !session.isolatedBackend &&
+        ProcessInfo.processInfo.arguments.contains("--c99-child-handles")
+    }
+    private var c99Route: String { followers ? "followers" : "following" }
+    #endif
     var body: some View {
         List {
             ForEach(page.rows) { row in
                 let user = Record(row[followers ? "follower" : "followee"])
-                NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } } }
+                NavigationLink { ProfileView(userID: user.id) } label: {
+                    HStack {
+                        Avatar(user: user)
+                        VStack(alignment: .leading) {
+                            Text(user.displayName)
+                            if let handle = FolloweeDisplayHandle.text(for: user) {
+                                Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                #if DEBUG
+                .c99ChildIdentifier("c99.row.\(c99Route).\(row.id).\(user.id)", when: c99ProbeEnabled)
+                #endif
             }
             if busy { ProgressView().accessibilityIdentifier("followList.loading") }
             if loaded && !busy && page.rows.isEmpty && !page.hasMore && error == nil { Text(followers ? "暂无关注者" : "暂无关注").accessibilityIdentifier("followList.empty") }
             if let error { ErrorBanner(message: error, retryIdentifier: "followList.retry") { Task { await load(reset: failedReset) } } }
             if loaded && page.hasMore { Button("加载更多") { Task { await load() } }.disabled(busy).accessibilityIdentifier("followList.more") }
-        }.puboList().navigationTitle(followers ? "关注者" : "关注")
+        }
+        #if DEBUG
+        .c99ChildIdentifier("c99.list." + c99Route, when: c99ProbeEnabled)
+        #endif
+        .puboList().navigationTitle(followers ? "关注者" : "关注")
             .onAppear { visible = true }
             .onDisappear { visible = false; requestID = UUID(); busy = false }
             .task(id: context) { page = FollowListPage(); loaded = false; error = nil; await load(reset: true) }
@@ -149,6 +182,10 @@ struct FollowListView: View {
         do {
             var fields: [String: JSONValue] = ["userId": .string(userID), "limit": .number(30)]
             if !reset, let cursor = page.cursor { fields["untilId"] = .string(cursor) }
+            #if DEBUG
+            // A child-only marker, independent of direction. Never sent to a real or isolated backend.
+            if c99ProbeEnabled { fields["c99ChildRead"] = .bool(true) }
+            #endif
             let result = try await session.call(followers ? "users/followers" : "users/following", fields)
             try Task.checkCancellation()
             guard visible, requestID == attempt, source == context else { return }

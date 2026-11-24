@@ -19,6 +19,7 @@ actor FixtureTransport: HTTPTransport {
     private var timelineReads = 0
     private var timelineOlderFailureSent = false
     #if DEBUG
+    private let c99WorldRetry = C99WorldRetryProbe()
     private var messagesRedesignReadIDs = Set<String>()
     private var messagesRedesignRoomRead = false
     // Only the detached Messages redesign probe opts into these additional rows/readbacks.
@@ -213,6 +214,10 @@ actor FixtureTransport: HTTPTransport {
         let body = (try? JSONDecoder().decode(JSONValue.self, from: request.httpBody ?? Data())) ?? .null
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if C99WorldOrigin.enabled,
+           C99WorldOrigin.source != nil || path.hasSuffix("-timeline") && path.hasPrefix("notes/") {
+            return try await c99WorldRetry.respond(request, body: body)
+        }
         let traceAttempt = UUID().uuidString
         let traceEnabled = args.contains("--chat-load-fail-once") && path == "chat/messages/user-timeline"
         func traceResponse(_ stage: String) {
@@ -244,6 +249,28 @@ actor FixtureTransport: HTTPTransport {
                 return (try JSONEncoder().encode(value), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
             }
             throw APIError(code: "NO_SUCH_KEY", message: "Synthetic preference is not set")
+        }
+        // DEBUG transport only. Root reads have no child marker and retain stock fixture rows.
+        // Direction and payload key come from the real requested URL, never a test argument.
+        if args.contains("--ui-testing"), args.contains("--c99-child-handles"),
+           body["c99ChildRead"].bool, body["userId"].string == Self.me["id"].string,
+           body["limit"].int == 30, body["untilId"].isNull,
+           path == "users/following" || path == "users/followers" {
+            let inbound = path == "users/followers"
+            let prefix = inbound ? "in" : "out"
+            let key = inbound ? "follower" : "followee"
+            let hosts: [JSONValue] = [.string(prefix + "-a.invalid"), .string(prefix + "-b.invalid"),
+                                      .null, .string("bad host.invalid")]
+            let rows: [JSONValue] = hosts.enumerated().map { index, host in
+                let suffix = prefix + String(index)
+                return .object(["id": .string("rel-" + suffix), key: .object([
+                    "id": .string("uid-" + suffix), "name": .string("同名样本"),
+                    "username": .string("twin"), "host": host
+                ])])
+            }
+            let encoded = try JSONEncoder().encode(JSONValue.array(rows))
+            return (encoded, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+                                             headerFields: ["Content-Type": "application/json"])!)
         }
         if path == "users/following", args.contains("--four-tabs-friends-hold") {
             fourTabFriendReads += 1

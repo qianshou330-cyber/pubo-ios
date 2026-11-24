@@ -13,7 +13,7 @@ BASE = 'c1850dd33db9271977607f4ef0242ccda1bdc076'
 SOURCES = {
     'Package.swift': 'bf7a9c5937c5e3b57bc1729aa53d86b13ed5cf22',
     'Sources/PUBOCore/JSONValue.swift': '3db70244d9f404407066d01333163870f2489559',
-    'App/Features/TimelineView.swift': '0dfdc965d993fac2edd5560e7731992847f14410',
+    'App/Features/TimelineView.swift': '203f03c4d2c5c8fc81f3664da0dc5ff2c392b767',
     'Sources/PUBOCore/TimelineState.swift': '35897552813bb69d84bc0afed42f7b4e91c60d58',
 }
 
