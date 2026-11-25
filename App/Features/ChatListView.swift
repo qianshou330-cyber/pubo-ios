@@ -147,6 +147,7 @@ struct ChatListView: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
+                .compositingGroup()
                 .buttonStyle(.plain)
                 .accessibilityLabel("添加好友")
                 .accessibilityIdentifier("messages.add")

@@ -150,6 +150,22 @@ class MessagesRedesignEvidence(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     verify_captures(rows, shots, size, UDID)
 
+    def test_home_header_plus_menu_keeps_compositing_boundary_and_identifiers(self):
+        source = (Path(__file__).resolve().parents[1] / 'App/Features/ChatListView.swift').read_text(encoding='utf-8')
+        header_start = source.index('private var homeHeader: some View')
+        search_start = source.index('NavigationLink(value: MessagesHomePage.search)', header_start)
+        menu_start = source.index('Menu {', header_start, search_start)
+        menu_block = source[menu_start:search_start]
+        self.assertIn('.accessibilityIdentifier("messages.scan")', menu_block)
+        self.assertIn('.accessibilityIdentifier("messages.addUsername")', menu_block)
+        self.assertIn('.accessibilityLabel("添加好友")', menu_block)
+        self.assertIn('.accessibilityIdentifier("messages.add")', menu_block)
+        compositing = menu_block.index('.compositingGroup()')
+        plain_style = menu_block.index('.buttonStyle(.plain)')
+        add_id = menu_block.index('.accessibilityIdentifier("messages.add")')
+        self.assertLess(compositing, plain_style)
+        self.assertLess(plain_style, add_id)
+
 
 if __name__ == '__main__':
     unittest.main()
