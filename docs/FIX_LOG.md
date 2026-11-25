@@ -11,6 +11,22 @@
   - 回退点：精确 C98 提交 `7abc4b1c1c9e2395350a9b15992e987243ceb303`（Git tree `c8521dbc2309cc74c2024157856c63488f98be77`）。
 - **本地验证**：`git diff --check` 与反向补丁校验（`git apply --reverse --check`）通过；`scripts/test_messages_redesign_evidence.py` 7/7、全量 Python 256/256、Node 2/2 通过；反向移除 `.compositingGroup()` 确认新合约拦截生效。本地为 Linux 环境，无 Xcode/iOS 模拟器，待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验两机型 `messages-redesign` 与 `navigation (interaction)` 的运行时警告是否清零、严格结果树及 13 张原图是否通过。
 
+### C100 精确提交终态
+
+精确 [C100 `afaf20df`](https://github.com/qianshou330-cyber/pubo-ios/commit/afaf20df9fb891d21e9eef692d6ee90a14d62605) 的 [CI 45633083581 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/attempts/1) 于 2026-11-25 16:43:42 UTC 结束，整轮失败（36 作业：18 通过、13 失败、0 取消、5 跳过）。核心检查（[作业 139271205831](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139271205831)，[产物 15031752255](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/artifacts/15031752255)）：Swift 220/220、Python 256/256（含新增合约单测）、Node 2/2 与宿主诊断（139271206429）均通过；OCR（139273060075）仍失败，未降门槛；[严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139350914691)与[正式打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139356396995)均跳过。
+
+- **消息首页专项（双机型首次同时严格 PASS）**：
+  - 标准机 iPhone 17（iOS 26.1）[作业 139273060153](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139273060153)（[产物 15038162490](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/artifacts/15038162490)，到期 2026-12-09 15:41:37 UTC）：XCTest **4/4** 全过，`testPlusKeepsBothFriendSheetsAndRealClose()` 附件降为 4 份纯截图（0 警告），`evidence.json` 为 **`PASS`**，严格结果树与 **13/13 张原生原图（`1206×2622`）** 全部核验通过，无 `method-tree-rejection.json`。
+  - 大屏机 iPhone 17 Pro Max（iOS 26.1）[作业 139273060137](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139273060137)（[产物 15041462395](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/artifacts/15041462395)，到期 2026-12-09 16:20:48 UTC）：XCTest **4/4** 全过，`testPlusKeepsBothFriendSheetsAndRealClose()` 附件降为 4 份纯截图（0 警告），`evidence.json` 为 **`PASS`**，严格结果树与 **13/13 张原生原图（`1320×2868`）** 全部核验通过。
+  - 已独立目视核对双机型 C98 → C100 加号菜单及浅/深色首页顶部与滚动末行原图（`合成会话 12` 完整避开底栏），外观一致无渲染异常。本专项仅证明合成 Debug 模拟器行为，不代表真机、H5 一致性或全量验收。
+- **四栏导航与其余非聊天回归**：
+  - 大屏机交互（[作业 139273060170](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139273060170)，[产物 15037129125](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/artifacts/15037129125)）：**7/7** XCTest 全过且严格结果树校验通过，全部 3 个点击 `messages.add` 的用例均去掉了 `Complete Issue Description.txt`（0 运行时警告），与消息专项双机交叉印证 `_UIReparentingView` 根因已消除。
+  - 标准机交互（139273059974，产物 15035791441）与双机路由（标准机 139273060125 / 大屏机 139273060080）均在进入用例前于 XCTest 无障碍初始化阶段超时（`Timed out waiting for AX loaded notification`），未执行对应方法。
+  - 旧回归双机均 3/5（标准机 139273059885、大屏机 139273059913）：`testAutoAcceptRequiresLockedAccountAndRetainsSelectionInBothThemes` 与 `testChatEditConflictAndLostResponseKeepDraftUntilManualResolution` 失败；另观察到通过的 `testHomePanelsAndChartNavigation` 在两机各附带 1 份 `Complete Issue Description.txt`（留待后续核查）。
+  - 世界圈：双机视频封面各 3/4（均在 `testServerThumbnailAvoidsVideoDecoder` 命中 `app.tab.world` 不可点击或查询超时，未到解码断言）；双机滚动标记诊断（标准机 139273060267 / 大屏机 139273060269）均 1/1 通过；世界圈跨页大屏机（139273060334，产物 15041906056）1/1 通过，标准机（139273060574）在 UI 查询快照超时。
+  - 聊天隔离线：两机动作、私聊双返回、群聊双返回、标准机状态、大屏机编辑器与 `h5-chat-reference` 通过；双机布局、标准机编辑器、大屏机状态失败。
+- **未签名设备候选**：[候选作业 139273060143](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/job/139273060143) 生成 [QA-INCOMPLETE 产物 15042550137](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45633083581/artifacts/15042550137)（到期 2026-12-09 16:24:25 UTC），已独立核实精确提交 `afaf20df`、`0.10.0`/build `148`、iPhoneOS `arm64` 未签名、`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa` `5,645,094` 字节、SHA-256 `08fb13c5c717c7e6add5bfe9671654b5d867f1f7f98869912f22c807248f2a24`。需签名装机，非正式打包、实体机验收或 GitHub Release，不替换 C71 试用基线。
+
 ## 2026-11-23 / C98 本地诊断候选：消息首页结果树拒绝回执
 
 - [精确 C97 `b6117bc`](https://github.com/qianshou330-cyber/pubo-ios/commit/b6117bc3b0a8c7ceb4ae959b49ab946c6b85fb01) 的 [标准机](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137509241472) 和 [Pro Max](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45119018439/job/137509241475) 消息首页用例各 4/4。之后原结果树校验在同一组合条件拒绝。已发布回执没有结果树，不能断定是套件／测试包、结果标签还是子节点，也不拿 C96 导航的警告节点推断此处原因。
