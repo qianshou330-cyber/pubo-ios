@@ -18,12 +18,12 @@ import tempfile
 import time
 import zlib
 
-BASE = "3818c9ad9ca7f0e32ecd18f3dd3e168cef641950"
-BASE_TREE = "bdcc0ebad7833e32b3f5cee6bdabd95a7feca22b"
+BASE = "77e372891c92c37981fdafbf626fd8ec92bb96f4"
+BASE_TREE = "0dbcef88afbd516aeff57e0cd2a17ffb8a21bc75"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
-       "diagnostics/c99/README.md", "UITests/C99FriendsChildHandlesUITests.swift"}
+       "diagnostics/c99/README.md"}
 STOCK = ".github/workflows/four-tabs.yml"
 PIN = {
     STOCK: "33762b7334f954b77c9ddedd65b4e7ff0d548447",
@@ -35,7 +35,7 @@ PIN = {
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "0d36d59a4b99bcd23bdd222894e6fc8d7cca9041",
+    "diagnostics/c99/README.md": "89a4aa5c79eab495bc2c4e78deb309ec10c95233",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",

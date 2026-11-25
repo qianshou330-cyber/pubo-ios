@@ -257,3 +257,17 @@ This successor updates only `UITests/C99FriendsChildHandlesUITests.swift`
 (without altering product code or weakening any identity, geometry, text, or
 PNG gate) to validate both non-empty child `StaticText` nodes and `row.label`
 split on `,，、\n`, and runs `small/friends` and `large/friends`.
+
+## Thirteenth run and single-lane small Friends retry
+
+[Run 45673783475, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45673783475)
+at `77e372891c92c37981fdafbf626fd8ec92bb96f4`:
+- `friends / large` (iPhone 17 Pro Max, iOS 26.1): **`VERIFIED_SYNTHETIC_ROW`**
+  ([artifact 15052077329](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45673783475/artifacts/15052077329)),
+  `runtimeWarningCount: 0`, 2 verified original PNGs (`C99-Friends-following`,
+  `C99-Friends-followers`).
+- `friends / small` (iPhone 17, [artifact 15052369442](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45673783475/artifacts/15052369442)):
+  `following` passed (`PASSED_RECORD`), while `followers` hit transient
+  `XCTEST_SNAPSHOT_TIMEOUT`.
+
+This successor reruns only `small/friends` with unchanged code, tests, and gates.
