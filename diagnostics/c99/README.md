@@ -219,3 +219,13 @@ This successor runs only the two standard-size lanes (`small/friends` and
 `small/world`) and maps each matched `testFailures` entry's `failureText` to a
 closed, redacted enum (`ProofError` / `C99ProbeFailure` / XCTest timeout class)
 without emitting any raw text. No product, test, or evidence-gate change.
+
+## Eleventh run and three-lane retry for closed-enum attribution
+
+[Run 45664245800, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45664245800)
+at `6f6cc46679278da37e99bd9c47e3314e3075b02d`:
+- `world / small`: matched `XCTEST_HITTABILITY` (intermittent `app.tab.world` AX hit test).
+- `friends / small`: hit `systemFailureMarker: PRESENT` (`appContainer: NOT_CONFIRMED`, runner AX bootstrap before tests).
+
+This successor runs `small/world`, `small/friends`, and `large/friends` in one
+parallel wave using the unchanged closed-enum failure classifier.

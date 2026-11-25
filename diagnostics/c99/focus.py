@@ -18,8 +18,8 @@ import tempfile
 import time
 import zlib
 
-BASE = "e07d8cbbcc7f528638ad578fed986608eacdf840"
-BASE_TREE = "7e0d0ab42112167fbf29cd4299dad0eefefe2a36"
+BASE = "6f6cc46679278da37e99bd9c47e3314e3075b02d"
+BASE_TREE = "b1a2d79a1def4de65939c8bb49f88bc7552d9faf"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
@@ -35,7 +35,7 @@ PIN = {
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "2addd9fb70d7a140ce21639dfe0ce34d82d7a6fe",
+    "diagnostics/c99/README.md": "abac5926505db951843763339f65ce0fbdb5e2fe",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",

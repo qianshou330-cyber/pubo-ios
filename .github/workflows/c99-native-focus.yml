@@ -6,12 +6,17 @@ permissions:
   contents: read
 jobs:
   focus:
-    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'e07d8cbbcc7f528638ad578fed986608eacdf840' && github.run_attempt == 1
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == '6f6cc46679278da37e99bd9c47e3314e3075b02d' && github.run_attempt == 1
     strategy:
       fail-fast: false
       matrix:
-        size: [small]
-        area: [friends, world]
+        include:
+          - size: small
+            area: world
+          - size: small
+            area: friends
+          - size: large
+            area: friends
     name: C99 ${{ matrix.area }} / ${{ matrix.size }} / stock env
     runs-on: macos-15-intel
     timeout-minutes: 60
@@ -31,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          test "$(git hash-object diagnostics/c99/focus.py)" = "5a01bd42990cbc0be8ff4ee072b956d2703bd196"
+          test "$(git hash-object diagnostics/c99/focus.py)" = "c110b82d6950830729927106df3206d76811a6ae"
           python3 -B diagnostics/c99/focus.py "${{ matrix.size }}" "${{ matrix.area }}" >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"
