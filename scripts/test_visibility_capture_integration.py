@@ -12,6 +12,16 @@ class VisibilityCaptureIntegrationContracts(unittest.TestCase):
         self.assertEqual(app.count(helper), 1)
         self.assertEqual(app.count('captureVisibleAfterRowChange()'), 3)
         restored = app.replace(helper, '').replace('visibleIDs.remove(note.id); captureVisibleAfterRowChange()', 'visibleIDs.remove(note.id); captureVisible()').replace('visibleIDs.insert(note.id)\n        captureVisibleAfterRowChange()', 'visibleIDs.insert(note.id)\n        captureVisible()')
+        # Reverse only the separately audited C101 initial-retry presentation and home.more Menu compositing boundary.
+        # The unchanged full-file digest rejects all unrelated drift.
+        retry_presentation = '                        if loading && requestContext == context && feed.notes.isEmpty && error != nil && !failedOlderRequest {\n                            ProgressView("正在加载帖子…")\n                                .frame(maxWidth: .infinity).padding(24)\n                                .accessibilityIdentifier("timeline.initialRetryLoading")\n                        } else {\n                            if let error, !failedOlderRequest { ErrorBanner(message: error) { Task { await load() } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }\n                            if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }\n                        }\n'
+        prior_presentation = '                        if let error, !failedOlderRequest { ErrorBanner(message: error) { Task { await load() } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }\n                        if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }\n'
+        self.assertEqual(restored.count(retry_presentation), 1)
+        restored = restored.replace(retry_presentation, prior_presentation, 1)
+        more_menu_boundary = '            } label: { FeedIcon(name: "dots").frame(width: 44, height: 44).contentShape(Rectangle()) }\n                .compositingGroup()\n                .accessibilityLabel("世界圈筛选").accessibilityIdentifier("home.more")\n'
+        prior_more_menu = '            } label: { FeedIcon(name: "dots").frame(width: 44, height: 44).contentShape(Rectangle()) }\n                .accessibilityLabel("世界圈筛选").accessibilityIdentifier("home.more")\n'
+        self.assertEqual(restored.count(more_menu_boundary), 1)
+        restored = restored.replace(more_menu_boundary, prior_more_menu, 1)
         data = restored.encode()
         self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), '3255655f356a6da11e8b3202a8a5df398d8f97fa')
 

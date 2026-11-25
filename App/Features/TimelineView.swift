@@ -141,8 +141,14 @@ struct TimelineView: View {
                         if preferences.fixedComposer && !composer { ComposeView(embedded: true) { Task { await load() } }.frame(minHeight: 180).id("timeline-composer") }
                         if let notice = session.timelineNotice { Text(notice).font(.caption).foregroundStyle(PUBOTheme.secondary).padding(10) }
                         if cached { Text("显示本机缓存，正在获取最新内容").font(.caption).foregroundStyle(.secondary) }
-                        if let error, !failedOlderRequest { ErrorBanner(message: error) { Task { await load() } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }
-                        if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
+                        if loading && requestContext == context && feed.notes.isEmpty && error != nil && !failedOlderRequest {
+                            ProgressView("正在加载帖子…")
+                                .frame(maxWidth: .infinity).padding(24)
+                                .accessibilityIdentifier("timeline.initialRetryLoading")
+                        } else {
+                            if let error, !failedOlderRequest { ErrorBanner(message: error) { Task { await load() } }.padding(12).accessibilityIdentifier("timeline.refreshRetry") }
+                            if feed.notes.isEmpty && !firstLoadFinished && error == nil { ForEach(0..<3) { _ in PostLoadingSkeleton().padding(12) } }
+                        }
         }
     }
     private var timelineRows: some View {
@@ -239,6 +245,7 @@ struct TimelineView: View {
                 }
                 #endif
             } label: { FeedIcon(name: "dots").frame(width: 44, height: 44).contentShape(Rectangle()) }
+                .compositingGroup()
                 .accessibilityLabel("世界圈筛选").accessibilityIdentifier("home.more")
             }.padding(.horizontal, 12)
         }.font(.caption).buttonStyle(.plain).foregroundStyle(PUBOTheme.secondary).background(PUBOTheme.panel).overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }

@@ -129,7 +129,17 @@ struct FollowListView: View {
         List {
             ForEach(page.rows) { row in
                 let user = Record(row[followers ? "follower" : "followee"])
-                NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } } }
+                NavigationLink { ProfileView(userID: user.id) } label: {
+                    HStack {
+                        Avatar(user: user)
+                        VStack(alignment: .leading) {
+                            Text(user.displayName)
+                            if let handle = FolloweeDisplayHandle.text(for: user) {
+                                Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
             }
             if busy { ProgressView().accessibilityIdentifier("followList.loading") }
             if loaded && !busy && page.rows.isEmpty && !page.hasMore && error == nil { Text(followers ? "暂无关注者" : "暂无关注").accessibilityIdentifier("followList.empty") }

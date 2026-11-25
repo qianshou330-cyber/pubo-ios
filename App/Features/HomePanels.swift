@@ -157,6 +157,7 @@ struct HomeChartPanel: View {
                         if let value = option["chartKey"].string { Button(option["label"].string ?? value) { session.selectChart(value) } }
                     } } }
                 } label: { HStack(spacing: 8) { Text(chart["provider"].string?.capitalized ?? "Melon"); Image(systemName: "chevron.down").font(.system(size: 10)) }.font(.system(size: 12)).frame(minHeight: 40).padding(.horizontal, 12).background(PUBOTheme.button, in: RoundedRectangle(cornerRadius: 10)) }
+                .compositingGroup()
                 .accessibilityLabel("切换榜单").disabled(data["charts"].array.isEmpty)
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: 2) {
