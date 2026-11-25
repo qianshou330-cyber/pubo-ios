@@ -1,4 +1,4 @@
-name: C99 single Friends stock invocation
+name: C99 stock simulator environment focus
 'on':
   push:
     branches: [diag-c99-native-focus]
@@ -6,8 +6,13 @@ permissions:
   contents: read
 jobs:
   focus:
-    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == 'a0954a837af3a5e68149b1cad65efa610f6740a6' && github.run_attempt == 1
-    name: C99 Friends / iPhone 17 / stock invocation
+    if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/diag-c99-native-focus' && github.event.deleted == false && github.event.before == '211bfe9c8c36ed2e662befb5625fd7ae10db2212' && github.run_attempt == 1
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [small, large]
+        area: [friends, world]
+    name: C99 ${{ matrix.area }} / ${{ matrix.size }} / stock env
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
@@ -20,18 +25,18 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 2
           persist-credentials: false
-      - name: Run the exact Friends methods with stock prebuilt settings
+      - name: Align Xcode selection and run strict C99 focus
         id: probe
         shell: bash
         run: |
           set -euo pipefail
-          umask 077
-          test "$(git hash-object diagnostics/c99/focus.py)" = "9a36465ea03c613646aa4319b9b7bbd71870067a"
-          python3 -B diagnostics/c99/focus.py small friends >/dev/null 2>&1
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          test "$(git hash-object diagnostics/c99/focus.py)" = "a56b435bbd63442e6fcec653f41f0bf3f35a7ff6"
+          python3 -B diagnostics/c99/focus.py "${{ matrix.size }}" "${{ matrix.area }}" >/dev/null 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: "!cancelled() && steps.probe.outputs.ready == 'true'"
         with:
-          name: c99-friends-stock-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          name: c99-${{ matrix.area }}-${{ matrix.size }}-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/c99-publish/state.json
             ${{ runner.temp }}/c99-publish/original-*.png

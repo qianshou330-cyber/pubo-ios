@@ -18,8 +18,8 @@ import tempfile
 import time
 import zlib
 
-BASE = "a0954a837af3a5e68149b1cad65efa610f6740a6"
-BASE_TREE = "15fc261cddf46633fbb0da6c24952d41600d801c"
+BASE = "211bfe9c8c36ed2e662befb5625fd7ae10db2212"
+BASE_TREE = "7068c684471ed093f3ac04e7822b9026e063f4ba"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
@@ -28,13 +28,14 @@ STOCK = ".github/workflows/four-tabs.yml"
 PIN = {
     STOCK: "33762b7334f954b77c9ddedd65b4e7ff0d548447",
     "scripts/simulator-tests.py": "c72a25bcf3a337b1373caccbe124a3988aad52dd",
+    "scripts/simulator_boot.py": "b944ca9087861e7b8fc0431c50bbc92d788743f2",
     "project.yml": "a8380cf91b2570ddbdfc71be2c59f8192ef44244",
     "diagnostics/c99/build_probe.py": "4804020597564a0d818a41c423be50c2a0e199e4",
     "scripts/iphone_qa_matrix.py": "88542174097d774ec808e915c4ad20fdd5587e76",
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "b6b9b124cc29eea5e656d89f7df3a8726821c3aa",
+    "diagnostics/c99/README.md": "73ffb7b13bbd1be1d5dfaa4cd5a2f27f5245a1ec",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",
@@ -327,6 +328,13 @@ def qa_helper():
     return mod
 
 
+def boot_helper():
+    spec = importlib.util.spec_from_file_location("pubo_c99_boot", "scripts/simulator_boot.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 TIME_MODE = "SUMMARY_TIME_DIAGNOSTIC"
 MISSING = object()
 # A timestamp-shaped string is only a diagnostic type, not an accepted input to
@@ -426,7 +434,7 @@ def planned_method_presence(tree, expected):
 COUNT_KEYS = ("passedTests", "failedTests", "skippedTests", "expectedFailures")
 RECORD_KIND = {"Passed":"PASSED_RECORD", "Failed":"FAILED_RECORD", "Skipped":"SKIPPED_RECORD",
                "Expected Failure":"EXPECTED_FAILURE_RECORD"}
-ROLES = {FOLLOWING: "following", FOLLOWERS: "followers"}
+ROLES = {FOLLOWING: "following", FOLLOWERS: "followers", WORLD: "worldRetry"}
 
 
 def count_provenance(summary, want):
@@ -449,12 +457,13 @@ def count_provenance(summary, want):
 def failed_role_rows(summary, expected):
     # Actual older PUBO XCResult summaries use these six fields. Only the exact
     # test identifier, method and URI combination may attribute to either role.
-    unknown = {role: "UNKNOWN" for role in ROLES.values()}
+    role_names = [ROLES[m] for m in expected]
+    unknown = {role: "UNKNOWN" for role in role_names}
     items = summary.get("testFailures")
     fields = {"failureText", "targetName", "testIdentifier", "testIdentifierString", "testIdentifierURL", "testName"}
     if type(items) is not list or len(items) > 64:
         return unknown
-    result = {role: "NOT_REPORTED" for role in ROLES.values()}
+    result = {role: "NOT_REPORTED" for role in role_names}
     for item in items:
         if (type(item) is not dict or set(item) != fields
             or item["targetName"] != "PUBOUITests" or type(item["testIdentifier"]) is not int
@@ -470,8 +479,9 @@ def failed_role_rows(summary, expected):
 
 
 def bound_tree_provenance(summary, tree, expected):
+    role_names = [ROLES[m] for m in expected]
     blank = dict(tree="UNRECOGNIZED", systemFailureMarker="UNKNOWN", extraCases="UNKNOWN",
-                 following="UNKNOWN", followers="UNKNOWN")
+                 **{role: "UNKNOWN" for role in role_names})
     if tree is MISSING:
         return blank | {"tree":"UNAVAILABLE"}
     row = summary["devicesAndConfigurations"][0]
@@ -488,12 +498,12 @@ def bound_tree_provenance(summary, tree, expected):
         return nodes[0].get("children")
     if tree["testNodes"] == []:
         return dict(tree="BOUND", systemFailureMarker="NOT_REPORTED", extraCases="NOT_REPORTED",
-                    following="NOT_REPORTED", followers="NOT_REPORTED")
+                    **{role: "NOT_REPORTED" for role in role_names})
     top = one(tree["testNodes"], "Test Plan", "PUBO")
     suites = one(top, "UI test bundle", "PUBOUITests", URL.rstrip("/"))
     if type(suites) is not list or len(suites) > 32:
         return blank
-    records = {r:"NOT_REPORTED" for r in ROLES.values()}
+    records = {r:"NOT_REPORTED" for r in role_names}
     seen = set()
     saw_class, saw_system, saw_extra = False, False, False
     class_name = next(iter(expected)).split("/")[0]
@@ -535,15 +545,14 @@ def bound_tree_provenance(summary, tree, expected):
                 extraCases="PRESENT" if saw_extra else "NOT_REPORTED", **records)
 
 
-STOCK_MODE = "C98_STOCK_FRIENDS_FOCUS"
+STOCK_MODE = "C99_STOCK_ENV_FOCUS"
 
 
-def stock_test_argv(private, identifier, result, expected):
-    # C98's exact prebuilt launch command context. Only DD, result location,
-    # and the method-limited C99 selection belong to this diagnostic run.
+def stock_test_argv(dd_path, identifier, result, expected):
+    # Match four-tabs.yml / simulator-tests.py prebuilt launch context.
     return ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
             "-destination", "platform=iOS Simulator,id="+identifier, "-destination-timeout", "90",
-            "-derivedDataPath", str(private/"dd"), "-resultBundlePath", str(result),
+            "-derivedDataPath", str(dd_path), "-resultBundlePath", str(result),
             "-parallel-testing-enabled", "NO"] + [
                 "-only-testing:PUBOUITests/"+method[:-2] for method in expected
             ] + ["CODE_SIGNING_ALLOWED=NO", "test-without-building"]
@@ -569,6 +578,7 @@ def native(private, state, size, area, summary_only=False, stock_focus=False):
     preflight(state["commit"], state)
     setup_phase(state, SetupPhase.QA_HELPER_LOAD)
     qa = qa_helper()
+    sim_boot = boot_helper()
     setup_phase(state, SetupPhase.QA_MATRIX)
     need(qa.RUNTIME == RUNTIME and qa.MATRIX[size]["model"] == MODEL[size]
          and tuple(3*qa.MATRIX[size][k] for k in ("width", "height")) == DIMS[size], "DEVICE_REJECTED")
@@ -580,47 +590,50 @@ def native(private, state, size, area, summary_only=False, stock_focus=False):
     command(["swift", "scripts/brand-assets.swift"], 120)
     setup_phase(state, SetupPhase.PROJECT_GENERATE)
     command(["xcodegen", "generate"], 120)
-    # Stock unsigned Debug build-for-testing: no device, UI launch, or public build log.
-    state.pop("setupPhase", None)
-    state["status"] = "BUILD_UNAVAILABLE"
-    state["buildPhase"] = "BUILD_FOR_TESTING"
-    shared = ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
-              "-sdk", "iphonesimulator", "-derivedDataPath", str(private/"dd")]
+    # Stock unsigned Debug build-for-testing in normal-permission build/c99-work (cleaned in finally).
+    work_root = Path("build/c99-work").resolve()
+    shutil.rmtree(work_root, ignore_errors=True)
+    dd_path = work_root / "debug"
+    dd_path.mkdir(parents=True, exist_ok=True)
+    identifier = None
     try:
-        rc = command(shared + ["-destination", "generic/platform=iOS Simulator", "CODE_SIGNING_ALLOWED=NO",
-                               "ARCHS=x86_64", "ONLY_ACTIVE_ARCH=YES", "build-for-testing"],
-                     900, check=False).returncode
-    except subprocess.TimeoutExpired:
-        raise Reject("BUILD_TIMEOUT") from None
-    state["buildExitZero"] = rc == 0
-    need(rc == 0, "BUILD_NONZERO")
-    state.pop("buildPhase")
-    state["status"] = "SETUP_UNAVAILABLE"
-    setup_phase(state, SetupPhase.SIM_INVENTORY)
-    inventory = qa.available_inventory()
-    setup_phase(state, SetupPhase.SIM_TEMPLATE)
-    template = qa.select_template(inventory, size)
-    name = "C99 " + MODEL[size]
-    setup_phase(state, SetupPhase.SIM_CREATE)
-    device = qa.create_device(size, template, name)
-    identifier = device["udid"]
-    try:
-        setup_phase(state, SetupPhase.SIM_BOOT)
-        command(["xcrun", "simctl", "boot", identifier], 90)
+        state.pop("setupPhase", None)
+        state["status"] = "BUILD_UNAVAILABLE"
+        state["buildPhase"] = "BUILD_FOR_TESTING"
+        shared = ["xcodebuild", "-project", "PUBO.xcodeproj", "-scheme", "PUBO", "-configuration", "Debug",
+                  "-sdk", "iphonesimulator", "-derivedDataPath", str(dd_path)]
+        try:
+            rc = command(shared + ["-destination", "generic/platform=iOS Simulator", "CODE_SIGNING_ALLOWED=NO",
+                                   "ARCHS=x86_64", "ONLY_ACTIVE_ARCH=YES", "build-for-testing"],
+                         900, check=False).returncode
+        except subprocess.TimeoutExpired:
+            raise Reject("BUILD_TIMEOUT") from None
+        state["buildExitZero"] = rc == 0
+        need(rc == 0, "BUILD_NONZERO")
+        state.pop("buildPhase")
+        state["status"] = "SETUP_UNAVAILABLE"
+        setup_phase(state, SetupPhase.SIM_INVENTORY)
+        inventory = qa.available_inventory()
+        setup_phase(state, SetupPhase.SIM_TEMPLATE)
+        template = qa.select_template(inventory, size)
+        name = "C99 " + MODEL[size]
+        setup_phase(state, SetupPhase.SIM_CREATE)
+        device = qa.create_device(size, template, name)
+        identifier = device["udid"]
         setup_phase(state, SetupPhase.SIM_BOOT_WAIT)
         try:
-            command(["xcrun", "simctl", "bootstatus", identifier, "-b"], 240)
+            sim_boot.boot(identifier, private / "boot.json")
         except subprocess.TimeoutExpired:
             state["bootWaitFailure"] = "TIMEOUT"
             raise
         except (OSError, subprocess.CalledProcessError):
             state["bootWaitFailure"] = "COMMAND_ERROR"
             raise
-        result = private / "focused.xcresult"
+        result = work_root / "focused.xcresult"
         state.pop("setupPhase", None)
         state["status"] = "NATIVE_UNAVAILABLE"
         if stock_focus:
-            args = stock_test_argv(private, identifier, result, expected)
+            args = stock_test_argv(dd_path, identifier, result, expected)
         else:
             args = shared + ["-destination", "platform=iOS Simulator,id="+identifier, "-resultBundlePath", str(result),
                     "-parallel-testing-enabled", "NO", "-test-iterations", "1"]
@@ -688,17 +701,19 @@ def native(private, state, size, area, summary_only=False, stock_focus=False):
         return original_bytes(parse(manifest.read_bytes()), attachment_dir, expected, size, device, summary)
     finally:
         # Fresh device UUID validated by the pinned constructor; the hosted VM is also ephemeral.
-        for verb in ("shutdown", "delete"):
-            try:
-                command(["xcrun", "simctl", verb, identifier], 30, check=False)
-            except (OSError, subprocess.TimeoutExpired):
-                pass
+        if identifier is not None:
+            for verb in ("shutdown", "delete"):
+                try:
+                    command(["xcrun", "simctl", verb, identifier], 30, check=False)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+        shutil.rmtree(work_root, ignore_errors=True)
 
 
 def run(args, env, runner=native, summary_only=False, stock_focus=False):
     size, area = args
-    if summary_only or stock_focus:
-        need((size, area) == ("small", "friends") and not (summary_only and stock_focus), "CONTEXT_REJECTED")
+    if summary_only:
+        need((size, area) == ("small", "friends") and not stock_focus, "CONTEXT_REJECTED")
     head, run_id, attempt = env["GITHUB_SHA"], env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"]
     need(size in DIMS and area in EXPECTED and env.get("GITHUB_REPOSITORY") == REPO
          and env.get("GITHUB_REF") == REF and env.get("GITHUB_EVENT_NAME") == "push"

@@ -168,3 +168,33 @@ No native command, simulator/boot, app, test, or success/evidence-gate change.
 No additional provider tool call, raw diagnostics, or failure images. If the
 coarse result is still inconclusive, inspect in a separately authorized macOS
 environment; do not keep repeating the same hosted check.
+
+## Ninth run and stock simulator environment alignment
+
+[Run 45361077267, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45361077267)
+at `211bfe9c8c36ed2e662befb5625fd7ae10db2212` compiled the Debug bundle
+(`buildExitZero: true`) and then stopped in `SIM_BOOT_WAIT` (`TIMEOUT` after
+240s, `status: SETUP_UNAVAILABLE`, `nativeExitZero: null`) before any test ran.
+
+Comparing `.github/workflows/c99-native-focus.yml` and `diagnostics/c99/focus.py`
+against the working `four-tabs.yml` + `scripts/simulator_boot.py` environment
+identified three concrete runner-environment differences:
+
+1. `c99-native-focus.yml` only set `DEVELOPER_DIR` without running
+   `sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer`,
+   which `four-tabs.yml` runs before CoreSimulator services start.
+2. `c99-native-focus.yml` ran under `umask 077` while `focus.py` placed both
+   `-derivedDataPath` and `-resultBundlePath` inside a `0700` temporary
+   directory, matching Run 8's `appContainer: NOT_CONFIRMED` and `TEST_COUNTS`
+   failure before any planned method ran.
+3. `focus.py` ran a single 240s `xcrun simctl bootstatus -b` with no recovery,
+   unlike `scripts/simulator_boot.py`'s 300s timeout plus bounded shutdown,
+   `CoreSimulatorService` reset, and one retry.
+
+This successor aligns ONLY those three runner-environment details (pinning
+`scripts/simulator_boot.py`, running `sudo xcode-select -s`, removing
+`umask 077` from build/test with ephemeral `build/c99-debug` and
+`build/c99-focused.xcresult` cleaned up in `finally`) and runs the full 2x2
+matrix (`small`/`large` x `friends`/`world`). All six C99 Swift source files,
+all strict summary/tree/zero-warning/PNG gates, and redacted state-only failure
+publication remain unchanged.
