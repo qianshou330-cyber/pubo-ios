@@ -88,13 +88,18 @@ final class C99FriendsChildHandlesUITests: XCTestCase {
                 throw ProofError.invalidGeometry
             }
             // Read rendered text, never a test-populated value or a generated display handle.
+            // zh-Hans SwiftUI joins combined NavigationLink labels with '、' (U+3001) while also exposing child staticText nodes.
             let textNodes = puboSnapshotDescendants(row).filter { $0.elementType == .staticText }
-            let labels = row.label.isEmpty ? textNodes.map { $0.label } : [row.label]
-            let tokens = labels.flatMap { $0.components(separatedBy: CharacterSet(charactersIn: ",，\n")) }
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
             let expected = ["同名样本"] + [handles[i]].compactMap { $0 }
-            guard tokens == expected else { throw ProofError.wrongText }
-            readings.append(RowReading(id: id, text: tokens, frame: frame))
+            let splitters = CharacterSet(charactersIn: ",，、\n")
+            let labelTokens = row.label.components(separatedBy: splitters)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            let staticTokens = textNodes.map { $0.label.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            guard !staticTokens.isEmpty || !labelTokens.isEmpty else { throw ProofError.wrongText }
+            if !staticTokens.isEmpty { guard staticTokens == expected else { throw ProofError.wrongText } }
+            if !labelTokens.isEmpty { guard labelTokens == expected else { throw ProofError.wrongText } }
+            readings.append(RowReading(id: id, text: !staticTokens.isEmpty ? staticTokens : labelTokens, frame: frame))
         }
         return readings
     }

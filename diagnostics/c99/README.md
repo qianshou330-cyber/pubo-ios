@@ -229,3 +229,31 @@ at `6f6cc46679278da37e99bd9c47e3314e3075b02d`:
 
 This successor runs `small/world`, `small/friends`, and `large/friends` in one
 parallel wave using the unchanged closed-enum failure classifier.
+
+## Twelfth run and zh-Hans NavigationLink label delimiter fix
+
+[Run 45668875105, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45668875105)
+at `3818c9ad9ca7f0e32ecd18f3dd3e168cef641950`:
+- `world / small` (iPhone 17, iOS 26.1): **`VERIFIED_SYNTHETIC_ROW`**
+  ([artifact 15049986468](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45668875105/artifacts/15049986468)),
+  `runtimeWarningCount: 0`, 3 verified original PNGs (`initial-503`,
+  `retry-pending`, `retry-restored`). Combined with Run 10 `world / large`
+  (`15045002137`), World empty-list initial retry is now strictly verified on
+  both iPhone 17 and iPhone 17 Pro Max.
+- `friends / small` (iPhone 17, [artifact 15051115117](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45668875105/artifacts/15051115117)):
+  both `following` and `followers` executed and matched `PROOF_WRONG_TEXT`.
+- `friends / large` (iPhone 17 Pro Max): `following` matched
+  `PROOF_WRONG_TEXT` (`followers` hit `XCTEST_SNAPSHOT_TIMEOUT`).
+
+Real iOS 26.1 AX trees from C100 `four-tabs-evidence-large-interaction`
+(`15037129125`) confirm that `zh-Hans` SwiftUI joins combined `NavigationLink`
+button labels with the Chinese ideographic comma `、` (`U+3001`, e.g.
+`'测试朋友、@friend、已关注'`), while also exposing separate child `StaticText`
+nodes. `C99FriendsChildHandlesUITests.swift` previously split `row.label` only
+on `,`, `，`, and `\n` and ignored non-empty `StaticText` children whenever
+`row.label` was non-empty.
+
+This successor updates only `UITests/C99FriendsChildHandlesUITests.swift`
+(without altering product code or weakening any identity, geometry, text, or
+PNG gate) to validate both non-empty child `StaticText` nodes and `row.label`
+split on `,，、\n`, and runs `small/friends` and `large/friends`.
