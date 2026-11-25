@@ -198,3 +198,24 @@ This successor aligns ONLY those three runner-environment details (pinning
 matrix (`small`/`large` x `friends`/`world`). All six C99 Swift source files,
 all strict summary/tree/zero-warning/PNG gates, and redacted state-only failure
 publication remain unchanged.
+
+## Tenth run and closed-enum failure-reason attribution
+
+[Run 45658803649, attempt 1](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45658803649)
+at `e07d8cbbcc7f528638ad578fed986608eacdf840` resolved the runner-environment
+blockers on all 4/4 jobs (`buildExitZero: true`, `appContainer: PRESENT`,
+`systemFailureMarker: NOT_REPORTED`, `plannedMethods: PLANNED_METHOD_REPORTED`,
+`tree: BOUND`, exact expected test counts):
+
+- `world / large` (iPhone 17 Pro Max, iOS 26.1): **`VERIFIED_SYNTHETIC_ROW`**
+  ([artifact 15045002137](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45658803649/artifacts/15045002137)),
+  `runtimeWarningCount: 0`, 3 verified original PNGs (`initial-503`,
+  `retry-pending`, `retry-restored`).
+- `world / small` (iPhone 17), `friends / small` (iPhone 17), and
+  `friends / large` (iPhone 17 Pro Max) executed their planned methods and
+  recorded `FAILED_RECORD` on the planned cases.
+
+This successor runs only the two standard-size lanes (`small/friends` and
+`small/world`) and maps each matched `testFailures` entry's `failureText` to a
+closed, redacted enum (`ProofError` / `C99ProbeFailure` / XCTest timeout class)
+without emitting any raw text. No product, test, or evidence-gate change.

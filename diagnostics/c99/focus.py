@@ -18,8 +18,8 @@ import tempfile
 import time
 import zlib
 
-BASE = "211bfe9c8c36ed2e662befb5625fd7ae10db2212"
-BASE_TREE = "7068c684471ed093f3ac04e7822b9026e063f4ba"
+BASE = "e07d8cbbcc7f528638ad578fed986608eacdf840"
+BASE_TREE = "7e0d0ab42112167fbf29cd4299dad0eefefe2a36"
 REPO = "qianshou330-cyber/pubo-ios"
 REF = "refs/heads/diag-c99-native-focus"
 NEW = {".github/workflows/c99-native-focus.yml", "diagnostics/c99/focus.py",
@@ -35,7 +35,7 @@ PIN = {
     "scripts/iphone-qa-matrix.json": "d1850ade1d1b2291658f5e2332fb718282f42610",
 }
 SOURCE_PIN = {
-    "diagnostics/c99/README.md": "73ffb7b13bbd1be1d5dfaa4cd5a2f27f5245a1ec",
+    "diagnostics/c99/README.md": "2addd9fb70d7a140ce21639dfe0ce34d82d7a6fe",
     "App/Features/ProfileView.swift": "84841e78347bb4f27c9d5b687dcda212ce1cee69",
     "App/Features/TimelineView.swift": "203f03c4d2c5c8fc81f3664da0dc5ff2c392b767",
     "App/Infrastructure/C99WorldRetryProbe.swift": "448b910b0fb94e37b5163cbe97144ac1c56d225c",
@@ -454,6 +454,49 @@ def count_provenance(summary, want):
                            "AGREES" if sum(local) == total else "SUM_DISAGREES"))
 
 
+def classify_failure_text(text):
+    # Closed-enum classification only; never emit raw failureText.
+    if type(text) is not str:
+        return "OTHER"
+    rules = (
+        ("PROOF_WRONG_ROUTE", ("wrongRoute", "ProofError error 0")),
+        ("PROOF_AMBIGUOUS_LIST", ("ambiguousList", "ProofError error 1")),
+        ("PROOF_INVALID_GEOMETRY", ("invalidGeometry", "ProofError error 2")),
+        ("PROOF_WRONG_ROWS", ("wrongRows", "ProofError error 3")),
+        ("PROOF_AMBIGUOUS_ROW", ("ambiguousRow", "ProofError error 4")),
+        ("PROOF_WRONG_TEXT", ("wrongText", "ProofError error 5")),
+        ("PROOF_CHANGED", ("changed", "ProofError error 6")),
+        ("WORLD_EXPECTED_TAB", ("expected selected World tab",)),
+        ("WORLD_EXPECTED_RECOMMENDED", ("expected selected Recommended feed",)),
+        ("WORLD_UNEXPECTED_FOLLOWING", ("unexpected Following selection",)),
+        ("WORLD_SINGLE_SCROLL", ("expected a single timeline.scroll",)),
+        ("WORLD_FALSE_EMPTY", ("false empty",)),
+        ("WORLD_MISSING_503_OR_STALE", ("missing scoped first 503",)),
+        ("WORLD_HELD_MISMATCH", ("held request shows old error",)),
+        ("WORLD_RECOVERED_MISMATCH", ("no current-run Local recovery row",)),
+        ("WORLD_RETRY_UNAVAILABLE", ("real initial Retry unavailable",)),
+        ("WORLD_NO_PENDING", ("no pending state",)),
+        ("WORLD_TRANSPORT_UNOBSERVED", ("transport did not observe",)),
+        ("WORLD_RECOVERY_ROW_ABSENT", ("unique recovery row absent",)),
+        ("WORLD_STAGE_MISMATCH", ("transport stage expected",)),
+        ("WORLD_LATCH_ERROR", ("register phase", "register release", "init phase", "init release")),
+        ("WORLD_PROBE_ERROR", ("C99ProbeFailure",)),
+        ("XCTEST_SNAPSHOT_TIMEOUT", ("Timed out while evaluating UI query",)),
+        ("XCTEST_AX_TIMEOUT", ("AX loaded notification",)),
+        ("XCTEST_HITTABILITY", ("Failed to determine hittability",)),
+        ("XCTEST_TAP_FOLLOWING", ("friends.following",)),
+        ("XCTEST_TAP_FOLLOWERS", ("friends.followers",)),
+        ("XCTEST_TAB_FRIENDS", ("app.tab.friends", "好友")),
+        ("XCTEST_TAB_WORLD", ("app.tab.world", "世界圈")),
+        ("XCTEST_ASSERT_EQUAL", ("XCTAssertEqual failed",)),
+        ("XCTEST_ASSERT_TRUE", ("XCTAssertTrue failed",)),
+    )
+    for label, needles in rules:
+        if any(n in text for n in needles):
+            return label
+    return "OTHER"
+
+
 def failed_role_rows(summary, expected):
     # Actual older PUBO XCResult summaries use these six fields. Only the exact
     # test identifier, method and URI combination may attribute to either role.
@@ -474,7 +517,7 @@ def failed_role_rows(summary, expected):
             or item["testName"] != ident.split("/")[1] or item["testIdentifierURL"] != URL+ident[:-2]):
             return unknown
         if ident in expected:
-            result[ROLES[ident]] = "MATCHED"
+            result[ROLES[ident]] = "MATCHED:" + classify_failure_text(item["failureText"])
     return result
 
 
