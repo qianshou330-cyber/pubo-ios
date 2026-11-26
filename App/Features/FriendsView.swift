@@ -80,9 +80,14 @@ struct FriendsView: View {
                     }
                 } header: { Text("我关注的人") } footer: { Text("这里沿用关注／互相关注关系。关注申请获批不等于双方已互相关注。") }
                     .listRowBackground(PUBOTheme.panel)
-            }.puboList(titleDisplayMode: .large).navigationTitle("好友")
+            }.puboList().navigationTitle("好友")
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
-                .toolbar { NavigationLink { AddFriendView() } label: { Label("添加好友", systemImage: "plus") }.accessibilityIdentifier("friends.add") }
+                .toolbar {
+                    PUBOLeadingNavTitle(title: "好友")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink { AddFriendView() } label: { Label("添加好友", systemImage: "plus") }.accessibilityIdentifier("friends.add")
+                    }
+                }
                 .task(id: taskGeneration.uuidString + String(taskVisible)) {
                     guard taskVisible, visible, !Task.isCancelled, taskGeneration == session.generation else { return }
                     if initializedGeneration != session.generation {

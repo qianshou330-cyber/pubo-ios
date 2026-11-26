@@ -58,17 +58,17 @@ struct PUBOButtonStyle: ButtonStyle {
 }
 
 extension View {
-    func puboScreen(background: Bool = true, titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline) -> some View {
+    func puboScreen(background: Bool = true) -> some View {
         foregroundStyle(PUBOTheme.text).tint(PUBOTheme.accent)
             .modifier(NoteCardNavigation())
             .background((background ? PUBOTheme.background : Color.clear).ignoresSafeArea())
-            .navigationBarTitleDisplayMode(titleDisplayMode)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
             .toolbarBackground(PUBOTheme.panel, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
     }
-    func puboList(titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline) -> some View {
-        listStyle(.plain).scrollContentBackground(.hidden).puboScreen(titleDisplayMode: titleDisplayMode)
+    func puboList() -> some View {
+        listStyle(.plain).scrollContentBackground(.hidden).puboScreen()
     }
     func puboForm() -> some View {
         scrollContentBackground(.hidden).puboScreen()
@@ -84,6 +84,29 @@ extension View {
         padding(14).frame(minHeight: 48)
             .background(PUBOTheme.background, in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider, lineWidth: 1))
+    }
+}
+
+extension ToolbarContent {
+    @ToolbarContentBuilder
+    func hideSharedBackgroundIfAvailable() -> some ToolbarContent {
+        if #available(iOS 26.0, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
+    }
+}
+
+struct PUBOLeadingNavTitle: ToolbarContent {
+    let title: String
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Text(title).font(.title2.bold()).foregroundStyle(PUBOTheme.text).fixedSize().accessibilityAddTraits(.isHeader)
+        }.hideSharedBackgroundIfAvailable()
+        ToolbarItem(placement: .principal) {
+            Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        }
     }
 }
 

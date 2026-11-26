@@ -1,5 +1,20 @@
 # 修复日志
 
+## 2026-11-26 / C106 候选（C105 实测回归收口）：以 iOS 26 兼容左对齐标题修复大标题隐身，并以盾锁图标恢复「账号与隐私设置」快捷入口
+
+- **问题与 C105 实测证据**：
+  1. **iOS 26.1 `.large` 大标题被实色导航栏遮隐**：目视复核 C105 `navigation (small, interaction)` 真实原图（`15119654637`）并对标题区域像素采样（`y=170..440` 全为纯色 `#FFFFFF` / `#192320`），确认 `.navigationBarTitleDisplayMode(.large)` 与 `PUBOTheme` 的 `.toolbarBackground(PUBOTheme.panel, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)` 叠加在 iOS 26.1 上会导致「好友」「我的」标题文字完全不可见。
+  2. **双机旧回归 `testNativePrivacyAndVerificationStatus` 确定性失败**：`UITests/PUBOUITests.swift:67`（`openSettings`）在「我的」首页直接查找并点击 `app.buttons["账号与隐私设置"]`，因 C105 移除了 `MyAccountView` 右上角直达 `AccountSettingsView()` 入口而在双机 `legacy-regression`（`139910251829`/`139910251975`）上均失败。
+- **最小修复方案（3 个产品 Swift 文件 + 合约单测同步，未改动聊天详情、工作流或任何门禁）**：
+  1. `App/Components/PUBOTheme.swift`：恢复 `puboScreen()` 与 `puboList()` 默认 `.inline`；新增 `ToolbarContent.hideSharedBackgroundIfAvailable()`（在 `#available(iOS 26.0, *)` 下调用 `.sharedBackgroundVisibility(.hidden)`，避免 iOS 26 液态玻璃胶囊包裹纯文字标题，同时保持 iOS 17.0 部署目标编译通过）与 `PUBOLeadingNavTitle(title:)`（`.topBarLeading` 渲染与「消息 / 世界圈」一致的左对齐 `.title2.bold()` 标题，`.principal` 放透明占位抑制居中重复标题，完整保留 `.navigationTitle(...)` 与 `app.navigationBars["我的"]`）。
+  2. `App/Features/FriendsView.swift`：改回 `.puboList().navigationTitle("好友")`，在 `.toolbar` 中放置 `PUBOLeadingNavTitle(title: "好友")` 与右侧 `ToolbarItem(placement: .topBarTrailing)` 的 `friends.add` 添加按钮。
+  3. `App/Features/ProfileView.swift`（`MyAccountView`）：改回 `.puboList().navigationTitle("我的")`，在 `.toolbar` 中放置 `PUBOLeadingNavTitle(title: "我的")` 并以语义区分的盾锁图标 `lock.shield`（取代原重复齿轮 `gearshape`）恢复右上角直达 `AccountSettingsView()` 的 `.accessibilityLabel("账号与隐私设置")` 入口。
+  4. 同步更新 `scripts/test_c105_ui_layout_contracts.py` 守护上述 C106 合约。
+  - 产品补丁 SHA-256（`git diff App/`）：`d15fc8ec5ab63a698aded0397b3a05f14960290439e6bf1fb12455268eb71c64`；回退点：C105 `0871d5c1ab14f66fa79f039d177897a4e6fb5bdd`。
+- **本地验证（推送前）**：
+  - **通过**：`git diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **272/272**、Node 隔离单测 **2/2**。
+  - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验「好友 / 我的」浅深色左对齐标题清晰可见、双机 `legacy-regression` 恢复通过、全套 0 警告、C104 vs C106 前后对照图及最终独立核验的未签名候选 IPA。
+
 ## 2026-11-26 / C105 候选（页面 UI 布局自查全量修复）：消除通知双标题、发帖栏悬空、好友/我的布局割裂、主页空白行、卡片留白洞、登录重复标题与深色按钮刺眼问题
 
 - **问题与视觉自查依据（经用户批复“全部修”实施）**：
@@ -26,6 +41,15 @@
 - **本地验证（推送前）**：
   - **通过**：`git -c core.whitespace=cr-at-eol diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **272/272**（含新增 `test_c105_ui_layout_contracts.py` 4/4、C102/C104 菜单边界与可见性来源锁全过）、Node 隔离单测 **2/2**。
   - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验精确 CI 终态、全套零警告扫描、C104 vs C105 前后真机像素对照图及新版未签名候选 IPA。
+
+### C105 精确提交终态
+
+精确 [C105 `0871d5c1`](https://github.com/qianshou330-cyber/pubo-ios/commit/0871d5c1ab14f66fa79f039d177897a4e6fb5bdd) 的 [CI 45819840676 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45819840676/attempts/1) 于 2026-11-26 15:19:17 UTC 结束，整轮失败（36 作业：**14 通过、17 失败、0 取消、5 跳过**）。核心检查（`139908952662`）：Swift **220/220**、Python **272/272**、Node **2/2** 与宿主诊断（`139908952434`）全过；OCR（`139910251747`）仍失败；严格导航汇总与正式打包跳过。
+
+- **全套零警告保持**：全部 **31/31** 个已执行作业日志全量扫描为 **0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**。
+- **通过项与目视核验结论**：`navigation (small, interaction)`（`139910251777`，产物 `15119654637`，7/7 严格通过）、`navigation (small, routing)`（`139910251856`，6/6 严格通过）、`messages-redesign (large)`（`139910251656`，产物 `15121250147`，4/4 严格通过）、`video-poster (large)`（`139910251871`）、双机 `chat-alignment (layout)`（`139910251768`/`139910251706`）、`diagnostic-private-back` 双路（`139910251826`/`139910252084`）、`diagnostic-room-back (without-picker)`（`139910251928`）、`diagnostic-world-scroll (signposts, large)`（`139910253454`）、`h5-chat-reference`（`139910251906`）与 `candidate-package`（`139910251916`）均通过。目视核验 10 张原图确认 7/8 项布局修复（通知单标题栏、发帖键盘停靠、个人主页消除空白行、链接预览无左侧空白洞、未登录页去重与公告顺序、深色世界圈按钮柔化、好友图标对齐与深色行底色）全部 100% 生效。
+- **实测发现的 2 项 C105 回归（不覆盖交付包，立即由 C106 收口）**：① `.navigationBarTitleDisplayMode(.large)` 叠加 `.toolbarBackground(.visible, for: .navigationBar)` 在 iOS 26.1 导致「好友」「我的」标题不可见；② 移除 `MyAccountView` 右上角「账号与隐私设置」导致双机 `legacy-regression`（`139910251829`/`139910251975`）中 `testNativePrivacyAndVerificationStatus` 在 `PUBOUITests.swift:67` 失败。
+- **未签名设备候选（仅作历史归档，不交付）**：[QA-INCOMPLETE 产物 15126522794](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45819840676/artifacts/15126522794)（到期 2026-12-10 14:24:00 UTC，ZIP `5,637,670` 字节），已独立核实 `0871d5c1`、`0.10.0`/build `148`、arm64 未签名、`5,673,664` 字节、SHA-256 `fa56465a05fb653759f260e8ae4df536c1ac8c31b58adfc8ac539e5c6c717978`；因上述 2 项实测发现不对外替换交付包，以 C106 核验后产物为准。
 
 ## 2026-11-26 / C104 候选（非聊天优先）：收口非聊天分页空态/重试滞留缺陷与全仓最后 2 处非工具栏菜单边界
 

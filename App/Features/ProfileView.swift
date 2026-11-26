@@ -364,13 +364,20 @@ struct MyAccountView: View {
                         .accessibilityIdentifier("me.settings")
                     NavigationLink { MoreSocialView() } label: { Label("更多功能", systemImage: "square.grid.2x2") }
                 }.listRowBackground(PUBOTheme.panel)
-            }.puboList(titleDisplayMode: .large).navigationTitle("我的")
+            }.puboList().navigationTitle("我的")
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
                 .navigationDestination(for: AccountCountDestination.self) { destination in
                     switch destination {
                     case .posts(let id): ProfileView(userID: id)
                     case .following(let id): FollowListView(userID: id, followers: false)
                     case .followers(let id): FollowListView(userID: id, followers: true)
+                    }
+                }
+                .toolbar {
+                    PUBOLeadingNavTitle(title: "我的")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink { AccountSettingsView() } label: { Image(systemName: "lock.shield").frame(minWidth: 44, minHeight: 44) }
+                            .accessibilityLabel("账号与隐私设置")
                     }
                 }
         }

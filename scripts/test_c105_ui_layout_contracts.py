@@ -22,28 +22,33 @@ class C105UILayoutContracts(unittest.TestCase):
         self.assertIn('editorTools.padding(.horizontal, 16).padding(.vertical, 2)', inset_block)
         self.assertIn('Rectangle().fill(PUBOTheme.divider).frame(height: 0.5)', inset_block)
 
-    def test_friends_and_me_use_large_titles_panel_rows_aligned_icons_and_tappable_counts(self):
+    def test_friends_and_me_use_leading_nav_titles_panel_rows_aligned_icons_and_tappable_counts(self):
         theme = (ROOT / 'App/Components/PUBOTheme.swift').read_text()
-        self.assertIn('func puboScreen(background: Bool = true, titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline)', theme)
-        self.assertIn('func puboList(titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline)', theme)
+        self.assertIn('func hideSharedBackgroundIfAvailable() -> some ToolbarContent', theme)
+        self.assertIn('sharedBackgroundVisibility(.hidden)', theme)
+        self.assertIn('struct PUBOLeadingNavTitle: ToolbarContent', theme)
 
         friends = (ROOT / 'App/Features/FriendsView.swift').read_text()
         self.assertIn('Label("我的关注", systemImage: "person.badge.plus")', friends)
         self.assertIn('Label("我的关注者", systemImage: "person.2")', friends)
         self.assertEqual(friends.count('.listRowBackground(PUBOTheme.panel)'), 2)
-        self.assertIn('.puboList(titleDisplayMode: .large).navigationTitle("好友")', friends)
+        self.assertIn('.puboList().navigationTitle("好友")', friends)
+        self.assertIn('PUBOLeadingNavTitle(title: "好友")', friends)
 
         profile = (ROOT / 'App/Features/ProfileView.swift').read_text()
         me = profile.split('struct MyAccountView: View', 1)[1].split('struct MyAccountSettingsView: View', 1)[0]
         self.assertNotIn('accessibilityIdentifier("me.posts")', me)
         self.assertNotIn('Label("我的动态"', me)
-        self.assertNotIn('ToolbarItem(placement: .topBarTrailing)', me)
+        self.assertNotIn('Image(systemName: "gearshape")', me)
+        self.assertIn('Image(systemName: "lock.shield")', me)
+        self.assertIn('.accessibilityLabel("账号与隐私设置")', me)
         self.assertIn('identifier: "me.count.posts"', me)
         self.assertIn('identifier: "me.count.following"', me)
         self.assertIn('identifier: "me.count.followers"', me)
         self.assertIn('.navigationDestination(for: AccountCountDestination.self)', me)
         self.assertEqual(me.count('.listRowBackground(PUBOTheme.panel)'), 3)
-        self.assertIn('.puboList(titleDisplayMode: .large).navigationTitle("我的")', me)
+        self.assertIn('.puboList().navigationTitle("我的")', me)
+        self.assertIn('PUBOLeadingNavTitle(title: "我的")', me)
 
     def test_role_badges_link_preview_auth_and_world_compose_button_fixes(self):
         common = (ROOT / 'App/Components/CommonViews.swift').read_text()
