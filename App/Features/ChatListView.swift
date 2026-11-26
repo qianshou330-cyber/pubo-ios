@@ -83,8 +83,9 @@ struct ChatListView: View {
                             .accessibilityIdentifier("chat.availability")
                             .padding(.vertical, 10)
                     }
-                    if let issue = error ?? state.error {
+                    if !state.busy, let issue = error ?? state.error {
                         ErrorBanner(message: issue, retryIdentifier: "messages.retry") {
+                            error = nil
                             Task { await state.load(session) }
                         }.padding(.vertical, 10)
                     }

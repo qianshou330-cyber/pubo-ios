@@ -37,7 +37,7 @@ struct DriveManagerView: View {
                 }
                 if fileMore { Button("更多文件") { Task { await load(part: "files") } }.disabled(busy) }
             }
-            if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
             if creationPending { Text("上次创建文件夹的结果待确认，请先核对当前列表。"); Button("已核对，允许继续创建") { do { try session.markPendingAction(intentKey, pending: false); creationPending = false } catch { self.error = error.localizedDescription } } }
             if busy { ProgressView() }
         }.puboList().navigationTitle(title)

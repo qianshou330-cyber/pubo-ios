@@ -124,7 +124,7 @@ struct TimelineView: View {
         LazyVStack(spacing: 0) {
             timelineHeading
             timelineRows
-            if let error, failedOlderRequest {
+            if !loading, let error, failedOlderRequest {
                 ErrorBanner(message: "加载更早帖子失败：" + error, retryIdentifier: "timeline.retryOlder") { Task { await load(older: true) } }
                     .padding(12)
             }
@@ -536,6 +536,7 @@ struct NoteCard: View {
                         Button("转发") { Task { await renote() } }
                         Button("引用转发") { quoting = true }
                     } label: { HStack(spacing: 3) { NoteIcon(system: "arrow.2.squarepath", web: "repeat", appearance: appearance, size: actionSize); if shown["renoteCount"].int > 0 { Text("\(shown["renoteCount"].int)").font(appearance.isTimeline ? .system(size: actionCountSize) : .caption2) } }.frame(minWidth: 44, minHeight: 44).feedHitShape(appearance) }
+                    .compositingGroup()
                     .accessibilityLabel("转发或引用").accessibilityIdentifier("note.renote." + rowID)
                 } else {
                     Image(systemName: "nosign").font(.system(size: actionSize))
@@ -564,7 +565,7 @@ struct NoteCard: View {
                     if let id = ownDeleteID { Button((session.user?["pinnedNoteIds"].array.compactMap(\.string) ?? []).contains(id) ? "取消置顶帖子" : "置顶到个人主页") { Task { await pin(id) } } }
                     if shown.user.id != session.user?.id { Button("举报帖子") { reporting = true }; Button("屏蔽作者", role: .destructive) { confirmBlock = true } }
                     Link("在网页打开原帖", destination: Endpoint.origin.appendingPathComponent("notes/" + shown.id))
-                } label: { NoteIcon(system: "ellipsis", web: "dots", appearance: appearance, size: actionSize).frame(width: 44, height: 44).feedHitShape(appearance) }.accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + rowID)
+                } label: { NoteIcon(system: "ellipsis", web: "dots", appearance: appearance, size: actionSize).frame(width: 44, height: 44).feedHitShape(appearance) }.compositingGroup().accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + rowID)
             }.buttonStyle(.borderless).foregroundStyle(appearance.isTimeline ? FeedColors.action : PUBOTheme.secondary).disabled(busy)
             } else { Text("登录后可回复、转发或添加反应").font(.caption).foregroundStyle(.secondary) }
 
@@ -649,10 +650,12 @@ struct NoteDetailView: View {
     @State private var replyPage = NoteDetailReplyPage()
     @State private var error: String?
     @State private var busy = false
+    @State private var failedOlder = false
     var body: some View {
         List {
             if let note { NoteCard(note: note, detail: true) }
-            if let error { ErrorBanner(message: error) { Task { await load() } } }
+            else if busy { ProgressView("正在加载帖子…") }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load(older: failedOlder) } } }
             Section("回复") {
                 ForEach(replyPage.rows) { NoteCard(note: $0) }
                 if replyPage.olderCursor != nil {
@@ -672,8 +675,8 @@ struct NoteDetailView: View {
             if let cursor { fields["untilId"] = .string(cursor) }
             let result = try await session.call("notes/replies", fields)
             try replyPage.apply(result, older: older)
-            error = nil
-        } catch { self.error = error.localizedDescription }
+            failedOlder = false; error = nil
+        } catch { failedOlder = older; self.error = error.localizedDescription }
     }
 }
 

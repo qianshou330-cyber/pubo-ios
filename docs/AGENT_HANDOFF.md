@@ -8,12 +8,16 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
-## 当前检查点 C103 终态：全套 36 作业 iOS 26.1 运行时警告彻底清零，21/36 通过创历史新高
+## 当前检查点 C104 候选（非聊天优先，待 `four-tabs.yml` 精确 CI 验收）：非聊天分页空态/重试滞留收口与全仓非工具栏菜单 100% 边界保护
+
+- **C104 候选改动（纯非聊天视图 + 来源锁同步 + 合约单测，未改工作流或任何门禁）**：① 修复 `RoomsView` 失败误显「暂无群聊」、重试滞留与并发覆盖；② 统一为消息首页、世界圈翻页与 `NoteDetailView`、`ContactsView`/`ContactGroupView`、`AddFriendView`、`NotificationsView`、`TagNotesView`、`ProfileView`、`DriveManagerView`、`ScheduledNotesView` 补齐加载期隐藏旧 `ErrorBanner` 及重试防重入，并补齐 `ContactGroupView`/`RoomMembersView` 跨站账号副标题；③ 为 `TimelineView.swift` `NoteCard` 全仓最后 2 处非工具栏 `Menu`（`note.renote`、`note.more`）补齐 `.compositingGroup()`，同步更新来源锁并新增全仓菜单守护单测 `scripts/test_c104_nonchat_state_contracts.py`（本地 Python **268/268**、Node **2/2**，产品补丁 SHA-256 `b2eb5ed622db067a818bdff4cd4c890254c75ffa4484a9a3bb369221ba4d098f`，回退点 `3131e205`）。详见 [C104 候选记录](FIX_LOG.md)。
+- **下一步推进**：推送 C104 触发 `four-tabs.yml` 并跟踪至终态，核验全套 36 作业继续保持 0 运行时警告、核心与模拟器回归结果及新版未签名候选 IPA，随后产出 Walkthrough 交付报告。
+
+## 历史检查点 C103 终态：全套 36 作业 iOS 26.1 运行时警告彻底清零，21/36 通过创历史新高
 
 - **C103 精确终态**：[C103 `76ef466b` 精确 CI 45763132829](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45763132829/attempts/2) 第 1 次（2026-11-26 07:59:09 UTC）36 作业 **20 通过、11 失败、5 跳过**（`candidate-package` 在 `CreateArtifact` 接口 5 次超时）；第 2 次仅单作业重跑 `candidate-package`（[139771935549](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45763132829/job/139771935549)，2026-11-26 08:20:06 UTC）成功产出 [QA-INCOMPLETE 产物 15097774678](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45763132829/artifacts/15097774678)，整轮仍为失败（**21 通过、10 失败、0 取消、5 跳过**；Swift 220/220、Python 265/265、Node 2/2 通过；OCR 仍失败；严格导航汇总与正式打包跳过）。
   - **全套零警告实证**：全部 31 个已执行作业全量日志扫描均为 **0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**。
   - **聊天与非聊天关键通过项**：双机 `chat-presentation (composer)`（`139718547041`/`139718547093`）均由 C102 失败翻绿为 **4/4 零警告**；`diagnostic-private-back (after-picker)`（`139718547151`）翻绿 1/1 零警告；`diagnostic-room-back` 双路（`139718547114`/`139718547125`）全过零警告；`messages-redesign (small)`（`139718546935`）严格 `PASS`；双机 `legacy-regression` 5/5 全过；双机 `navigation (routing)` 6/6 全过；`navigation (large, interaction)` 7/7 全过；`video-poster (small)` 4/4 通过。详见 [C103 终态](FIX_LOG.md#c103-精确提交终态)。
-- **下一阶段未完成项**：① 真机实测与签名装机（真实相机扫码、APNs、iOS 17 最低系统及覆盖升级）；② 持续观察 `macOS-15-intel` 模拟器瞬时 UI 查询/8s 等待超时分片与未降门槛的 `ocr-validation` 基线问题；③ 非聊天页若有新同状态 H5 对照样本，继续按「世界圈 → 消息首页 → 好友页 → 我的页」顺序核对修复。
 
 ## 历史检查点 C102 终态：非聊天线 0 运行时警告，36 作业 19 通过创近期新高
 

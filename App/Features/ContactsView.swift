@@ -21,12 +21,12 @@ struct ContactsView: View {
         List {
             if let user = session.user { NavigationLink("我的关注") { FollowListView(userID: user.id, followers: false) }; NavigationLink("我的关注者") { FollowListView(userID: user.id, followers: true) } }
             if loading { ProgressView().accessibilityIdentifier("contacts.loading") }
-            if loaded && groups.isEmpty && error == nil { Text("暂无联系人分组").foregroundStyle(.secondary) }
+            if !loading && loaded && groups.isEmpty && error == nil { Text("暂无联系人分组").foregroundStyle(.secondary) }
             ForEach(groups) { group in
                 NavigationLink { ContactGroupView(group: group) } label: { HStack { Text(group["name"].string ?? "联系人分组"); Spacer(); Text("\(group["userIds"].array.count)").foregroundStyle(.secondary) } }
                     .swipeActions { Button("重命名") { editing = group; name = group["name"].string ?? ""; showName = true }; Button("删除", role: .destructive) { deleting = group } }.disabled(busy)
             }
-            if let error { ErrorBanner(message: error, retryIdentifier: "contacts.retry") { Task { await load() } } }
+            if !loading, let error { ErrorBanner(message: error, retryIdentifier: "contacts.retry") { Task { await load(fromRetry: true) } } }
             if uncertain { Text("请先核对分组列表，确认没有重复创建。").font(.caption); Button("已核对，继续操作") { do { try session.markPendingAction("contact-group-create", pending: false); uncertain = false } catch { self.error = error.localizedDescription } } }
         }.puboList().navigationTitle("联系人").toolbar { Button("新建分组") { editing = nil; name = ""; showName = true }.disabled(busy || uncertain) }
             .task(id: session.generation) {
@@ -47,8 +47,8 @@ struct ContactsView: View {
                 if let deleting { Button("删除分组", role: .destructive) { let generation = session.generation; Task { await remove(deleting, expectedGeneration: generation) } } }
             }
     }
-    private func load() async {
-        guard visible, !busy else { return }
+    private func load(fromRetry: Bool = false) async {
+        guard visible, !busy, (!fromRetry || !loading) else { return }
         let ticket = UUID(), generation = session.generation
         readID = ticket; loading = true
         defer { if readID == ticket { loading = false } }
@@ -124,13 +124,23 @@ struct ContactGroupView: View {
         List {
             if loading { ProgressView().accessibilityIdentifier("contactGroup.loading") }
             ForEach(members.rows) { user in
-                NavigationLink { ChatView(peer: user) } label: { HStack { Avatar(user: user); Text(user.displayName) } }
+                NavigationLink { ChatView(peer: user) } label: {
+                    HStack {
+                        Avatar(user: user)
+                        VStack(alignment: .leading) {
+                            Text(user.displayName)
+                            if let handle = FolloweeDisplayHandle.text(for: user) {
+                                Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
                     .swipeActions { Button("移出分组", role: .destructive) { let generation = session.generation; Task { await change(user, add: false, expectedGeneration: generation) } }.disabled(changing) }
             }
-            if loaded && members.rows.isEmpty && error == nil { Text("分组暂无联系人").foregroundStyle(.secondary) }
+            if !loading && loaded && members.rows.isEmpty && error == nil { Text("分组暂无联系人").foregroundStyle(.secondary) }
             if members.hasMore { Button("加载更多联系人") { Task { await load(reset: false) } }.disabled(loading || changing).accessibilityIdentifier("contactGroup.more") }
             if let warning { Text(warning).font(.caption).foregroundStyle(.secondary) }
-            if let error { ErrorBanner(message: error, retryIdentifier: "contactGroup.retry") { Task { await load(reset: retryReset) } } }
+            if !loading, let error { ErrorBanner(message: error, retryIdentifier: "contactGroup.retry") { Task { await load(reset: retryReset, fromRetry: true) } } }
         }.puboList().navigationTitle(group["name"].string ?? "联系人分组")
             .toolbar {
                 // Remains available during the initial read, including an otherwise empty List.
@@ -149,8 +159,8 @@ struct ContactGroupView: View {
             }.refreshable { await load(reset: true) }
             .onDisappear { visible = false; readID = UUID(); loading = false; adding = false }
     }
-    private func load(reset: Bool) async {
-        guard visible, !changing, reset || (!loading && members.hasMore) else { return }
+    private func load(reset: Bool, fromRetry: Bool = false) async {
+        guard visible, !changing, (!fromRetry || !loading), reset || (!loading && members.hasMore) else { return }
         let ticket = UUID(), generation = session.generation
         readID = ticket; loading = true
         defer { if readID == ticket { loading = false } }

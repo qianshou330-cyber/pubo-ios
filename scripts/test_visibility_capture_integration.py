@@ -22,6 +22,32 @@ class VisibilityCaptureIntegrationContracts(unittest.TestCase):
         prior_more_menu = '            } label: { FeedIcon(name: "dots").frame(width: 44, height: 44).contentShape(Rectangle()) }\n                .accessibilityLabel("世界圈筛选").accessibilityIdentifier("home.more")\n'
         self.assertEqual(restored.count(more_menu_boundary), 1)
         restored = restored.replace(more_menu_boundary, prior_more_menu, 1)
+        # Reverse only the separately audited C104 older-retry banner hide, NoteCard Menu compositing boundaries, and NoteDetailView retry state.
+        c104_pairs = [
+            (
+                '            if !loading, let error, failedOlderRequest {\n',
+                '            if let error, failedOlderRequest {\n',
+            ),
+            (
+                '                    .compositingGroup()\n                    .accessibilityLabel("转发或引用").accessibilityIdentifier("note.renote." + rowID)\n',
+                '                    .accessibilityLabel("转发或引用").accessibilityIdentifier("note.renote." + rowID)\n',
+            ),
+            (
+                '                } label: { NoteIcon(system: "ellipsis", web: "dots", appearance: appearance, size: actionSize).frame(width: 44, height: 44).feedHitShape(appearance) }.compositingGroup().accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + rowID)\n',
+                '                } label: { NoteIcon(system: "ellipsis", web: "dots", appearance: appearance, size: actionSize).frame(width: 44, height: 44).feedHitShape(appearance) }.accessibilityLabel("帖子更多操作").accessibilityIdentifier("note.more." + rowID)\n',
+            ),
+            (
+                '    @State private var busy = false\n    @State private var failedOlder = false\n    var body: some View {\n        List {\n            if let note { NoteCard(note: note, detail: true) }\n            else if busy { ProgressView("正在加载帖子…") }\n            if !busy, let error { ErrorBanner(message: error) { Task { await load(older: failedOlder) } } }\n',
+                '    @State private var busy = false\n    var body: some View {\n        List {\n            if let note { NoteCard(note: note, detail: true) }\n            if let error { ErrorBanner(message: error) { Task { await load() } } }\n',
+            ),
+            (
+                '            failedOlder = false; error = nil\n        } catch { failedOlder = older; self.error = error.localizedDescription }\n',
+                '            error = nil\n        } catch { self.error = error.localizedDescription }\n',
+            ),
+        ]
+        for current_snippet, prior_snippet in c104_pairs:
+            self.assertEqual(restored.count(current_snippet), 1)
+            restored = restored.replace(current_snippet, prior_snippet, 1)
         data = restored.encode()
         self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), '3255655f356a6da11e8b3202a8a5df398d8f97fa')
 

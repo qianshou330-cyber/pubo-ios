@@ -12,6 +12,7 @@ struct ProfileView: View {
     @State private var reporting = false
     @State private var editing = false
     @State private var busy = false
+    @State private var loadingProfile = false
     @State private var hasMore = true
     @State private var followConfirmation: ProfileFollowAction?
     @State private var followNeedsRefresh = false
@@ -69,7 +70,7 @@ struct ProfileView: View {
                     }
                 }
             }
-            if let error { ErrorBanner(message: error) { Task { await load() } } }
+            if !busy && !loadingProfile, let error { ErrorBanner(message: error) { Task { await load() } } }
             if let user, !user["pinnedNotes"].array.isEmpty { Section("置顶帖子") { ForEach(Record.list(user["pinnedNotes"])) { NoteCard(note: $0) } } }
             Section("帖子") { ForEach(notes) { NoteCard(note: $0) }; if hasMore && !notes.isEmpty { Button("加载更多") { Task { await loadNotes(older: true) } }.disabled(busy) } }
         }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
@@ -81,7 +82,10 @@ struct ProfileView: View {
             }
     }
     private func load() async {
-        do { user = Record(try await session.call("users/show", ["userId": .string(userID)])); followNeedsRefresh = false; error = nil; await loadNotes() }
+        guard !loadingProfile else { return }
+        loadingProfile = true
+        defer { loadingProfile = false }
+        do { user = Record(try await session.call("users/show", ["userId": .string(userID)])); followNeedsRefresh = false; error = nil; loadingProfile = false; await loadNotes() }
         catch { self.error = error.localizedDescription }
     }
     private func loadNotes(older: Bool = false) async {

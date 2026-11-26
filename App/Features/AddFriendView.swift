@@ -40,7 +40,7 @@ struct AddFriendView: View {
             } footer: { Text("先查看用户资料，再选择关注或申请关注。扫码不会自动添加，也不会打开登录、付款等链接。") }
             if !searchAvailable { Text("当前账号没有用户搜索权限。请联系管理员核对账号权限。").accessibilityIdentifier("addFriend.permission") }
             if busy { ProgressView().accessibilityIdentifier("addFriend.loading") }
-            if let error { ErrorBanner(message: error, retryIdentifier: "addFriend.retry") { Task { await search(reset: failedReset) } } }
+            if !busy, let error { ErrorBanner(message: error, retryIdentifier: "addFriend.retry") { Task { await search(reset: failedReset) } } }
             ForEach(users) { user in
                 NavigationLink { ProfileView(userID: user.id) } label: {
                     HStack {

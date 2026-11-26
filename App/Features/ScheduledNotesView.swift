@@ -19,7 +19,7 @@ struct ScheduledNotesView: View {
                     Button("取消定时，保留服务器草稿", role: .destructive) { selected = row }.disabled(busy)
                 }
             }
-            if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
             if more { Button("加载更多") { Task { await load() } }.disabled(busy) }
             if !busy && rows.isEmpty && error == nil { Text("暂无定时帖子") }
         }.puboList().navigationTitle("定时帖子").task { await load(reset: true) }.refreshable { await load(reset: true) }

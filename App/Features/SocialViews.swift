@@ -91,7 +91,7 @@ struct TagNotesView: View {
     @State private var more = true
     @State private var busy = false
     var body: some View {
-        List { ForEach(notes) { NoteCard(note: $0) }; if let error { ErrorBanner(message: error) { Task { await load() } } }; if more { Button("加载更多") { Task { await load() } }.disabled(busy) } }
+        List { ForEach(notes) { NoteCard(note: $0) }; if !busy, let error { ErrorBanner(message: error) { Task { await load() } } }; if more { Button("加载更多") { Task { await load() } }.disabled(busy) } }
             .puboList().navigationTitle("#" + tag).task { await load() }
     }
     private func load() async {

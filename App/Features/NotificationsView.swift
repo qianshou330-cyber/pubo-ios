@@ -195,7 +195,7 @@ struct NotificationsView: View {
                     Color.clear.preference(key: NotificationScrollTop.self, value: g.frame(in: .named("notification-scroll")).minY)
                 })
                 if tab != .all { noteControls }
-                if let errorMessage { ErrorBanner(message: errorMessage) { Task { await load(older: retryOlder) } } }
+                if !loading, let errorMessage { ErrorBanner(message: errorMessage) { Task { await load(older: retryOlder) } } }
                 ForEach(Array(displayed.enumerated()), id: \.element.id) { index, item in
                     VStack(spacing: 0) {
                         if index > 0 { dateBoundary(displayed[index - 1], item) }

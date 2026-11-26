@@ -1,5 +1,20 @@
 # 修复日志
 
+## 2026-11-26 / C104 候选（非聊天优先）：收口非聊天分页空态/重试滞留缺陷与全仓最后 2 处非工具栏菜单边界
+
+- **问题与审计依据（经用户批准 `implementation_plan.md` 实施）**：
+  1. **已有群聊页报错误显空态与并发竞态**：`App/Features/RoomsView.swift` 原仅按 `rows.isEmpty && !busy` 渲染 `"暂无群聊"`，接口失败时会在错误横幅上方同时误显空列表文案；切换分段未清空旧 `error`，`load()` 亦缺少防重入与请求票据守卫。
+  2. **非聊天多页重试加载期旧 `ErrorBanner` 滞留**：消息首页（`ChatListView.swift`）、世界圈翻页与帖子详情（`TimelineView.swift` / `NoteDetailView`）、联系人与分组成员（`ContactsView.swift`）、添加好友（`AddFriendView.swift`）、通知（`NotificationsView.swift`）、标签帖子（`SocialViews.swift`）、个人主页（`ProfileView.swift`）、网盘（`DriveManagerView.swift`）与定时帖子（`ScheduledNotesView.swift`）在失败后点重试加载期间未隐藏旧错误横幅；`ContactsView`/`ContactGroupView` 在空列表刷新加载中亦未隐藏空文案；`NoteDetailView` 初始读取中无加载指示器且重试固定重置而非复试原失败分页方向。
+  3. **跨站账号副标题收口**：`ContactGroupView` 与 `RoomMembersView` 成员行补齐 `FolloweeDisplayHandle.text(for: user)` + `Text(verbatim: handle)`（核对 `FixtureTransport.swift:295` 联系人夹具显式含 `"host": .null`，不破坏既有分页测试）。
+  4. **全仓最后 2 处非工具栏 `Menu` 隔离边界**：为 `App/Features/TimelineView.swift` `NoteCard.actions` 中的 `note.renote` 与 `note.more` 添加 `.compositingGroup()`，使全仓 `App/` 全部 18 处非工具栏 `Menu` 实现 100% iOS 26.1 `_UIReparentingView` 边界保护。
+- **改动范围（纯非聊天视图 + 来源锁同步 + 源码合约单测，未改动聊天详情、工作流或任何门禁）**：
+  - 生产代码（10 个文件）：`App/Features/TimelineView.swift`、`App/Features/ChatListView.swift`、`App/Features/RoomsView.swift`、`App/Features/ContactsView.swift`、`App/Features/AddFriendView.swift`、`App/Features/NotificationsView.swift`、`App/Features/SocialViews.swift`、`App/Features/ProfileView.swift`、`App/Features/DriveManagerView.swift`、`App/Features/ScheduledNotesView.swift`。
+  - 来源锁与合约测试：同步更新 `scripts/timeline-capture-bench/run.py` 中 `App/Features/TimelineView.swift` 整文件 blob 哈希至 `0d3f500efa38ce55b174b16a27a5d1965c1f418e`；在 `scripts/test_visibility_capture_integration.py` 中仅逆向抵消上述已审计改动并维持原 `3255655f356a6da11e8b3202a8a5df398d8f97fa` 整文件门禁不变；新增 `scripts/test_c104_nonchat_state_contracts.py`（3 项测试守护全部状态条件与全仓 100% 非工具栏 `Menu` `.compositingGroup()` 覆盖）。
+  - 产品补丁 SHA-256（`git diff App/`）：`b2eb5ed622db067a818bdff4cd4c890254c75ffa4484a9a3bb369221ba4d098f`；回退点：`3131e2051780bd50cc8dfd7489ba2d65f4b5d00f`（代码基线 C103 `76ef466b4c04c48dfcf6662f12d2563b688537da`）。
+- **本地验证（推送前）**：
+  - **通过**：`git diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **268/268**（含新增 `test_c104_nonchat_state_contracts.py` 3/3、可见性来源锁与基准合约全过）、Node 隔离单测 **2/2**。
+  - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验精确 CI 终态、全套零警告扫描、原图及新版未签名候选 IPA。
+
 ## 2026-11-26 / C103 候选（聊天隔离线）：隔离私聊与群聊非工具栏菜单的 iOS 26 运行时警告
 
 - **问题与证据（聊天隔离线独立排查）**：

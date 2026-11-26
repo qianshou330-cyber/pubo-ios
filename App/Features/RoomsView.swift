@@ -11,6 +11,9 @@ struct RoomsView: View {
     @State private var rows: [Record] = []
     @State private var hasMore = false
     @State private var busy = false
+    @State private var loaded = false
+    @State private var failedOlder = false
+    @State private var requestID = UUID()
     @State private var error: String?
     @State private var creating = false
     private var endpoint: String { section == "invited" ? "chat/rooms/invitations/inbox" : "chat/rooms/" + section }
@@ -22,22 +25,25 @@ struct RoomsView: View {
                 NavigationLink { RoomChatView(roomID: room.id) } label: { VStack(alignment: .leading) { Text(room["name"].string ?? "群聊"); Text(room["description"].string ?? "").lineLimit(2).font(.caption).foregroundStyle(.secondary) } }
             }
             if busy { ProgressView() }
-            if rows.isEmpty && !busy { Text("暂无群聊") }
+            if !busy && loaded && rows.isEmpty && error == nil { Text("暂无群聊") }
             if hasMore { Button("加载更多") { Task { await load(older: true) } }.disabled(busy) }
-            if let error { ErrorBanner(message: error) { Task { await load() } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load(older: failedOlder, fromRetry: true) } } }
         }.puboList().chatNavigationTitle("群聊", embedded: embedded).toolbar { if !embedded && allowsCreation { Button("创建群聊") { creating = true } } }
-            .task(id: section) { rows = []; hasMore = false; await load() }.refreshable { await load() }
+            .task(id: section) { requestID = UUID(); rows = []; hasMore = false; loaded = false; failedOlder = false; error = nil; await load() }.refreshable { await load() }
             .sheet(isPresented: $creating, onDismiss: { if section != "owned" { selectedSection = "owned" } else { Task { await load() } } }) { RoomEditor() }
     }
-    private func load(older: Bool = false) async {
-        let requestedSection = section; busy = true; defer { if requestedSection == section { busy = false } }
+    private func load(older: Bool = false, fromRetry: Bool = false) async {
+        guard (!fromRetry || !busy), (!older || !busy) else { return }
+        let requestedSection = section, ticket = UUID()
+        requestID = ticket; busy = true
+        defer { if requestID == ticket && requestedSection == section { busy = false } }
         do {
             var fields: [String: JSONValue] = ["limit": .number(30)]
             if older, let id = rows.last?.id { fields["untilId"] = .string(id) }
             let value = try await session.call(endpoint, fields); try Task.checkCancellation()
-            guard requestedSection == section, case .array = value else { return }
-            let page = Record.list(value); rows = older ? rows + page.filter { p in !rows.contains { $0.id == p.id } } : page; hasMore = page.count == 30; error = nil
-        } catch { if !Task.isCancelled && requestedSection == section { self.error = error.localizedDescription } }
+            guard requestID == ticket, requestedSection == section, case .array = value else { return }
+            let page = Record.list(value); rows = older ? rows + page.filter { p in !rows.contains { $0.id == p.id } } : page; hasMore = page.count == 30; loaded = true; failedOlder = false; error = nil
+        } catch { if !Task.isCancelled && requestID == ticket && requestedSection == section { failedOlder = older; self.error = error.localizedDescription } }
     }
 }
 
@@ -102,11 +108,38 @@ struct RoomMembersView: View {
     @State private var inviting = false
     var body: some View {
         List {
-            if let owner, !owner.id.isEmpty { NavigationLink { ProfileView(userID: owner.id) } label: { HStack { Avatar(user: owner); Text(owner.displayName); Text("群主").font(.caption).foregroundStyle(.secondary) } } }
-            ForEach(rows.filter { $0["user"]["id"].string != owner?.id }) { row in let user = Record(row["user"]); NavigationLink { ProfileView(userID: user.id) } label: { HStack { Avatar(user: user); Text(user.displayName) } } }
+            if let owner, !owner.id.isEmpty {
+                NavigationLink { ProfileView(userID: owner.id) } label: {
+                    HStack {
+                        Avatar(user: owner)
+                        VStack(alignment: .leading) {
+                            Text(owner.displayName)
+                            if let handle = FolloweeDisplayHandle.text(for: owner) {
+                                Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Text("群主").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            ForEach(rows.filter { $0["user"]["id"].string != owner?.id }) { row in
+                let user = Record(row["user"])
+                NavigationLink { ProfileView(userID: user.id) } label: {
+                    HStack {
+                        Avatar(user: user)
+                        VStack(alignment: .leading) {
+                            Text(user.displayName)
+                            if let handle = FolloweeDisplayHandle.text(for: user) {
+                                Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
             if hasMore { Button("加载更多成员") { Task { await load(older: true) } }.disabled(busy) }
             if busy { ProgressView() }
-            if let error { ErrorBanner(message: error) { Task { await load() } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load() } } }
         }.puboList().chatNavigationTitle("群聊成员", embedded: embedded).toolbar { if canInvite { Button("邀请成员") { inviting = true } } }
             .sheet(isPresented: $inviting) { UserPicker { user in Task { await invite(user.id) } } }
             .task { await load() }.refreshable { await load() }
