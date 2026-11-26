@@ -50,6 +50,16 @@ struct NotificationsView: View {
                 feed.id(query)
             }
             .puboScreen().navigationTitle("通知").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
+            .toolbar {
+                if tab == .all {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        headerFilter
+                        Button { Task { await markRead() } } label: { headerIcon("checkmark") }
+                            .foregroundStyle(PUBOTheme.text)
+                            .disabled(markingRead).accessibilityLabel("全部标记为已读").accessibilityIdentifier("notifications.markRead")
+                    }
+                }
+            }
             .overlay {
                 if active && tab == .all && (markingRead || readConfirmation != nil) {
                     Group {
@@ -103,24 +113,13 @@ struct NotificationsView: View {
         }
     }
     private var header: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .trailing) {
-                Label("通知", systemImage: "bell").font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity).accessibilityAddTraits(.isHeader)
-                if tab == .all {
-                    HStack(spacing: 0) {
-                        headerFilter
-                        Button { Task { await markRead() } } label: { headerIcon("checkmark") }
-                            .disabled(markingRead).accessibilityLabel("全部标记为已读").accessibilityIdentifier("notifications.markRead")
-                    }.padding(.trailing, 8)
-                }
-            }.frame(minHeight: 50)
-            ViewThatFits(in: .horizontal) {
-                tabs
-                ScrollView(.horizontal) { tabs }.scrollIndicators(.hidden)
-            }
-        }.background(PUBOTheme.background)
-            .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+        ViewThatFits(in: .horizontal) {
+            tabs
+            ScrollView(.horizontal) { tabs }.scrollIndicators(.hidden)
+        }
+        .frame(maxWidth: .infinity)
+        .background(PUBOTheme.background)
+        .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
     }
     private var tabs: some View {
         HStack(spacing: 0) {

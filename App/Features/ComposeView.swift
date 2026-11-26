@@ -108,7 +108,7 @@ struct ComposeView: View {
                             PollEditor(draft: Binding(get: { draft.poll ?? PollDraft() }, set: { draft.poll = $0; save() })).disabled(!editable)
                             Button("移除投票", role: .destructive) { draft.poll = nil; save() }.disabled(!editable)
                         }
-                        if !typeSize.isAccessibilitySize { editorTools }
+                        if embedded { editorTools }
                         if showingPreview { preview }
                         if let error { Text(error).font(.callout).foregroundStyle(.red).accessibilityIdentifier("compose.error") }
                         if draft.outcome != "ready" {
@@ -123,7 +123,11 @@ struct ComposeView: View {
                     }.padding(.horizontal, 16).padding(.bottom, 20)
                 }.scrollDismissesKeyboard(.interactively)
             }.safeAreaInset(edge: .bottom, spacing: 0) {
-                if typeSize.isAccessibilitySize { editorTools.padding(.horizontal, 16).background(PUBOTheme.panel) }
+                if !embedded {
+                    editorTools.padding(.horizontal, 16).padding(.vertical, 2)
+                        .background(PUBOTheme.panel)
+                        .overlay(alignment: .top) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+                }
             }.background(PUBOTheme.panel.ignoresSafeArea()).foregroundStyle(PUBOTheme.text)
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay { if busy { ProgressView().padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }

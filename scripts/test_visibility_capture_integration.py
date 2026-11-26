@@ -48,6 +48,11 @@ class VisibilityCaptureIntegrationContracts(unittest.TestCase):
         for current_snippet, prior_snippet in c104_pairs:
             self.assertEqual(restored.count(current_snippet), 1)
             restored = restored.replace(current_snippet, prior_snippet, 1)
+        # Reverse only the separately audited C105 dark-mode compose button accent softening.
+        c105_compose = '                        .foregroundStyle(PUBOTheme.adaptive(0x192320, 0x101814)).background(PUBOTheme.adaptive(0x86b300, 0x7ca620), in: RoundedRectangle(cornerRadius: 12))\n'
+        prior_compose = '                        .foregroundStyle(Color(red: 25/255, green: 35/255, blue: 32/255)).background(PUBOTheme.accent, in: RoundedRectangle(cornerRadius: 12))\n'
+        self.assertEqual(restored.count(c105_compose), 1)
+        restored = restored.replace(c105_compose, prior_compose, 1)
         data = restored.encode()
         self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), '3255655f356a6da11e8b3202a8a5df398d8f97fa')
 

@@ -52,16 +52,19 @@ struct Avatar: View {
 struct RoleBadges: View {
     let user: Record
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack {
-                ForEach(Record.list(user["badgeRoles"])) { role in
-                    HStack(spacing: 4) {
-                        if let url = safeMediaURL(role["iconUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.frame(width: 18, height: 18) }
-                        Text(role["name"].string ?? "角色")
-                    }.font(.caption).padding(5).background(PUBOTheme.button, in: Capsule())
+        let roles = Record.list(user["badgeRoles"])
+        if !roles.isEmpty {
+            ScrollView(.horizontal) {
+                HStack {
+                    ForEach(roles) { role in
+                        HStack(spacing: 4) {
+                            if let url = safeMediaURL(role["iconUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.frame(width: 18, height: 18) }
+                            Text(role["name"].string ?? "角色")
+                        }.font(.caption).padding(5).background(PUBOTheme.button, in: Capsule())
+                    }
                 }
-            }
-        }.scrollIndicators(.hidden)
+            }.scrollIndicators(.hidden)
+        }
     }
 }
 

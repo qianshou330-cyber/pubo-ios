@@ -36,10 +36,10 @@ struct FriendsView: View {
                     NavigationLink { RoomsView() } label: { Label("已有群聊", systemImage: "person.3") }.accessibilityIdentifier("friends.rooms")
                     NavigationLink { ContactsView() } label: { Label("联系人分组", systemImage: "person.crop.rectangle.stack") }.accessibilityIdentifier("friends.contacts")
                     if let user = session.user {
-                        NavigationLink("我的关注") { FollowListView(userID: user.id, followers: false) }.accessibilityIdentifier("friends.following")
-                        NavigationLink("我的关注者") { FollowListView(userID: user.id, followers: true) }.accessibilityIdentifier("friends.followers")
+                        NavigationLink { FollowListView(userID: user.id, followers: false) } label: { Label("我的关注", systemImage: "person.badge.plus") }.accessibilityIdentifier("friends.following")
+                        NavigationLink { FollowListView(userID: user.id, followers: true) } label: { Label("我的关注者", systemImage: "person.2") }.accessibilityIdentifier("friends.followers")
                     }
-                }
+                }.listRowBackground(PUBOTheme.panel)
                 Section {
                     ForEach(page.rows) { row in
                         let user = Record(row["followee"])
@@ -79,7 +79,8 @@ struct FriendsView: View {
                             .disabled(busy).accessibilityIdentifier("friends.more")
                     }
                 } header: { Text("我关注的人") } footer: { Text("这里沿用关注／互相关注关系。关注申请获批不等于双方已互相关注。") }
-            }.puboList().navigationTitle("好友")
+                    .listRowBackground(PUBOTheme.panel)
+            }.puboList(titleDisplayMode: .large).navigationTitle("好友")
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
                 .toolbar { NavigationLink { AddFriendView() } label: { Label("添加好友", systemImage: "plus") }.accessibilityIdentifier("friends.add") }
                 .task(id: taskGeneration.uuidString + String(taskVisible)) {

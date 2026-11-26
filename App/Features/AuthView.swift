@@ -10,20 +10,18 @@ struct AuthView: View {
     @State private var homePath: [HomeDestination] = []
     @State private var songSelection: ChartSongSelection?
     @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 14
-    @ScaledMetric(relativeTo: .title2) private var titleSize: CGFloat = 20
     var body: some View {
         NavigationStack(path: $homePath) {
             ScrollView {
                 VStack(spacing: 16) {
                     VStack(spacing: 0) {
-                        Text("PUBO").font(.system(size: titleSize, weight: .bold)).padding(.bottom, 24)
                         Text("通过帖子连接在一起的网络").font(.system(size: bodySize)).multilineTextAlignment(.center)
                         VStack(spacing: 10) {
                             Button("注册") { open(registration: true) }
                                 .buttonStyle(PUBOButtonStyle(kind: .registration, fullWidth: true)).accessibilityIdentifier("auth.openRegister").accessibilityFocused($restoredFocus, equals: "register")
                             Button("登录") { open(registration: false) }
                                 .buttonStyle(PUBOButtonStyle(kind: .secondary, fullWidth: true)).accessibilityIdentifier("auth.openLogin").accessibilityFocused($restoredFocus, equals: "login")
-                        }.padding(.top, 32)
+                        }.padding(.top, 24)
                     }.padding(.horizontal, 32).padding(.top, 48).padding(.bottom, 32)
                         .frame(maxWidth: .infinity)
                         .background {
@@ -35,11 +33,11 @@ struct AuthView: View {
                     if !addingAccount && !session.savedAccounts.isEmpty { NavigationLink("选择已保存的 PUBO 账号") { AccountManagerView() } }
                     policyLinks
                     HomeAnnouncements(refreshID: 0) { homePath.append($0) }
+                    NavigationLink("查看全部站内公告") { AnnouncementsView() }
                     HomeChartPanel(refreshID: 0) { destination in
                         if case .history(let key, let song, let chart) = destination { songSelection = ChartSongSelection(key: key, song: song, chart: chart) }
                         else { homePath.append(destination) }
                     }
-                    NavigationLink("查看全部站内公告") { AnnouncementsView() }
                     GuestFeed()
                 }.frame(maxWidth: 430).padding(.horizontal, 16).padding(.top, 60).padding(.bottom, 32).frame(maxWidth: .infinity)
             }.puboScreen()

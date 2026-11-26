@@ -31,7 +31,7 @@ struct ProfileView: View {
                             }
                         }
                     }
-                    RoleBadges(user: user)
+                    if !Record.list(user["badgeRoles"]).isEmpty { RoleBadges(user: user) }
                     if let description = user["description"].string { NoteText(text: description) }
                     if let location = user["location"].string, !location.isEmpty { Label(location, systemImage: "mappin.and.ellipse").accessibilityLabel("所在地：" + location) }
                     if let birthday = user["birthday"].string, !birthday.isEmpty { Label("生日：" + birthday, systemImage: "gift").accessibilityIdentifier("profile.birthday") }
@@ -68,11 +68,11 @@ struct ProfileView: View {
                             Button(user["isBlocking"].bool ? "解除屏蔽" : "屏蔽此用户", role: .destructive) { Task { await block(user) } }
                         }.compositingGroup()
                     }
-                }
+                }.listRowBackground(PUBOTheme.panel)
             }
             if !busy && !loadingProfile, let error { ErrorBanner(message: error) { Task { await load() } } }
-            if let user, !user["pinnedNotes"].array.isEmpty { Section("置顶帖子") { ForEach(Record.list(user["pinnedNotes"])) { NoteCard(note: $0) } } }
-            Section("帖子") { ForEach(notes) { NoteCard(note: $0) }; if hasMore && !notes.isEmpty { Button("加载更多") { Task { await loadNotes(older: true) } }.disabled(busy) } }
+            if let user, !user["pinnedNotes"].array.isEmpty { Section("置顶帖子") { ForEach(Record.list(user["pinnedNotes"])) { NoteCard(note: $0) } }.listRowBackground(PUBOTheme.panel) }
+            Section("帖子") { ForEach(notes) { NoteCard(note: $0) }; if hasMore && !notes.isEmpty { Button("加载更多") { Task { await loadNotes(older: true) } }.disabled(busy) } }.listRowBackground(PUBOTheme.panel)
         }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
             .sheet(isPresented: $reporting) { ReportView(userID: userID) }
             .sheet(isPresented: $editing) { EditProfileView { Task { await load() } } }
@@ -306,6 +306,9 @@ struct ReportView: View {
 }
 
 struct MyAccountView: View {
+    private enum AccountCountDestination: Hashable {
+        case posts(String), following(String), followers(String)
+    }
     @Environment(AppSession.self) private var session
     var body: some View {
         @Bindable var session = session
@@ -323,23 +326,25 @@ struct MyAccountView: View {
                                 }
                             }.padding(.vertical, 10)
                         }.accessibilityIdentifier("me.profile")
-                        HStack {
-                            accountCount("动态", count: user["notesCount"].int)
-                            Spacer()
-                            accountCount("关注", count: user["followingCount"].int)
-                            Spacer()
-                            accountCount("关注者", count: user["followersCount"].int)
+                        HStack(spacing: 0) {
+                            accountCount("动态", count: user["notesCount"].int, identifier: "me.count.posts") {
+                                session.mePath.append(AccountCountDestination.posts(user.id))
+                            }
+                            accountCount("关注", count: user["followingCount"].int, identifier: "me.count.following") {
+                                session.mePath.append(AccountCountDestination.following(user.id))
+                            }
+                            accountCount("关注者", count: user["followersCount"].int, identifier: "me.count.followers") {
+                                session.mePath.append(AccountCountDestination.followers(user.id))
+                            }
                         }.padding(.vertical, 4)
-                    }
+                    }.listRowBackground(PUBOTheme.panel)
                     Section {
-                        NavigationLink { ProfileView(userID: user.id) } label: { Label("我的动态", systemImage: "text.bubble") }
-                            .accessibilityIdentifier("me.posts")
                         NavigationLink { FavoritesView() } label: { Label("我的收藏", systemImage: "star") }
                             .accessibilityIdentifier("me.favorites")
                         NavigationLink { DriveManagerView() } label: { Label("网盘", systemImage: "folder") }
                             .accessibilityIdentifier("me.drive")
                         NavigationLink { ScheduledNotesView() } label: { Label("定时帖子", systemImage: "clock") }
-                    }
+                    }.listRowBackground(PUBOTheme.panel)
                 }
                 Section {
                     NavigationLink { NotificationsView() } label: {
@@ -358,22 +363,25 @@ struct MyAccountView: View {
                     NavigationLink { MyAccountSettingsView() } label: { Label("设置", systemImage: "gearshape") }
                         .accessibilityIdentifier("me.settings")
                     NavigationLink { MoreSocialView() } label: { Label("更多功能", systemImage: "square.grid.2x2") }
-                }
-            }.puboList().navigationTitle("我的")
+                }.listRowBackground(PUBOTheme.panel)
+            }.puboList(titleDisplayMode: .large).navigationTitle("我的")
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink { AccountSettingsView() } label: { Image(systemName: "gearshape").frame(minWidth: 44, minHeight: 44) }
-                            .accessibilityLabel("账号与隐私设置")
+                .navigationDestination(for: AccountCountDestination.self) { destination in
+                    switch destination {
+                    case .posts(let id): ProfileView(userID: id)
+                    case .following(let id): FollowListView(userID: id, followers: false)
+                    case .followers(let id): FollowListView(userID: id, followers: true)
                     }
                 }
         }
     }
-    private func accountCount(_ title: String, count: Int) -> some View {
-        VStack(spacing: 3) {
-            Text(count.formatted()).font(.headline)
-            Text(title).font(.caption).foregroundStyle(.secondary)
-        }.frame(maxWidth: .infinity).accessibilityElement(children: .combine)
+    private func accountCount(_ title: String, count: Int, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Text(count.formatted()).font(.headline).foregroundStyle(PUBOTheme.text)
+                Text(title).font(.caption).foregroundStyle(.secondary)
+            }.frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityIdentifier(identifier)
     }
 }
 

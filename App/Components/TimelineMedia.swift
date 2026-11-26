@@ -259,17 +259,19 @@ struct NoteLinkPreviews: View {
             if let url = NativeLink.publicURL(preview["url"].string ?? "") {
                 Link(destination: url) { Group {
                     if appearance.isTimeline {
+                        let thumbURL = preview["sensitive"].bool ? nil : safeMediaURL(preview["thumbnail"].string)
                         HStack(spacing: 0) {
-                            Group {
-                                if !preview["sensitive"].bool, let thumb = safeMediaURL(preview["thumbnail"].string) { PublicAnimatedAsset(url: thumb).scaledToFill() }
-                                else { Color.clear }
-                            }.frame(width: 56, height: 52).clipped().accessibilityHidden(true)
+                            if let thumb = thumbURL {
+                                PublicAnimatedAsset(url: thumb).scaledToFill()
+                                    .frame(width: 56, height: 52).clipped().accessibilityHidden(true)
+                            }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(preview["title"].string ?? url.host ?? "网页").font(.system(size: titleSize, weight: .bold)).lineLimit(2)
                                 Text(preview["description"].string ?? "").font(.system(size: summarySize)).lineLimit(2)
                                 Text(url.host ?? "").font(.system(size: summarySize)).frame(minHeight: domainHeight)
-                            }.frame(maxWidth: .infinity, alignment: .leading).padding(4)
-                        }.frame(minHeight: 52).foregroundStyle(PUBOTheme.text).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider))
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, thumbURL == nil ? 10 : 6).padding(.vertical, 6)
+                        }.frame(minHeight: 52).clipShape(RoundedRectangle(cornerRadius: 8)).foregroundStyle(PUBOTheme.text).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PUBOTheme.divider))
                     } else { HStack(spacing: 8) {
                     if !preview["sensitive"].bool, let thumb = safeMediaURL(preview["thumbnail"].string) { PublicAnimatedAsset(url: thumb).frame(width: 62, height: 62).clipped() }
                     VStack(alignment: .leading, spacing: 4) { Text(preview["title"].string ?? url.host ?? "网页").font(.caption.bold()).lineLimit(2); Text(preview["description"].string ?? "").font(.caption2).lineLimit(2); Text(url.host ?? "").font(.system(size: 9)) }.frame(maxWidth: .infinity, alignment: .leading)

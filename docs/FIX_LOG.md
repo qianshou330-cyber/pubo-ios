@@ -1,5 +1,32 @@
 # 修复日志
 
+## 2026-11-26 / C105 候选（页面 UI 布局自查全量修复）：消除通知双标题、发帖栏悬空、好友/我的布局割裂、主页空白行、卡片留白洞、登录重复标题与深色按钮刺眼问题
+
+- **问题与视觉自查依据（经用户批复“全部修”实施）**：
+  1. **通知页双重标题栏**：`App/Features/NotificationsView.swift` 同时渲染原生导航栏 `.navigationTitle("通知")` 与自定义 `Label("通知", systemImage: "bell")` 50pt 标题行，浪费垂直空间并产生双标题视觉重叠。
+  2. **发帖工具栏在标准字号下悬空**：`App/Features/ComposeView.swift` 仅在 `typeSize.isAccessibilitySize` 时通过 `.safeAreaInset(edge: .bottom)` 停靠 `editorTools`，标准字号下将其放入 `ScrollView` 内，导致输入区下方留出大块空白、工具栏悬空在键盘上方 200pt+ 处。
+  3. **好友页图标未对齐、四栏头部不统一与深色列表纯黑行底**：`App/Features/FriendsView.swift` 中「我的关注」「我的关注者」缺少图标导致文字左突出；「好友」与「我的」使用 `.inline` 居中标题而「消息」「世界圈」使用大号左对齐标题；`.plain` 列表在深色模式下默认纯黑 `#000000` 行底与 `#0C1210` / `#192320` 主题色板割裂。
+  4. **我的页重复入口、重复设置齿轮与不可点计数**：`App/Features/ProfileView.swift`（`MyAccountView`）中「我的动态」（`me.posts`）与顶部名片卡（`me.profile`）跳转同一主页；导航栏右上角与列表「设置」行出现两个齿轮图标；「动态 / 关注 / 关注者」数字条为纯静态文本无法点击直达。
+  5. **个人主页空角色徽章生成幽灵空白行**：`App/Components/CommonViews.swift`（`RoleBadges`）与 `App/Features/ProfileView.swift`（`ProfileView`）在 `badgeRoles` 为空时仍渲染 `ScrollView(.horizontal)`，在 `List` 中生成一整行空白单元与多余分隔线。
+  6. **世界圈无缩略图链接预览左侧 56×52 空白洞**：`App/Components/TimelineMedia.swift`（`NoteLinkPreviews`）在时间线卡片无缩略图或敏感图时占位 `Color.clear`，导致文字左侧出现明显缩进空洞。
+  7. **未登录引导页重复 `PUBO` 标题与公告入口错位**：`App/Features/AuthView.swift` 在大号 `PUBOBrand` 标志正下方紧接重复 `Text("PUBO")`；「查看全部站内公告」被置于音乐榜单下方，与 `HomeAnnouncements` 视觉脱节。
+  8. **世界圈深色模式发帖按钮高饱和刺眼**：`App/Features/TimelineView.swift` 的 `home.compose` 在深色模式下使用 `#B4E900` 荧光绿大块填充，视觉过亮刺眼。
+- **改动范围（9 个产品 Swift 文件 + 来源锁同步 + 源码合约单测，未改动聊天详情、工作流或任何门禁）**：
+  1. `App/Features/NotificationsView.swift`：移除 `header` 中重复的 `🔔 通知` 自绘标题行（仅留分段标签栏），在保留 `headerFilter` 原实现与 `.compositingGroup()` 边界的前提下将其与 `notifications.markRead` 移入 `.toolbar { if tab == .all { ToolbarItemGroup(placement: .topBarTrailing) { ... } } }`。
+  2. `App/Features/ComposeView.swift`：滚动区内改为 `if embedded { editorTools }`，非内嵌场景统一在 `.safeAreaInset(edge: .bottom, spacing: 0)` 停靠 `editorTools` 并增加 0.5pt 顶部分隔线。
+  3. `App/Components/PUBOTheme.swift`：为 `puboScreen` 与 `puboList` 增加默认 `.inline` 的可选参数 `titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline`，消除嵌套修饰器偏好覆盖歧义。
+  4. `App/Features/FriendsView.swift`：为「我的关注」「我的关注者」补齐 `person.badge.plus` / `person.2` 图标，为两组 `Section` 应用 `.listRowBackground(PUBOTheme.panel)`，切换为 `.puboList(titleDisplayMode: .large).navigationTitle("好友")`。
+  5. `App/Features/ProfileView.swift`：`ProfileView` 仅在 `!Record.list(user["badgeRoles"]).isEmpty` 时渲染 `RoleBadges(user: user)` 并为分组应用 `.listRowBackground(PUBOTheme.panel)`；`MyAccountView` 移除重复的「我的动态」行与右上角重复设置齿轮，将「动态 / 关注 / 关注者」改为推入 `session.mePath` 的可独立点击跳转按钮（`me.count.posts` / `me.count.following` / `me.count.followers`），各分组应用 `.listRowBackground(PUBOTheme.panel)`，并切换为 `.puboList(titleDisplayMode: .large).navigationTitle("我的")`（完整保留 `app.navigationBars["我的"]`）。
+  6. `App/Components/CommonViews.swift`：`RoleBadges` 内部亦校验 `!roles.isEmpty` 才渲染 `ScrollView`（保持 `struct RoleBadges: View` 声明兼容既有测试）。
+  7. `App/Components/TimelineMedia.swift`：`NoteLinkPreviews` 仅在存在非敏感缩略图时渲染 `56×52` 左侧缩略图，无图时文字区使用 `horizontal: 10, vertical: 6` 内边距，并补充 `.clipShape(RoundedRectangle(cornerRadius: 8))`。
+  8. `App/Features/AuthView.swift`：移除重复 `Text("PUBO")` 与无用 `titleSize`，微调按钮顶部间距为 `24pt`，将 `NavigationLink("查看全部站内公告")` 移至 `HomeAnnouncements` 正下方（保持原 CRLF 换行无噪音）。
+  9. `App/Features/TimelineView.swift`：将 `home.compose` 配色更新为 `PUBOTheme.adaptive(0x86b300, 0x7ca620)` 背景与 `PUBOTheme.adaptive(0x192320, 0x101814)` 深色文字（浅/深对比度均 > 6.5:1）。
+  10. 来源锁与合约单测：同步 `scripts/timeline-capture-bench/run.py` 中 `App/Features/TimelineView.swift` blob 哈希至 `384484c5f333541c89eae24c90a5a38c247a731b`；在 `scripts/test_visibility_capture_integration.py` 中仅逆向抵消该单行配色改动，维持原 `3255655f356a6da11e8b3202a8a5df398d8f97fa` 整文件门禁不变；新增 `scripts/test_c105_ui_layout_contracts.py`（4 项单测守护全部 8 处布局修复）。
+  - 产品补丁 SHA-256（`git diff App/`）：`14dd367a9442fdf93a16b6043a56b307b5b45beedb4f6372e120a5c00f521bd9`；回退点：`68d9207f4f2bfeaf1fdc6cd2a8560df7e5a572f9`（代码基线 C104 `2a10d837a0817b773c6fce2e8bac7306dcbbd8c2`）。
+- **本地验证（推送前）**：
+  - **通过**：`git -c core.whitespace=cr-at-eol diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **272/272**（含新增 `test_c105_ui_layout_contracts.py` 4/4、C102/C104 菜单边界与可见性来源锁全过）、Node 隔离单测 **2/2**。
+  - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验精确 CI 终态、全套零警告扫描、C104 vs C105 前后真机像素对照图及新版未签名候选 IPA。
+
 ## 2026-11-26 / C104 候选（非聊天优先）：收口非聊天分页空态/重试滞留缺陷与全仓最后 2 处非工具栏菜单边界
 
 - **问题与审计依据（经用户批准 `implementation_plan.md` 实施）**：

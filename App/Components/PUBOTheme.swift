@@ -58,17 +58,17 @@ struct PUBOButtonStyle: ButtonStyle {
 }
 
 extension View {
-    func puboScreen(background: Bool = true) -> some View {
+    func puboScreen(background: Bool = true, titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline) -> some View {
         foregroundStyle(PUBOTheme.text).tint(PUBOTheme.accent)
             .modifier(NoteCardNavigation())
             .background((background ? PUBOTheme.background : Color.clear).ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(titleDisplayMode)
             .toolbar(.visible, for: .navigationBar)
             .toolbarBackground(PUBOTheme.panel, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
     }
-    func puboList() -> some View {
-        listStyle(.plain).scrollContentBackground(.hidden).puboScreen()
+    func puboList(titleDisplayMode: NavigationBarItem.TitleDisplayMode = .inline) -> some View {
+        listStyle(.plain).scrollContentBackground(.hidden).puboScreen(titleDisplayMode: titleDisplayMode)
     }
     func puboForm() -> some View {
         scrollContentBackground(.hidden).puboScreen()
