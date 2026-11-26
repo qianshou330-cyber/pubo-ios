@@ -112,7 +112,7 @@ struct RoomChatView: View {
                     Menu("核对后处理") {
                         Button("已发出，清空待发内容") { draft = RoomDraft(); persist() }
                         Button("确认未发出，恢复编辑") { draft.pending = false; persist() }
-                    }
+                    }.compositingGroup()
                 }
             }
             if let file = draft.file { HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button("移除附件") { draft.file = nil; persist() }.disabled(busy || draft.pending) } }
@@ -123,7 +123,7 @@ struct RoomChatView: View {
                     Button("从网盘选择") { choosingFile = true }
                     Button("选择本地文件") { importingFile = true }
                     Button("选择图片或视频") { choosingPhoto = true }
-                } label: { Image(systemName: "photo.badge.plus").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("添加群聊附件").accessibilityIdentifier("room.attachments")
+                } label: { Image(systemName: "photo.badge.plus").frame(width: 44, height: 44) }.compositingGroup().disabled(busy || draft.pending).accessibilityLabel("添加群聊附件").accessibilityIdentifier("room.attachments")
                 Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("插入群聊表情").accessibilityIdentifier("room.emoji")
                 Spacer(minLength: 0)
                 Button { Task { await send() } } label: { Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44).foregroundStyle(PUBOTheme.accent) }.disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
@@ -284,6 +284,7 @@ struct RoomChatView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
+        .compositingGroup()
         .buttonStyle(.plain)
         .accessibilityLabel("群消息菜单")
         .accessibilityIdentifier("room.menu." + message.id)

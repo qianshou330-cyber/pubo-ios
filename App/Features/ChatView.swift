@@ -204,7 +204,7 @@ struct ChatView: View {
                     Button("从网盘导入") { choosingDrive = true }.disabled(attachments.count >= 10)
                     Button(recorder.recording ? "结束并添加语音" : "录制语音（最多60秒）") { Task { await voice() } }
                     if recorder.recording { Button("取消录音", role: .cancel) { recorder.cancel() } }
-                } label: { Image(systemName: recorder.recording ? "mic.fill" : "paperclip").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy).accessibilityLabel("文件与语音").accessibilityIdentifier("chat.attachments")
+                } label: { Image(systemName: recorder.recording ? "mic.fill" : "paperclip").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.compositingGroup().disabled(busy).accessibilityLabel("文件与语音").accessibilityIdentifier("chat.attachments")
                 Button { Task { await voice() } } label: { Image(systemName: recorder.recording ? "stop.circle.fill" : "mic").frame(width: 44, height: 44).foregroundStyle(recorder.recording ? .red : PUBOTheme.secondary) }.disabled(busy || attachments.count >= 10).accessibilityLabel(recorder.recording ? "结束并添加语音" : "录制语音").accessibilityIdentifier("chat.voice")
                 Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.accessibilityLabel("插入表情").accessibilityIdentifier("chat.emoji")
                 Spacer(minLength: 0)
@@ -272,6 +272,7 @@ struct ChatView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
+        .compositingGroup()
         .buttonStyle(.plain)
         .accessibilityLabel("消息菜单")
         .accessibilityIdentifier("chat.menu." + message.id)

@@ -1,5 +1,18 @@
 # 修复日志
 
+## 2026-11-26 / C103 候选（聊天隔离线）：隔离私聊与群聊非工具栏菜单的 iOS 26 运行时警告
+
+- **问题与证据（聊天隔离线独立排查）**：
+  - 在完成 C100～C102 非聊天线非工具栏 `Menu` `.compositingGroup()` 防护后，对 C101（[CI 45683581024](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024)）与 C102（[CI 45748209095](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095)）全套 36 个作业的日志与归档执行全量 `Complete Issue Description.txt` 扫描：全部非聊天作业均为 **0 份运行时警告**；唯一残余 `Complete Issue Description.txt` 的作业全部集中在聊天页非工具栏 `Menu` 交互路径——C102 仅剩 `diagnostic-room-back (after-picker)`（[139670129524](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129524)，1 份）、`chat-presentation (small, composer)`（[139670129616](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129616)，2 份）与 `chat-presentation (large, composer)`（[139670129645](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129645)，2 份），以及 C101 `diagnostic-private-back (after-picker)`（产物 `15061396227` 已实证正文为同一 iOS 26.1 `Adding '_UIReparentingView' as a subview of UIHostingController.view` 警告）。
+- **最小改动范围（纯聊天隔离线 + 合约单测，未改动非聊天视图、工作流或任何门禁）**：
+  1. `App/Features/ChatView.swift`：为私聊输入栏 `chat.attachments` `Menu`（`.disabled(busy)` 之前）及气泡旁溢出菜单 `messageOverflow`（`chat.menu.`，`.buttonStyle(.plain)` 之前）各添加 `.compositingGroup()`。
+  2. `App/Features/RoomChatView.swift`：为群聊输入栏待核对操作 `Menu("核对后处理")`、`room.attachments` `Menu`（`.disabled(busy || draft.pending)` 之前）及气泡旁溢出菜单 `messageOverflow`（`room.menu.`，`.buttonStyle(.plain)` 之前）各添加 `.compositingGroup()`。
+  3. 保留原有外观、44×44 热区、禁用条件、按钮样式、无障碍标识与工具栏菜单不变；新增 `scripts/test_c103_chat_menu_boundary.py`（3 项静态合约单测守护全部 5 处聊天非工具栏菜单边界）。
+  - 产品补丁 SHA-256（`git diff App/`）：`57cd22828e78eec0e2d022e5e67e56313ac81f6ee11f39bcdd85abea5eafe294`；回退点：C102 精确提交 `85e53a813777313d2535016a1140bb488fbafecd`。
+- **本地验证（推送前）**：
+  - **通过**：`git diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **265/265**（含新增 `test_c103_chat_menu_boundary.py` 3/3 与原有全部聊天/非聊天/来源锁单测）、Node 隔离单测 **2/2**。
+  - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验全套 36 作业的 `Complete Issue Description.txt` 是否清零、聊天与非聊天回归及新版未签名候选 IPA。
+
 ## 2026-11-26 / C102 候选：补齐其余非聊天页跨站账号、重试加载防滞留与非工具栏菜单隔离
 
 - **问题与依据（非聊天优先）**：
@@ -15,6 +28,18 @@
 - **本地验证（推送前）**：
   - **通过**：`git diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **262/262**（含新增 `test_c102_nonchat_contracts.py` 3/3 与原有 C100/C101/可见性/来源锁单测）、Node 隔离单测 **2/2**。
   - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验精确 CI 终态、双机回归截图及新版未签名候选 IPA。
+
+### C102 精确提交终态
+
+精确 [C102 `85e53a81`](https://github.com/qianshou330-cyber/pubo-ios/commit/85e53a813777313d2535016a1140bb488fbafecd) 的 [CI 45748209095 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/attempts/1) 于 2026-11-26 05:34:54 UTC 结束，整轮失败（36 作业：**19 通过、12 失败、0 取消、5 跳过**，通过数为近期最高）。核心检查（[作业 139669333999](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139669333999)，[产物 15084761437](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15084761437)）：Swift **220/220**、Python **262/262**（含新增 3 项 C102 合约单测）、Node **2/2** 与宿主诊断（139669333655）均通过；OCR（139670129656）仍失败，未降门槛；[严格导航汇总](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139715625918)与[正式打包](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139715625795)均跳过。
+
+- **非聊天回归与全套零警告扫描**：
+  - `messages-redesign (small)`（[作业 139670129601](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129601)，[产物 15087568693](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15087568693)，到期 2026-12-10 04:36:51 UTC）：**严格 `PASS`**（4/4、0 警告、13/13 原图通过）；`messages-redesign (large)`（139670129690，产物 `15089187326`）在进入用例前于 `Timed out waiting for AX loaded notification` 超时。
+  - 四栏导航：`navigation (small, interaction)`（[139670129619](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129619)，[产物 15085482272](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15085482272)，到期 2026-12-10 03:48:15 UTC）**7/7 零警告严格通过**；`navigation (large, routing)`（[139670129603](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129603)，[产物 15088237936](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15088237936)，到期 2026-12-10 04:55:10 UTC）**6/6 零警告严格通过**；`navigation (small, routing)`（139670129702，产物 `15086304388`）5/6（0 警告，`testAccountSwitch...` 查询快照超时）；`navigation (large, interaction)`（139670129629，产物 `15090118298`）进入用例前命中 AX 超时。
+  - 旧回归与视频封面：`legacy-regression (small)`（[139670129622](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129622)，[产物 15086359680](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15086359680)，到期 2026-12-10 04:13:29 UTC）**5/5 零警告通过**；`legacy-regression (large)`（139670129553，产物 `15088781907`）3/5（`testHomePanelsAndChartNavigation` 维持 14 份纯测试附件、0 警告）；`video-poster (small)`（[139670129606](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129606)，[产物 15086958612](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15086958612)）与 `video-poster (large)`（[139670129575](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129575)，[产物 15087149928](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15087149928)）**双机型均 4/4 全绿通过**；世界圈滚动标记大屏机（139670129643）通过，其余 3 路滚动诊断失败。
+  - 全套 `Complete Issue Description.txt` 扫描确认：**全部非聊天作业 0 警告**；全套 36 个作业中仅剩 3 个聊天作业含 `Complete Issue Description.txt`：`diagnostic-room-back (after-picker)`（139670129524，1 份）、`chat-presentation (small, composer)`（139670129616，2 份）与 `chat-presentation (large, composer)`（139670129645，2 份）。
+- **聊天隔离线**：`chat-alignment` 4/4 全过（双机布局 `139670129683`/`139670129632`、双机动作 `139670129671`/`139670129600`）、`chat-presentation` 双机状态（`139670129532`/`139670129550`）、`diagnostic-room-back` 双路（`139670129524`/`139670129581`）与 `h5-chat-reference`（`139670129669`）均通过；双机 `chat-presentation (composer)` 与 `diagnostic-private-back` 双路失败。
+- **未签名设备候选**：[候选作业 139670129861](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/job/139670129861) 生成 [QA-INCOMPLETE 产物 15089383566](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45748209095/artifacts/15089383566)（到期 2026-12-10 05:25:07 UTC，ZIP `5,618,835` 字节），已独立核实精确提交 `85e53a81`、`0.10.0`/build `148`、iPhoneOS `arm64` 未签名、`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa` `5,656,211` 字节、SHA-256 `92606d6eaba6f4e89898c6b925f44d10ce2a2715afc34b45be97cdc84317627c`。需签名装机，非正式打包、实体机验收或 GitHub Release，不替换 C71 试用基线。
 
 ## 2026-11-25 / C101 候选：合入双机实证的世界圈空列表重试、好友子页跨站账号及首页非工具栏菜单隔离
 
