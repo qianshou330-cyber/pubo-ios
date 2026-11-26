@@ -45,7 +45,7 @@ struct HomeAnnouncements: View {
                 Label("站内公告", systemImage: "megaphone.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(PUBOTheme.accent)
                 RollingAnnouncementTitles(entries: entries, active: active) { open(.announcement($0.raw)) }
                 if session.user?["isAdmin"].bool == true && !entries.isEmpty {
-                    Menu { ForEach(entries) { entry in Button("修改：" + (entry["title"].string ?? "公告")) { open(.announcementEdit(entry.raw)) }.accessibilityIdentifier("announcement.edit." + entry.id) } } label: { Image(systemName: "square.and.pencil").frame(width: 44, height: 44).contentShape(Rectangle()) }.buttonStyle(.borderless).accessibilityLabel("修改公告")
+                    Menu { ForEach(entries) { entry in Button("修改：" + (entry["title"].string ?? "公告")) { open(.announcementEdit(entry.raw)) }.accessibilityIdentifier("announcement.edit." + entry.id) } } label: { Image(systemName: "square.and.pencil").frame(width: 44, height: 44).contentShape(Rectangle()) }.compositingGroup().buttonStyle(.borderless).accessibilityLabel("修改公告")
                 }
                 if error != nil { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise").frame(width: 44, height: 44) }.accessibilityLabel("重试公告") }
             }

@@ -8,13 +8,17 @@
 - **先对齐非聊天页，聊天故障独立排查，不互相阻塞。** 顺序：① 世界圈列表（同一素材和滚动位置）、发帖入口（未发送状态）、视频首帧；② 消息首页；③ 好友页；④ 我的页。先看正常态，再按页覆盖空态、加载、失败重试、浅色/深色，以及涉及的键盘和返回。保留批准的底部四栏、iPhone 安全区、世界圈专属发帖入口和消息页加好友入口。好友/我的属于原生聚合页，对照 H5 对应模块，不拿另一张不等价的页面硬凑。
 - 四栏能导航不代表页面对齐。每页在 FIX_LOG 单列同状态 H5 / iOS 基线、保留差异、实际修复、复测和未验证项；静态封面图不代表首帧耗时，模拟器不代表真机。没有同状态截图留空，不用生产账号/数据和不相干的旧截图补齐。外部交付直接发真实对照图片；逐次修复记录留在仓库。
 
-## 当前检查点 C101 终态：世界圈空列表重试、好友子页跨站账号双机实证合入，首页非工具栏菜单警告双机清零
+## 当前检查点 C102 候选（待 `four-tabs.yml` 精确 CI 验收）：其余非聊天页跨站账号、重试加载隐藏与非工具栏菜单隔离
+
+- **C102 候选改动（纯非聊天，未改工作流或任何门禁）**：① 对齐其余 4 处跨站用户界面（`FollowRequestsView.swift`、`AddFriendView.swift`、`SocialViews.swift` `SearchView`、`ProfileView.swift` 头部）至 `FolloweeDisplayHandle.text(for: user)`；② 为 `FollowListView`、`FollowRequestsView`、`SearchView`、`GuestFeed` 补齐 `if !busy, let error` 与 `fromRetry` 防重入守卫（与 C93 `FriendsView` / C101 `TimelineView` 一致）；③ 为 8 处非聊天非工具栏 `Menu`（`NotificationsView`、`ComposeView`、`GuestFeed`、`HomePanels`、`ProfileView`）添加 `.compositingGroup()`；④ 新增 `scripts/test_c102_nonchat_contracts.py`（本地 Python 262/262、Node 2/2 通过，产品补丁 SHA-256 `df6ef51893767935a009d5ec042e974c5a43d9bf3c245a260be3d851441b2ba3`）。详见 [C102 候选记录](FIX_LOG.md)。
+- **下一步推进**：推送 C102 触发 `four-tabs.yml` 并跟踪至终态，核验双机 `messages-redesign`、`navigation`、`legacy-regression`、`video-poster` 与新版未签名候选 IPA；完成非聊天回归核验后，再按隔离线独立排查 C101 扫描出的聊天输入栏 `Menu`（`ChatView.swift:201` / `RoomChatView.swift:122`）最后 3 处 `_UIReparentingView` 运行时警告。
+
+## 历史检查点 C101 终态：世界圈空列表重试、好友子页跨站账号双机实证合入，首页非工具栏菜单警告双机清零
 
 - **C101 精确终态**：[C101 `e6dda0c5` 精确 CI 45683581024](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/attempts/1) 于 2026-11-25 21:32:22 UTC 结束，整轮失败（36 作业：**17 通过、14 失败、0 取消、5 跳过**；Swift 220/220、Python 259/259、Node 2/2 通过；OCR 仍失败；严格导航汇总与正式打包跳过）。
   - **首页非工具栏菜单警告双机清零**：`legacy-regression (small)`（[139452393369](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/job/139452393369)，[产物 15058518261](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/artifacts/15058518261)）**5/5 全绿通过**，`legacy-regression (large)`（[139452393581](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/job/139452393581)）4/5 通过，两机 `testHomePanelsAndChartNavigation()` 均从 C100 的 15 份附件降至 **14 份纯测试附件（0 份 `Complete Issue Description.txt`）**，证实 `TimelineView.swift` `home.more` 与 `HomePanels.swift` `切换榜单` 的 `.compositingGroup()` 彻底消除了 iOS 26.1 `_UIReparentingView` 运行时警告。
   - **标准机导航交互与大屏视频封面通过**：`navigation (small, interaction)`（[139452393697](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/job/139452393697)，[产物 15062408560](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/artifacts/15062408560)）**7/7 零警告严格通过**（与 C100 大屏机交互完成双机验证）；`video-poster (large)`（[139452393404](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/job/139452393404)，[产物 15056856876](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45683581024/artifacts/15056856876)）**4/4 全绿通过**。双机 `messages-redesign` 均在 `testPlusKeepsBothFriendSheetsAndRealClose()` 维持 0 警告（4 份纯截图），个别用例命中 8s 等待超时；大屏交互/双机路由命中进入用例前的 AX 或模拟器启动超时。详见 [C101 终态](FIX_LOG.md#c101-精确提交终态)。
 - **前置双机原生模拟器实证完结（[`diag-c99-native-focus`](https://github.com/qianshou330-cyber/pubo-ios/tree/diag-c99-native-focus)）**：世界圈空列表首次重试（iPhone 17 Pro Max `15045002137` / iPhone 17 `15049986468`，各 3 张原图）与好友子页跨站账号 `FollowListView`（iPhone 17 Pro Max `15052077329` / iPhone 17 `15054608457`，各 2 张原图）在 iOS 26.1 双机均严格 **`VERIFIED_SYNTHETIC_ROW`**、**0 运行时警告**、**10/10 目视核验原图**，干净生产代码已全部合入 C101。
-- **下一步推进**：按非聊天优先顺序继续排查与修复未完成项：① 审查其余页面非工具栏 `Menu`（如通知筛选 `NotificationsView.swift`、个人主页 `ProfileView.swift`、帖子操作 `TimelineView.swift`）在 iOS 26.1 是否存在同源 `_UIReparentingView` 风险；② 排查 `App/Features/` 其他列表页（如 `SocialViews.swift`、`AddFriendView.swift`、`FollowRequestsView.swift`）的跨站账号副标题与 H5 `MkAcct` 对齐；③ 独立评估 `macOS-15-intel` 模拟器启动期 `Timed out waiting for AX loaded notification` 与 8 秒等待超时的稳定性根因（不降低任何测试或验收门槛）。
 
 ## 历史检查点 C100 终态：消息首页双机专项与大屏交互均零警告严格通过
 

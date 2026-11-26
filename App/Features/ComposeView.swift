@@ -175,6 +175,7 @@ struct ComposeView: View {
                         Toggle("仅本站发布", isOn: Binding(get: { draft.localOnly ?? false }, set: { draft.localOnly = $0; applyPrivacy(); save() }))
                     }
                 } label: { Image(systemName: visibilityIcon).frame(width: 44, height: 44) }
+                    .compositingGroup()
                     .disabled(!editable || channelID != nil).accessibilityLabel("可见范围").accessibilityValue(visibilityTitle).accessibilityIdentifier("compose.visibility")
                 Menu {
                     Toggle("预览", isOn: $showingPreview)
@@ -184,6 +185,7 @@ struct ComposeView: View {
                     Button("定时发布") { draft.scheduledAt = Date().addingTimeInterval(3600); save() }.disabled(!editable || (session.user?["policies"]["scheduledNoteLimit"].int ?? 0) <= 0)
                     if !embedded { Button("保存并关闭") { if save() { dismiss() } } }
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                    .compositingGroup()
                     .disabled(busy).accessibilityLabel("更多").accessibilityIdentifier("compose.more")
                 Button { editingText = false; Task { await send() } } label: {
                     HStack(spacing: 6) { Text(submitTitle); Image(systemName: submitIcon) }

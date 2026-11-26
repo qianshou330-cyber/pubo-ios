@@ -22,13 +22,13 @@ struct GuestFeed: View {
                     Toggle("仅限媒体", isOn: Binding(get: { preferences.onlyFiles }, set: { session.timelinePreferences.setOnlyFiles($0) }))
                 } label: {
                     Text("筛选").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                }.accessibilityIdentifier("guest.timeline.filters")
+                }.compositingGroup().accessibilityIdentifier("guest.timeline.filters")
             }
             ForEach(Array(feed.notes.enumerated()), id: \.element.id) { index, note in
                 NoteCard(note: note, hideSensitive: !preferences.withSensitive, appearance: .timeline)
                     .onAppear { if index >= feed.notes.count - 5 && more && error == nil { Task { await load() } } }
             }
-            if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
             if busy { ProgressView() }
         }.environment(\.dynamicTypeSize, feedTypeSize)
             .task(id: context) { requestID = UUID(); busy = false; feed.reset(); more = true; error = nil; await load(reset: true) }

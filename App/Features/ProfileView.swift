@@ -21,7 +21,15 @@ struct ProfileView: View {
             if let user {
                 Section {
                     if let url = safeMediaURL(user["bannerUrl"].string) { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { PUBOTheme.button }.frame(height: 150).clipped().accessibilityLabel("个人主页背景图") }
-                    HStack { Avatar(user: user, size: 64); VStack(alignment: .leading) { Text(user.displayName).font(.title2.bold()); Text("@" + (user["username"].string ?? "")).foregroundStyle(.secondary) } }
+                    HStack {
+                        Avatar(user: user, size: 64)
+                        VStack(alignment: .leading) {
+                            Text(user.displayName).font(.title2.bold())
+                            if let handle = FolloweeDisplayHandle.text(for: user) {
+                                Text(verbatim: handle).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     RoleBadges(user: user)
                     if let description = user["description"].string { NoteText(text: description) }
                     if let location = user["location"].string, !location.isEmpty { Label(location, systemImage: "mappin.and.ellipse").accessibilityLabel("所在地：" + location) }
@@ -57,7 +65,7 @@ struct ProfileView: View {
                         Menu("更多操作") {
                             Button("举报") { reporting = true }
                             Button(user["isBlocking"].bool ? "解除屏蔽" : "屏蔽此用户", role: .destructive) { Task { await block(user) } }
-                        }
+                        }.compositingGroup()
                     }
                 }
             }
@@ -143,7 +151,7 @@ struct FollowListView: View {
             }
             if busy { ProgressView().accessibilityIdentifier("followList.loading") }
             if loaded && !busy && page.rows.isEmpty && !page.hasMore && error == nil { Text(followers ? "暂无关注者" : "暂无关注").accessibilityIdentifier("followList.empty") }
-            if let error { ErrorBanner(message: error, retryIdentifier: "followList.retry") { Task { await load(reset: failedReset) } } }
+            if !busy, let error { ErrorBanner(message: error, retryIdentifier: "followList.retry") { Task { await load(reset: failedReset, fromRetry: true) } } }
             if loaded && page.hasMore { Button("加载更多") { Task { await load() } }.disabled(busy).accessibilityIdentifier("followList.more") }
         }.puboList().navigationTitle(followers ? "关注者" : "关注")
             .onAppear { visible = true }
@@ -151,8 +159,8 @@ struct FollowListView: View {
             .task(id: context) { page = FollowListPage(); loaded = false; error = nil; await load(reset: true) }
             .refreshable { await load(reset: true) }
     }
-    private func load(reset: Bool = false) async {
-        guard visible, !userID.isEmpty, reset || (!busy && page.hasMore) else { return }
+    private func load(reset: Bool = false, fromRetry: Bool = false) async {
+        guard visible, !userID.isEmpty, (!fromRetry || !busy), reset || (!busy && page.hasMore) else { return }
         let attempt = UUID(), source = context
         requestID = attempt; busy = true
         defer { if requestID == attempt { busy = false } }
@@ -238,7 +246,7 @@ struct EditProfileView: View {
             } label: {
                 HStack { Text(title); Spacer(); Image(systemName: "chevron.down").font(.caption) }
                     .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
-            }.buttonStyle(.borderless).accessibilityIdentifier("profile.media." + field)
+            }.compositingGroup().buttonStyle(.borderless).accessibilityIdentifier("profile.media." + field)
             if let file { Text(file["name"].string ?? "已选择图片").font(.caption) }
         }
     }

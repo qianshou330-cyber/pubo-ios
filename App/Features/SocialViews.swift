@@ -35,12 +35,20 @@ struct SearchView: View {
             }
             Picker("搜索类型", selection: $category) { Text("帖子").tag("notes"); Text("用户").tag("users"); Text("话题").tag("tags") }.pickerStyle(.segmented)
             if !searchAvailable { Text(category == "notes" ? "本站未向当前账号开放帖子全文搜索。可以切换到用户或话题搜索。" : "本站未向当前账号开放用户搜索。可以切换到其他搜索类型。").foregroundStyle(.secondary).accessibilityIdentifier("search.unavailable") }
-            if let error { ErrorBanner(message: error) { Task { await search(reset: true) } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await search(reset: true, fromRetry: true) } } }
             if category == "notes" { ForEach(records) { NoteCard(note: $0) } }
             if category == "users" {
                 ForEach(records) { user in
                     NavigationLink { ProfileView(userID: user.id) } label: {
-                        HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } }
+                        HStack {
+                            Avatar(user: user)
+                            VStack(alignment: .leading) {
+                                Text(user.displayName)
+                                if let handle = FolloweeDisplayHandle.text(for: user) {
+                                    Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -53,10 +61,10 @@ struct SearchView: View {
             .onChange(of: query) { _, _ in searchID = UUID(); busy = false; searched = false; records = []; tags = []; offset = 0; more = false; error = nil }
             .onDisappear { searchID = UUID(); busy = false }
     }
-    private func search(reset: Bool) async {
+    private func search(reset: Bool, fromRetry: Bool = false) async {
         guard searchAvailable else { searchID = UUID(); busy = false; records = []; tags = []; searched = false; more = false; error = nil; return }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, reset || !busy else { return }
+        guard !text.isEmpty, (!fromRetry || !busy), reset || !busy else { return }
         let attempt = UUID(); searchID = attempt; busy = true
         let kind = category
         if reset { records = []; tags = []; offset = 0; more = false }

@@ -1,5 +1,21 @@
 # 修复日志
 
+## 2026-11-26 / C102 候选：补齐其余非聊天页跨站账号、重试加载防滞留与非工具栏菜单隔离
+
+- **问题与依据（非聊天优先）**：
+  1. **跨站账号副标题不一致**：C89（`FriendsView.swift`）与 C101（`FollowListView`）已对照归档 H5 [`MkAcct.vue`](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/components/global/MkAcct.vue#L6-L13) 使用 `FolloweeDisplayHandle.text(for: user)` 区分远端 `@用户名@主机`、显式本地 `@用户名` 并省略畸形主机；但关注申请（`FollowRequestsView.swift`）、添加好友搜索（`AddFriendView.swift`）、全站搜索用户（`SocialViews.swift` `SearchView`）及个人主页头部（`ProfileView.swift`）仍直接拼接 `"@" + username`，导致跨站用户丢失站点后缀或畸形主机冒充本地账号。已逐项核对 `FixtureTransport.swift` 与 `NotificationVisualCases.json`，所有既有测试夹具用户均显式携带 `"host": null`，不破坏既有路由断言。
+  2. **加载重试期间旧错误横幅滞留与并发重入**：对照归档 H5 [`MkPagination.vue`](https://github.com/qianshou330-cyber/misskey/blob/0d9c49567fe35f9f1627c73fc1d450a37f6e6cd8/packages/frontend/src/components/MkPagination.vue#L19-L40) 以及 C93（`FriendsView.swift`）、C101（`TimelineView.swift`）模式，`FollowListView`、`FollowRequestsView`、`SearchView` 与 `GuestFeed` 在失败后点重试进入 `busy` 时仍同时展示旧 `ErrorBanner`，且前 3 处在 `reset: true` 时未阻断请求进行期间的重复重试点击。
+  3. **其余非聊天非工具栏 `Menu` 的 iOS 26.1 重挂警告防护**：C100（`ChatListView.swift` `messages.add`）与 C101（`TimelineView.swift` `home.more`、`HomePanels.swift` `切换榜单`）均已双机实证 `.compositingGroup()` 可清零 iOS 26.1 `Adding '_UIReparentingView' as a subview of UIHostingController.view` 运行时警告。审计其余非聊天视图，为 8 处非工具栏 `Menu` 统一补齐 `.compositingGroup()`（不改变外观、热区、禁用条件与无障碍标识）。
+- **改动范围（纯非聊天生产代码 + 源码合约单测，未改动聊天详情/工作流/任何门禁）**：
+  1. 跨站账号副标题对齐 `FolloweeDisplayHandle.text(for: user)` + `Text(verbatim: handle)`：`App/Features/FollowRequestsView.swift`、`App/Features/AddFriendView.swift`、`App/Features/SocialViews.swift`（`SearchView`）、`App/Features/ProfileView.swift`（`ProfileView` 头部）。
+  2. 重试加载期隐藏旧错误横幅（`if !busy, let error`）及防重入守卫（`fromRetry: Bool = false` / `(!fromRetry || !busy)`，保留原下拉刷新）：`App/Features/ProfileView.swift`（`FollowListView`）、`App/Features/FollowRequestsView.swift`、`App/Features/SocialViews.swift`（`SearchView`）、`App/Features/GuestFeed.swift`。
+  3. 非工具栏 `Menu` 添加 `.compositingGroup()` 边界：`App/Features/NotificationsView.swift`（`notifications.filter`、`notifications.order`）、`App/Features/ComposeView.swift`（`compose.visibility`、`compose.more`）、`App/Features/GuestFeed.swift`（`guest.timeline.filters`）、`App/Features/HomePanels.swift`（`修改公告`）、`App/Features/ProfileView.swift`（`更多操作`、`EditProfileView.mediaRow`）。
+  4. 新增源码合约单测：`scripts/test_c102_nonchat_contracts.py`（3 项测试覆盖全部跨站副标题、重试隐藏/防重入与 8 处菜单边界）。
+  - 产品补丁 SHA-256（`git diff App/`）：`df6ef51893767935a009d5ec042e974c5a43d9bf3c245a260be3d851441b2ba3`；回退点：`bedd4c29ee48dd4328a751d40ea5d32e2774a021`（代码基线 C101 `e6dda0c55671a61c636cf8a63a64e30f2db4e0cf`）。
+- **本地验证（推送前）**：
+  - **通过**：`git diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **262/262**（含新增 `test_c102_nonchat_contracts.py` 3/3 与原有 C100/C101/可见性/来源锁单测）、Node 隔离单测 **2/2**。
+  - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验精确 CI 终态、双机回归截图及新版未签名候选 IPA。
+
 ## 2026-11-25 / C101 候选：合入双机实证的世界圈空列表重试、好友子页跨站账号及首页非工具栏菜单隔离
 
 - **前置双机原生模拟器实证（并行公开诊断分支 [`diag-c99-native-focus`](https://github.com/qianshou330-cyber/pubo-ios/tree/diag-c99-native-focus) 第 10～14 轮）**：

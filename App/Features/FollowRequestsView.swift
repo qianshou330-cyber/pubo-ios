@@ -42,7 +42,15 @@ struct FollowRequestsView: View {
                 let user = Record(row[direction.userKey])
                 VStack(alignment: .leading, spacing: 10) {
                     NavigationLink { ProfileView(userID: user.id) } label: {
-                        HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } }
+                        HStack {
+                            Avatar(user: user)
+                            VStack(alignment: .leading) {
+                                Text(user.displayName)
+                                if let handle = FolloweeDisplayHandle.text(for: user) {
+                                    Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }.buttonStyle(.plain)
                     HStack {
                         if direction == .received {
@@ -67,7 +75,7 @@ struct FollowRequestsView: View {
             if page.hasMore {
                 Button("加载更多") { Task { await load() } }.disabled(busy || acting != nil).accessibilityIdentifier("followRequests.more")
             }
-            if let error { ErrorBanner(message: error) { Task { await load(reset: true) } } }
+            if !busy, let error { ErrorBanner(message: error) { Task { await load(reset: true, fromRetry: true) } } }
         }.puboList().navigationTitle("关注申请")
             .toolbar {
                 Button { Task { await load(reset: true) } } label: { Label("刷新申请", systemImage: "arrow.clockwise") }
@@ -94,8 +102,8 @@ struct FollowRequestsView: View {
                 Text((selected.decision == .reject ? "拒绝 " : "撤回发给 ") + selected.user.displayName + " 的关注申请？")
             }
     }
-    private func load(reset: Bool = false) async {
-        guard visible, acting == nil, reset || (!busy && page.hasMore) else { return }
+    private func load(reset: Bool = false, fromRetry: Bool = false) async {
+        guard visible, acting == nil, (!fromRetry || !busy), reset || (!busy && page.hasMore) else { return }
         let attempt = UUID(), source = direction, accountID = session.user?.id, epoch = session.generation
         requestID = attempt; busy = true
         defer { if requestID == attempt { busy = false } }

@@ -155,6 +155,7 @@ struct NotificationsView: View {
                         }.accessibilityIdentifier("notifications.filter." + type.rawValue)
                     }
                 } label: { headerIcon("line.3.horizontal.decrease") }
+                    .compositingGroup()
                     .foregroundStyle(filter == nil ? PUBOTheme.text : PUBOTheme.accent)
                     .accessibilityLabel("筛选").accessibilityValue(filter?.title ?? "全部")
                     .accessibilityIdentifier("notifications.filter")
@@ -172,7 +173,7 @@ struct NotificationsView: View {
                     HStack { Image(systemName: "arrow.up.arrow.down"); Text(noteOptions.oldestFirst ? "从旧到新" : "从新到旧"); Spacer(); Image(systemName: "chevron.down") }
                         .padding(.horizontal, 12).frame(minHeight: 44)
                         .background(PUBOTheme.panel, in: RoundedRectangle(cornerRadius: 8))
-                }.accessibilityIdentifier("notifications.order")
+                }.compositingGroup().accessibilityIdentifier("notifications.order")
                 Button {
                     options[tab, default: .init()].date = noteOptions.date == nil ? Date() : nil
                 } label: { headerIcon("calendar") }.accessibilityLabel("日期").accessibilityIdentifier("notifications.date")

@@ -43,7 +43,15 @@ struct AddFriendView: View {
             if let error { ErrorBanner(message: error, retryIdentifier: "addFriend.retry") { Task { await search(reset: failedReset) } } }
             ForEach(users) { user in
                 NavigationLink { ProfileView(userID: user.id) } label: {
-                    HStack { Avatar(user: user); VStack(alignment: .leading) { Text(user.displayName); Text("@" + (user["username"].string ?? "")).font(.caption).foregroundStyle(.secondary) } }
+                    HStack {
+                        Avatar(user: user)
+                        VStack(alignment: .leading) {
+                            Text(user.displayName)
+                            if let handle = FolloweeDisplayHandle.text(for: user) {
+                                Text(verbatim: handle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 }.accessibilityIdentifier("addFriend.result." + user.id)
             }
             if hasMore && !busy { Button("加载更多用户") { Task { await search(reset: false) } }.accessibilityIdentifier("addFriend.more") }
