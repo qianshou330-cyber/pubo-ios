@@ -15,6 +15,18 @@
   - **通过**：`git diff --check`、反向补丁校验（`git apply --reverse --check`）、Python 全量单测 **272/272**、Node 隔离单测 **2/2**。
   - **未运行/受阻**：本地为 Linux 环境，未运行 Swift 编译、Xcode UI 测试、模拟器或真机；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 后核验「好友 / 我的」浅深色左对齐标题清晰可见、双机 `legacy-regression` 恢复通过、全套 0 警告、C104 vs C106 前后对照图及最终独立核验的未签名候选 IPA。
 
+### C106 精确提交终态
+
+精确 [C106 `37d7b4e1`](https://github.com/qianshou330-cyber/pubo-ios/commit/37d7b4e1d7657201bf66e5559ee8c6fc894c6251) 的 [CI 45848689462 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45848689462/attempts/1) 于 2026-11-26 18:10:37 UTC 结束，整轮失败（36 作业：**22 通过、10 失败、0 取消、4 跳过**，刷新本分支历史最高通过数）。核心检查（`140009003235`，产物 `15134305165`）：Swift **220/220**、Python **272/272**、Node **2/2** 与宿主诊断（`140009002651`）全过；OCR（`140011515492`）仍失败，未降门槛；正式打包（`140095649035`）跳过。
+
+- **全套零警告保持与严格四栏导航汇总首次全绿**：
+  - 全部 **32/32** 个已执行作业日志全量扫描均为 **0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**。
+  - **四栏导航 4/4 全分片 + 严格汇总门禁全部通过**：`navigation (small, interaction)`（`140011515679`，产物 `15137657515`，7/7）、`navigation (small, routing)`（`140011515709`，产物 `15136588316`，6/6）、`navigation (large, interaction)`（`140011516017`，7/7）、`navigation (large, routing)`（`140011515776`，6/6）以及严格汇总作业 **`navigation-evidence`（[140095496715](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45848689462/job/140095496715)）** 全部 **`PASS`**！
+  - **双机消息与聊天全通过项**：**双机 `messages-redesign`**（标准机 `140011515567` 产物 `15135039773` / 大屏机 `140011515586`）均严格 **`PASS`**（各 4/4）；**双机 `chat-alignment (actions)`**（`140011515558`/`140011515625`）、**双机 `chat-presentation (states)`**（`140011515520`/`140011515892`）、**全部 4/4 聊天返回诊断**（`diagnostic-private-back` `140011515531`/`140011515569` + `diagnostic-room-back` `140011515989`/`140011515716`）、`chat-alignment (large, layout)`（`140011515623`）、`diagnostic-world-scroll (cross-page, large)`（`140011515829`）、`diagnostic-world-scroll (signposts, small)`（`140011515749`）与 `h5-chat-reference`（`140011515585`）均通过。
+  - **C106 定向收口验证**：① `legacy-regression (small)`（`140011515498`，产物 `15135272194`）中 `testNativePrivacyAndVerificationStatus`（`PUBOUITests.swift:67` `openSettings`）已恢复通过（4/5 通过，含 `app.navigationBars["我的"]` 与 `testHomePanelsAndChartNavigation`，仅既有 `AccountSettingsParityUITests:120` 开关等待超时）；② 全量目视复核 10 张 C106 真屏原图（好友浅/深色、我的浅/深色、世界圈浅/深色、发帖键盘、通知、个人主页、未登录引导页）并生成 3 张 C104 vs C106 高清前后对照图，确认全部 8 项布局问题 100% 闭环（「好友」「我的」左对齐粗体标题清晰可见无玻璃胶囊包裹、盾锁隐私入口语义清晰）。
+  - **其余失败分片（无 C106 业务回归）**：`legacy-regression (large)` 进入用例前命中 AX 初始化超时；双机 `video-poster`、双机 `chat-presentation (composer)`、`chat-alignment (small, layout)`、`diagnostic-world-scroll (cross-page, small)`、`diagnostic-world-scroll (signposts, large)` 均为无警告瞬时超时，及既有 `ocr-validation` 门槛。
+- **未签名设备候选**：[候选作业 140011515658](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45848689462/job/140011515658) 一次通过并生成 [QA-INCOMPLETE 产物 15137841723](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45848689462/artifacts/15137841723)（到期 2026-12-10 16:36:59 UTC，ZIP `5,641,694` 字节），已独立核实精确提交 `37d7b4e1`、`0.10.0`/build `148`、iPhoneOS `arm64` Mach-O 未签名（`hasCodeSignature: false`）、`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa` **`5,679,583` 字节**、SHA-256 **`1148d2fbcd4da8d92c4244d9dc020cbd69bfed85c6b1114974d57cda378d0774`**。需签名装机，非正式打包、实体机验收或 GitHub Release，不替换 C71 试用基线。
+
 ## 2026-11-26 / C105 候选（页面 UI 布局自查全量修复）：消除通知双标题、发帖栏悬空、好友/我的布局割裂、主页空白行、卡片留白洞、登录重复标题与深色按钮刺眼问题
 
 - **问题与视觉自查依据（经用户批复“全部修”实施）**：
