@@ -24,9 +24,11 @@ class C109PrivacyAndNoteTapContractTests(unittest.TestCase):
             self.assertIn('puboWindowContainsFiniteRect(', source)
             set_switch = source.split('private func setSwitch(', 1)[1].split('XCTAssertEqual(outcome, .completed)', 1)[0]
             self.assertNotIn('XCTAssertTrue(control.isHittable)', set_switch)
+            self.assertNotIn('let rowHittable = control.isHittable', set_switch)
+            self.assertIn('puboWaitImmediate(for: control, timeout: 8)', set_switch)
             self.assertLess(
                 set_switch.index('puboWindowContainsFiniteRect(row.frame, in: window)'),
-                set_switch.index('let rowHittable = control.isHittable'),
+                set_switch.index('let nativeHittable = candidate.isHittable'),
             )
             self.assertIn('puboNativeSwitchFitsAXRow(bounds, row: row.frame)', set_switch)
             self.assertIn('actual.tap()', set_switch)

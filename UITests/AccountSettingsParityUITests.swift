@@ -25,6 +25,20 @@ func puboWindowContainsFiniteRect(_ rect: CGRect, in window: CGRect) -> Bool {
         window.intersects(rect)
 }
 
+/// Evaluate `predicate` immediately before falling back to `XCTWaiter` with
+/// the exact remaining budget, avoiding `XCTNSPredicateExpectation`'s ~1s
+/// blind delay before the first poll without extending the timeout ceiling.
+func puboWaitImmediate(for object: Any?, timeout: TimeInterval, predicate: @escaping () -> Bool) -> XCTWaiter.Result {
+    let started = ProcessInfo.processInfo.systemUptime
+    if predicate() {
+        return (ProcessInfo.processInfo.systemUptime - started) <= timeout ? .completed : .timedOut
+    }
+    let remaining = timeout - (ProcessInfo.processInfo.systemUptime - started)
+    guard remaining > 0 else { return .timedOut }
+    let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in predicate() }, object: object)
+    return XCTWaiter.wait(for: [expectation], timeout: remaining)
+}
+
 final class AccountSettingsParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func openSettings(_ dark: Bool = false) -> XCUIApplication {
@@ -39,13 +53,13 @@ final class AccountSettingsParityUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
-        let initialReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        let initialReady = puboWaitImmediate(for: control, timeout: 8) {
             let window = app.windows.firstMatch.frame
             let frame = control.frame
             guard puboWindowContainsFiniteRect(frame, in: window) else { return false }
             return control.isHittable
-        }, object: control)
-        XCTAssertEqual(XCTWaiter.wait(for: [initialReady], timeout: 8), .completed)
+        }
+        XCTAssertEqual(initialReady, .completed)
         let expected = value ? "1" : "0"
         let before = control.value
         let transitionStarted = ProcessInfo.processInfo.systemUptime
@@ -59,7 +73,7 @@ final class AccountSettingsParityUITests: XCTestCase {
             var concrete: XCUIElement?
             let started = ProcessInfo.processInfo.systemUptime
             var observations: [String] = []
-            let actionable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let ready = puboWaitImmediate(for: control, timeout: 8) {
                 concrete = nil
                 let probeStarted = ProcessInfo.processInfo.systemUptime
                 var detail = ""
@@ -85,18 +99,16 @@ final class AccountSettingsParityUITests: XCTestCase {
                         return false
                     }
                     let candidate = control.children(matching: .switch).firstMatch
-                    let rowHittable = control.isHittable
                     let nativeHittable = candidate.isHittable
-                    detail += " rowHittable=\(rowHittable) nativeHittable=\(nativeHittable)"
-                    guard rowHittable, nativeHittable else { return false }
+                    detail += " nativeHittable=\(nativeHittable)"
+                    guard nativeHittable else { return false }
                     concrete = candidate
                     return true
                 } catch {
                     detail += " snapshotError=\(error)"
                     return false
                 }
-            }, object: control)
-            let ready = XCTWaiter.wait(for: [actionable], timeout: 8)
+            }
             let observation = XCTAttachment(string: "timeout=8 outcome=\(ready.rawValue)\n" + observations.joined(separator: "\n"))
             observation.name = "privacy-native-switch-observations-" + control.identifier
             observation.lifetime = .keepAlways; add(observation)
@@ -119,14 +131,13 @@ final class AccountSettingsParityUITests: XCTestCase {
         // Keep the same value equality and budget, recording every actual read
         // without triggering XCTest's expensive automatic predicate diagnostics.
         let equalsExpected = NSPredicate(format: "SELF == %@", expected)
-        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        let outcome = puboWaitImmediate(for: control, timeout: 8) {
             let probeStarted = ProcessInfo.processInfo.systemUptime
             let actual = control.value
             let ended = ProcessInfo.processInfo.systemUptime
             transition.append("elapsed=\(ended - transitionStarted) queryDuration=\(ended - probeStarted) actual=\(String(describing: actual))")
             return equalsExpected.evaluate(with: actual)
-        }, object: control)
-        let outcome = XCTWaiter.wait(for: [changed], timeout: 8)
+        }
         let stateEvidence = XCTAttachment(string: "timeout=8 outcome=\(outcome.rawValue)\n" + transition.joined(separator: "\n"))
         stateEvidence.name = "privacy-switch-transition-" + control.identifier + "-expected-" + expected
         stateEvidence.lifetime = .keepAlways; add(stateEvidence)
@@ -159,6 +170,11 @@ final class AccountSettingsParityUITests: XCTestCase {
         XCTAssertFalse(puboWindowContainsFiniteRect(row, in: .zero))
         XCTAssertFalse(puboWindowContainsFiniteRect(row, in: CGRect(x: CGFloat.infinity, y: CGFloat.infinity, width: 0, height: 0)))
         XCTAssertFalse(puboWindowContainsFiniteRect(CGRect(x: 500, y: 121, width: 63, height: 28), in: validWindow))
+        let dummyTarget = NSObject()
+        var immediateCalls = 0
+        XCTAssertEqual(puboWaitImmediate(for: dummyTarget, timeout: 1) { immediateCalls += 1; return true }, .completed)
+        XCTAssertEqual(immediateCalls, 1)
+        XCTAssertEqual(puboWaitImmediate(for: dummyTarget, timeout: 0.05) { false }, .timedOut)
         for dark in [false, true] {
             let app = openSettings(dark); app.buttons["隐私与内容偏好"].tap()
             let locked = app.switches.matching(identifier: "privacy.isLocked").firstMatch

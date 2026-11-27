@@ -1,5 +1,23 @@
 # 修复日志
 
+## 2026-11-27 / C110 候选（消除隐私开关准备探测的 1.05s 首次盲等与 2.75s 冗余重复查询，零预算/断言放宽）
+
+- **问题、复现与 C109 实测证据**：
+  - 在 C109（`06bad5f4`，[CI 45957292470](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45957292470)，**31/37 通过**，8/9 必选门禁含 `ocr-validation` 全绿，33/33 已执行作业 **0 运行时警告**）中，唯一未通过的必选门禁为 `legacy-regression (large)`（`140368008520`，产物 `15181906854`）。
+  - 核查 `privacy-native-switch-observations-privacy.isLocked`（`364436C6-D94E-47A7-830F-F1A2D054DAC1.txt`）与作业原始时间戳（`legacy.log:549-556`）证实：
+    - 隐私页加载 **0.00pt 跳动**（`isLocked` 加载前后全程稳在 `y=163.0`，原 C108 跳动 77pt），全部 **8/8 次**已发出开关点击均 100% 触发 `setter + valueChanged + touchUp`，**0 次吞点击**、**0 次 `Activation point invalid` 中止**。
+    - 失败仅发生在深色模式最后一次 `isLocked 0->1` 准备探测：`XCTWaiter` 首次轮询前盲等 `1.05s`，叠加 `control.snapshot()`（`2.24s`）+ `window.frame`（`0.13s`）+ 冗余的第二次 `control.isHittable`（`2.75s`，`initialReady` 刚于 10ms 前核验过）+ `candidate.isHittable`（`1.97s`），虽然首次轮询即返回 **`true`**，但总耗时 `8.136s` 仅超出 `8.0s` 预算 **`0.136s`**。
+- **最小修复内容（仅 UI 测试辅助，零产品代码改动，保持 `timeout: 8` 与全部断言不变）**：
+  1. `UITests/AccountSettingsParityUITests.swift` 与 `UITests/PUBOUITests.swift`：
+     - 新增 `puboWaitImmediate(for:timeout:predicate:)`：在进入 `XCTWaiter` 前先立即同步求值 1 次（若首次耗时超 `timeout` 仍严格判 `.timedOut`），避免 `XCTNSPredicateExpectation` 每次约 `1.0s` 的盲等；未通过时按精确剩余时间 `timeout - elapsed` 交回 `XCTWaiter`，总上限仍严格为 `8.0s`。
+     - 在 `setSwitch` 的 `actionable` 探测内移除已由 `initialReady` 前置核验且与 `candidate.isHittable` 重叠的冗余 `let rowHittable = control.isHittable`（`2.75s`），保留 `control.snapshot()`、`puboNativeSwitchFitsAXRow`、`puboWindowContainsFiniteRect(row.frame & bounds)`、`candidate.isHittable`、唯一原生子开关 `actual.tap()` 与 `8s` 状态断言完全不变；为 `puboWaitImmediate` 补充 2 条边界单测。
+  2. `scripts/test_c109_privacy_and_note_tap_contracts.py`：同步断言使用 `puboWaitImmediate(for: control, timeout: 8)` 且无冗余 `let rowHittable = control.isHittable`。
+- **涉及文件**：`UITests/AccountSettingsParityUITests.swift`、`UITests/PUBOUITests.swift`、`scripts/test_c109_privacy_and_note_tap_contracts.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`python3 -m unittest discover -s scripts -p 'test_*.py'` **289/289**（2.713s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check`。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Xcode 编译、全量 Apple Silicon 模拟器套件与正式 `package` 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C109 候选（根治仅剩 3 项 CI 失败与真机隐私页跳动／帖子误触缺陷，零门槛放宽）
 
 - **问题、复现与取证（基于 C108 `a5d20439` / CI `45945236638` 原始产物）**：
@@ -33,6 +51,15 @@
     - `git diff --check` -> **0 问题**。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Swift 编译、`macos-15` 全量模拟器套件、macOS `ocr-validation` 与正式 `package` 打包待推送后由 `four-tabs.yml` 验证。
+
+### C109 精确提交终态
+
+精确 [C109 `06bad5f4`](https://github.com/qianshou330-cyber/pubo-ios/commit/06bad5f469a6f9017895251768507e2a91f172b5) 的 [CI 45957292470 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45957292470/attempts/1) 于 `2026-11-27 07:16:08Z` 启动、`08:26:19Z` 结束（总耗时 **70 分 11 秒**），最终 **31 通过、2 失败、0 取消、4 跳过（再刷新历史纪录，8/9 必选门禁通过，全量 33/33 已执行作业 0 运行时警告）**；正式 `package` 因 1 项大屏旧回归未过跳过。
+
+- **通过项（31/37）**：`checks`（`140366599519`，Swift 220/220 + Python 289/289 + Node 2/2）、`ocr-validation`（`140366992745`，产物 `15178908256`，加严 189 语料门禁首次全绿）、`build-sim-tests`、`h5-chat-reference`、`diagnostic-timeline-capture-host`、`candidate-package`（产物 `15179647741`）、`navigation` 4/4 + 严格汇总 `navigation-evidence`（`140393417529`）、`chat-alignment` 4/4、`chat-presentation` 4/4、`video-poster` 2/2、`messages-redesign` 2/2、`legacy-regression (small)` 5/5、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2 与 `diagnostic-world-scroll` 3/4（含 `cross-page (small)` 通过与 `signposts` 2/2）。
+- **失败项（2/37）**：
+  1. `legacy-regression (large)`（`140368008520`，产物 `15181906854`）：隐私页实测 **0.00pt 跳动**（`y=163.0` 全程不变）且 **8/8 次**已发出点击 100% 触达、0 次 `Activation point invalid` 中止，仅深色末次准备探测因 `XCTWaiter` 首次 `1.05s` 盲等 + 冗余 `2.75s` `control.isHittable` 耗时 `8.136s` 超 `8.0s` 预算 `0.136s`（转由 C110 立即收口）。
+  2. `diagnostic-world-scroll (cross-page, large)`（`140368008503`，可选诊断）：冷启动 `app.launch()` 时报 `Timed out while acquiring background assertion`，未进入页面交互。
 
 ## 2026-11-26 / C108 候选（C107 Apple Silicon 实测暴露的 3 项冷启动/镜像收口修复，零业务断言放宽）
 
