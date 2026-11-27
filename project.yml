@@ -39,7 +39,7 @@ targets:
           APNS_ENVIRONMENT: development
         Release:
           APNS_ENVIRONMENT: production
-          EXCLUDED_SOURCE_FILE_NAMES: NotificationVisualCases.json
+          EXCLUDED_SOURCE_FILE_NAMES: NotificationVisualCases.json TimelineVisualCases.json ChatParity.json TimelineParity.json PublicPosterRedFixture.mp4
     info:
       path: App/Info.plist
       properties:
@@ -47,6 +47,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: zh_CN
+        ITSAppUsesNonExemptEncryption: false
         PUBOAPNSEnvironment: $(APNS_ENVIRONMENT)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

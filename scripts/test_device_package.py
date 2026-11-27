@@ -44,6 +44,58 @@ class DevicePackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'arm64'):
             module.inspect_macho(data)
 
+    def test_release_hygiene_accepts_clean_bundle_and_rejects_leaks(self):
+        good_info = {
+            'ITSAppUsesNonExemptEncryption': False,
+            'CFBundleIcons': {'CFBundlePrimaryIcon': {'CFBundleIconName': 'AppIcon'}},
+        }
+        module.verify_release_hygiene(good_info, {'PUBO', 'Info.plist', 'PrivacyInfo.xcprivacy', 'AdminCatalog.json'}, b'clean binary')
+        with self.assertRaisesRegex(ValueError, 'ITSAppUsesNonExemptEncryption'):
+            module.verify_release_hygiene({'CFBundleIcons': good_info['CFBundleIcons']}, {'PUBO'}, b'clean')
+        with self.assertRaisesRegex(ValueError, 'AppIcon'):
+            module.verify_release_hygiene({'ITSAppUsesNonExemptEncryption': False}, {'PUBO'}, b'clean')
+        for leaked in sorted(module.FORBIDDEN_RELEASE_RESOURCES):
+            with self.assertRaisesRegex(ValueError, 'leaked into Release bundle'):
+                module.verify_release_hygiene(good_info, {'PUBO', leaked}, b'clean')
+        for marker in module.FORBIDDEN_RELEASE_BINARY_MARKERS:
+            with self.assertRaisesRegex(ValueError, 'leaked into Release binary'):
+                module.verify_release_hygiene(good_info, {'PUBO'}, b'prefix ' + marker + b' suffix')
+
+    def test_privacy_manifest_requires_no_tracking_and_user_defaults_reason(self):
+        valid = {
+            'NSPrivacyTracking': False,
+            'NSPrivacyAccessedAPITypes': [
+                {'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults', 'NSPrivacyAccessedAPITypeReasons': ['CA92.1']}
+            ],
+        }
+        module.verify_privacy_manifest(valid)
+        with self.assertRaisesRegex(ValueError, 'Tracking'):
+            module.verify_privacy_manifest({'NSPrivacyTracking': True, 'NSPrivacyAccessedAPITypes': valid['NSPrivacyAccessedAPITypes']})
+        with self.assertRaisesRegex(ValueError, 'CA92.1'):
+            module.verify_privacy_manifest({'NSPrivacyTracking': False, 'NSPrivacyAccessedAPITypes': []})
+
+    def test_repo_pre_submission_release_contracts(self):
+        root = Path(__file__).resolve().parents[1]
+        project = (root / 'project.yml').read_text()
+        self.assertIn('ITSAppUsesNonExemptEncryption: false', project)
+        for name in (
+            'NotificationVisualCases.json',
+            'TimelineVisualCases.json',
+            'ChatParity.json',
+            'TimelineParity.json',
+            'PublicPosterRedFixture.mp4',
+        ):
+            self.assertIn(name, project)
+        transport = (root / 'App/Infrastructure/FixtureTransport.swift').read_text()
+        self.assertTrue(transport.startswith('#if DEBUG\n'))
+        self.assertTrue(transport.rstrip().endswith('#endif'))
+        reg = (root / 'App/Features/AuthRegistration.swift').read_text()
+        self.assertNotIn('misskey-hub.net', reg)
+        self.assertIn('auth.agreeNotes', reg)
+        profile = (root / 'App/Features/ProfileView.swift').read_text()
+        self.assertIn('session.meta["privacyPolicyUrl"].string', profile)
+        self.assertIn('session.meta["termsOfServiceUrl"].string', profile)
+
 
 if __name__ == '__main__':
     unittest.main()

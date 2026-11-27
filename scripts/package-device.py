@@ -50,6 +50,51 @@ def project_version(project):
     return versions[0], builds[0]
 
 
+FORBIDDEN_RELEASE_RESOURCES = frozenset({
+    'login-background.mp4',
+    'login-background-poster.jpg',
+    'NotificationVisualCases.json',
+    'TimelineVisualCases.json',
+    'ChatParity.json',
+    'TimelineParity.json',
+    'PublicPosterRedFixture.mp4',
+})
+
+FORBIDDEN_RELEASE_BINARY_MARKERS = (
+    b'FixtureTransport',
+    b'--ui-testing',
+    b'systemUptime',
+    b'misskey-hub.net',
+)
+
+
+def verify_privacy_manifest(privacy):
+    require(privacy.get('NSPrivacyTracking') is False, 'Tracking disclosure mismatch')
+    api_types = privacy.get('NSPrivacyAccessedAPITypes') or []
+    user_defaults = [
+        item for item in api_types
+        if isinstance(item, dict) and item.get('NSPrivacyAccessedAPIType') == 'NSPrivacyAccessedAPICategoryUserDefaults'
+    ]
+    require(
+        any('CA92.1' in (item.get('NSPrivacyAccessedAPITypeReasons') or []) for item in user_defaults),
+        'Missing UserDefaults CA92.1 privacy reason',
+    )
+
+
+def verify_release_hygiene(info, bundle_filenames, binary_bytes):
+    require(info.get('ITSAppUsesNonExemptEncryption') is False, 'Missing ITSAppUsesNonExemptEncryption=false')
+    icons = info.get('CFBundleIcons') or {}
+    primary = icons.get('CFBundlePrimaryIcon') if isinstance(icons, dict) else None
+    require(
+        isinstance(primary, dict) and primary.get('CFBundleIconName') == 'AppIcon',
+        'Missing AppIcon primary icon declaration',
+    )
+    leaked_resources = sorted(FORBIDDEN_RELEASE_RESOURCES.intersection(bundle_filenames))
+    require(not leaked_resources, f'Forbidden test/removed resources leaked into Release bundle: {leaked_resources}')
+    leaked_markers = [marker.decode('ascii') for marker in FORBIDDEN_RELEASE_BINARY_MARKERS if marker in binary_bytes]
+    require(not leaked_markers, f'Forbidden debug/external markers leaked into Release binary: {leaked_markers}')
+
+
 def main():
     app = Path('build/device/Build/Products/Release-iphoneos/PUBO.app')
     info = plistlib.loads((app / 'Info.plist').read_bytes())
@@ -61,7 +106,7 @@ def main():
         require(info.get(key) == value, f'Wrong device metadata: {key}')
     require((app / 'PrivacyInfo.xcprivacy').is_file(), 'Missing privacy manifest')
     privacy = plistlib.loads((app / 'PrivacyInfo.xcprivacy').read_bytes())
-    require(privacy.get('NSPrivacyTracking') is False, 'Tracking disclosure mismatch')
+    verify_privacy_manifest(privacy)
     require(info.get('PUBOAPNSEnvironment') == 'production', 'Wrong APNs release environment')
     require('NSAppTransportSecurity' not in info, 'Integration transport exception leaked into Release')
     require(not (app / '_CodeSignature').exists(), 'Unexpected signature directory')
@@ -76,8 +121,8 @@ def main():
             if data[:4] == b'\xcf\xfa\xed\xfe':
                 binaries[str(path.relative_to(app))] = inspect_macho(data)
     require('PUBO' in binaries, 'Missing verified native binary')
-    forbidden = {'login-background.mp4', 'login-background-poster.jpg'}
-    require(not any(path.name in forbidden for path in app.rglob('*')), 'Removed login background media leaked into bundle')
+    bundle_filenames = {path.name for path in app.rglob('*') if path.is_file()}
+    verify_release_hygiene(info, bundle_filenames, executable.read_bytes())
     codesign = subprocess.run(['codesign', '-dv', str(app)], capture_output=True, text=True)
     require(codesign.returncode != 0 and 'not signed at all' in codesign.stderr,
             'codesign did not confirm unsigned app')
@@ -102,7 +147,9 @@ def main():
     result = {'status': 'PASS', 'commit': os.environ.get('GITHUB_SHA'), 'metadata': expected,
               'binaries': binaries, 'codesign': 'UNSIGNED', 'ipa': ipa.name,
               'bytes': ipa.stat().st_size, 'sha256': hashlib.sha256(ipa.read_bytes()).hexdigest(),
-              'requiresSigningBeforeInstallation': True, 'physicalDeviceTested': False, 'loginBackground': 'STATIC_NO_VIDEO_OR_POSTER'}
+              'requiresSigningBeforeInstallation': True, 'physicalDeviceTested': False,
+              'exportComplianceExempt': True, 'releaseHygiene': 'PASS',
+              'loginBackground': 'STATIC_NO_VIDEO_OR_POSTER'}
     Path('build/device-package.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result, indent=2))
 

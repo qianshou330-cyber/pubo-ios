@@ -33,8 +33,10 @@ struct AuthRulesFields: View {
                 }.padding(.top, 12)
             }
             DisclosureGroup("基本注意事项", isExpanded: $showNotes) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Link("阅读基本注意事项", destination: URL(string: "https://misskey-hub.net/docs/for-users/onboarding/warning/")!)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("• 请遵守本站服务器规则与社区公约，不发布违法、骚扰、垃圾广告或侵权内容。").font(.callout)
+                    Text("• 请妥善保管账号密码与两步验证凭据，勿向他人泄露验证码。").font(.callout)
+                    Text("• 如遇不当内容或骚扰行为，可在帖子、聊天或个人主页随时举报与屏蔽对方。").font(.callout)
                     Toggle("同意", isOn: agreement("notes")).accessibilityIdentifier("auth.agreeNotes")
                 }.padding(.top, 12)
             }

@@ -427,9 +427,10 @@ struct MyAccountSettingsView: View {
                 Section("关于") {
                     Text("PUBO iPhone · " + version)
                     Text(session.meta["nativePushAvailable"].bool ? "锁屏推送可在账号设置中开启。" : "通知在 App 内更新，当前锁屏推送通道尚未开放。").font(.footnote)
-                    Link("隐私政策", destination: Endpoint.origin.appendingPathComponent("privacy.html"))
+                    Link("隐私政策", destination: safeMediaURL(session.meta["privacyPolicyUrl"].string) ?? Endpoint.origin.appendingPathComponent("privacy.html"))
                     Link("支持与反馈", destination: URL(string: "mailto:qianshou330@gmail.com")!)
-                    if let url = safeMediaURL(session.meta["tosUrl"].string) { Link("服务条款", destination: url) }
+                    if let raw = session.meta["tosUrl"].string ?? session.meta["termsOfServiceUrl"].string,
+                       let url = safeMediaURL(raw) { Link("服务条款", destination: url) }
                     Link("公开源码", destination: URL(string: "https://github.com/qianshou330-cyber/pubo-ios")!)
                 }
                 .listRowBackground(PUBOTheme.panel)

@@ -1,5 +1,31 @@
 # 修复日志
 
+## 2026-11-27 / C111 候选（上架前 Release 包硬化、出口加密合规声明、第三方外链收敛与外包上架交接清单）
+
+- **问题、复现与 C110 正式包拆包审计证据**：
+  - 对 C110（`194c67a8`，[CI 45966014167](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45966014167)，**34/34 全绿通过**）正式未签名 IPA（`15187837998`）执行上架前（TestFlight / App Store 外包签名提审）深度拆包审计，发现 4 项可在上架前于代码层彻底清零的硬化项：
+    1. `App/Infrastructure/FixtureTransport.swift`（67KB / 752 行）缺少 `#if DEBUG` 条件编译隔离，被完整编入 Release Mach-O 二进制（含 **120 处** `FixtureTransport` 符号；其余 7 个 `*Fixtures.swift` 均已 `#if DEBUG` 隔离）。
+    2. `project.yml` 的 `Release` 配置 `EXCLUDED_SOURCE_FILE_NAMES` 仅排除了 `NotificationVisualCases.json`，导致其余 4 个纯测试/对齐素材（`TimelineVisualCases.json`、`ChatParity.json`、`TimelineParity.json`、`PublicPosterRedFixture.mp4`）仍打入正式 `Payload/PUBO.app/`。
+    3. `Info.plist` 缺少 `ITSAppUsesNonExemptEncryption = false`（应用仅使用系统标准 HTTPS/TLS），外包团队每次上传 TestFlight 均会触发人工出口加密合规问卷阻断。
+    4. `App/Features/AuthRegistration.swift:37` 的「基本注意事项」指向第三方外链 `https://misskey-hub.net/docs/for-users/onboarding/warning/`（国内网络易打不开且易在 App Review 被误判为第三方品牌外链）；另 `App/Features/ProfileView.swift:430-432` 关于区域的隐私政策与服务条款 URL 读取逻辑尚未与 `AuthFlow.swift:45-47` 同步支持 `privacyPolicyUrl` 与 `termsOfServiceUrl`。
+- **最小修复与硬化内容（零降任何业务/UI/OCR 门槛）**：
+  1. `project.yml`：
+     - `Release` 配置的 `EXCLUDED_SOURCE_FILE_NAMES` 扩展为全部 5 个纯测试/对齐素材：`NotificationVisualCases.json TimelineVisualCases.json ChatParity.json TimelineParity.json PublicPosterRedFixture.mp4`。
+     - `Info.plist` 新增 `ITSAppUsesNonExemptEncryption: false`。
+  2. `App/Infrastructure/FixtureTransport.swift`：全文件包裹 `#if DEBUG` / `#endif`（`AppSession.swift:107` 原调用点已在 `#if DEBUG` 内），使 Release 二进制彻底清除 `FixtureTransport` 符号，Debug 模拟器测试行为完全不变。
+  3. `App/Features/AuthRegistration.swift` 与 `App/Features/ProfileView.swift`：
+     - 将注册页「基本注意事项」外链替换为 3 条原生内联中文社区规范与举报/屏蔽安全提示（契合 Apple Guideline 1.2 UGC 合规要求，完整保留 `auth.agreeNotes` 开关及既有 UITest 行为）。
+     - 统一设置页「关于」的 `privacyPolicyUrl` 与 `tosUrl ?? termsOfServiceUrl` 读取逻辑。
+  4. `scripts/package-device.py` 与 `scripts/test_device_package.py`：
+     - 新增 `verify_release_hygiene` 与 `verify_privacy_manifest` 硬门禁，打包阶段强校验：`ITSAppUsesNonExemptEncryption == False`、`AppIcon` 主图标声明、`PrivacyInfo.xcprivacy` 的 `NSPrivacyTracking == False` 与 `UserDefaults (CA92.1)`、Release 包内 0 个禁用测试素材、Release 二进制 0 处 `FixtureTransport` / `--ui-testing` / `systemUptime` / `misskey-hub.net` 残留，并在 `device-package.json` 输出 `exportComplianceExempt: true` 与 `releaseHygiene: "PASS"`。
+     - 新增 3 组正反单元测试与源码契约测试覆盖全部新守卫。
+  5. 新增 `docs/RELEASE_PREFLIGHT.md`：整理供外包签名与 TestFlight/App Store 提审团队直接使用的零凭据技术规格、隐私标签映射、审核备注要点与 8 大项真机验收清单。
+- **涉及文件**：`project.yml`、`App/Infrastructure/FixtureTransport.swift`、`App/Features/AuthRegistration.swift`、`App/Features/ProfileView.swift`、`scripts/package-device.py`、`scripts/test_device_package.py`、`docs/RELEASE_PREFLIGHT.md`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`FixtureTransport.swift` `#if`/`#endif` 嵌套配对校验通过、`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **292/292** 通过（2.620s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2** 通过。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Xcode Release 编译、新 `package-device.py` 洁净度门禁实跑、全套 34/34 CI 与正式硬化 IPA 校验待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C110 候选（消除隐私开关准备探测的 1.05s 首次盲等与 2.75s 冗余重复查询，零预算/断言放宽）
 
 - **问题、复现与 C109 实测证据**：

@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import OSLog
 import PUBOCore
@@ -749,3 +750,4 @@ actor FixtureTransport: HTTPTransport {
         return nil
     }
 }
+#endif
