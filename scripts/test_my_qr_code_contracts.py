@@ -7,12 +7,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class MyQRCodeContracts(unittest.TestCase):
     def test_qr_renderer_matches_h5_palette_high_ec_and_keeps_light_quiet_zone(self):
+        renderer = (ROOT / 'Sources/PUBOCore/UserQRCodeRenderer.swift').read_text()
+        self.assertIn('public static let cardBackgroundHex: UInt32 = 0xfbfff0', renderer)
+        self.assertIn('public static let moduleColorHex: UInt32 = 0x455c00', renderer)
+        self.assertIn('public static let badgeBackgroundHex: UInt32 = 0x0b1412', renderer)
+        self.assertIn('public static let quietModules: CGFloat = 4', renderer)
+        self.assertIn('filter.correctionLevel = "H"', renderer)
+        self.assertIn('let n = maxRow - minRow + 1', renderer)
+        self.assertIn('finderScore(grid, col: 0, row: 0) == 49', renderer)
+        self.assertIn('let dotRadius = moduleSize * 0.42', renderer)
+
         src = (ROOT / 'App/Features/MyQRCodeView.swift').read_text()
-        self.assertIn('static let cardBackgroundHex: UInt32 = 0xfbfff0', src)
-        self.assertIn('static let moduleColorHex: UInt32 = 0x455c00', src)
-        self.assertIn('static let badgeBackgroundHex: UInt32 = 0x0b1412', src)
-        self.assertIn('filter.correctionLevel = "H"', src)
-        self.assertIn('let quietModules: CGFloat = 4', src)
+        self.assertIn('UserQRCodeRenderer.renderCGImage(', src)
+        self.assertIn('.interpolation(.high)', src)
         self.assertIn('Image(uiImage: qrImage)', src)
         self.assertIn('accessibilityIdentifier("myQR.scan")', src)
         self.assertIn('accessibilityIdentifier("myQR.image")', src)
@@ -20,6 +27,10 @@ class MyQRCodeContracts(unittest.TestCase):
         self.assertIn('accessibilityIdentifier("myQR.share")', src)
         self.assertIn('if session.testMode {', src)
         self.assertIn('隔离测试不写入系统相册', src)
+
+        core_tests = (ROOT / 'Tests/PUBOCoreTests/UserQRCodeTests.swift').read_text()
+        self.assertIn('testMatrixTrimsQuietZoneAndAlignsAllThreeFinders', core_tests)
+        self.assertIn('testRenderedStyledQRImageDecodesWithAppleCIDetectorAcrossSizesAndThemes', core_tests)
 
     def test_user_qr_code_core_generator_preserves_strict_h5_parser(self):
         core = (ROOT / 'Sources/PUBOCore/UserQRCode.swift').read_text()

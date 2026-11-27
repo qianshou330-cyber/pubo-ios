@@ -1,21 +1,15 @@
 import SwiftUI
-import CoreImage
-import CoreImage.CIFilterBuiltins
 import Photos
 import UIKit
 import PUBOCore
 
-/// Renders H5-aligned PUBO user QR codes (`#FBFFF0` quiet zone, `#455C00` rounded modules, `#0B1412` center PUBO badge).
-/// Uses Level "H" error correction (30% recovery) and always keeps a light high-contrast quiet zone so scanners work in both light and dark modes.
+/// Thin UIKit wrapper around `PUBOCore.UserQRCodeRenderer` plus shareable portrait card composition.
 enum PUBOQRCodeRenderer {
-    static let cardBackgroundHex: UInt32 = 0xfbfff0
-    static let moduleColorHex: UInt32 = 0x455c00
-    static let badgeBackgroundHex: UInt32 = 0x0b1412
+    static let cardBackgroundHex: UInt32 = UserQRCodeRenderer.cardBackgroundHex
+    static let moduleColorHex: UInt32 = UserQRCodeRenderer.moduleColorHex
+    static let badgeBackgroundHex: UInt32 = UserQRCodeRenderer.badgeBackgroundHex
 
     private static let cardUIColor = uiColor(cardBackgroundHex)
-    private static let moduleUIColor = uiColor(moduleColorHex)
-    private static let badgeUIColor = uiColor(badgeBackgroundHex)
-    private static let ciContext = CIContext(options: nil)
 
     private static func uiColor(_ hex: UInt32) -> UIColor {
         UIColor(
@@ -27,88 +21,13 @@ enum PUBOQRCodeRenderer {
     }
 
     static func renderQRImage(for url: URL, pixelSize: CGFloat = 900) -> UIImage? {
-        guard let matrix = qrMatrix(for: url.absoluteString) else { return nil }
-        let n = matrix.count
-        guard n >= 21 else { return nil }
-
-        let quietModules: CGFloat = 4
-        let totalModules = CGFloat(n) + quietModules * 2
-        let moduleSize = pixelSize / totalModules
-        let offset = quietModules * moduleSize
-
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: pixelSize, height: pixelSize), format: format)
-        return renderer.image { ctx in
-            let cg = ctx.cgContext
-            cardUIColor.setFill()
-            cg.fill(CGRect(x: 0, y: 0, width: pixelSize, height: pixelSize))
-
-            // Draw the 3 rounded-square finder eyes (top-left, top-right, bottom-left).
-            let finderOrigins = [(0, 0), (n - 7, 0), (0, n - 7)]
-            for (fc, fr) in finderOrigins {
-                drawFinder(
-                    in: cg,
-                    origin: CGPoint(x: offset + CGFloat(fc) * moduleSize, y: offset + CGFloat(fr) * moduleSize),
-                    moduleSize: moduleSize
-                )
-            }
-
-            // Reserve a centered quiet square for the PUBO logo (~22% of code side ≈ 4.8% area, well under Level H 30% limit).
-            let centerIndex = Double(n) / 2.0
-            let clearHalfModules = Double(n) * 0.115
-
-            moduleUIColor.setFill()
-            let dotInset = moduleSize * 0.06
-            let dotSide = moduleSize - dotInset * 2
-            let dotRadius = dotSide * 0.44
-            for row in 0..<n {
-                for col in 0..<n {
-                    guard matrix[row][col] else { continue }
-                    if isInsideFinder(col: col, row: row, size: n) { continue }
-                    if abs(Double(col) + 0.5 - centerIndex) < clearHalfModules &&
-                       abs(Double(row) + 0.5 - centerIndex) < clearHalfModules {
-                        continue
-                    }
-                    let rect = CGRect(
-                        x: offset + CGFloat(col) * moduleSize + dotInset,
-                        y: offset + CGFloat(row) * moduleSize + dotInset,
-                        width: dotSide,
-                        height: dotSide
-                    )
-                    UIBezierPath(roundedRect: rect, cornerRadius: dotRadius).fill()
-                }
-            }
-
-            // Center dark PUBO badge matching H5 QR page (`#0B1412` square + white PUBO wordmark).
-            let codePixelSpan = CGFloat(n) * moduleSize
-            let badgeSide = codePixelSpan * 0.19
-            let badgeRect = CGRect(
-                x: (pixelSize - badgeSide) / 2,
-                y: (pixelSize - badgeSide) / 2,
-                width: badgeSide,
-                height: badgeSide
-            )
-            let haloRect = badgeRect.insetBy(dx: -moduleSize * 0.55, dy: -moduleSize * 0.55)
-            cardUIColor.setFill()
-            UIBezierPath(roundedRect: haloRect, cornerRadius: badgeSide * 0.16).fill()
-
-            badgeUIColor.setFill()
-            UIBezierPath(roundedRect: badgeRect, cornerRadius: badgeSide * 0.10).fill()
-
-            if let brand = UIImage(named: "Brand") {
-                let targetWidth = badgeSide * 0.80
-                let targetHeight = targetWidth * brand.size.height / max(1, brand.size.width)
-                let logoRect = CGRect(
-                    x: badgeRect.midX - targetWidth / 2,
-                    y: badgeRect.midY - targetHeight / 2,
-                    width: targetWidth,
-                    height: targetHeight
-                )
-                brand.withTintColor(.white, renderingMode: .alwaysOriginal).draw(in: logoRect)
-            }
-        }
+        let brandLogo = UIImage(named: "Brand")?.cgImage
+        guard let cgImage = UserQRCodeRenderer.renderCGImage(
+            for: url,
+            pixelSize: Int(pixelSize.rounded()),
+            brandLogo: brandLogo
+        ) else { return nil }
+        return UIImage(cgImage: cgImage, scale: 1, orientation: .up)
     }
 
     /// Renders a clean shareable portrait card containing the QR code, display name, handle and PUBO mark.
@@ -190,74 +109,6 @@ enum PUBOQRCodeRenderer {
             }
         }
     }
-
-    private static func isInsideFinder(col: Int, row: Int, size n: Int) -> Bool {
-        (col < 7 && row < 7) || (col >= n - 7 && row < 7) || (col < 7 && row >= n - 7)
-    }
-
-    private static func drawFinder(in cg: CGContext, origin: CGPoint, moduleSize m: CGFloat) {
-        let outer = CGRect(x: origin.x, y: origin.y, width: 7 * m, height: 7 * m)
-        let middle = outer.insetBy(dx: m, dy: m)
-        let inner = outer.insetBy(dx: 2 * m, dy: 2 * m)
-
-        moduleUIColor.setFill()
-        UIBezierPath(roundedRect: outer, cornerRadius: 1.65 * m).fill()
-
-        cardUIColor.setFill()
-        UIBezierPath(roundedRect: middle, cornerRadius: 1.05 * m).fill()
-
-        moduleUIColor.setFill()
-        UIBezierPath(roundedRect: inner, cornerRadius: 0.68 * m).fill()
-    }
-
-    private static func qrMatrix(for text: String) -> [[Bool]]? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(text.utf8)
-        filter.correctionLevel = "H"
-        guard let output = filter.outputImage else { return nil }
-        let width = Int(output.extent.width.rounded())
-        let height = Int(output.extent.height.rounded())
-        guard width > 0, width == height,
-              let cgImage = ciContext.createCGImage(output, from: output.extent) else { return nil }
-
-        var pixels = [UInt8](repeating: 255, count: width * height)
-        guard let gray = CGContext(
-            data: &pixels,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width,
-            space: CGColorSpaceCreateDeviceGray(),
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
-        ) else { return nil }
-        gray.interpolationQuality = .none
-        gray.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-        var grid = Array(repeating: Array(repeating: false, count: width), count: height)
-        for row in 0..<height {
-            for col in 0..<width {
-                grid[row][col] = pixels[row * width + col] < 128
-            }
-        }
-        // Self-verify orientation: the 3 finder patterns MUST sit at top-left, top-right, bottom-left (never bottom-right).
-        if finderScore(grid, col: width - 7, row: height - 7) > finderScore(grid, col: width - 7, row: 0) {
-            grid.reverse()
-        }
-        return grid
-    }
-
-    private static func finderScore(_ grid: [[Bool]], col c0: Int, row r0: Int) -> Int {
-        var score = 0
-        for dr in 0..<7 {
-            for dc in 0..<7 {
-                let onBorder = dr == 0 || dr == 6 || dc == 0 || dc == 6
-                let onCenter = (2...4).contains(dr) && (2...4).contains(dc)
-                let expected = onBorder || onCenter
-                if grid[r0 + dr][c0 + dc] == expected { score += 1 }
-            }
-        }
-        return score
-    }
 }
 
 /// H5-aligned "My QR Code" identity card with top Scan pill, rounded green PUBO QR code, user avatar/handle, and save/share actions.
@@ -309,7 +160,7 @@ struct MyQRCodeView: View {
                     if let qrImage {
                         Image(uiImage: qrImage)
                             .resizable()
-                            .interpolation(.none)
+                            .interpolation(.high)
                             .scaledToFit()
                             .frame(width: 244, height: 244)
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

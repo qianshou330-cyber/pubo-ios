@@ -1,5 +1,28 @@
 # 修复日志
 
+## 2026-11-27 / C113 候选（修正二维码内置静区 1 模块偏移与零间距圆点渲染，新增 macOS Apple `CIDetector` 实时解码单测）
+
+- **问题、复现与实测证据**：
+  - C112（`d31400b5`，[CI 46005696588](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46005696588)）中新增的 `FourTabNavigationUITests` 实屏 `CIDetector(ofType: CIDetectorTypeQRCode)` 硬门禁在大/小屏均成功捕获真实渲染缺陷（`FourTabNavigationUITests.swift:139`：`Rendered MyQRCodeView did not decode to https://bolubo.com/users/syntheticself; got []`）。
+  - 下载大屏交互原图（`four-tabs-evidence-large-interaction-d31400b5...-a1`，产物 `15203012129`）目视核验并使用 `zbarimg` 复测与像素测量，确认双重根因：
+    1. **内置 1 模块静区未裁剪**：`CIFilter.qrCodeGenerator()` 对 Version 5（`37×37`）二维码输出 `39×39` 含 1 模块白边矩阵（实测绿色包围盒 `606px` vs 39 模块理论跨度 `607.4px`），导致绘制在 `(0,0)` 的三个定位眼相对真实码点整体外偏 1 模块并在外侧残留一圈杂点，直接破坏定位坐标系。
+    2. **高分辨率下点间留白断裂扫描线**：本地 `zbarimg` 消融实验证实，即便修正静区偏移，`dotInset = 6%` 在 `732px` / `900px` 分辨率仍会因相邻暗点间 12% 白缝导致解码失败；改用与 H5 原图一致的**零间距圆点（`dotInset = 0`, `dotRadius = 0.42 * m`）+ H5 圆润定位眼（`2.1m / 1.35m / 1.2m`）**后，本地 `zbarimg` 在 `360/488/732/900/1200px`、浅/深色 `1320×2868` 全屏及 `1.2px` 高斯模糊 8 项压力测试 **8/8 全部准确解码**。
+- **修改内容（不放宽任何既有或新增解码门禁，反而进一步前移至 macOS 单测）**：
+  1. `Sources/PUBOCore/UserQRCodeRenderer.swift`（新增）：
+     - 将纯 `CoreImage + CoreGraphics` 二维码矩阵提取与矢量渲染抽至 `PUBOCore`（`#if canImport(CoreImage) && canImport(CoreGraphics)`），由 iOS App 与 macOS `swift test` 共用同一份生产代码。
+     - `qrMatrix(for:)` 按所有暗模块精确包围盒（`minRow...maxRow`、`minCol...maxCol`）裁除 `CIQRCodeGenerator` 内置静区，校验 `n >= 21 && (n - 21) % 4 == 0` 且三处定位眼 `finderScore == 49` 满分对齐。
+     - `renderCGImage(for:pixelSize:brandLogo:)` 采用零间距圆点（`dotRadius = moduleSize * 0.42`）与 H5 圆润定位眼（`2.1m / 1.35m / 1.2m`）、4 模块 `#FBFFF0` 浅色静区与居中正向白色 `Brand` 标志。
+  2. `App/Features/MyQRCodeView.swift`：
+     - `PUBOQRCodeRenderer.renderQRImage` 委托给 `UserQRCodeRenderer.renderCGImage`；展示 `900×900` 高清矢量图时改用 `.interpolation(.high)` 消除圆点与定位眼缩放锯齿。
+  3. `Tests/PUBOCoreTests/UserQRCodeTests.swift` 与 `scripts/test_my_qr_code_contracts.py`：
+     - 在 `PUBOCoreTests` 新增 `testMatrixTrimsQuietZoneAndAlignsAllThreeFinders` 与 `testRenderedStyledQRImageDecodesWithAppleCIDetectorAcrossSizesAndThemes`（覆盖 3 组合成 ID、`488/732/900px` 及浅/深色 `1320×2868` 全屏画布的实时 Apple `CIDetector` 解码，于 CI 首波 `checks` 2 分钟内即可快速验证）。
+     - 更新 `scripts/test_my_qr_code_contracts.py` 锁定静区裁剪、`49/49` 定位眼校验、零间距圆点、`.interpolation(.high)` 与 macOS `CIDetector` 单测门禁。
+- **涉及文件**：`Sources/PUBOCore/UserQRCodeRenderer.swift`、`App/Features/MyQRCodeView.swift`、`Tests/PUBOCoreTests/UserQRCodeTests.swift`、`scripts/test_my_qr_code_contracts.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：本地 `zbarimg` 8 项压力测试（`360/488/732/900/1200px`、浅/深色全屏、模糊）**8/8** 解码为 `https://bolubo.com/users/syntheticself`；`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **296/296**（2.615s）；`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**；`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，macOS `PUBOCoreTests`（含新增 Apple `CIDetector` 单测）、双机 iOS 26.1 实屏浅/深色解码与全套 34/34 CI 正式打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C112 候选（新增 H5 同款原生「我的二维码」名片页、双向扫码互切与相机权限拒绝一键跳设置）
 
 - **问题、背景与需求依据**：
@@ -22,6 +45,17 @@
   - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **296/296**（2.779s，含新增 `test_my_qr_code_contracts.py` 与既有 `test_c105_ui_layout_contracts.py`）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Swift 核心单测、双机 iOS 26.1 实屏 `CIDetector` 扫码回环断言、全套 34/34 CI 与正式硬化 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
+### C112 精确提交终态
+
+精确 [C112 `d31400b5`](https://github.com/qianshou330-cyber/pubo-ios/commit/d31400b58dcb8be9121f44e12037a1dba16a293d) 的 [CI 46005696588 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46005696588/attempts/1) 于 `2026-11-27 13:16:32Z` 启动、`14:29:23Z` 结束（总墙钟 `72m51s`），整轮 **`failure`（28 通过、3 失败、1 取消、5 跳过**；正式 `package` 跳过，候选包 `15201532860` 不作交付）。
+
+- **通过项（28/37）**：`checks`（`140528164660`，Swift 223/223、Python 296/296、Node 2/2）、`build-sim-tests`、`candidate-package`（Release 卫生与隐私清单全过）、`ocr-validation`、`h5-chat-reference`、`diagnostic-timeline-capture-host`、`chat-alignment` 4/4、`chat-presentation` 4/4、`messages-redesign` 2/2、`video-poster` 2/2、**双机 `navigation (routing)` 2/2**（`140530471393`/`140530471415`，实证「我的二维码」页展示 `@fixture@bolubo.com`、保存图片隔离保护、顶部「扫描」互切全链路通过）、`legacy-regression (large)`、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 3/4；已目视核验大屏实机截图（`four-tabs-我的-light`、`four-tabs-scanner-simulator-fallback`、`four-tabs-me-qrcode-light`）确认工具栏二维码入口、扫一扫底部入口与页面视觉版式正常。
+- **失败项（3/37）**：
+  1. `navigation (large, interaction)`（`140530471359`）与 `navigation (small, interaction)`（`140530471369`）：均被 `FourTabNavigationUITests.swift:139` 实屏 `CIDetector` 解码断言准确拦下（`CIQRCodeGenerator` 1 模块内置静区未裁剪 + 6% 点间留白），标准机另伴随 1 次 `testFollowRequestPendingCancelAndLoadingStayTruthful`（`FourTabNavigationUITests.swift:317`）偶发失败；两机均 0 运行时警告。
+  2. `diagnostic-world-scroll (cross-page, large)`（`140530471377`）：`WorldScrollDiagnosticUITests.swift:31` 慢 runner（`UI runner 0: 635s`）切栏偶发超时，与 C112 改动无关。
+- **取消/跳过项**：`legacy-regression (small)`（`140530471347`）取消；`navigation-evidence`、`package` 与 3 项手动诊断跳过。
+- **下一步**：由上方 **C113** 修正静区裁剪与零间距圆点并前移 `CIDetector` 单测，整轮复跑 34/34 验收与正式打包。
 
 ## 2026-11-27 / C111 候选（上架前 Release 包硬化、出口加密合规声明、第三方外链收敛与外包上架交接清单）
 
