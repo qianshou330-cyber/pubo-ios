@@ -17,6 +17,30 @@
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Swift/Xcode/macOS-15 模拟器与 `tesseract 5.5.4` 189 项语料实测待推送后由 `four-tabs.yml` 验证。
 
+### C108 精确提交终态
+
+精确 [C108 `a5d20439`](https://github.com/qianshou330-cyber/pubo-ios/commit/a5d20439a7ddca1433d032abee586951d90e945d) 的 [CI 45945236638 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45945236638/attempts/1) 于 `2026-11-27 05:20:37Z` 启动、`06:31:14Z` 结束（**整轮 37 作业总耗时 70 分 37 秒，较 C106 的 2 小时 47 分钟提速 2.4 倍，单分片耗时压降至 5–15 分钟**），最终 **30 通过、3 失败、0 取消、4 跳过（刷新本分支历史最高纪录，较 C106 的 22/36 净增 +8 项通过）**；正式打包（`140350964665`）因 3 项未过跳过。
+
+- **全量日志扫描（33/33 已执行作业）**：
+  - **0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**；
+  - **0 次 `XCTDaemonErrorDomain Code=18`（AX loaded notification）握手死亡**（`[PRETEST-RECOVERY]` 触发 0 次）；
+  - **0 次冷 VM `simctl list` 超时**、**0 次 1800s/2700s 总超时**、**0 次 `puboSelectTab` 或截屏超时**。
+- **通过项明细（30/37，含 24/26 = 92.3% 模拟器分片全绿）**：
+  - **核心与共享构建**：`checks`（`140328300452`，1m26s，产物 `15174781747`：Swift **220/220**、Python **284/284**、Node **2/2**、Darwin 预检 3/3 全过）、`build-sim-tests`（`140328766142`，4m20s）、`h5-chat-reference`（`140328766159`）、`diagnostic-timeline-capture-host`（`140328300306`）、`candidate-package`（`140328766121`，8m35s）。
+  - **全部必选 UI 套件大满贯（除 1 项大屏旧回归外全绿）**：
+    - **`navigation` 4/4**（`small/large` × `routing/interaction`：`140330154103`/`140330154163`/`140330154083`/`140330154066`）+ 严格汇总 **`navigation-evidence`（[140350881767](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45945236638/job/140350881767)）** 全部 **`PASS`**；
+    - **`chat-alignment` 4/4**（`140330154049`/`140330154134`/`140330154183`/`140330154075`）全部通过；
+    - **`chat-presentation` 4/4**（`140330154091`/`140330154079`/`140330154092`/`140330154094`）全部通过；
+    - **双机 `video-poster` 2/2**（`140330154095`/`140330154067`，5m18s / 7m14s）全部通过；
+    - **双机 `messages-redesign` 2/2**（`140330154041`/`140330154020`）均严格 `PASS`；
+    - **`legacy-regression (small)`**（`140330154040`）**5/5 全部通过**；
+    - **全部 4/4 聊天返回诊断**（`diagnostic-private-back` 2/2 + `diagnostic-room-back` 2/2）与 **`diagnostic-world-scroll` 3/4**（`signposts` 2/2 + `cross-page (large)`）全部通过。
+- **仅剩 3 项失败（如实保留，未降门槛）**：
+  1. `ocr-validation`（`140328766247`）：`tesseract 5.5.4` 引擎校验通过并跑完 189 项语料，仍为既有 3 个 `DejaVuSans` 正例（`3x-10pt-1`、`3x-10pt-99plus`、`3x-12pt-5`）置信度 `<80`。
+  2. `legacy-regression (large)`（`140330154031`）：4/5 通过（世界圈切入 7/7 次均在 1.13–1.37s 首次采样就绪），仅既有的 C68 偶发 `AccountSettingsParityUITests.testAutoAcceptRequiresLockedAccountAndRetainsSelectionInBothThemes` 失败。
+  3. `diagnostic-world-scroll (cross-page, small)`（`140330154142`，可选诊断）：`puboSelectTab` 1.28s 一次通过且完成跨页滚动无截屏超时，仅在点击最旧帖后 `WorldScrollDiagnosticUITests.swift:71` 等待 `app.navigationBars["帖子"]` 超时。
+- **未签名设备候选**：[候选作业 140328766121](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45945236638/job/140328766121) 生成 [QA-INCOMPLETE 产物 15174349409](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45945236638/artifacts/15174349409)（到期 `2026-12-11T05:30:38Z`），已独立核验精确提交 `a5d20439`、`0.10.0`/build `148`、iPhoneOS `arm64` Mach-O 未签名、`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa` **`5,682,486` 字节**、SHA-256 **`127e875848f4fdd7d49e88eca15ac8c243919b61b4689b5e877a870490fc5741`**（需签名装机，非正式验收包或 GitHub Release）。
+
 ## 2026-11-26 / C107 候选（五大支柱根治模拟器超时与共享编译重构，零业务断言放宽）
 
 - **问题、复现与 C106 实测证据**：
