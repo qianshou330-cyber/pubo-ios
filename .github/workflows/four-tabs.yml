@@ -105,7 +105,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Pinned OCR identity and all 189 controls, no relaxed expected results
         run: |
-          brew install tesseract
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install tesseract
           python3 scripts/setup-badge-ocr.py
           python3 scripts/check-badge-ocr-corpus.py
       - uses: actions/upload-artifact@v4

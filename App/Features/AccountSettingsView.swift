@@ -66,7 +66,6 @@ struct PrivacySettingsView: View {
     private let switches: [(String, String)] = [("isLocked", "关注需要审批"), ("autoAcceptFollowed", "自动同意已关注用户的申请"), ("isExplorable", "允许探索页推荐"), ("hideOnlineStatus", "隐藏在线状态"), ("publicReactions", "公开我的反应"), ("noCrawle", "请求搜索引擎不要索引"), ("preventAiLearning", "请求禁止 AI 学习"), ("requireSigninToViewContents", "登录后才能查看内容"), ("alwaysMarkNsfw", "默认标记媒体为敏感"), ("autoSensitive", "自动检测敏感媒体"), ("injectFeaturedNote", "接收推荐帖子"), ("receiveAnnouncementEmail", "接收公告邮件"), ("carefulBot", "Bot 关注需要审批"), ("isBot", "标记为 Bot"), ("isCat", "猫猫模式")]
     var body: some View {
         Form {
-            if original.isNull { ProgressView("读取当前设置…") }
             ForEach(switches, id: \.0) { key, title in
                 let editable = AccountSettingsPolicy.canEditPrivacyOption(key, values: values, loaded: !original.isNull, busy: busy)
                 Toggle(title, isOn: Binding(get: { values[key]?.bool ?? false }, set: { updateDraft(key, to: $0) }))
@@ -92,6 +91,13 @@ struct PrivacySettingsView: View {
             NavigationLink("旧帖可见性") { OlderNotesPrivacyView() }
             Button("保存修改") { Task { await save() } }.disabled(busy || original.isNull)
         }.puboForm().navigationTitle("隐私与内容偏好").task { if original.isNull { await load() } }
+            .toolbar {
+                if original.isNull {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ProgressView().controlSize(.small).accessibilityLabel("读取当前设置…")
+                    }
+                }
+            }
             .safeAreaInset(edge: .top) { if let error { Text(error).font(.footnote).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel).accessibilityIdentifier("privacy.status") } }
     }
     private func updateDraft(_ key: String, to value: Bool) {
@@ -106,7 +112,12 @@ struct PrivacySettingsView: View {
         values[key] = .bool(value)
     }
     private func load() async {
-        do { original = try await session.call("i"); for key in switches.map(\.0) + ["followingVisibility", "followersVisibility"] { values[key] = original[key] }; error = nil } catch { self.error = error.localizedDescription }
+        do {
+            let fetched = try await session.call("i")
+            var loadedValues: [String: JSONValue] = [:]
+            for key in switches.map(\.0) + ["followingVisibility", "followersVisibility"] { loadedValues[key] = fetched[key] }
+            values = loadedValues; original = fetched; error = nil
+        } catch { self.error = error.localizedDescription }
     }
     private func save() async {
         busy = true; defer { busy = false }

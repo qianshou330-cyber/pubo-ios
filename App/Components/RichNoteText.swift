@@ -87,7 +87,7 @@ struct RichNoteText: UIViewRepresentable {
         context.coordinator.renderKey = renderKey
         }
         view.linkTextAttributes = [.foregroundColor: UIColor(red: 0.42, green: 0.63, blue: 0.65, alpha: 1)]
-        view.playing = playing; view.accessibilityIdentifier = identifier
+        view.playing = playing; view.opensOnTap = onTap != nil; view.accessibilityIdentifier = identifier
         view.accessibilityTraits = onTap == nil ? .staticText : [.staticText, .button]
         view.setNeedsLayout()
     }
@@ -133,6 +133,15 @@ struct RichNoteText: UIViewRepresentable {
     }
     final class AnimatedTextView: UITextView {
         var playing = false
+        var opensOnTap = false
+        override var accessibilityActivationPoint: CGPoint {
+            get {
+                guard opensOnTap, window != nil, !bounds.isEmpty else { return super.accessibilityActivationPoint }
+                let screenRect = UIAccessibility.convertToScreenCoordinates(bounds, in: self)
+                return CGPoint(x: screenRect.midX, y: screenRect.midY)
+            }
+            set { super.accessibilityActivationPoint = newValue }
+        }
         private var overlays: [(NSRange, ProtectedGIFImageView, SDAnimatedImage)] = []
         init() {
             // Use our designated initializer so Swift-owned animation state is initialized.

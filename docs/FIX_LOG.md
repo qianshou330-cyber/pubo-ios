@@ -1,5 +1,39 @@
 # 修复日志
 
+## 2026-11-27 / C109 候选（根治仅剩 3 项 CI 失败与真机隐私页跳动／帖子误触缺陷，零门槛放宽）
+
+- **问题、复现与取证（基于 C108 `a5d20439` / CI `45945236638` 原始产物）**：
+  1. **隐私开关真机跳动 + `legacy-regression (large)`（`140330154031`，产物 `15176115664`）**：
+     - **取证结论（区分真机体验缺陷与 CI 中止原因）**：分析 `privacy-diagnostics-0.json` 与失败现场 `07DDDC07-18DB-48A3-B695-5A13E9711F16.txt` 后确认，C108 在 Apple Silicon `macos-15` 上所有实际发出的开关点击（浅色 4/4、深色前 2/2、`hideOnlineStatus` 1/1）均 **100% 完整触发** `setter` + `valueChanged` + `touchUp`（无吞点击）；深色 `isLocked 1->0` 并未进入 `actual.tap()`，而是在 `UITests/AccountSettingsParityUITests.swift:65`（`let rowHittable = control.isHittable`）前瞬间命中 iOS 26.1 AX 瞬态无效窗口 `Window {{inf, inf}, {0.0, 0.0}}`，导致 XCTest 直接报 `Activation point invalid` 中止。
+     - **同步排查出的真实产品 UX 缺陷**：`privacy-diagnostics-0.json` 实测暴露，`App/Features/AccountSettingsView.swift:69` 将 `if original.isNull { ProgressView("读取当前设置…") }` 放在 `Form` 行内顶部，当 `load()` 返回并解锁开关的同一瞬间，该行消失导致 `isLocked` 整行向上跳动 **77pt**（`y=240.0 -> 163.0`，`hideOnlineStatus` `396.0 -> 319.0`），同时触发 `UICollectionView` 行删除动画——真机弱网下用户刚准备点击首行开关时极易点偏或误触相邻行；且 `load()` 先写 `original` 再循环写入 17 项 `values`。
+  2. **`ocr-validation`（`140328766247`，产物 `15174049358`）单变量根因锁定**：
+     - 本地自源码编译 `tesseract 5.5.4`（Linux x86_64，Leptonica 1.82.0）复跑全部 189 张未改动语料 PNG，与 C108 macOS arm64（Leptonica 1.87.0）达成 **189/189 文本与接受/拒绝决策 100% 一致**（最大 float32 舍入差仅 `0.000008`），精确复现 3 个失分正例（`78.208992` / `55.412251` / `74.187180`）与全部 6 张真实 iOS 26.1 徽标图（`95.609901`）。
+     - 先行排除模型/参数路径：`tessdata_best`（26 失败，6 处错误数字接受）与 `tessdata_std`（25 失败，6 处错误数字接受）均劣化；`--dpi`、`thresholding_method`、`tessedit_do_invert=0`、`load_*_dawg=0`、`dotproduct` 等全部运行时参数不改变 `--psm 7` 数值。
+     - **确认唯一上游因果根因**：对比 `tesseract 5.5.0...5.5.3` 源码并做单文件对照实验证实——`Convolve::Forward`（`src/lstm/convolve.cpp:91,98`）在 3×3 卷积越界 1px 图像边缘填充随机噪声（调用 `NetworkIO::Randomize -> TRand::SignedRand`）；上游提交 `tesseract-ocr/tesseract@5af6cacf84`（5.5.1+）将 `TRand` 从 5.5.0 临时使用的 `std::minstd_rand` 恢复为 Knuth 64 位 LCG。在本地 `tesseract 5.5.4` 上仅将 `NetworkIO::Randomize` 换回 `std::minstd_rand`（其余代码、模型、PNG、Leptonica 全同），3 例置信度即刻上跳 **`+1.85` / `+23.33` / `+14.87`**（`80.06` / `78.74` / `89.06`）。
+     - 跨版本评估证实 `tesseract 5.5.4` **无质量退化**：在严格保持 `MIN_CONFIDENCE = 80.0`、`--psm 7`、`tessdata_fast`、无白名单、无重采样、全部 189 张 PNG 逐字节不变下，非裁剪正例召回严格维持 **63/106 -> 63/106**（对称 `-3/+3`：新增通过 `DejaVuSans-Bold-2x-10pt-5` `92.49`、`DejaVuSans-Bold-2x-12pt-4` `84.16`、`DejaVuSans-3x-12pt-9` `86.25`），错误接受 **0**，负例误接受 **0/51**，且已知裁剪误接受 **4/32 -> 3/32（更严格，多拦下 `DejaVuSans-Bold-3x-10pt-clipped-left`）**。
+     - 同时发现 `.github/workflows/four-tabs.yml:108` 的 `ocr-validation` 未加 `HOMEBREW_NO_AUTO_UPDATE=1`（而 `navigation` 已加，且 Homebrew core 已于 2026-11-26 推送 `tesseract 5.5.5`），存在两作业引擎版本漂移隐患。
+  3. **`diagnostic-world-scroll (cross-page, small)`（`140330154142`，产物 `15175828753`）**：
+     - 核查失败截图 `3B7A555A-1733-416E-86D8-7923441B94B2.png` 与 `Synthesized Event`（`BFC4FA13...`）坐标 `(89.0, 734.33)` 及像素位置发现：点击并未落空，而是误打开了 **`个人主页`**！根因为 `App/Components/RichNoteText.swift` 中可点击帖子正文 `AnimatedTextView`（`UITextView`）未覆写 `accessibilityActivationPoint`，UIKit 默认将激活点放在首行左上角 `(89.0, 734.33)`，距上方 44pt 作者栏按钮（`y=690.00..734.00`）底边仅 **0.33pt（1 物理像素）**，被作者栏按钮截获。
+- **修改内容（零业务断言/OCR 阈值/样本量放宽）**：
+  1. `App/Features/AccountSettingsView.swift`：将加载态 `ProgressView` 移出 `Form` 行，改为 `.toolbar` 右上角 `.topBarTrailing` 轻量指示器（保留 `.accessibilityLabel("读取当前设置…")`），彻底消除加载完成瞬间的 77pt 纵向跳动；`load()` 改为先构建完整 `loadedValues` 再同步写入 `values` 与 `original`；保留 `PrivacySwitchEventProbe` 与 `save()` 原逻辑不变。
+  2. `UITests/AccountSettingsParityUITests.swift` 与 `UITests/PUBOUITests.swift`：新增 `puboWindowContainsFiniteRect(_:in:)` 并在 `setSwitch` 的所有 `isHittable` 查询前加有限窗口几何短路防护（含 `PUBOUITests` 诊断附件读取），并补充 5 条正反几何单测；保留 `timeout: 8`、`puboNativeSwitchFitsAXRow`、唯一原生子开关 `actual.tap()` 与状态校验不变。
+  3. `App/Components/RichNoteText.swift`：仅当 `onTap != nil`（可点击打开帖子详情的正文；聊天消息与详情页 `onTap == nil` 完全不受影响）时，将 `AnimatedTextView.accessibilityActivationPoint` 居中至 `UIAccessibility.convertToScreenCoordinates(bounds, in: self)` 中心点，避免贴边误触作者栏。
+  4. `scripts/fixtures/badge-ocr-corpus.json`、`scripts/check-badge-ocr-corpus.py` 与 `.github/workflows/four-tabs.yml`：
+     - 保持全部 **189** 张原图 PNG（`png_base64`/`png_sha256`）、`MIN_CONFIDENCE = 80.0`、`--psm 7`、`tessdata_fast`、无白名单与 4 条 `known_limitation` 标记完全不变；依据单变量根因证明将语料基线正式对齐至固定 CI 引擎 `tesseract 5.5.4`（将新增 3 项正例升格为必过 `accept`，保留全部 7 项决策变动的 `previous_baseline_5_5_0` 历史快照与完整根因元数据）。
+     - **加固** `check-badge-ocr-corpus.py`：新增 4 项硬门槛——语料基线引擎与固定 `ENGINE_VERSION` 必须一致、模型 SHA-256 必须一致、`acceptedCorrect >= 63` 下限、`knownClippedFalseAccepts <= 3`（较 5.5.0 的 4 更严格）。
+     - 为 `.github/workflows/four-tabs.yml:108` 的 `brew install tesseract` 补齐 `HOMEBREW_NO_AUTO_UPDATE=1`。
+  5. 新增契约测试：`scripts/test_c109_privacy_and_note_tap_contracts.py` 与 `scripts/test_badge_ocr_corpus_contract.py`。
+- **涉及文件**：`App/Features/AccountSettingsView.swift`、`App/Components/RichNoteText.swift`、`UITests/AccountSettingsParityUITests.swift`、`UITests/PUBOUITests.swift`、`scripts/fixtures/badge-ocr-corpus.json`、`scripts/check-badge-ocr-corpus.py`、`.github/workflows/four-tabs.yml`、`scripts/test_c109_privacy_and_note_tap_contracts.py`、`scripts/test_badge_ocr_corpus_contract.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：
+    - `PATH="/tmp/tess554/build/bin:$PATH" python3 scripts/setup-badge-ocr.py` -> **`PASS`**（`tesseract 5.5.4` + `7d4322bd...`）；
+    - `PATH="/tmp/tess554/build/bin:$PATH" python3 scripts/check-badge-ocr-corpus.py` -> **`PASS_WITH_DOCUMENTED_LIMITATIONS`**（`total: 189`, `acceptedCorrect: 63`, `rejected: 123`, `knownClippedFalseAccepts: 3`, `failures: []`）；
+    - `python3 -m unittest discover -s scripts -p 'test_*.py'` -> **289/289**（2.554s）；
+    - `node --test scripts/isolated/test-room-message-proof.mjs` -> **2/2**；
+    - `git diff --check` -> **0 问题**。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Swift 编译、`macos-15` 全量模拟器套件、macOS `ocr-validation` 与正式 `package` 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-26 / C108 候选（C107 Apple Silicon 实测暴露的 3 项冷启动/镜像收口修复，零业务断言放宽）
 
 - **问题、复现与 C107 实测证据**：

@@ -67,7 +67,13 @@ final class PUBOUITests: XCTestCase {
         let settings = app.buttons["账号与隐私设置"]; for _ in 0..<5 where !settings.isHittable { app.swipeUp() }; XCTAssertTrue(settings.isHittable); settings.tap()
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
-        XCTAssertTrue(control.isHittable)
+        let initialReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let window = app.windows.firstMatch.frame
+            let frame = control.frame
+            guard puboWindowContainsFiniteRect(frame, in: window) else { return false }
+            return control.isHittable
+        }, object: control)
+        XCTAssertEqual(XCTWaiter.wait(for: [initialReady], timeout: 8), .completed)
         let expected = value ? "1" : "0"
         let before = control.value
         let transitionStarted = ProcessInfo.processInfo.systemUptime
@@ -100,6 +106,12 @@ final class PUBOUITests: XCTestCase {
                           bounds.width > 0, bounds.height > 0,
                           bounds.width < row.frame.width * 0.5,
                           puboNativeSwitchFitsAXRow(bounds, row: row.frame) else { return false }
+                    let window = app.windows.firstMatch.frame
+                    guard puboWindowContainsFiniteRect(row.frame, in: window),
+                          puboWindowContainsFiniteRect(bounds, in: window) else {
+                        detail += " invalidWindow=\(window)"
+                        return false
+                    }
                     let candidate = control.children(matching: .switch).firstMatch
                     let rowHittable = control.isHittable
                     let nativeHittable = candidate.isHittable
@@ -120,7 +132,9 @@ final class PUBOUITests: XCTestCase {
             rowState.name = "privacy-switch-before-" + control.identifier
             rowState.lifetime = .keepAlways; add(rowState)
             if let actual = concrete {
-                let target = XCTAttachment(string: "enabled=\(actual.isEnabled) hittable=\(actual.isHittable) frame=\(actual.frame)\n" + actual.debugDescription)
+                let targetFrame = actual.frame
+                let targetHittable = puboWindowContainsFiniteRect(targetFrame, in: app.windows.firstMatch.frame) ? String(actual.isHittable) : "invalid-window"
+                let target = XCTAttachment(string: "enabled=\(actual.isEnabled) hittable=\(targetHittable) frame=\(targetFrame)\n" + actual.debugDescription)
                 target.name = "privacy-native-switch-target-" + control.identifier
                 target.lifetime = .keepAlways; add(target)
             }

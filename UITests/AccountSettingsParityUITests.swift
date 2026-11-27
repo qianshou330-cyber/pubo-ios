@@ -14,6 +14,17 @@ func puboNativeSwitchFitsAXRow(_ native: CGRect, row: CGRect) -> Bool {
         native.minX >= row.minX && native.maxX <= row.maxX + 2
 }
 
+/// Guard XCTest `isHittable` against iOS 26.1 transient `Window {{inf, inf}, {0, 0}}`
+/// AX frames that otherwise abort with "Activation point invalid".
+func puboWindowContainsFiniteRect(_ rect: CGRect, in window: CGRect) -> Bool {
+    let values = [window.minX, window.minY, window.width, window.height,
+                  rect.minX, rect.minY, rect.width, rect.height]
+    return values.allSatisfy({ $0.isFinite }) &&
+        window.width > 0 && window.height > 0 &&
+        rect.width > 0 && rect.height > 0 &&
+        window.intersects(rect)
+}
+
 final class AccountSettingsParityUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
     private func openSettings(_ dark: Bool = false) -> XCUIApplication {
@@ -28,7 +39,13 @@ final class AccountSettingsParityUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
     private func setSwitch(_ control: XCUIElement, to value: Bool, in app: XCUIApplication) {
-        XCTAssertTrue(control.isHittable)
+        let initialReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let window = app.windows.firstMatch.frame
+            let frame = control.frame
+            guard puboWindowContainsFiniteRect(frame, in: window) else { return false }
+            return control.isHittable
+        }, object: control)
+        XCTAssertEqual(XCTWaiter.wait(for: [initialReady], timeout: 8), .completed)
         let expected = value ? "1" : "0"
         let before = control.value
         let transitionStarted = ProcessInfo.processInfo.systemUptime
@@ -61,6 +78,12 @@ final class AccountSettingsParityUITests: XCTestCase {
                           bounds.width > 0, bounds.height > 0,
                           bounds.width < row.frame.width * 0.5,
                           puboNativeSwitchFitsAXRow(bounds, row: row.frame) else { return false }
+                    let window = app.windows.firstMatch.frame
+                    guard puboWindowContainsFiniteRect(row.frame, in: window),
+                          puboWindowContainsFiniteRect(bounds, in: window) else {
+                        detail += " invalidWindow=\(window)"
+                        return false
+                    }
                     let candidate = control.children(matching: .switch).firstMatch
                     let rowHittable = control.isHittable
                     let nativeHittable = candidate.isHittable
@@ -130,6 +153,12 @@ final class AccountSettingsParityUITests: XCTestCase {
         XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: 32, y: 121, width: 311, height: 28), row: row))
         XCTAssertFalse(puboNativeSwitchFitsAXRow(.zero, row: row))
         XCTAssertFalse(puboNativeSwitchFitsAXRow(CGRect(x: CGFloat.infinity, y: 121, width: 63, height: 28), row: row))
+        let validWindow = CGRect(x: 0, y: 0, width: 440, height: 956)
+        XCTAssertTrue(puboWindowContainsFiniteRect(row, in: validWindow))
+        XCTAssertFalse(puboWindowContainsFiniteRect(row, in: .null))
+        XCTAssertFalse(puboWindowContainsFiniteRect(row, in: .zero))
+        XCTAssertFalse(puboWindowContainsFiniteRect(row, in: CGRect(x: CGFloat.infinity, y: CGFloat.infinity, width: 0, height: 0)))
+        XCTAssertFalse(puboWindowContainsFiniteRect(CGRect(x: 500, y: 121, width: 63, height: 28), in: validWindow))
         for dark in [false, true] {
             let app = openSettings(dark); app.buttons["隐私与内容偏好"].tap()
             let locked = app.switches.matching(identifier: "privacy.isLocked").firstMatch

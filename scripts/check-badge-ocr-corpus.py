@@ -15,11 +15,15 @@ corpus = json.loads(Path('scripts/fixtures/badge-ocr-corpus.json').read_text())
 version = subprocess.run(['tesseract', '--version'], capture_output=True, text=True, check=True, timeout=10).stdout
 languages = subprocess.run(['tesseract', '--list-langs'], capture_output=True, text=True, check=True, timeout=10)
 report = dict(engine=version, languages=languages.stdout + languages.stderr, results=[], failures=[],
-              warning='Conservative OCR regression only. 0/8 rejected in original corpus; four already-clipped glyphs falsely accepted. Original screenshot geometry remains mandatory.')
+              warning='Conservative OCR regression only. 0/8 rejected in original corpus; three of four tracked already-clipped glyphs still falsely accepted on tesseract 5.5.4. Original screenshot geometry remains mandatory.')
 try:
     report['pinnedIdentity'] = engine_identity()
     if len(corpus['samples']) != 189:
         raise RuntimeError('Incomplete regression corpus')
+    if corpus['engine']['tesseract'][0] != report['pinnedIdentity']['version']:
+        raise RuntimeError('Corpus baseline engine does not match pinned OCR engine')
+    if corpus['engine']['trainedDataSHA256'] != report['pinnedIdentity']['modelSHA256']:
+        raise RuntimeError('Corpus baseline model SHA-256 does not match pinned OCR model')
     with tempfile.TemporaryDirectory(prefix='pubo-badge-ocr-') as directory:
         for sample in corpus['samples']:
             data = base64.b64decode(sample['png_base64'], validate=True)
@@ -37,7 +41,7 @@ try:
                        source=sample['source']['kind'], knownLimitation=sample['known_limitation'], rejectionDiagnostics=diagnostics)
             report['results'].append(row)
             if sample['known_limitation']:
-                # Keep these four failures visible. Do not count them as
+                # Keep all four tracked clipped cases visible. Do not count them as
                 # negative controls that passed or pretend OCR detects clipping.
                 continue
             if actual is not None and actual['text'] != sample['truth']:
@@ -52,6 +56,10 @@ try:
         rejected=sum(r['actual'] is None for r in report['results']),
         knownClippedFalseAccepts=sum(r['actual'] is not None for r in report['results'] if r['knownLimitation']),
     )
+    if report['counts']['acceptedCorrect'] < 63:
+        report['failures'].append('acceptedCorrect fell below 63 non-cropped positive floor')
+    if report['counts']['knownClippedFalseAccepts'] > 3:
+        report['failures'].append('knownClippedFalseAccepts exceeded tightened ceiling of 3')
     report['policyRegression'] = 'PASS_WITH_DOCUMENTED_LIMITATIONS' if not report['failures'] else 'FAIL'
 except Exception as error:
     report['failures'].append(type(error).__name__ + ': ' + str(error))
