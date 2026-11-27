@@ -1,5 +1,22 @@
 # 修复日志
 
+## 2026-11-26 / C108 候选（C107 Apple Silicon 实测暴露的 3 项冷启动/镜像收口修复，零业务断言放宽）
+
+- **问题、复现与 C107 实测证据**：
+  - 在 C107（`5334d9bf`，[CI 45941492555](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45941492555)，总耗时从 **2h47m 压降至 34m06s**，32/32 已执行作业 **0 Runtime Warnings**、**0 次 `Code=18`**，全部 12 组真正进入 `xcodebuild` 的必选分片 **12/12（100%）通过**）中，全部 15 项失败精准归因于 3 类新暴露的非业务问题：
+    1. **冷 VM 首次 `simctl list` 30 秒超时（9/15 项，均 45 秒秒退）**：共享预编译取消了每分片 10 分钟重复编译，导致新开机 `macos-15` VM 在 15 秒内即首次触发 `scripts/iphone_qa_matrix.py:24` 的 `xcrun simctl list devices available --json`（`timeout=30`），在首次挂载 `iOS 26.1` Runtime 与拉起 `CoreSimulatorService` 时超时（涉及 `messages-redesign (large)`、`chat-presentation (large/small, states)`、`legacy-regression (small/large)`、`chat-alignment (large, layout)`、`diagnostic-room-back (without-picker)`、`diagnostic-world-scroll (signposts, small/large)`）。
+    2. **Apple Silicon Homebrew 预装瓶为 `tesseract 5.5.4`（5/15 项）**：`macos-15`（`arm64_sequoia`）执行 `brew install tesseract` 安装 `tesseract 5.5.4`，被 `scripts/badge_pixel_gate.py:19` 的 `ENGINE_VERSION = 'tesseract 5.5.3'` 拦截（涉及全部 4 组 `navigation` 与 `ocr-validation`）。
+    3. **虚拟化 `macos-15` 缺乏 `AppleM2ScalerParavirtDriver` 导致 `world-scroll` 软编码录屏（1/15 项）**：`diagnostic-world-scroll (cross-page, small)`（`140317532694`）日志明确出现 `IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver`，`simctl io recordVideo` 退回 CPU 软编码抢占冷启动，导致唯一 1 项执行期失败（`PUBO tab ready wait 世界圈: 8.33s`）。
+- **最小修复内容（零产品 Swift 改动、零放宽业务/置信度/语料门槛）**：
+  1. `scripts/iphone_qa_matrix.py`：将 `available_inventory()` 的 `simctl list` 超时从 `30` 放宽至 `120` 秒，并增加 1 次有界重试（仅 `GITHUB_ACTIONS == 'true'` 时复位 `CoreSimulatorService`，本地永不复位）；在 `scripts/test_iphone_qa_matrix.py` 新增 2 项单测验证。
+  2. `scripts/badge_pixel_gate.py` 与 `scripts/setup-badge-ocr.py`：将精确锁定的 `ENGINE_VERSION` 从 `'tesseract 5.5.3'` 更新为 `'tesseract 5.5.4'`（仍为精确单版本锁定，非通配符；保持 `MODEL_SHA256`、`MIN_CONFIDENCE = 80.0` 与全部 189 项语料控制完全不变）。
+  3. `.github/workflows/four-tabs.yml`：在 `diagnostic-world-scroll` 作业环境变量中设置 `PUBO_WORLD_SCROLL_RECORD_VIDEO: '0'`，关闭虚拟化宿主机上的后台软编码录屏争抢（`world-scroll-measurement-scope-*.json` 如实标注录屏关闭状态，全部 `test_world_scroll_diagnostics.py` 契约保持通过）。
+- **涉及文件**：`scripts/iphone_qa_matrix.py`、`scripts/test_iphone_qa_matrix.py`、`scripts/badge_pixel_gate.py`、`scripts/setup-badge-ocr.py`、`.github/workflows/four-tabs.yml`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`python3 -m unittest discover -s scripts -p 'test_*.py'` **284/284**（2.508s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check`。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Swift/Xcode/macOS-15 模拟器与 `tesseract 5.5.4` 189 项语料实测待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-26 / C107 候选（五大支柱根治模拟器超时与共享编译重构，零业务断言放宽）
 
 - **问题、复现与 C106 实测证据**：
@@ -41,8 +58,17 @@
     - `git diff --check` 与 `.github/workflows/four-tabs.yml` 20 个作业依赖拓扑校验：通过。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境无 Swift/Xcode，未运行 `swift test`、`check-chat-bubble-geometry.py`、`test-refresh-diagnostics.sh`、`check_chat_gate_macos.sh`、Xcode 编译、Apple Silicon `macos-15` 模拟器全套或真机验证；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 实测验收。
-- **未解决事项与下一步**：
-  - 推送后实时观测 `build-sim-tests` 在 `macos-15`（`arm64`）上的环境预检（`Xcode 26.0.1 / 17A400`、`iOS-26-1` 双机模板、池容量）、26 路模拟器分片通过率/耗时/零警告状态及 `pretestHandshakeRecovery` 触发记录，终态结果将追加至本条目下（`ocr-validation` 既有阈值问题不在本次范围，如实记录不降门槛）。
+
+### C107 精确提交终态
+
+精确 [C107 `5334d9bf`](https://github.com/qianshou330-cyber/pubo-ios/commit/5334d9bff2e953aa622a0ce6950dda2cfe3929e0) 的 [CI 45941492555 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45941492555/attempts/1) 于 `2026-11-27 04:42:23Z` 启动、`05:16:29Z` 结束（**整轮总耗时 34 分 06 秒，较 C106 的 2 小时 47 分钟提速近 5 倍**），最终 **17 通过、15 失败、0 取消、5 跳过**，正式打包跳过。
+- **核心与共享编译验证**：`checks`（`140316599372`，**1 分 18 秒**，产物 `15173251527`）Swift **220/220**、Python **282/282**、Node **2/2** 全过；`build-sim-tests`（`140316982104`，**1 分 48 秒**）验证 `macos-15`（`arm64`）+ `Xcode 26.0.1 / 17A400` + `iOS-26-1` 双机模板全部就绪并一次打包分发成功；`h5-chat-reference`（`140316982107`）与 `diagnostic-timeline-capture-host`（`140316599115`）均通过。
+- **全套零警告与已执行分片表现**：全量扫描全部 **32/32** 个已执行作业日志，均为 **0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**、**0 次 `Code=18` 启动握手死亡**；全部 **12 组真正进入 `xcodebuild` 的必选/对比分片 12/12（100%）通过**——包含 C106 曾失败的 5 项：`video-poster (small/large)`（5m18s / 6m01s）、`chat-presentation (small/large, composer)`（15m22s / 14m55s）、`chat-alignment (small, layout)`（11m35s），以及 `chat-alignment (small/large, actions)`、`messages-redesign (small)`、`diagnostic-private-back (both)`、`diagnostic-room-back (after-picker)`、`diagnostic-world-scroll (cross-page, large)`。
+- **15 项失败全量归因（全部由 C108 接续收口）**：
+  - 9 项：冷 VM 首次 `simctl list` 30 秒超时（见 C108 项 1）；
+  - 5 项：`macos-15` arm64 Homebrew 安装 `tesseract 5.5.4 != 5.5.3`（见 C108 项 2）；
+  - 1 项：`diagnostic-world-scroll (cross-page, small)`（`140317532694`）因虚拟化 `macos-15` 缺 `AppleM2ScalerParavirtDriver` 导致软编码录屏抢占冷启动（单次 AX 查询本身仅 0.015–0.088s，见 C108 项 3）。
+- **未签名设备候选**：[候选作业 140316982208](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45941492555/job/140316982208)（8m14s）生成 [QA-INCOMPLETE 产物 15173054143](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45941492555/artifacts/15173054143)（到期 `2026-12-11T04:51:53Z`），已独立核验提交 `5334d9bf`、`0.10.0`/build `148`、iPhoneOS `arm64` 未签名、`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa` **`5,682,486` 字节**、SHA-256 **`0763982b687fc7db428885b1bf09d92cb0c5ae50f1eee9e6a9a9022cad3480d0`**（非正式验收包）。
 
 ## 2026-11-26 / C106 候选（C105 实测回归收口）：以 iOS 26 兼容左对齐标题修复大标题隐身，并以盾锁图标恢复「账号与隐私设置」快捷入口
 

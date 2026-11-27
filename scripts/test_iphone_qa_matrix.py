@@ -61,3 +61,26 @@ class DeviceMatrixTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Template'):
             create_device('small', dict(device('large'), runtime=RUNTIME), 'PUBO new')
         output.assert_not_called()
+
+    def test_available_inventory_uses_120s_timeout_and_one_bounded_ci_retry(self):
+        import json, os, subprocess
+        from iphone_qa_matrix import available_inventory
+        payload = json.dumps({'devices': {RUNTIME: [device('small')]}}).encode()
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}), \
+             patch('iphone_qa_matrix.subprocess.check_output', side_effect=[subprocess.TimeoutExpired('simctl', 120), payload]) as out, \
+             patch('iphone_qa_matrix.subprocess.run') as run:
+            inv = available_inventory()
+        self.assertIn(RUNTIME, inv)
+        self.assertEqual(out.call_count, 2)
+        self.assertEqual(out.call_args.kwargs['timeout'], 120)
+        self.assertEqual(run.call_args.args[0][0], 'killall')
+
+    def test_available_inventory_second_timeout_fails_closed_and_non_ci_never_resets(self):
+        import os, subprocess
+        from iphone_qa_matrix import available_inventory
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'}), \
+             patch('iphone_qa_matrix.subprocess.check_output', side_effect=[subprocess.TimeoutExpired('simctl', 120), subprocess.TimeoutExpired('simctl', 120)]), \
+             patch('iphone_qa_matrix.subprocess.run') as run:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                available_inventory()
+        run.assert_not_called()

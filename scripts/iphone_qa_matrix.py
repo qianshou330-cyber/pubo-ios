@@ -1,5 +1,6 @@
 """Exact simulator profiles; never substitute a different model or runtime."""
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -20,8 +21,19 @@ def select_template(inventory, size):
 
 
 def available_inventory():
-    return json.loads(subprocess.check_output(
-        ['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], timeout=30))['devices']
+    for attempt in range(2):
+        try:
+            return json.loads(subprocess.check_output(
+                ['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], timeout=120))['devices']
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+            if attempt == 1:
+                raise
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                try:
+                    subprocess.run(['killall', '-TERM', 'com.apple.CoreSimulator.CoreSimulatorService'],
+                                   check=False, timeout=30)
+                except (subprocess.TimeoutExpired, OSError):
+                    pass
 
 
 def create_device(size, template, name):

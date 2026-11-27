@@ -15,7 +15,7 @@ try:
         raise ValueError('Official model hash mismatch; refusing OCR')
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     (MODEL_DIR / 'eng.traineddata').write_bytes(data)
-    receipt['identity'] = engine_identity()  # exact 5.5.3, not any 5.5.x
+    receipt['identity'] = engine_identity()  # exact 5.5.4, not any 5.5.x
     receipt['status'] = 'PASS'
 except Exception as error:
     receipt['error'] = type(error).__name__ + ': ' + str(error)

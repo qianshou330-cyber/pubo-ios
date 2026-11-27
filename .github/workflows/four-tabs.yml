@@ -462,6 +462,7 @@ jobs:
           PUBO_SIM_SIZE: ${{ matrix.size }}
           PUBO_UI_SHARD: 'world-scroll-${{ matrix.scenario }}'
           PUBO_PREBUILT_TESTS: '1'
+          PUBO_WORLD_SCROLL_RECORD_VIDEO: '0'
         run: |
           set -o pipefail
           python3 scripts/simulator-tests.py 2>&1 | tee build/world-scroll-tests.log

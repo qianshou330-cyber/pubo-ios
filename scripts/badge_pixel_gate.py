@@ -16,7 +16,7 @@ import subprocess
 PHASES = ('initial', 'notifications', 'returned')
 BADGE_TEST = 'FourTabNavigationUITests/testOpeningNotificationsDoesNotClearChatBadge()'
 MIN_CONFIDENCE = 80.0
-ENGINE_VERSION = 'tesseract 5.5.3'
+ENGINE_VERSION = 'tesseract 5.5.4'
 MODEL_SHA256 = '7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2'
 MODEL_DIR = Path(__file__).resolve().parents[1] / 'build' / 'badge-tessdata'
 TSV_COLUMNS = ('level', 'page_num', 'block_num', 'par_num', 'line_num', 'word_num',
