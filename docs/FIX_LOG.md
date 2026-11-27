@@ -23,6 +23,28 @@
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，macOS `PUBOCoreTests`（含新增 Apple `CIDetector` 单测）、双机 iOS 26.1 实屏浅/深色解码与全套 34/34 CI 正式打包待推送后由 `four-tabs.yml` 验证。
 
+### C113 精确提交终态
+
+精确 [C113 `06e55e7c`](https://github.com/qianshou330-cyber/pubo-ios/commit/06e55e7c551d82af63a018708c61950dc4bbaf24) 的 [CI 46016712727 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46016712727/attempts/1) 于 `2026-11-27 14:31:34Z` 启动、`16:10:28Z` 结束（总墙钟 **98 分 54 秒**，含正式 `package` `10m31s`），整轮结论 **`success`（34 通过、0 失败、0 取消、3 跳过**——全套 9/9 必选门禁、26/26 Apple Silicon 模拟器分片、严格 OCR 189 语料、双机浅/深色实屏 `CIDetector` 扫码回环断言与正式 `package` 100% 全绿通过）。
+
+- **全量日志扫描（34/34 已执行作业）**：**0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**、**0 次 `[PRETEST-RECOVERY]` / `Code=18` 握手死亡**、**0 次 `simctl list` 超时**。
+- **通过项（34/34）**：
+  - `checks`（`140565583064`）：Swift **225/225**（含 `UserQRCodeTests` **7/7**，其中新增的 macOS 静区裁剪 49/49 对齐校验与 Apple `CIDetector` 多尺寸/浅深色全屏实时解码单测 0.879s 一次全过）、Python **296/296**、Node **2/2**、Darwin 预检 **3/3**；
+  - `build-sim-tests`（`140569009895`）、`ocr-validation`（`140569003117`）、`h5-chat-reference`（`140569003048`）、`diagnostic-timeline-capture-host`（`140565582544`）、`candidate-package`（`140569003060`）；
+  - **`navigation` 4/4 + `navigation-evidence`**（`140607825981`，双机各 **89 张 PNG `PASS`**，较 C111 新增双主题 `me-qrcode-light` / `me-qrcode-dark`）；
+  - `legacy-regression` 双机 2/2、`chat-alignment` 4/4、`chat-presentation` 4/4、`video-poster` 2/2、`messages-redesign` 2/2、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 4/4 与正式 **`package`**（[140607898253](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46016712727/job/140607898253)）。
+- **失败项**：**无（0 项）**。
+- **跳过项（3/37）**：仅 3 项手动 `workflow_dispatch` 可选诊断。
+- **双机实屏视觉核验与双独立解码器复证**：
+  - 已下载 `four-tabs-evidence-small-interaction-06e55e7c...-a1`（`15211832743`）与 `four-tabs-evidence-large-interaction-06e55e7c...-a1`（`15212888257`），目视核验双机浅/深色 `four-tabs-me-qrcode-light/dark.png`、`four-tabs-我的-light/dark.png` 与 `four-tabs-scanner-simulator-fallback-not-real-camera.png`：定位眼外围杂点彻底清零、居中 `PUBO` 标志正向锐利、深色模式浅底静区高对比防反色拒扫、我的页右上角与扫一扫底部双向入口排版清晰；
+  - 4 张双机浅/深色实屏原图均同时通过 **Apple iOS `CIDetector`** 与 **Linux `zbarimg`** 独立解码为 `https://bolubo.com/users/syntheticself`。
+- **C113 正式未签名 IPA 独立拆包核验**：
+  - 产物：[four-tabs-iphone-unsigned-06e55e7c551d82af63a018708c61950dc4bbaf24（ID `15213803526`）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46016712727/artifacts/15213803526)，到期 `2026-12-11T16:10:19Z`；
+  - 文件：`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa`，大小 **`5,610,428` B**，SHA-256 **`0a212e763ecf89da7cd1b56624a99bfcff3114758abf4ae2ba602b64a1d79f86`**；
+  - `source-sha.txt == 06e55e7c551d82af63a018708c61950dc4bbaf24`，`device-package.json` 为 `status: PASS`、`codesign: UNSIGNED`、`exportComplianceExempt: true`、`releaseHygiene: PASS`；
+  - 独立拆包核实 `Payload/PUBO.app/` 共 17 项纯生产条目（0 个测试素材、0 处 `_CodeSignature`），`Info.plist` 确认 `ITSAppUsesNonExemptEncryption = False`、`PUBOAPNSEnvironment = production`、`MinimumOSVersion = 17.0`，Release Mach-O（`24,133,344` B）中 `FixtureTransport` / `--ui-testing` / `systemUptime` / `misskey-hub.net` 均 **0 处**，且包含 `MyQRCodeView`（100 处）与 `UserQRCodeRenderer`（37 处）。
+- **未验证项**：物理 iPhone 装机后实测双真机面对面互扫、真实保存相册与系统分享表、相机权限拒绝跳系统设置及 `bolubo.com` 生产账号联调（见 `docs/RELEASE_PREFLIGHT.md`）。
+
 ## 2026-11-27 / C112 候选（新增 H5 同款原生「我的二维码」名片页、双向扫码互切与相机权限拒绝一键跳设置）
 
 - **问题、背景与需求依据**：
