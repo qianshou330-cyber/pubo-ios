@@ -6,6 +6,8 @@ import PUBOCore
 struct FriendQRScannerView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var phase
+    @Environment(\.openURL) private var openURL
+    var allowSwitchToMyQR = true
     let onUser: (String) -> Void
     @State private var authorized = false
     @State private var checked = false
@@ -14,6 +16,7 @@ struct FriendQRScannerView: View {
     @State private var visible = false
     @State private var ownerGeneration: UUID?
     @State private var captureEpoch = UUID()
+    @State private var showMyQR = false
     var body: some View {
         let epoch = captureEpoch
         VStack(spacing: 20) {
@@ -31,15 +34,30 @@ struct FriendQRScannerView: View {
             Text("仅识别本站用户二维码。识别后先查看资料，不会自动关注。").font(.callout).foregroundStyle(.secondary)
             if let error { Text(error).foregroundStyle(.secondary).accessibilityIdentifier("scanner.error") }
             if checked && !authorized && !session.testMode {
-                Button("重新检查相机权限") { Task { await requestCamera() } }.accessibilityIdentifier("scanner.retryPermission")
+                HStack(spacing: 16) {
+                    Button("打开 iPhone 设置") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }.accessibilityIdentifier("scanner.openSettings")
+                    Button("重新检查相机权限") { Task { await requestCamera() } }.accessibilityIdentifier("scanner.retryPermission")
+                }
             }
             NavigationLink("改用用户名搜索") { AddFriendView() }.accessibilityIdentifier("scanner.username")
+            if allowSwitchToMyQR && session.user != nil {
+                Button { showMyQR = true } label: {
+                    Label("我的二维码", systemImage: "qrcode")
+                }.accessibilityIdentifier("scanner.myQR")
+            }
         }.padding().navigationTitle("扫一扫")
             .onAppear { visible = true; ownerGeneration = session.generation; captureEpoch = UUID() }
             .onDisappear { visible = false; captureEpoch = UUID() }
             .task(id: visible) { if visible { await requestCamera() } }
             .onChange(of: phase) { _, _ in captureEpoch = UUID() }
-            .onChange(of: session.generation) { _, _ in accepted = true; authorized = false; captureEpoch = UUID() }
+            .onChange(of: session.generation) { _, _ in accepted = true; authorized = false; showMyQR = false; captureEpoch = UUID() }
+            .sheet(isPresented: $showMyQR) {
+                NavigationStack {
+                    MyQRCodeView(allowScanSwitch: false)
+                }
+            }
     }
     private func requestCamera() async {
         // UI fixtures must never show a real system permission alert or start hardware capture.

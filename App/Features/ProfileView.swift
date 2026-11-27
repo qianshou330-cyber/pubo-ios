@@ -16,6 +16,9 @@ struct ProfileView: View {
     @State private var hasMore = true
     @State private var followConfirmation: ProfileFollowAction?
     @State private var followNeedsRefresh = false
+    @State private var showMyQR = false
+    @State private var scannedUserID: String?
+    @State private var showScannedProfile = false
     private var own: Bool { session.user?.id == userID }
     var body: some View {
         List {
@@ -74,8 +77,27 @@ struct ProfileView: View {
             if let user, !user["pinnedNotes"].array.isEmpty { Section("置顶帖子") { ForEach(Record.list(user["pinnedNotes"])) { NoteCard(note: $0) } }.listRowBackground(PUBOTheme.panel) }
             Section("帖子") { ForEach(notes) { NoteCard(note: $0) }; if hasMore && !notes.isEmpty { Button("加载更多") { Task { await loadNotes(older: true) } }.disabled(busy) } }.listRowBackground(PUBOTheme.panel)
         }.puboForm().navigationTitle(own ? "我的主页" : "个人主页").task { await load() }.refreshable { await load() }
+            .toolbar {
+                if own {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { scannedUserID = nil; showMyQR = true } label: {
+                            Image(systemName: "qrcode").frame(minWidth: 44, minHeight: 44)
+                        }
+                        .accessibilityIdentifier("profile.qrcode")
+                        .accessibilityLabel("我的二维码")
+                    }
+                }
+            }
             .sheet(isPresented: $reporting) { ReportView(userID: userID) }
             .sheet(isPresented: $editing) { EditProfileView { Task { await load() } } }
+            .sheet(isPresented: $showMyQR, onDismiss: { showScannedProfile = scannedUserID != nil }) {
+                NavigationStack {
+                    MyQRCodeView { id in scannedUserID = id }
+                }
+            }
+            .navigationDestination(isPresented: $showScannedProfile) {
+                if let scannedUserID { ProfileView(userID: scannedUserID) }
+            }
             .alert(followConfirmation == .unfollow ? "确认取消关注此用户？" : "确认撤回关注申请？", isPresented: Binding(get: { followConfirmation != nil }, set: { if !$0 { followConfirmation = nil } })) {
                 if let action = followConfirmation { Button(action.title, role: .destructive) { Task { await follow(action) } }.accessibilityIdentifier("profile.confirmFollow") }
                 Button("保留", role: .cancel) { followConfirmation = nil }.accessibilityIdentifier("profile.keepFollow")
@@ -307,9 +329,11 @@ struct ReportView: View {
 
 struct MyAccountView: View {
     private enum AccountCountDestination: Hashable {
-        case posts(String), following(String), followers(String)
+        case posts(String), following(String), followers(String), scannedProfile(String)
     }
     @Environment(AppSession.self) private var session
+    @State private var showMyQR = false
+    @State private var scannedUserID: String?
     var body: some View {
         @Bindable var session = session
         NavigationStack(path: $session.mePath) {
@@ -368,17 +392,38 @@ struct MyAccountView: View {
                 .navigationDestination(for: AppRoute.self) { AppRouteDestination(route: $0) }
                 .navigationDestination(for: AccountCountDestination.self) { destination in
                     switch destination {
-                    case .posts(let id): ProfileView(userID: id)
+                    case .posts(let id), .scannedProfile(let id): ProfileView(userID: id)
                     case .following(let id): FollowListView(userID: id, followers: false)
                     case .followers(let id): FollowListView(userID: id, followers: true)
                     }
                 }
                 .toolbar {
                     PUBOLeadingNavTitle(title: "我的")
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        if session.user != nil {
+                            Button { scannedUserID = nil; showMyQR = true } label: {
+                                Image(systemName: "qrcode").frame(minWidth: 44, minHeight: 44)
+                            }
+                            .accessibilityIdentifier("me.qrcode")
+                            .accessibilityLabel("我的二维码")
+                        }
                         NavigationLink { AccountSettingsView() } label: { Image(systemName: "lock.shield").frame(minWidth: 44, minHeight: 44) }
                             .accessibilityLabel("账号与隐私设置")
                     }
+                }
+                .sheet(isPresented: $showMyQR, onDismiss: {
+                    if let id = scannedUserID {
+                        scannedUserID = nil
+                        session.mePath.append(AccountCountDestination.scannedProfile(id))
+                    }
+                }) {
+                    NavigationStack {
+                        MyQRCodeView { id in scannedUserID = id }
+                    }
+                }
+                .onChange(of: session.generation) { _, _ in
+                    showMyQR = false
+                    scannedUserID = nil
                 }
         }
     }

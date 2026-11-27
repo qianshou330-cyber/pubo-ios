@@ -1,5 +1,28 @@
 # 修复日志
 
+## 2026-11-27 / C112 候选（新增 H5 同款原生「我的二维码」名片页、双向扫码互切与相机权限拒绝一键跳设置）
+
+- **问题、背景与需求依据**：
+  - 对既有扫一扫链路做全量源码与真机码验证后确认：当前客户端完整接通原生摄像头扫码与 `https://bolubo.com/users/<id>` 跳转主页/关注，但 App 内缺少「展示我的二维码」名片页（面对面两个 iOS App 用户无法互扫），且相机权限被拒后缺少一键跳转系统设置按钮。
+  - 按用户批准的 `my_qr_card_plan.md` 与实际 `bolubo.com` H5 二维码页实测色板（`#F9F9F9` 页底、`#FBFFF0` 浅嫩绿静区、`#455C00` 品牌绿圆点与圆角定位眼、`#0B1412` 中央 PUBO 标志、顶部「扫描」胶囊、底部渐显点阵与品牌水印）原生实现，零第三方依赖。
+- **修改内容（零放宽任何既有门禁，保留既有 `messages.add` 两项与 `MyAccountView` 3 组结构）**：
+  1. `Sources/PUBOCore/UserQRCode.swift` 与 `Tests/PUBOCoreTests/UserQRCodeTests.swift`：
+     - 保持既有 `userID(from:)` 安全校验不变；新增 `url(forUserID:)`（严格校验字符集并确保与 `userID(from:)` 双向互逆）与 `displayHandle(username:host:)`（输出 H5 同款 `@username@bolubo.com`）；补充 3 组核心单测（全部采用纯合成 ID）。
+  2. `App/Features/MyQRCodeView.swift`（新增）：
+     - `PUBOQRCodeRenderer`：基于 `CoreImage` `CIFilter.qrCodeGenerator`（最高容错 `H` 级）+ `CoreGraphics` 矢量圆点绘制 `#FBFFF0` 静区、`#455C00` 圆点与圆角定位眼、`#0B1412` 居中白色 `Brand` 标志（带方向自校验）；深色模式固定保持浅色高对比静区防反色拒扫；同步支持高清分享名片渲染。
+     - `MyQRCodeView`：顶部复刻 H5 「扫描」胶囊按钮（一键切入 `FriendQRScannerView` 并在扫码后关闭回跳对方 `ProfileView`）、中央 `244×244` 二维码卡片、64pt 头像与昵称/账号、「保存图片」（测试模式安全拦截不写相册）+「分享」轻操作按钮、底部点阵与 `PUBO` 品牌水印。
+  3. `App/Features/ProfileView.swift`：
+     - `MyAccountView` 右上角改用 `ToolbarItemGroup` 在现有 `lock.shield` 旁新增 `me.qrcode` 按钮；`ProfileView`（本人主页）右上角同步提供 `profile.qrcode` 入口；扫码后经 `AccountCountDestination.scannedProfile` 推进对方个人主页。
+  4. `App/Features/FriendQRScannerView.swift`：
+     - 相机权限被拒态（非 `testMode`）新增「打开 iPhone 设置」（`UIApplication.openSettingsURLString`）按钮；底部新增「我的二维码」按钮（`scanner.myQR`）实现「扫一扫 ↔ 我的二维码」双向一键互切。
+  5. `UITests/FourTabNavigationUITests.swift` 与 `scripts/test_my_qr_code_contracts.py`（新增）：
+     - 在既有 13 项测试计数不变的前提下，于双主题根页用例中打开 `me.qrcode`、导出浅/深色实屏原图，并实时调用 `CIDetector(ofType: CIDetectorTypeQRCode)` 强断言屏幕渲染的圆点+Logo 二维码精确解码为 `https://bolubo.com/users/syntheticself`；同时验证 `myQR.save` 隔离保护、`myQR.scan` 与 `scanner.myQR` 双向切换。
+- **涉及文件**：`Sources/PUBOCore/UserQRCode.swift`、`Tests/PUBOCoreTests/UserQRCodeTests.swift`、`App/Features/MyQRCodeView.swift`、`App/Features/ProfileView.swift`、`App/Features/FriendQRScannerView.swift`、`UITests/FourTabNavigationUITests.swift`、`scripts/test_my_qr_code_contracts.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **296/296**（2.779s，含新增 `test_my_qr_code_contracts.py` 与既有 `test_c105_ui_layout_contracts.py`）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Swift 核心单测、双机 iOS 26.1 实屏 `CIDetector` 扫码回环断言、全套 34/34 CI 与正式硬化 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C111 候选（上架前 Release 包硬化、出口加密合规声明、第三方外链收敛与外包上架交接清单）
 
 - **问题、复现与 C110 正式包拆包审计证据**：

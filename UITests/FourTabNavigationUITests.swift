@@ -1,4 +1,5 @@
 import XCTest
+import CoreImage
 
 /// Candidate-only coverage. FixtureTransport owns all data; no production accounts,
 /// real camera, APNs entitlement or signed-install claim is made by these tests.
@@ -126,6 +127,18 @@ final class FourTabNavigationUITests: XCTestCase {
         XCTAssertTrue(app.segmentedControls["followRequests.direction"].waitForExistence(timeout: 8))
     }
 
+    private func assertScreenQRDecodes(_ app: XCUIApplication, expected: String) {
+        let shot = app.screenshot()
+        guard let cgImage = shot.image.cgImage else {
+            XCTFail("Screenshot CGImage unavailable for QR verification")
+            return
+        }
+        let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh])
+        let features = (detector?.features(in: CIImage(cgImage: cgImage)) as? [CIQRCodeFeature]) ?? []
+        let payloads = features.compactMap(\.messageString)
+        XCTAssertTrue(payloads.contains(expected), "Rendered MyQRCodeView did not decode to \(expected); got \(payloads)")
+    }
+
     func testFourRootsAndExclusiveComposerInBothThemes() {
         for dark in [false, true] {
             let app = launch(["--social-align", "--timeline-align", "--gif-preview"] + (dark ? ["--dark"] : []))
@@ -142,6 +155,13 @@ final class FourTabNavigationUITests: XCTestCase {
                 assertBottomBarGeometry(app)
                 capture(app, title + (dark ? "-dark" : "-light"))
             }
+            tap(app, "me.qrcode")
+            XCTAssertTrue(element(app, "myQR.image").waitForExistence(timeout: 8))
+            XCTAssertTrue(app.buttons["myQR.scan"].waitForExistence(timeout: 5))
+            capture(app, "me-qrcode-" + (dark ? "dark" : "light"))
+            assertScreenQRDecodes(app, expected: "https://bolubo.com/users/syntheticself")
+            tap(app, "myQR.close")
+            XCTAssertTrue(element(app, "myQR.image").waitForNonExistence(timeout: 5))
             app.terminate()
         }
     }
@@ -198,6 +218,7 @@ final class FourTabNavigationUITests: XCTestCase {
         tap(app, "messages.add"); tap(app, "messages.scan")
         XCTAssertTrue(app.staticTexts["演示测试不启用相机，请使用用户名搜索。"].waitForExistence(timeout: 8))
         XCTAssertFalse(app.alerts.firstMatch.exists)
+        XCTAssertTrue(app.buttons["scanner.myQR"].waitForExistence(timeout: 5))
         capture(app, "scanner-simulator-fallback-not-real-camera")
         tap(app, "scanner.username")
         XCTAssertTrue(app.textFields["addFriend.username"].waitForExistence(timeout: 8))
@@ -264,6 +285,17 @@ final class FourTabNavigationUITests: XCTestCase {
         }
         capture(app, "world-discovery")
         tab(app, "我的")
+        tap(app, "me.qrcode")
+        XCTAssertTrue(element(app, "myQR.image").waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["@fixture@bolubo.com"].waitForExistence(timeout: 5))
+        tap(app, "myQR.save")
+        XCTAssertTrue(app.staticTexts["隔离测试不写入系统相册"].waitForExistence(timeout: 5))
+        tap(app, "myQR.scan")
+        XCTAssertTrue(app.staticTexts["演示测试不启用相机，请使用用户名搜索。"].waitForExistence(timeout: 8))
+        tap(app, "scanner.close")
+        XCTAssertTrue(element(app, "myQR.image").waitForExistence(timeout: 8))
+        tap(app, "myQR.close")
+        XCTAssertTrue(element(app, "myQR.image").waitForNonExistence(timeout: 5))
         let entries = [("me.profile", "我的主页"), ("me.favorites", "我的收藏"), ("me.drive", "网盘"), ("me.notifications", "通知")]
         for (id, title) in entries {
             tap(app, id)
