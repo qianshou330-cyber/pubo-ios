@@ -120,6 +120,7 @@ struct ChatView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(PUBOTheme.accent)
                     Text(forwardToast).font(.caption).foregroundStyle(PUBOTheme.text).lineLimit(2)
+                        .accessibilityIdentifier("chat.forward.toast")
                     Spacer(minLength: 4)
                     Button { self.forwardToast = nil } label: { Image(systemName: "xmark").font(.caption2).foregroundStyle(PUBOTheme.secondary) }
                         .buttonStyle(.plain).accessibilityLabel("关闭转发提示")
@@ -127,8 +128,6 @@ struct ChatView: View {
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 .background(PUBOTheme.panel)
                 .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("chat.forward.toast")
             }
             ZStack {
                 messageScroll.opacity(searching ? 0 : 1).allowsHitTesting(!searching).accessibilityHidden(searching)

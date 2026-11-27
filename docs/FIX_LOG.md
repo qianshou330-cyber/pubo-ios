@@ -1,5 +1,19 @@
 # 修复日志
 
+## 2026-11-27 / C116 候选（修正 iOS 26 确认转发弹窗嵌套 `Button` 查询歧义，并优化转发完成提示栏无障碍标识）
+
+- **问题、复现与实测证据**：
+  - C115（`666cb14f`，[CI 46046068341](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46046068341)）31 项全绿通过，大小屏 `chat-alignment (small/large, layout)`（`140667778452` / `140667778447`，产物 `15224384487` / `15225710524`）均已完整跑通：**真实 1 秒长按 `fwdmsg12` → 点击「多选」→ 连选至 `已选 10 / 10` → 第 11 条 `fwdmsg02` 触发橙色「最多只能选择 10 条消息」上限拦截 → 打开「转发给好友」选择「测试好友二」→ 弹出「确认转发给 测试好友二？」弹窗**，并导出清晰无截断的双机实屏截图。
+  - 双机唯一失败点完全一致：iOS 26 原生 `.alert` 对带 `.accessibilityIdentifier("chat.forward.confirm")` 的「确认转发」按钮暴露了嵌套 `Button -> Button`（AX 树实证 2 个同名节点），导致 `app.buttons["确认转发"].tap()` 抛出 `Multiple matching elements found`。
+- **修改内容（零降门禁）**：
+  1. `UITests/ChatAlignmentUITests.swift`：将确认转发按钮查询改为 `app.alerts.buttons["确认转发"].firstMatch`，消除 iOS 26 嵌套弹窗按钮歧义。
+  2. `App/Features/ChatView.swift`：将 `accessibilityIdentifier("chat.forward.toast")` 直接挂在转发完成提示文案 `Text(forwardToast)` 上并移除外层 `.accessibilityElement(children: .combine)`，确保文案断言直达且 VoiceOver 用户可独立聚焦右侧「关闭转发提示」按钮。
+- **涉及文件**：`UITests/ChatAlignmentUITests.swift`、`App/Features/ChatView.swift`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**（2.720s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，双机 iOS 26.1 确认转发完成闭环、深浅双主题 6 张实机截图与全套 34/34 CI + 正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C115 候选（修正多选长按测试 `RichNoteText` AX 层级定位，并分离多选行首按钮与气泡点击热区、延长转发提示停留）
 
 - **问题、复现与实测证据**：
@@ -20,6 +34,16 @@
   - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**（2.723s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，双机 iOS 26.1 真实长按多选 10 条上限、转发实屏截图与全套 34/34 CI + 正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
+### C115 精确提交终态
+
+精确 [C115 `666cb14f`](https://github.com/qianshou330-cyber/pubo-ios/commit/666cb14fc31643abcfcde06223e86617e5aeb85f) 的 [CI 46046068341 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46046068341/attempts/1) 于 `2026-11-27 17:59:47Z` 启动、`19:20:32Z` 结束（总墙钟 `80m45s`），整轮结论 **`failure`（31 通过、2 失败、0 取消、4 跳过**；正式 `package` 跳过，候选包不作交付）。
+
+- **通过项（31/37）**：`checks`（Swift 232/232、Python 300/300、Node 2/2）、`build-sim-tests`、`candidate-package`、`ocr-validation`、`h5-chat-reference`、`diagnostic-timeline-capture-host`、`navigation` 4/4 + `navigation-evidence`、`legacy-regression` 2/2、`chat-presentation` 4/4、`chat-alignment (actions)` 2/2、`messages-redesign` 2/2、`video-poster` 2/2、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 4/4。
+- **失败项（2/37）**：
+  - `chat-alignment (large, layout)`（`140667778447`，产物 `15225710524`）与 `chat-alignment (small, layout)`（`140667778452`，产物 `15224384487`）：双机均实证通过真实长按进入多选、连选至 `10 / 10`、第 11 条被「最多只能选择 10 条消息」拦截、打开「转发给好友」选择「测试好友二」与弹出确认弹窗，并导出浅色多选上限与选人实机原图；唯一失败为 iOS 26 `.alert` 嵌套 `Button` 触发 `app.buttons["确认转发"].tap()` 多元素歧义。
+- **跳过项（4/37）**：正式 `package` 及 3 项手动诊断。
+- **下一步**：由上方 **C116** 修正确认按钮查询并优化提示栏无障碍标识，整轮冲刺 34/34 全绿与正式未签名 IPA。
 
 ## 2026-11-27 / C114 候选（好友对话页长按多选消息上限 10 条并支持选择好友逐条/合并转发与批量复制）
 

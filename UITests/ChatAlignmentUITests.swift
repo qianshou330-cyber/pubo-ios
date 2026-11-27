@@ -196,7 +196,7 @@ final class ChatAlignmentUITests: XCTestCase {
             capture(app, "chat-forward-picker-" + theme)
 
             recipient.tap()
-            let confirm = app.buttons["确认转发"]
+            let confirm = app.alerts.buttons["确认转发"].firstMatch
             XCTAssertTrue(confirm.waitForExistence(timeout: 6))
             confirm.tap()
 
