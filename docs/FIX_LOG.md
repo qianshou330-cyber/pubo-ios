@@ -26,6 +26,19 @@
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Xcode Release 编译、新 `package-device.py` 洁净度门禁实跑、全套 34/34 CI 与正式硬化 IPA 校验待推送后由 `four-tabs.yml` 验证。
 
+### C111 精确提交终态
+
+精确 [C111 `8467e032`](https://github.com/qianshou330-cyber/pubo-ios/commit/8467e03231598ee97c6639cba8dc2aa00acc6f68) 的 [CI 45986946837 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45986946837/attempts/1) 于 `2026-11-27 11:01:11Z` 启动、`12:19:40Z` 结束（总墙钟 **78 分 29 秒**，含正式 `package` `8m51s`），整轮结论 **`success`（34 通过、0 失败、0 取消、3 跳过**——连续第二轮实现 9/9 必选门禁、26/26 Apple Silicon 模拟器分片、严格 OCR 189 语料与正式 `package` 100% 全绿通过）。
+
+- **全量日志扫描（34/34 已执行作业）**：**0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**、**0 次 `[PRETEST-RECOVERY]` / `Code=18` 握手死亡**、**0 次 `simctl list` 超时**。
+- **通过项（34/34）**：`checks`（`140464887328`，`1m30s`：Swift **220/220**、Python **292/292**、Node **2/2**、Darwin 预检 **3/3**）、`build-sim-tests`（`140465640794`）、`ocr-validation`（`140465640811`）、`h5-chat-reference`、`diagnostic-timeline-capture-host`、`candidate-package`（`140465640790`）、`navigation` 4/4 + `navigation-evidence`（`140496890937`，双机各 87 张 PNG `PASS`）、`legacy-regression` 双机 2/2（`140467843745`/`140467843866`）、`chat-alignment` 4/4、`chat-presentation` 4/4、`video-poster` 2/2、`messages-redesign` 2/2、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 4/4 与正式 **`package`**（[140496984986](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45986946837/job/140496984986)）。
+- **失败项**：**无（0 项）**。
+- **跳过项（3/37）**：仅 3 个需手动 `workflow_dispatch` 触发的可选诊断（`diagnostic-room-menu-ab`、`diagnostic-world-sparse`、`diagnostic-world-page2-poster`）。
+- **上架前硬化版正式未签名 IPA 独立拆包校验**：
+  - GitHub Actions 正式产物：[four-tabs-iphone-unsigned-8467e03231598ee97c6639cba8dc2aa00acc6f68（ID `15196093533`）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45986946837/artifacts/15196093533)，到期 `2026-12-11T12:19:33Z`。
+  - 独立解包核验：`source-sha.txt` 与 `device-package.json` 均为 `8467e03231598ee97c6639cba8dc2aa00acc6f68`、`exportComplianceExempt: true`、`releaseHygiene: "PASS"`；内含 `PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa`，**`5,538,889` 字节**（较 C110 瘦身 **`-144,751` 字节**），SHA-256 **`bc1390faa6816bdcc0a665a149c0629d88838a31a2f694e2d9c9bff857fbe089`**；`Payload/PUBO.app/` 仅余 **17 项纯生产条目**（5 个测试/对齐素材 100% 剔除）；`PUBO` Mach-O 为 thin `arm64` iPhoneOS 未签名二进制（**`23,790,536` 字节**，较 C110 瘦身 **`-342,832` 字节**），**0 处 `FixtureTransport`、0 处 `--ui-testing`、0 处 `systemUptime`、0 处 `misskey-hub.net`**；`Info.plist` 含 `ITSAppUsesNonExemptEncryption = False` 与 `AppIcon` 主图标声明；无 `_CodeSignature` 与 `embedded.mobileprovision`（`physicalDeviceTested: false`）。
+- **未解决事项与下一步**：本包已达到交由外包签名团队上传 TestFlight 开展真机内测的洁净度与合规标准；待外包团队完成重签上架 TestFlight 后，按 [docs/RELEASE_PREFLIGHT.md](RELEASE_PREFLIGHT.md) 在物理 iPhone 完成 8 大项真机实测，再择机提审 App Store（合入 `main` 与发布 Release 仍待用户明确授权）。
+
 ## 2026-11-27 / C110 候选（消除隐私开关准备探测的 1.05s 首次盲等与 2.75s 冗余重复查询，零预算/断言放宽）
 
 - **问题、复现与 C109 实测证据**：
