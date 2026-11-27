@@ -18,6 +18,31 @@
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Xcode 编译、全量 Apple Silicon 模拟器套件与正式 `package` 打包待推送后由 `four-tabs.yml` 验证。
 
+### C110 精确提交终态
+
+精确 [C110 `194c67a8`](https://github.com/qianshou330-cyber/pubo-ios/commit/194c67a8dfcbe6a1af548b2d6657cd7bf62871f7) 的 [CI 45966014167 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45966014167/attempts/1) 于 `2026-11-27 08:29:06Z` 启动、`09:58:47Z` 结束（总墙钟耗时 **89 分 41 秒**，含正式 `package` 打包 `6m28s`），整轮结论为 **`success`（34 通过、0 失败、0 取消、3 跳过）**——**全部 9/9 必选门禁、全部 26/26 模拟器分片、全部 7 组可选常规诊断与正式 `package` 打包首次 100% 全绿通过**。
+
+- **通过项（34/34 已执行作业，0 失败）**：
+  - **核心检查与共享预编译**：`checks`（`140394757656`，`1m47s`，产物 `15183720077`：Swift **220/220**、Python **289/289**、Node **2/2**、Darwin 预检 **3/3** 全过）、`build-sim-tests`（`140395544815`，`2m56s`，产物 `15182594287`）、`h5-chat-reference`（`140395544843`，产物 `15182708777`）、`diagnostic-timeline-capture-host`（`140394758062`，产物 `15183345669`）、`candidate-package`（`140395544845`，`8m33s`，产物 `15184075792`）。
+  - **严格 OCR 语料门禁**：`ocr-validation`（`140395544844`，`0m36s`，产物 `15182876804`：`tesseract 5.5.4` + `tessdata_fast 7d4322bd...`，`total=189`、`acceptedCorrect=63`、`rejected=123`、`knownClippedFalseAccepts=3`、`failures=[]`，`PASS_WITH_DOCUMENTED_LIMITATIONS`，未降低 `MIN_CONFIDENCE = 80.0` 或任何业务/样本门槛）。
+  - **全部 26/26 Apple Silicon 模拟器分片 + 严格汇总**：
+    - `navigation` 4/4（`140396794411`/`140396794648`/`140396794489`/`140396794496`）+ **`navigation-evidence`**（`140420861033`，`0m11s`，`{"exportedPNGs":{"large":87,"small":87},"status":"PASS"}`）；
+    - **`legacy-regression` 双机 2/2**：`small`（`140396794444`，`12m46s`，产物 `15183119169`）与 `large`（`140396794500`，`16m05s`，产物 `15183902684`，**5/5 全过**；9 次隐私开关准备探测耗时压降至 **0.35–0.89 秒**，9/9 次点击均 100% 触发 `setter + valueChanged + touchUp`，加载前后 `isLocked` `y=163.0` 全程 **0.00pt 跳动**）；
+    - `chat-alignment` 4/4（`140396795146`/`140396794960`/`140396794671`/`140396794725`）；
+    - `chat-presentation` 4/4（`140396794783`/`140396794959`/`140396794823`/`140396796273`）；
+    - `video-poster` 双机 2/2（`140396794467`/`140396794890`）；
+    - `messages-redesign` 双机 2/2（`140396794662`/`140396794895`）；
+    - `diagnostic-private-back` 2/2（`140396794448`/`140396794273`）、`diagnostic-room-back` 2/2（`140396794546`/`140396794532`）、`diagnostic-world-scroll` 4/4（`cross-page` 双机 `140396794846`/`140396794679` + `signposts` 双机 `140396794866`/`140396794784`）。
+  - **正式打包**：`package`（[140430230283](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45966014167/job/140430230283)，`6m28s`）自动触发并成功产出正式未签名设备包。
+- **全量日志扫描（34/34 已执行作业）**：**0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**、**0 次 `[PRETEST-RECOVERY]` / `Code=18` 握手死亡**、**0 次 `simctl list` 超时**。
+- **失败项**：**无（0 项）**。
+- **未运行/跳过项（3/37）**：仅 3 个按工作流定义需手动 `workflow_dispatch` 显式勾选才触发的可选诊断（`diagnostic-room-menu-ab`、`diagnostic-world-sparse`、`diagnostic-world-page2-poster`）；另真机实测尚未执行（见下方未解决事项）。
+- **正式未签名设备包独立校验**：
+  - GitHub Actions 产物：[four-tabs-iphone-unsigned-194c67a8dfcbe6a1af548b2d6657cd7bf62871f7（ID `15187837998`）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45966014167/artifacts/15187837998)，到期 `2026-12-11T09:58:41Z`。
+  - 独立解包核验：`source-sha.txt` 与 `device-package.json` 均为精确提交 `194c67a8dfcbe6a1af548b2d6657cd7bf62871f7`；内含 `PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa`，**`5,683,640` 字节**，SHA-256 **`3249477d1f37483982eb77495f85b239369675dc1b6cdacaa3f8088a2bd38808`**；`com.bolubo.native` / `0.10.0` (build `148`) / `MinimumOSVersion = 17.0`（声明）/ `iPhoneOS arm64` Mach-O（`0xfeedfacf` / `0x0100000c`，`24,133,368` 字节）/ 未签名（无 `_CodeSignature` 与 `embedded.mobileprovision`，需签名后真机安装；`physicalDeviceTested: false`）。
+- **未解决事项与下一步**：
+  - CI 自动化门禁（含模拟器和严格 OCR）已全量通过，但不等同于真机验收或 GitHub Release。下一步仍需对正式未签名包 `15187837998` 签名装机，实测真实 `bolubo.com` 账号、弱网下隐私开关交互（验证 0 跳动与真实接口落库）、世界圈滚动与视频首帧耗时、相机扫码、语音录制、APNs 推送、iOS 17 最低系统与覆盖升级。
+
 ## 2026-11-27 / C109 候选（根治仅剩 3 项 CI 失败与真机隐私页跳动／帖子误触缺陷，零门槛放宽）
 
 - **问题、复现与取证（基于 C108 `a5d20439` / CI `45945236638` 原始产物）**：
