@@ -156,8 +156,10 @@ final class ChatAlignmentUITests: XCTestCase {
             let theme = dark ? "dark" : "light"
             let app = launch(["--chat-forward"] + (dark ? ["--dark"] : []))
             peer(app)
-            let lastText = app.textViews["chat.text.fwdmsg12"]
-            XCTAssertTrue(lastText.waitForExistence(timeout: 8))
+            let lastBubbleText = app.descendants(matching: .any).matching(identifier: "chat.text.fwdmsg12").firstMatch
+            XCTAssertTrue(lastBubbleText.waitForExistence(timeout: 8))
+            let lastText = lastBubbleText.textViews.firstMatch
+            XCTAssertTrue(lastText.exists)
             lastText.press(forDuration: 1)
             let multiSelect = app.descendants(matching: .any).matching(NSPredicate(
                 format: "label == %@ AND (elementType == %d OR elementType == %d)",
@@ -199,10 +201,10 @@ final class ChatAlignmentUITests: XCTestCase {
             confirm.tap()
 
             XCTAssertTrue(sheetTitle.waitForNonExistence(timeout: 12))
-            XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8))
             let toast = app.descendants(matching: .any).matching(identifier: "chat.forward.toast").firstMatch
-            XCTAssertTrue(toast.waitForExistence(timeout: 6))
+            XCTAssertTrue(toast.waitForExistence(timeout: 8))
             XCTAssertTrue(toast.label.contains("已转发 10 条消息给 测试好友二"), "Unexpected forward toast: " + toast.label)
+            XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8))
             capture(app, "chat-forward-done-" + theme)
             app.terminate()
         }

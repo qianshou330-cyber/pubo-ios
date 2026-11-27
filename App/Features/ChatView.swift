@@ -379,10 +379,15 @@ struct ChatView: View {
                 .accessibilityIdentifier("chat.select." + message.id)
                 bubble(message)
                     .allowsHitTesting(false)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if selectable { toggleSelection(message) }
+                    .overlay {
+                        if selectable {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .allowsHitTesting(true)
+                                .onTapGesture { toggleSelection(message) }
+                                .accessibilityHidden(true)
+                        }
+                    }
             }
         } else {
             bubble(message)
@@ -482,7 +487,7 @@ struct ChatView: View {
         forwardToast = message
         let epoch = session.generation
         forwardToastTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(for: .seconds(6))
             if !Task.isCancelled, epoch == session.generation {
                 forwardToast = nil
             }

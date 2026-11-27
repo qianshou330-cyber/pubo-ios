@@ -1,5 +1,26 @@
 # 修复日志
 
+## 2026-11-27 / C115 候选（修正多选长按测试 `RichNoteText` AX 层级定位，并分离多选行首按钮与气泡点击热区、延长转发提示停留）
+
+- **问题、复现与实测证据**：
+  - C114（`7ad2fb94`，[CI 46034912158](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46034912158)）除 `chat-alignment (small/large, layout)` 外其余 **31/31** 项全部一次通过（含 `checks` Swift `232/232`、Python `300/300`、`candidate-package`、`navigation` 4/4 + `navigation-evidence`、`legacy-regression` 2/2、`chat-presentation` 4/4、`chat-alignment (actions)` 2/2）。
+  - 下载 `four-tabs-chat-alignment-small-layout-7ad2fb94...-a1`（产物 `15219765846`）检查 `9EE67900-F770-4916-8FE7-2DFD7ABBE044.txt` AX 快照确认：SwiftUI 包装的 `RichNoteText` 在 iOS 26 上将 `identifier: 'chat.text.fwdmsg12'` 挂在外层 `StaticText` 节点，内部包裹子级 `TextView(label: '转发测试消息 12')`，因此 `app.textViews["chat.text.fwdmsg12"]` 找不到元素（`ChatAlignmentUITests.swift:160`）。
+  - 复查多选交互代码同时发现两处可提前加固的边界细节：
+    1. `ChatView.messageRow` 原将整行 `.onTapGesture` 挂在包含左侧 `Button("chat.select.<id>")` 的父 `HStack` 上，存在行首按钮与父手势重叠风险；
+    2. `ChatView.showForwardToast` 原自动消失时长为 4 秒，紧接弹窗关闭动画后留给用户阅读与自动化截图的窗口偏短。
+- **修改内容（零降门禁，保持既有 10 项测试数、气泡几何与菜单边界不变）**：
+  1. `UITests/ChatAlignmentUITests.swift`：
+     - 与既有 `testTextSelectionMenuPreservesRoomActionsBothThemes` 一致，通过 `app.descendants(matching: .any).matching(identifier: "chat.text.fwdmsg12").firstMatch` 定位外层节点后再对其子级 `.textViews.firstMatch` 执行真实 1 秒长按；
+     - 在转发弹窗关闭后优先断言 `chat.forward.toast` 并随后校验 `chat.input` 恢复与导出实屏截图。
+  2. `App/Features/ChatView.swift`：
+     - 将多选态的整行点击手势改为仅覆盖 `bubble(message)` 的独立透明 `.overlay`（`.allowsHitTesting(true)` + `.accessibilityHidden(true)`），使左侧 44×44 勾选按钮与右侧气泡热区 100% 互斥；
+     - 将转发完成提示栏自动消失时长由 4 秒调整为 6 秒（仍支持随时点 `×` 手动关闭）。
+- **涉及文件**：`UITests/ChatAlignmentUITests.swift`、`App/Features/ChatView.swift`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**（2.723s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，双机 iOS 26.1 真实长按多选 10 条上限、转发实屏截图与全套 34/34 CI + 正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C114 候选（好友对话页长按多选消息上限 10 条并支持选择好友逐条/合并转发与批量复制）
 
 - **需求、背景与后端架构依据**：
@@ -24,6 +45,16 @@
   - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**（含新增 `test_chat_forward_contracts.py` 与既有全部聊天气泡/菜单/布局合约）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Swift 单测（含新增 7 组 `ChatForwardPolicyTests`）、双机 iOS 26.1 实屏长按多选 10 条上限与转发 UI 测试、全套 34/34 CI 与正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
+### C114 精确提交终态
+
+精确 [C114 `7ad2fb94`](https://github.com/qianshou330-cyber/pubo-ios/commit/7ad2fb9417c8fe7431abea34f377f1abe2a0baef) 的 [CI 46034912158 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46034912158/attempts/1) 于 `2026-11-27 16:35:33Z` 启动、`17:58:25Z` 结束（总墙钟 `82m52s`），整轮结论 **`failure`（31 通过、2 失败、0 取消、4 跳过**；正式 `package` 跳过，候选包不作交付）。
+
+- **通过项（31/37）**：`checks`（`140627745884`，Swift **232/232** 含新增 `ChatForwardPolicyTests` 7/7 全过、Python **300/300**、Node **2/2**）、`build-sim-tests`、`candidate-package`（Release 卫生与隐私清单全过）、`ocr-validation`、`h5-chat-reference`、`diagnostic-timeline-capture-host`、`navigation` 4/4 + `navigation-evidence`（`140653781080`）、`legacy-regression` 2/2（`140630293808`/`140630293912`）、`chat-presentation` 4/4、`chat-alignment (actions)` 2/2、`messages-redesign` 2/2、`video-poster` 2/2、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 4/4。
+- **失败项（2/37）**：
+  - `chat-alignment (small, layout)`（`140630293825`）与 `chat-alignment (large, layout)`（`140630293929`）：均在既有私信元数据/菜单/反应/搜索全部通过后，于新增 `verifyPrivateMultiSelectTenLimitAndForwardBothThemes` 的 `ChatAlignmentUITests.swift:160` 因 `app.textViews["chat.text.fwdmsg12"]` 未匹配外层 `StaticText -> TextView` 结构而失败（产物 `15219765846` AX 快照已实证）。
+- **跳过项（4/37）**：正式 `package`（受上游 2 项失败门禁阻断）及 3 项手动诊断。
+- **下一步**：由上方 **C115** 修正 `RichNoteText` AX 定位并加固多选行点击热区与转发提示时长，整轮重跑 34/34 CI 与正式未签名 IPA 打包。
 
 ## 2026-11-27 / C113 候选（修正二维码内置静区 1 模块偏移与零间距圆点渲染，新增 macOS Apple `CIDetector` 实时解码单测）
 
