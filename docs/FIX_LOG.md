@@ -1,5 +1,30 @@
 # 修复日志
 
+## 2026-11-27 / C114 候选（好友对话页长按多选消息上限 10 条并支持选择好友逐条/合并转发与批量复制）
+
+- **需求、背景与后端架构依据**：
+  - 按用户批准的 `chat_multi_select_forward_plan.md`，为 1 对 1 好友私信对话页（`ChatView`）补齐长按消息进入多选模式（最多选 **10** 条）、选择好友转发消息及批量复制文字能力。
+  - 核查 `qianshou330-cyber/misskey` 后端源码确认：服务端无专用 `chat/messages/forward` 接口，所有私信统一经 `chat/messages/create-to-user`（单条正文上限 2000 字、支持 `clientMessageId` 幂等）；私信附件绑定原会话 `(fromUserId, toUserId)`，跨好友转发必须经鉴权拉取原字节（`chat/attachments/{id}/original`）再按目标 `toUserId` 上传（`chat/attachments/create`）；为防止私密附件被意外公开至公共网盘，首版明确限定仅转发给本站好友私信。
+- **修改内容（零破坏既有聊天气泡几何、菜单边界与 10 项对齐分片门禁）**：
+  1. `Sources/PUBOCore/ChatForwardPolicy.swift`（新增）与 `Tests/PUBOCoreTests/ChatForwardPolicyTests.swift`（新增）：
+     - `ChatSelectionState`：强制 `maxSelectionCount = 10`，第 11 条返回 `.limitReached(max: 10)` 且保留原 10 条不动；拒绝已撤回消息，`pruneAndOrdered(from:)` 自动剔除中途撤回项并按原时间轴正序输出。
+     - `ChatForwardPlanner`：校验目标好友资格（复用 `ChatEligibility`，并拦截自转与跨站账号）、统计私信附件（常规 / 超 50 MiB / 网页回退项）、生成合并文字转发摘要（强制 `<= 2000` 字）与多选复制文本、去重过滤最近联系与关注好友。
+     - 补充 7 组纯合成核心单测覆盖全部边界。
+  2. `App/Features/ChatForwardSheet.swift`（新增）：
+     - 分区加载「最近联系」（`chat/conversations`）与「我关注的好友」（`users/following`），顶部实时过滤并支持站内 `users/search` 兜底搜索；提供「逐条转发（默认）」与「合并文字」双模式与确认弹窗防误触。
+     - 执行器每条携带独立 `PendingChat` 幂等 `clientMessageId`，私信附件先鉴权拉取再按 `peer: recipient.id` 重新加密上传；支持实时进度、停止剩余转发，遇到 `CHAT_FIRST_MESSAGE_TEXT_ONLY` / `CHAT_REPLY_REQUIRED` / `YOU_HAVE_BEEN_BLOCKED` 等受限错误立即中止并明示成功/未发明细。
+  3. `App/Features/ChatView.swift`：
+     - 在共享 `messageActions(_:own:)` 的未撤回分支新增「多选」（`chat.multiselect.<id>`）与单条快捷「转发」（`chat.forward.<id>`），一次同时接入气泡长按 `.contextMenu`、文字长按 TextKit 菜单与右侧 `...` 溢出按钮，严格保持 `allowRecalled: true` 计数为 `1` 及正常态气泡/元数据/输入栏 0 改动。
+     - 多选态切换顶栏为「取消」+「已选 N / 10」、行首展示 `44×44` 勾选按钮（整行可点、超 10 条弹出橙色「最多只能选择 10 条消息」提示）、底栏切换为「转发给好友 (N)」+「复制文字」操作栏；切换搜索/切账号/退页面自动退出清空，收到撤回自动剔除已选 ID。
+  4. `App/Infrastructure/FixtureTransport.swift`、`UITests/ChatAlignmentUITests.swift` 与 `scripts/test_chat_forward_contracts.py`（新增）：
+     - 在 `#if DEBUG` 下新增隔离启动参数 `--chat-forward`（12 条合成消息 + 本地第二好友 `syntheticfriend2` + 外站账号 `syntheticremote`，不影响任何现有夹具与 Release 包）。
+     - 在既有 10 项 `ChatAlignmentUITests` 方法数不变的前提下，于 `testPrivateSearchDateAndReactionsBothThemes` 末尾追加浅/深色双主题端到端实测：真实长按 `chat.text.fwdmsg12` 1 秒 → 点「多选」→ 连选至 `10 / 10` → 点第 11 条断言出现「最多只能选择 10 条消息」且计数仍为 `10 / 10` → 打开「转发给好友」选择 `测试好友二` 确认发送 → 断言回退正常态并显示「已转发 10 条消息给 测试好友二」，同步导出双主题实屏截图。
+- **涉及文件**：`Sources/PUBOCore/ChatForwardPolicy.swift`、`Tests/PUBOCoreTests/ChatForwardPolicyTests.swift`、`App/Features/ChatForwardSheet.swift`、`App/Features/ChatView.swift`、`App/Infrastructure/FixtureTransport.swift`、`UITests/ChatAlignmentUITests.swift`、`scripts/test_chat_forward_contracts.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**（含新增 `test_chat_forward_contracts.py` 与既有全部聊天气泡/菜单/布局合约）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Swift 单测（含新增 7 组 `ChatForwardPolicyTests`）、双机 iOS 26.1 实屏长按多选 10 条上限与转发 UI 测试、全套 34/34 CI 与正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C113 候选（修正二维码内置静区 1 模块偏移与零间距圆点渲染，新增 macOS Apple `CIDetector` 实时解码单测）
 
 - **问题、复现与实测证据**：

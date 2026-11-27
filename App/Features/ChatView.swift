@@ -61,6 +61,12 @@ struct ChatView: View {
     @State private var animatedIDs = Set<String>()
     @State private var visibleMessageID: String?
     @State private var scrollAnchor: UnitPoint = .bottom
+    @State private var selecting = false
+    @State private var selection = ChatSelectionState()
+    @State private var selectionBanner: String?
+    @State private var forwardingPayload: ChatForwardPayload?
+    @State private var forwardToast: String?
+    @State private var forwardToastTask: Task<Void, Never>?
     private var outboxKey: String { "chat-outbox-" + peer.id }
     private var draftKey: String { "chat-draft-" + peer.id }
     init(peer: Record, initialMessageID: String? = nil) { self.peer = peer; self.initialMessageID = initialMessageID; _contextMode = State(initialValue: initialMessageID != nil) }
@@ -78,7 +84,7 @@ struct ChatView: View {
             ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                 VStack(spacing: 12) {
                     if let pair = ChatDays.pair(previous: index > 0 ? messages[index - 1] : nil, current: message) { ChatDateSeparator(pair: pair, style: .direct) }
-                    bubble(message)
+                    messageRow(message)
                 }.id(message.id).modifier(ChatMessageEntrance(animate: animatedIDs.contains(message.id), distance: 12)).onDisappear { animatedIDs.remove(message.id) }
                     .background(highlightedID == message.id ? PUBOTheme.accent.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
             }
@@ -110,6 +116,20 @@ struct ChatView: View {
             ChatConnectionStatus(phase: session.streamConnection, synchronizing: initialLoadCompleted && loading && !retryOlder, prefix: "chat") {
                 session.stream.reconnectNow(); Task { await load(reconcileAll: true) }
             }
+            if let forwardToast, !searching {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(PUBOTheme.accent)
+                    Text(forwardToast).font(.caption).foregroundStyle(PUBOTheme.text).lineLimit(2)
+                    Spacer(minLength: 4)
+                    Button { self.forwardToast = nil } label: { Image(systemName: "xmark").font(.caption2).foregroundStyle(PUBOTheme.secondary) }
+                        .buttonStyle(.plain).accessibilityLabel("关闭转发提示")
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(PUBOTheme.panel)
+                .overlay(alignment: .bottom) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("chat.forward.toast")
+            }
             ZStack {
                 messageScroll.opacity(searching ? 0 : 1).allowsHitTesting(!searching).accessibilityHidden(searching)
                 if !searching {
@@ -121,19 +141,40 @@ struct ChatView: View {
             }.clipped()
         }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if !searching { inputBar.fixedSize(horizontal: false, vertical: true) }
+                if !searching {
+                    if selecting { selectionBar.fixedSize(horizontal: false, vertical: true) }
+                    else { inputBar.fixedSize(horizontal: false, vertical: true) }
+                }
             }
             .modifier(ConversationTabSuppression())
             .puboScreen().navigationTitle(peer.displayName)
+            .navigationBarBackButtonHidden(selecting)
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
-                ToolbarItem(placement: .principal) { HStack(spacing: 8) { Avatar(user: peer, size: 32); Text(peer.displayName).font(.headline).lineLimit(1) } }
-                ToolbarItem(placement: .topBarTrailing) { Menu {
-                    if !conversationSettings.isNull {
-                        Button(conversationSettings["pinnedAt"].isNull ? "置顶会话" : "取消置顶") { Task { await updateConversation("pinned", conversationSettings["pinnedAt"].isNull) } }.disabled(settingBusy)
-                        Button(conversationSettings["isMuted"].bool ? "关闭免打扰" : "开启免打扰") { Task { await updateConversation("isMuted", !conversationSettings["isMuted"].bool) } }.disabled(settingBusy)
+                if selecting {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("取消") { exitMultiSelect() }
+                            .accessibilityIdentifier("chat.select.cancel")
                     }
-                    Button("搜索本会话") { searching = true }; Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.accessibilityLabel("聊天选项") }
+                }
+                ToolbarItem(placement: .principal) {
+                    if selecting {
+                        Text("已选 \(selection.count) / \(ChatSelectionState.maxSelectionCount)")
+                            .font(.headline)
+                            .lineLimit(1)
+                            .accessibilityIdentifier("chat.select.count")
+                    } else {
+                        HStack(spacing: 8) { Avatar(user: peer, size: 32); Text(peer.displayName).font(.headline).lineLimit(1) }
+                    }
+                }
+                if !selecting {
+                    ToolbarItem(placement: .topBarTrailing) { Menu {
+                        if !conversationSettings.isNull {
+                            Button(conversationSettings["pinnedAt"].isNull ? "置顶会话" : "取消置顶") { Task { await updateConversation("pinned", conversationSettings["pinnedAt"].isNull) } }.disabled(settingBusy)
+                            Button(conversationSettings["isMuted"].bool ? "关闭免打扰" : "开启免打扰") { Task { await updateConversation("isMuted", !conversationSettings["isMuted"].bool) } }.disabled(settingBusy)
+                        }
+                        Button("搜索本会话") { searching = true }; Button("举报对方") { reporting = true }; Button("屏蔽对方", role: .destructive) { confirmBlock = true }; Link("在本站网页查看聊天", destination: Endpoint.origin.appendingPathComponent("chat/user/" + peer.id)) } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }.accessibilityLabel("聊天选项") }
+                }
             }
     }
     private var chatLifecycle: some View {
@@ -160,13 +201,17 @@ struct ChatView: View {
             .onReceive(session.chatEvents) { receive($0) }
             .onChange(of: text) { _, _ in saveDraft() }
             .onChange(of: photos) { _, items in Task { await uploadPhotos(items) } }
+            .onChange(of: searching) { _, isSearching in if isSearching { exitMultiSelect() } }
+            .onChange(of: messages.map { "\($0.id):\(!$0["recalledAt"].isNull)" }) { _, _ in
+                if selecting { _ = selection.pruneAndOrdered(from: messages) }
+            }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stickerTask?.cancel(); recorder.cancel(); saveDraft() } else { Task { await load(reconcileAll: true) } } }
-            .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil }
+            .onChange(of: session.generation) { _, _ in stickerTask?.cancel(); stickerNotice = nil; exitMultiSelect(); forwardingPayload = nil; forwardToastTask?.cancel(); forwardToast = nil }
             .onDisappear {
                 #if DEBUG
                 ChatNavigationDiagnostics.record(.privateDisappear, session: session)
                 #endif
-                active = false; loadOwnership.invalidate(); contextOwnership.invalidate(); traceLoad("disappear"); stickerTask?.cancel(); syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
+                active = false; loadOwnership.invalidate(); contextOwnership.invalidate(); traceLoad("disappear"); stickerTask?.cancel(); forwardToastTask?.cancel(); exitMultiSelect(); forwardingPayload = nil; syncEpoch = UUID(); recorder.cancel(); saveDraft(); session.stream.showChat(nil) }
     }
     var body: some View {
         chatLifecycle
@@ -176,6 +221,12 @@ struct ChatView: View {
             .sheet(isPresented: $choosingEmoji) { ChatEmojiPicker(chooseEmoji: { TextInsertion.insert($0, into: &text, selection: &textSelection) }, chooseGIF: { data in let epoch = session.generation; Task { guard epoch == session.generation else { return }; await attachSticker(data) } }) }
             .sheet(item: $preview) { item in PrivateAttachmentView(attachment: item.attachment) }
             .sheet(item: $actionMessage) { message in ChatMessageActions(message: message, peerID: peer.id, ownerID: session.user?.id ?? "") { updated in syncEpoch = UUID(); messages = ChatRecords.merge(messages, [updated]); updateDraft(targets: [updated], missing: []) } }
+            .sheet(item: $forwardingPayload) { payload in
+                ChatForwardSheet(messages: payload.messages, sourcePeer: peer) { summary in
+                    exitMultiSelect()
+                    showForwardToast(summary)
+                }
+            }
             .sheet(isPresented: $choosingDrive) { DrivePicker { file in Task { await importDrive(file) } } }
             .sheet(isPresented: $reporting) { ReportView(userID: peer.id, context: "私信会话：" + Endpoint.origin.appendingPathComponent("chat/user/" + peer.id).absoluteString) }
             .confirmationDialog("屏蔽对方后，将不能继续聊天。", isPresented: $confirmBlock) { Button("屏蔽对方", role: .destructive) { Task { do { _ = try await session.call("blocking/create", ["userId": .string(peer.id)], mutation: true); error = "已屏蔽对方" } catch { self.error = error.localizedDescription } } } }
@@ -236,8 +287,8 @@ struct ChatView: View {
                                     Label(ChatReferences.label(message["replyTo"]), systemImage: "arrowshape.turn.up.left").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(6).background(PUBOTheme.divider.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
                                 }.buttonStyle(.plain).disabled(message["replyTo"]["unavailable"].bool || contextBusy).accessibilityIdentifier("chat.reference." + message.id)
                             }
-                            if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, own: own)).font(.system(size: messageFont)) }
-                            ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && preview == nil && actionMessage == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
+                            if !message.text.isEmpty { ChatMessageContent(text: message.text, active: !searching && !selecting && preview == nil && actionMessage == nil && forwardingPayload == nil, identifier: "chat.text." + message.id, remoteEmojis: message["emojis"], menuActions: messageActions(message, own: own)).font(.system(size: messageFont)) }
+                            ForEach(Record.list(message["attachments"])) { file in PrivateInlineAttachment(attachment: file, mediaActive: !searching && !selecting && preview == nil && actionMessage == nil && forwardingPayload == nil) { preview = PrivatePreviewItem(attachment: file, messageID: message.id) }.id(file.id + "-" + String(message["revision"].int)) }
                             if message["privateAttachmentFallback"].bool { Link("在本站网页查看此附件", destination: Endpoint.origin.appendingPathComponent("chat/messages/" + message.id)).font(.caption) }
                         }
                     }.padding(.horizontal, 12).padding(.vertical, 8)
@@ -246,7 +297,7 @@ struct ChatView: View {
                     if !own { messageOverflow(message, own: own) }
                 }
                 if message["recalledAt"].isNull && !message["privateAttachmentFallback"].bool && !ChatContentPolicy.previewLinks(message.text).isEmpty {
-                    ChatMessageLinkPreviews(text: message.text, active: !searching && preview == nil && actionMessage == nil, identifier: "chat.links." + message.id)
+                    ChatMessageLinkPreviews(text: message.text, active: !searching && !selecting && preview == nil && actionMessage == nil && forwardingPayload == nil, identifier: "chat.links." + message.id)
                 }
                 HStack(spacing: 6) {
                     if let date = puboDate(message["createdAt"].string) { ChatRelativeTime(date: date) }
@@ -256,7 +307,7 @@ struct ChatView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("chat.metadata." + message.id)
                 if !message["reactions"].array.isEmpty && message["recalledAt"].isNull {
-                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }
+                    ChatReactionStrip(reactions: message["reactions"].array, ownUserID: session.user?.id ?? "", enabled: !own && !busy && !selecting) { reaction, desired in Task { await toggleReaction(message, reaction, desired: desired) } }
                 }
             }.task(id: "\(contextMode)-\(scenePhase == .active)-\(searching)") { if !own && !contextMode && !searching && scenePhase == .active { await markRead(message) } }
             if !own { Spacer(minLength: 28) }
@@ -285,7 +336,7 @@ struct ChatView: View {
         let owner = session.user?.id
         func command(_ id: String, _ title: String, enabled: Bool = true, allowRecalled: Bool = false, _ perform: @escaping () -> Void) -> ChatMenuAction {
             ChatMenuAction(id: id, title: title, enabled: enabled) {
-                guard active, scenePhase == .active, !searching, preview == nil, actionMessage == nil,
+                guard active, scenePhase == .active, !searching, !selecting, preview == nil, actionMessage == nil, forwardingPayload == nil,
                       epoch == session.generation, owner == session.user?.id,
                       let current = messages.first(where: { $0.id == message.id }),
                       (allowRecalled || current["recalledAt"].isNull), current.raw == message.raw else { return }
@@ -296,6 +347,8 @@ struct ChatView: View {
         if message["recalledAt"].isNull {
             actions.append(command("chat.reply." + message.id, "引用回复") { reply = message; saveDraft() })
             if !message.text.isEmpty { actions.append(command("chat.copy." + message.id, "复制文字") { UIPasteboard.general.string = message.text }) }
+            actions.append(command("chat.multiselect." + message.id, "多选") { enterMultiSelect(startingWith: message) })
+            actions.append(command("chat.forward." + message.id, "转发") { forwardingPayload = ChatForwardPayload(messages: [message]) })
             let gifs = Record.list(message["attachments"]).filter { $0["mime"].string == "image/gif" }
             for (index, file) in gifs.enumerated() {
                 actions.append(command("chat.collect." + message.id + "." + file.id, gifs.count == 1 ? "收藏表情包" : "收藏 GIF \(index + 1)", enabled: !stickerBusy) { collectSticker(file) })
@@ -303,6 +356,137 @@ struct ChatView: View {
         }
         actions.append(command("chat.actions." + message.id, own ? "编辑／撤回消息" : "消息反应／举报", allowRecalled: true) { actionMessage = message })
         return actions
+    }
+    @ViewBuilder
+    private func messageRow(_ message: Record) -> some View {
+        if selecting {
+            let selectable = message["recalledAt"].isNull
+            let isSelected = selection.contains(message.id)
+            HStack(alignment: .center, spacing: 6) {
+                Button {
+                    toggleSelection(message)
+                } label: {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(selectable ? (isSelected ? PUBOTheme.accent : PUBOTheme.secondary) : PUBOTheme.divider)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!selectable)
+                .accessibilityLabel(isSelected ? "取消选择消息" : "选择消息")
+                .accessibilityValue(isSelected ? "已选中" : "未选中")
+                .accessibilityIdentifier("chat.select." + message.id)
+                bubble(message)
+                    .allowsHitTesting(false)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if selectable { toggleSelection(message) }
+            }
+        } else {
+            bubble(message)
+        }
+    }
+    private var selectionBar: some View {
+        let ordered = messages.filter { selection.contains($0.id) && $0["recalledAt"].isNull }
+        let canCopy = ordered.contains { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return VStack(alignment: .leading, spacing: 8) {
+            if let selectionBanner {
+                Text(selectionBanner)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("chat.select.limitBanner")
+            }
+            HStack(spacing: 12) {
+                Button {
+                    forwardSelectedMessages()
+                } label: {
+                    Label("转发给好友 (\(selection.count))", systemImage: "arrowshape.turn.up.right.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(selection.isEmpty ? PUBOTheme.button : PUBOTheme.accent, in: Capsule())
+                        .foregroundStyle(selection.isEmpty ? PUBOTheme.secondary : Color.white)
+                }
+                .buttonStyle(.plain)
+                .disabled(selection.isEmpty)
+                .accessibilityIdentifier("chat.select.forward")
+
+                Button {
+                    copySelectedMessages()
+                } label: {
+                    Label("复制文字", systemImage: "doc.on.doc")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .background(PUBOTheme.button, in: Capsule())
+                        .foregroundStyle(canCopy ? PUBOTheme.text : PUBOTheme.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canCopy)
+                .accessibilityIdentifier("chat.select.copy")
+            }
+        }
+        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 8)
+        .background(PUBOTheme.panel.ignoresSafeArea(.container, edges: .bottom))
+        .overlay(alignment: .top) { Rectangle().fill(PUBOTheme.divider).frame(height: 0.5) }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chat.select.bar")
+    }
+    private func enterMultiSelect(startingWith message: Record) {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        recorder.cancel()
+        selectionBanner = nil
+        selecting = true
+        _ = selection.selectInitial(message)
+    }
+    private func toggleSelection(_ message: Record) {
+        switch selection.toggle(message) {
+        case .selected, .deselected:
+            selectionBanner = nil
+        case .limitReached(let maxCount):
+            selectionBanner = "最多只能选择 \(maxCount) 条消息"
+        case .ineligibleRecalled:
+            selectionBanner = "已撤回的消息不能选择"
+        }
+    }
+    private func exitMultiSelect() {
+        selecting = false
+        selection.clear()
+        selectionBanner = nil
+    }
+    private func forwardSelectedMessages() {
+        let ordered = selection.pruneAndOrdered(from: messages)
+        guard !ordered.isEmpty else {
+            selectionBanner = "请先选择至少一条未撤回的消息"
+            return
+        }
+        forwardingPayload = ChatForwardPayload(messages: ordered)
+    }
+    private func copySelectedMessages() {
+        let ordered = selection.pruneAndOrdered(from: messages)
+        let copied = ChatForwardPlanner.buildCopyText(
+            messages: ordered,
+            peerName: peer.displayName,
+            viewerID: session.user?.id,
+            viewerName: session.user?.displayName ?? "我"
+        )
+        guard !copied.isEmpty else { return }
+        UIPasteboard.general.string = copied
+        let count = ordered.count
+        exitMultiSelect()
+        showForwardToast("已复制 \(count) 条消息文字")
+    }
+    private func showForwardToast(_ message: String) {
+        forwardToastTask?.cancel()
+        forwardToast = message
+        let epoch = session.generation
+        forwardToastTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if !Task.isCancelled, epoch == session.generation {
+                forwardToast = nil
+            }
+        }
     }
     private func receive(_ event: ChatStreamEvent) {
         guard active, !event.room, event.targetID == peer.id, scenePhase == .active else { return }

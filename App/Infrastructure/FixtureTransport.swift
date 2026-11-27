@@ -11,10 +11,13 @@ import FoundationNetworking
 actor FixtureTransport: HTTPTransport {
     static let me: JSONValue = .object(["id": .string("syntheticself"), "username": .string("fixture"), "name": .string("测试用户"), "host": .null, "chatScope": .string("mutual"), "roles": .array([]), "followingCount": .number(1), "followersCount": .number(1), "policies": .object(["ltlAvailable": .bool(true), "gtlAvailable": .bool(true), "chatAvailability": .string("available")])])
     static let peer: JSONValue = .object(["id": .string("syntheticpeer"), "username": .string("friend"), "name": .string("测试朋友"), "host": .null])
+    static let secondPeer: JSONValue = .object(["id": .string("syntheticfriend2"), "username": .string("friend2"), "name": .string("测试好友二"), "host": .null])
+    static let remotePeer: JSONValue = .object(["id": .string("syntheticremote"), "username": .string("remoteuser"), "name": .string("外站用户"), "host": .string("other.example")])
     private static let chatParity: JSONValue = {
         guard let url = Bundle.main.url(forResource: "ChatParity", withExtension: "json"), let data = try? Data(contentsOf: url), let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return .null }; return value
     }()
     private var sent: [JSONValue] = []
+    private var forwardedSent: [JSONValue] = []
     private var counter = 0
     private var pendingFollowRequest = true
     private var timelineReads = 0
@@ -176,6 +179,24 @@ actor FixtureTransport: HTTPTransport {
                 var message = roomMessages[0].object
                 message["reactions"] = .array([.object(["user": Self.chatParity["me"], "reaction": .string(":a2o_lite_aijing1:")])])
                 roomMessages[0] = .object(message)
+            }
+        }
+        if ProcessInfo.processInfo.arguments.contains("--chat-forward") {
+            sent = (1...12).map { index in
+                let id = String(format: "fwdmsg%02d", index)
+                let own = index % 2 == 0
+                let ts = String(format: "2026-11-03T10:%02d:00Z", index)
+                return .object([
+                    "id": .string(id),
+                    "fromUserId": own ? Self.me["id"] : Self.peer["id"],
+                    "toUserId": own ? Self.peer["id"] : Self.me["id"],
+                    "text": .string(String(format: "转发测试消息 %02d", index)),
+                    "createdAt": .string(ts),
+                    "attachments": .array([]),
+                    "reactions": .array([]),
+                    "readState": .string("read"),
+                    "revision": .number(0)
+                ])
             }
         }
 
@@ -490,7 +511,16 @@ actor FixtureTransport: HTTPTransport {
                 if choices.indices.contains(choice) { var value = choices[choice].object; value["votes"] = .number(Double(choices[choice]["votes"].int + 1)); value["isVoted"] = .bool(true); choices[choice] = .object(value) }
                 poll["choices"] = .array(choices); post["poll"] = .object(poll); posts[index] = .object(post)
             }; response = .null
-        case "users/following": response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
+        case "users/following":
+            if args.contains("--chat-forward") {
+                response = .array([
+                    .object(["id": .string("relation1"), "followee": Self.peer]),
+                    .object(["id": .string("relation2"), "followee": Self.secondPeer]),
+                    .object(["id": .string("relation3"), "followee": Self.remotePeer])
+                ])
+            } else {
+                response = .array([.object(["id": .string("relation1"), "followee": Self.peer])])
+            }
         case "users/followers": response = .array([.object(["id": .string("relation1"), "follower": Self.peer])])
         case "notes/home-timeline", "notes/local-timeline", "notes/hybrid-timeline", "notes/global-timeline", "users/notes":
             if args.contains("--timeline-local-disabled"), path == "notes/local-timeline" {
@@ -619,6 +649,14 @@ actor FixtureTransport: HTTPTransport {
             if messagesRedesignFixture, !body["pinned"].bool, body["untilId"].isNull {
                 returned += Self.messagesRedesignRows()
             }
+            if args.contains("--chat-forward"), !body["pinned"].bool, body["untilId"].isNull {
+                let friendRow: JSONValue = .object([
+                    "user": Self.secondPeer,
+                    "lastMessage": forwardedSent.last ?? .object(["id": .string("fwdpeer2seed"), "text": .string("你好，测试好友二"), "createdAt": .string("2026-11-02T09:00:00Z")]),
+                    "unreadCount": .number(0)
+                ])
+                returned.append(friendRow)
+            }
             #endif
             response = .array(returned)
         case "chat/history":
@@ -632,7 +670,12 @@ actor FixtureTransport: HTTPTransport {
                 #endif
                 return .object(row)
             })
-        case "chat/messages/user-timeline": response = .array(sent)
+        case "chat/messages/user-timeline":
+            if args.contains("--chat-forward"), body["userId"].string == Self.secondPeer["id"].string {
+                response = .array(forwardedSent)
+            } else {
+                response = .array(sent)
+            }
         case "chat/unread-summary": response = .object(["unreadCount": .number(12), "notificationUnreadCount": .number(args.contains("--parity-preview") ? 2 : 0), "hasNotificationLegacyUnread": .bool(false), "hasUnreadRoom": .bool(false)])
         case "chat/messages/context": response = .object(["messages": .array([oldMessage] + sent), "hasOlder": .bool(false), "hasNewer": .bool(true)])
         case "chat/messages/show":
@@ -671,12 +714,26 @@ actor FixtureTransport: HTTPTransport {
                 value["reactions"] = .array(reactions); roomMessages[index] = .object(value)
             }; response = .null
         case "chat/messages/create-to-user":
-            if let previous = sent.first(where: { $0["clientMessageId"] == body["clientMessageId"] }) { response = previous }
+            let targetUserID = body["toUserId"].string ?? "syntheticpeer"
+            if let previous = (sent + forwardedSent).first(where: { $0["clientMessageId"] == body["clientMessageId"] }) { response = previous }
             else if (!sent.isEmpty && !args.contains("--social-align")) || args.contains("--reply-required") { status = 400; response = .object(["error": .object(["code": .string("CHAT_REPLY_REQUIRED")])]) }
             else {
                 counter += 1
-                response = .object(["id": .string("chat\(counter)"), "fromUserId": .string("syntheticself"), "toUserId": .string("syntheticpeer"), "text": body["text"], "attachments": .array([]), "clientMessageId": body["clientMessageId"], "readState": .string("unread")])
-                sent.append(response)
+                response = .object([
+                    "id": .string("chat\(counter)"),
+                    "fromUserId": .string("syntheticself"),
+                    "toUserId": .string(targetUserID),
+                    "text": body["text"],
+                    "attachments": .array([]),
+                    "clientMessageId": body["clientMessageId"],
+                    "createdAt": .string(ISO8601DateFormatter().string(from: Date())),
+                    "readState": .string("unread")
+                ])
+                if args.contains("--chat-forward"), targetUserID != Self.peer["id"].string {
+                    forwardedSent.append(response)
+                } else {
+                    sent.append(response)
+                }
                 if args.contains("--lost-chat-response") { throw URLError(.networkConnectionLost) }
             }
         case "chat/attachments/create", "chat/attachments/import-drive": status = 400; response = .object(["error": .object(["code": .string("CHAT_FIRST_MESSAGE_TEXT_ONLY")])])

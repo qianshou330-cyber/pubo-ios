@@ -130,6 +130,82 @@ final class ChatAlignmentUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["你好，欢迎来到 PUBO。"].waitForExistence(timeout: 6)); capture(app, "chat-private-search-" + theme)
             app.buttons["chat.tab.messages"].tap(); XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 6)); app.terminate()
         }
+        verifyPrivateMultiSelectTenLimitAndForwardBothThemes()
+    }
+    private func revealAndTapSelect(_ app: XCUIApplication, id: String) {
+        let button = app.buttons["chat.select." + id]
+        let timeline = app.scrollViews["chat.timeline"]
+        let bar = app.descendants(matching: .any).matching(identifier: "chat.select.bar").firstMatch
+        XCTAssertTrue(timeline.waitForExistence(timeout: 6))
+        XCTAssertTrue(bar.waitForExistence(timeout: 6))
+        func visible() -> Bool {
+            guard button.exists, button.isHittable else { return false }
+            let frame = button.frame, bounds = timeline.frame
+            return frame.minY >= bounds.minY && frame.maxY <= min(bounds.maxY, bar.frame.minY)
+        }
+        for _ in 0..<8 where !visible() {
+            if button.exists && button.frame.maxY > min(timeline.frame.maxY, bar.frame.minY) { timeline.swipeUp() }
+            else { timeline.swipeDown() }
+        }
+        XCTAssertTrue(button.waitForExistence(timeout: 6), "Missing select button " + id)
+        XCTAssertTrue(visible(), "Select button must be visible inside timeline: " + id)
+        button.tap()
+    }
+    private func verifyPrivateMultiSelectTenLimitAndForwardBothThemes() {
+        for dark in [false, true] {
+            let theme = dark ? "dark" : "light"
+            let app = launch(["--chat-forward"] + (dark ? ["--dark"] : []))
+            peer(app)
+            let lastText = app.textViews["chat.text.fwdmsg12"]
+            XCTAssertTrue(lastText.waitForExistence(timeout: 8))
+            lastText.press(forDuration: 1)
+            let multiSelect = app.descendants(matching: .any).matching(NSPredicate(
+                format: "label == %@ AND (elementType == %d OR elementType == %d)",
+                "多选",
+                XCUIElement.ElementType.button.rawValue,
+                XCUIElement.ElementType.menuItem.rawValue
+            )).firstMatch
+            XCTAssertTrue(multiSelect.waitForExistence(timeout: 6), "Long-press text menu must expose 多选")
+            multiSelect.tap()
+
+            XCTAssertTrue(app.staticTexts["已选 1 / 10"].waitForExistence(timeout: 6))
+            XCTAssertFalse(app.textViews["chat.input"].exists)
+            XCTAssertTrue(app.buttons["chat.select.forward"].waitForExistence(timeout: 6))
+
+            // Select 9 additional messages (fwdmsg11 ... fwdmsg03) to reach the exact 10-message cap.
+            for index in stride(from: 11, through: 3, by: -1) {
+                revealAndTapSelect(app, id: String(format: "fwdmsg%02d", index))
+            }
+            XCTAssertTrue(app.staticTexts["已选 10 / 10"].waitForExistence(timeout: 6))
+
+            // Attempting to select an 11th message (fwdmsg02) must be rejected and surface the limit banner.
+            revealAndTapSelect(app, id: "fwdmsg02")
+            XCTAssertTrue(app.staticTexts["最多只能选择 10 条消息"].waitForExistence(timeout: 6))
+            XCTAssertTrue(app.staticTexts["已选 10 / 10"].exists)
+            capture(app, "chat-multiselect-limit-10-" + theme)
+
+            // Open friend picker and forward all 10 selected messages to 测试好友二.
+            app.buttons["chat.select.forward"].tap()
+            let sheetTitle = app.navigationBars["转发给好友"]
+            XCTAssertTrue(sheetTitle.waitForExistence(timeout: 6))
+            XCTAssertTrue(app.staticTexts["已选 10 条消息（上限 10 条）"].waitForExistence(timeout: 6))
+            let recipient = app.buttons["chat.forward.recipient.syntheticfriend2"]
+            XCTAssertTrue(recipient.waitForExistence(timeout: 6))
+            capture(app, "chat-forward-picker-" + theme)
+
+            recipient.tap()
+            let confirm = app.buttons["确认转发"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 6))
+            confirm.tap()
+
+            XCTAssertTrue(sheetTitle.waitForNonExistence(timeout: 12))
+            XCTAssertTrue(app.textViews["chat.input"].waitForExistence(timeout: 8))
+            let toast = app.descendants(matching: .any).matching(identifier: "chat.forward.toast").firstMatch
+            XCTAssertTrue(toast.waitForExistence(timeout: 6))
+            XCTAssertTrue(toast.label.contains("已转发 10 条消息给 测试好友二"), "Unexpected forward toast: " + toast.label)
+            capture(app, "chat-forward-done-" + theme)
+            app.terminate()
+        }
     }
     func testGroupSearchExactMessageReportAndMenuBothThemes() {
         for dark in [false, true] {
