@@ -9,8 +9,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   checks:
-    # Standard Intel pool avoids the arm64 capacity outage; Xcode and gates stay pinned.
-    runs-on: macos-15-intel
+    # Apple Silicon macos-15 restores native arm64 simulator execution; Xcode and gates stay pinned.
+    runs-on: macos-15
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -46,9 +46,60 @@ jobs:
             build/refresh-diagnostic-tests.log
             build/room-receipt-tests.log
             build/chat-gate-preflight.log
+  build-sim-tests:
+    # Compile Debug iOS Simulator app + UI test bundle once for all standard shards.
+    needs: checks
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify pinned Xcode, arm64 host, iOS 26.1 templates and generate project
+        run: |
+          set -euo pipefail
+          mkdir -p build/sim-test-meta
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+          xcodebuild -version | tee build/sim-test-meta/xcode-version.txt
+          grep -Fx 'Xcode 26.0.1' build/sim-test-meta/xcode-version.txt
+          grep -Fx 'Build version 17A400' build/sim-test-meta/xcode-version.txt
+          test "$(uname -m)" = arm64
+          python3 - <<'PYCODE'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from iphone_qa_matrix import SIZES, available_inventory, select_template
+          inv = available_inventory()
+          for slot in SIZES:
+              tpl = select_template(inv, slot)
+              print(f"Verified QA template {slot}: {tpl['name']} ({tpl['runtime']})")
+          PYCODE
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+          XCODEGEN="$(brew --prefix xcodegen)/bin/xcodegen"
+          test -x "$XCODEGEN"
+          "$XCODEGEN" --version | tee build/sim-test-meta/xcodegen-version.txt
+          brew list --versions xcodegen > build/sim-test-meta/xcodegen-brew-package.txt
+          swift scripts/brand-assets.swift
+          "$XCODEGEN" generate
+      - name: Compile Debug app and all UI test sources once
+        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+      - name: Pack verified Simulator test products and manifest
+        run: |
+          python3 scripts/pack_sim_test_bundle.py \
+            --derived-data build/debug \
+            --output build/sim-test-bundle \
+            --xcodegen-version-file build/sim-test-meta/xcodegen-version.txt \
+            --xcodegen-brew-file build/sim-test-meta/xcodegen-brew-package.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle/
+          retention-days: 1
+          if-no-files-found: error
   ocr-validation:
     needs: checks
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -65,25 +116,27 @@ jobs:
           retention-days: 14
           if-no-files-found: error
   navigation:
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
         shard: [routing, interaction]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode, verify shared test bundle and setup badge OCR
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen tesseract
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install tesseract
           python3 scripts/setup-badge-ocr.py
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and UI test bundle before starting device
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
       - name: Four-tab synthetic UI and real simulator screenshots
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -117,23 +170,24 @@ jobs:
       - name: Verify every case and badge receipt for both sizes
         run: python3 scripts/verify_navigation_shards.py build/navigation-shards
   legacy-regression:
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Preserve five previous regressions and strict same-process resume proof
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -152,24 +206,25 @@ jobs:
           if-no-files-found: error
   chat-alignment:
     # All ten methods in required disjoint 5+5 jobs per size; unchanged assertions/budget.
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
         part: [layout, actions]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Five chat-alignment methods per required half, strict count and 30-minute budget
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -192,19 +247,23 @@ jobs:
   messages-redesign:
     # Existing Xcode/runner and exact standard/Pro Max profiles; no device build or external reference.
     if: github.event_name == 'push' && github.repository == 'qianshou330-cyber/pubo-ios' && github.ref == 'refs/heads/ui-four-tabs-148-20261112' && github.event.deleted == false
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Verify exact source and provision existing Simulator tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Verify exact source, pinned Xcode, arm64 host and shared Simulator test bundle
         run: |
           set -euo pipefail
           mkdir -p build/messages-redesign
@@ -217,16 +276,11 @@ jobs:
           xcodebuild -version | tee build/messages-redesign/xcode-version.txt
           grep -Fx 'Xcode 26.0.1' build/messages-redesign/xcode-version.txt
           grep -Fx 'Build version 17A400' build/messages-redesign/xcode-version.txt
-          test "$(uname -m)" = x86_64
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
-          XCODEGEN="$(brew --prefix xcodegen)/bin/xcodegen"
-          test -x "$XCODEGEN"
-          "$XCODEGEN" --version | tee build/messages-redesign/xcodegen-version.txt
-          brew list --versions xcodegen > build/messages-redesign/xcodegen-brew-package.txt
-          swift scripts/brand-assets.swift
-          "$XCODEGEN" generate
-      - name: Build unsigned Debug Simulator test bundle only
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          test "$(uname -m)" = arm64
+          python3 scripts/unpack_sim_test_bundle.py \
+            --bundle build/sim-test-bundle \
+            --derived-data build/debug \
+            --copy-xcodegen-meta build/messages-redesign
       - name: Run only four dedicated synthetic Messages tests and validate real evidence
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -260,24 +314,25 @@ jobs:
           if-no-files-found: error
   chat-presentation:
     # Required disjoint 4+4 methods per size; original eight and 30-minute budget stay intact.
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
         part: [composer, states]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Four chat presentation methods in one required half, strict count and 30-minute budget
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -299,25 +354,26 @@ jobs:
           if-no-files-found: error
   diagnostic-private-back:
     # Separate Max runs, not a replacement for the required composer gate.
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         scenario: [without-picker, after-picker]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Run one dark private-chat double-Back control on a fresh Max simulator
         env:
           PUBO_SIM_SIZE: large
@@ -339,25 +395,26 @@ jobs:
           if-no-files-found: error
   diagnostic-room-back:
     # Separate SE room/light runs, not a replacement for the required composer gate.
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         scenario: [without-picker, after-picker]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Run one light room-chat double-Back control on the fresh standard-size QA simulator
         env:
           PUBO_SIM_SIZE: small
@@ -379,26 +436,27 @@ jobs:
           if-no-files-found: error
   diagnostic-world-scroll:
     # Separate simulator scrolling diagnostics, not a replacement for the required composer gate.
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         scenario: [cross-page, signposts]
         size: [small, large]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Run one synthetic World scroll diagnostic on a fresh simulator
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -420,23 +478,24 @@ jobs:
           if-no-files-found: error
   video-poster:
     # Four real decoder/thumbnail cases on both sizes; independent of OCR outcome.
-    needs: checks
+    needs: [checks, build-sim-tests]
     strategy:
       fail-fast: false
       matrix:
         size: [small, large]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare fixed build tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: sim-tests-products-${{ github.sha }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+          path: build/sim-test-bundle
+      - name: Pin Xcode and verify shared Simulator test bundle
         run: |
+          set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
-          brew install xcodegen
-          swift scripts/brand-assets.swift
-          xcodegen generate
-      - name: Compile Debug app and all UI test sources
-        run: xcodebuild -project PUBO.xcodeproj -scheme PUBO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/debug CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES build-for-testing
+          python3 scripts/unpack_sim_test_bundle.py --bundle build/sim-test-bundle --derived-data build/debug
       - name: Four real video-poster tests with existing strict count gate and 30-minute test budget
         env:
           PUBO_SIM_SIZE: ${{ matrix.size }}
@@ -485,7 +544,7 @@ jobs:
           if-no-files-found: error
   package:
     needs: [checks, ocr-validation, navigation, navigation-evidence, legacy-regression, chat-alignment, chat-presentation, h5-chat-reference, video-poster]
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -517,7 +576,7 @@ jobs:
     # Requested trial build, explicitly not the all-gates-passed artifact above.
     # Core checks and actual Release/device packaging must still succeed.
     needs: checks
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

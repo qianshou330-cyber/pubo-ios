@@ -80,6 +80,8 @@ struct PublicVideoPoster: View {
         let epoch = session.generation
         let key = PublicPreviewCache.shared.key("video:" + (file["url"].string ?? file.id) + ":" + (file["thumbnailUrl"].string ?? ""), generation: String(describing: epoch))
         if let cached = PublicPreviewCache.shared.image(key) { image = cached; evidence = "cached"; PublicMediaDiagnostics.emit(.posterCached); return }
+        await Task.yield()
+        guard !Task.isCancelled, epoch == session.generation else { return }
         // Prefer the server poster: no video decoding or video transfer is needed.
         if let thumb = safeMediaURL(file["thumbnailUrl"].string) {
             PublicMediaDiagnostics.emit(.thumbnailStarted)

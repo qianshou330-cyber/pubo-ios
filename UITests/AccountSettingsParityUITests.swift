@@ -77,16 +77,11 @@ final class AccountSettingsParityUITests: XCTestCase {
             let observation = XCTAttachment(string: "timeout=8 outcome=\(ready.rawValue)\n" + observations.joined(separator: "\n"))
             observation.name = "privacy-native-switch-observations-" + control.identifier
             observation.lifetime = .keepAlways; add(observation)
-            let rowState = XCTAttachment(string: control.debugDescription)
-            rowState.name = "privacy-switch-before-" + control.identifier
-            rowState.lifetime = .keepAlways; add(rowState)
-            if let actual = concrete {
-                let target = XCTAttachment(string: "enabled=\(actual.isEnabled) hittable=\(actual.isHittable) frame=\(actual.frame)\n" + actual.debugDescription)
-                target.name = "privacy-native-switch-target-" + control.identifier
-                target.lifetime = .keepAlways; add(target)
-            }
             capture(app, "privacy-switch-before-tap-" + control.identifier)
             if ready != .completed {
+                let rowState = XCTAttachment(string: control.debugDescription)
+                rowState.name = "privacy-switch-before-" + control.identifier
+                rowState.lifetime = .keepAlways; add(rowState)
                 let tree = XCTAttachment(string: app.debugDescription)
                 tree.name = "privacy-native-switch-not-ready-tree"
                 tree.lifetime = .keepAlways; add(tree)

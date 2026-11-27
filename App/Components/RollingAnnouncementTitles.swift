@@ -47,14 +47,19 @@ struct RollingAnnouncementTitles: View {
                         let duration = max(8, Double(width) / 32)
                         let shift = CGFloat(seconds.truncatingRemainder(dividingBy: duration) / duration) * width
                         HStack(spacing: 0) {
-                            titles().background(GeometryReader { measured in Color.clear.preference(key: AnnouncementWidth.self, value: measured.size.width) })
+                            titles()
                             ForEach(0..<max(2, min(12, Int(ceil(geometry.size.width / max(1, width))) + 1)), id: \.self) { _ in titles(copy: true) }
                         }.offset(x: -shift)
                     }
+                }.background {
+                    titles(copy: true).hidden().allowsHitTesting(false).accessibilityHidden(true)
+                        .background(GeometryReader { measured in
+                            Color.clear.preference(key: AnnouncementWidth.self, value: measured.size.width)
+                        })
                 }.clipped()
             }
         }.frame(height: touchHeight)
-            .onPreferenceChange(AnnouncementWidth.self) { if $0 > 0 { width = $0 } }
+            .onPreferenceChange(AnnouncementWidth.self) { if $0 > 0, abs($0 - width) > 0.5 { width = $0 } }
             .onHover { hovered = $0 }
             .onChange(of: paused, initial: true) { _, stopped in
                 if stopped { if let started { elapsed += Date().timeIntervalSince(started) }; started = nil }

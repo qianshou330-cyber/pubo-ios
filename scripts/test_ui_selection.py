@@ -113,9 +113,13 @@ class SelectionTests(unittest.TestCase):
 
     def test_chat_pilot_workflow_keeps_independent_execution_and_formal_gate(self):
         workflow = (pathlib.Path(__file__).resolve().parents[1] / '.github/workflows/four-tabs.yml').read_text()
+        prebuilt = workflow.split('  build-sim-tests:\n', 1)[1].split('  ocr-validation:\n', 1)[0]
+        for required in ('    needs: checks', 'build-for-testing', 'pack_sim_test_bundle.py'):
+            self.assertIn(required, prebuilt)
         pilot = workflow.split('  chat-alignment:\n', 1)[1].split('  package:\n', 1)[0]
-        for required in ('    needs: checks', '      fail-fast: false',
+        for required in ('    needs: [checks, build-sim-tests]', '      fail-fast: false',
                          '        size: [small, large]', '    timeout-minutes: 65',
+                         'unpack_sim_test_bundle.py',
                          "          PUBO_UI_SHARD: 'chat-alignment-${{ matrix.part }}'", "          PUBO_PREBUILT_TESTS: '1'",
                          '          PUBO_SIM_SIZE: ${{ matrix.size }}',
                          'python3 scripts/simulator-tests.py', 'set -o pipefail',
@@ -184,10 +188,13 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(len(methods), 4)
         self.assertEqual(selection('video-poster'), (4, ['-only-testing:PUBOUITests/PublicVideoPosterUITests']))
         workflow = (root / '.github/workflows/four-tabs.yml').read_text()
+        prebuilt = workflow.split('  build-sim-tests:\n', 1)[1].split('  ocr-validation:\n', 1)[0]
+        self.assertIn('build-for-testing', prebuilt)
         job = workflow.split('  video-poster:\n', 1)[1].split('  h5-chat-reference:\n', 1)[0]
-        for required in ['size: [small, large]', 'fail-fast: false',
+        for required in ['needs: [checks, build-sim-tests]', 'size: [small, large]', 'fail-fast: false',
+                         'unpack_sim_test_bundle.py',
                          "PUBO_UI_SHARD: 'video-poster'", "PUBO_PREBUILT_TESTS: '1'",
-                         'build-for-testing', 'set -o pipefail',
+                         'set -o pipefail',
                          'python3 scripts/simulator-tests.py', 'if: always()',
                          'build/ui-*.xcresult', 'build/screenshots/']:
             self.assertIn(required, job)

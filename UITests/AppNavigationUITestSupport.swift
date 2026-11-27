@@ -35,6 +35,7 @@ extension XCTestCase {
         return app.buttons["app.tab." + (ids[title] ?? title)]
     }
     func puboSelectTab(_ app: XCUIApplication, _ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        _ = app.wait(for: .runningForeground, timeout: 10)
         let button = puboTab(app, title)
         XCTAssertTrue(button.waitForExistence(timeout: 20), title, file: file, line: line)
         let started = Date()
@@ -95,6 +96,9 @@ extension XCTestCase {
         XCTAssertEqual(result, .completed, title, file: file, line: line)
         guard result == .completed else { return }
         button.tap()
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: button)
+        let selectedResult = XCTWaiter.wait(for: [selected], timeout: 5)
+        XCTAssertEqual(selectedResult, .completed, title, file: file, line: line)
         XCTAssertTrue(button.isSelected, title, file: file, line: line)
     }
     func puboTapVisible(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) {

@@ -1,5 +1,49 @@
 # 修复日志
 
+## 2026-11-26 / C107 候选（五大支柱根治模拟器超时与共享编译重构，零业务断言放宽）
+
+- **问题、复现与 C106 实测证据**：
+  - 在 C106（`37d7b4e1`，[CI 45848689462](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/45848689462)，22/36 通过、32/32 执行作业 0 Runtime Warnings）中，除既有的 `ocr-validation` 外，其余 **9 项失败全部为无警告模拟器超时**，分布为四类确定性根因：
+    1. **零用例 AX 握手死亡（2 项）**：`legacy-regression (large)`、`chat-presentation (small, composer)` 执行 0 条用例即报 `XCTDaemonErrorDomain Code=18 "Timed out waiting for AX loaded notification"`。
+    2. **切入世界圈后无等待同步断言（3 项）**：`video-poster (small/large)`、`diagnostic-world-scroll (signposts, large)` 在 `Tap "app.tab.world"` 耗时 20.2s 后，紧接 `AppNavigationUITestSupport.swift:98` 立即同步读 `button.isSelected` 失败或整树快照超时（同批次其余 3/4 用例全绿）。
+    3. **冷启动首帧单次慢查询打穿 8s 窗口（3 项）**：`chat-presentation (large, composer)` 单次 `app.windows.firstMatch.frame` 耗时 `7.2438s` 返回 `(0,0,0,0)`；`chat-alignment (small, layout)` 首条用例启动未稳；`legacy-regression (small)` 在 `AccountSettingsParityUITests.swift:120` 开关前热路径执行 5 次冗余远程 `debugDescription`/AX 查询拖慢切换。
+    4. **Intel 软编码录屏抢占 CPU（1 项）**：`diagnostic-world-scroll (cross-page, small)` 在 `macos-15-intel` 后台 `simctl io recordVideo --codec=h264` 软编码期间触发 `WorldScrollDiagnosticUITests.swift:14` 截屏超时。
+  - 同时 `.github/workflows/four-tabs.yml` 在 26 个常规模拟器分片中重复执行 26 次完全相同的 `brew install xcodegen` + `xcodebuild build-for-testing`，拖累单轮耗时至 ~2h47m。
+- **经用户批准的五大支柱修改内容（零放宽业务/几何断言、未改动 `App/Features/TimelineView.swift`）**：
+  1. **支柱 1（Apple Silicon `macos-15` 迁移）**：将 `.github/workflows/four-tabs.yml` 中全部 14 组常规 macOS 作业（`checks`、`build-sim-tests`、`ocr-validation`、9 组常规模拟器作业、`package`、`candidate-package`）从 `macos-15-intel` 迁回 `macos-15`（`arm64`）；同步 `messages-redesign` 架构校验为 `test "$(uname -m)" = arm64`；保留 4 组默认不触发的历史按需探针在 `macos-15-intel` 以维持既有 `x86_64` A/B 基线。
+  2. **支柱 2（UI 测试竞态与热路径修复）**：
+     - `UITests/AppNavigationUITestSupport.swift`：在 `puboSelectTab` 入口增加 `_ = app.wait(for: .runningForeground, timeout: 10)`，保持原有 8s 几何/可点性就绪门槛与单次 `button.tap()` 不变；点击后新增 5 秒有界等待 `selected == true`，随后仍执行 `XCTAssertTrue(button.isSelected)`。
+     - `UITests/AccountSettingsParityUITests.swift`：移除 `setSwitch` 在 `ready == .completed` 到 `actual.tap()` 热路径上 5 次冗余远程 AX IPC 查询（`debugDescription` 仅在失败分支导出），保留 `privacy-switch-before-tap` 截屏与原 8s 超时门槛。
+     - 同步更新 `scripts/test_tab_geometry_readiness.py` 严格分别守护点击前 `timeout: 8` 与点击后 `timeout: 5` 两段独立有界等待。
+  3. **支柱 3（启动预热 + 零用例 `Code=18` 有界单次恢复）**：
+     - `scripts/simulator_boot.py`：保留原 `boot()` 签名与 7 项既有单测；新增 `warmup_services`（`SpringBoard` 探测 + 轻量截屏预热）、严格纯函数分类器 `is_pretest_ax_handshake_failure`（仅在 0 条用例执行且命中 `XCTDaemonErrorDomain Code=18` / `Timed out waiting for AX loaded notification` 时返回 `True`，真实用例失败绝不重试）、CI-only 模拟器复位与 `resolve_xctestrun`。
+     - `scripts/simulator-tests.py` 与 `scripts/four-tabs-tests.py`：接入 `warmup_services`、流式日志采集及零用例 `Code=18` 单次干净重建模拟器恢复（保留中止 `xcresult`、显式记录 `pretestHandshakeRecovery`、严格不膨胀 1800s/2700s 总预算）。
+  4. **支柱 4（共享 `build-sim-tests` 预编译与 `-xctestrun` 分发）**：
+     - 新增 `scripts/pack_sim_test_bundle.py` 与 `scripts/unpack_sim_test_bundle.py`：打包 `build/debug/Build/Products`（保留 macOS `.app` 框架软链接与可执行位）并生成防篡改 `manifest.json`（校验 `GITHUB_SHA`、`GITHUB_RUN_ID`、`GITHUB_RUN_ATTEMPT`、`architecture`、`xcodebuild -version`、`SHA-256` 及路径穿越/逃逸软链接拒绝），注入 `PUBO_XCTESTRUN`。
+     - `.github/workflows/four-tabs.yml` 新增前置 `build-sim-tests` 作业（环境预检 `Xcode 26.0.1 / 17A400` + `arm64` + `iOS-26-1` 双机模板，单次 `xcodegen` + `build-for-testing`），9 组常规模拟器作业（26 分片）改为 `needs: [checks, build-sim-tests]` 免编译直接跑 `test-without-building -xctestrun`；`package` 的 9 项 `needs` 列表保持不变；同步更新 `scripts/test_ui_selection.py`。
+  5. **支柱 5（世界圈首帧减负 + `world-scroll` 录屏解耦）**：
+     - `App/Components/TimelineMedia.swift`：新增取消感知 `actor PublicImageDecodeBudget`（并发上限 4）并将解码任务优先级由 `.userInitiated` 下调至 `.utility`；`PublicAnimatedAsset` 入口增加零延迟 `await Task.yield()` 并对 `visible` 状态写入去重。
+     - `App/Components/PublicMediaPoster.swift`：在缓存未命中后的重解码前插入零延迟 `await Task.yield()`，保留全部 `PublicMediaDiagnostics`、`VideoPosterBudget` 与 8s 超时门槛。
+     - `App/Components/RollingAnnouncementTitles.swift`：将 `AnnouncementWidth` `GeometryReader` 宽度测量移出 60fps `SwiftUI.TimelineView` 闭包并增加 `0.5pt` 防抖，消除停留在世界圈时每 16.6ms 冒泡一次 `PreferenceKey` 造成的持续布局/AX 树脏化。
+     - `scripts/simulator-tests.py`：`world-scroll` 在 `arm64` 保留硬件编码录屏，在 `x86_64`/显式 opt-out 宿主机跳过软编码录屏并在 `world-scroll-measurement-scope-*.json` 如实记录 `recordingOverhead`。
+  - 新增单测：`scripts/test_simulator_boot_recovery.py` 扩展（+5 项）与 `scripts/test_sim_test_bundle.py`（5 项）；产品补丁 SHA-256（`git diff App/`）：`b51cbea7d8eedcf52f0b2b5ee30df9e0110e6d4f31b5636fab2343a7ab1d6c58`；回退点：C106 `b335e9105ac8d48f335a25cb1bc7a8744dd23504`（代码基线 `37d7b4e1`）。
+- **涉及文件**：
+  - `.github/workflows/four-tabs.yml`
+  - `App/Components/TimelineMedia.swift`、`App/Components/PublicMediaPoster.swift`、`App/Components/RollingAnnouncementTitles.swift`
+  - `UITests/AppNavigationUITestSupport.swift`、`UITests/AccountSettingsParityUITests.swift`
+  - `scripts/simulator_boot.py`、`scripts/simulator-tests.py`、`scripts/four-tabs-tests.py`、`scripts/pack_sim_test_bundle.py`、`scripts/unpack_sim_test_bundle.py`
+  - `scripts/test_simulator_boot_recovery.py`、`scripts/test_tab_geometry_readiness.py`、`scripts/test_ui_selection.py`、`scripts/test_sim_test_bundle.py`
+- **本地验证（推送前）**：
+  - **通过**：
+    - `python3 -m unittest discover -s scripts -p 'test_*.py' -v`：**282/282** 通过（耗时 2.825s，含既有 272 项与新增 10 项）。
+    - `node --test scripts/isolated/test-room-message-proof.mjs`：**2/2** 通过。
+    - `python3 -m py_compile`（全部 6 个新建/修改 Python 文件）：通过。
+    - `git diff --check` 与 `.github/workflows/four-tabs.yml` 20 个作业依赖拓扑校验：通过。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境无 Swift/Xcode，未运行 `swift test`、`check-chat-bubble-geometry.py`、`test-refresh-diagnostics.sh`、`check_chat_gate_macos.sh`、Xcode 编译、Apple Silicon `macos-15` 模拟器全套或真机验证；待推送 `ui-four-tabs-148-20261112` 触发 `four-tabs.yml` 实测验收。
+- **未解决事项与下一步**：
+  - 推送后实时观测 `build-sim-tests` 在 `macos-15`（`arm64`）上的环境预检（`Xcode 26.0.1 / 17A400`、`iOS-26-1` 双机模板、池容量）、26 路模拟器分片通过率/耗时/零警告状态及 `pretestHandshakeRecovery` 触发记录，终态结果将追加至本条目下（`ocr-validation` 既有阈值问题不在本次范围，如实记录不降门槛）。
+
 ## 2026-11-26 / C106 候选（C105 实测回归收口）：以 iOS 26 兼容左对齐标题修复大标题隐身，并以盾锁图标恢复「账号与隐私设置」快捷入口
 
 - **问题与 C105 实测证据**：

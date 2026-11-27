@@ -1,13 +1,23 @@
 """Run only isolated UI scenarios; never authenticate against production."""
 import json
-import re
 import os
 import pathlib
 import platform
+import re
+import shutil
 import signal
 import subprocess
+import sys
+import threading
 import time
-from simulator_boot import boot
+from simulator_boot import (
+    boot,
+    is_pretest_ax_handshake_failure,
+    read_xcresult_summary,
+    reset_simulator_for_pretest_recovery,
+    resolve_xctestrun,
+    warmup_services,
+)
 from iphone_qa_matrix import SIZES, available_inventory, create_device, select_template, summary_matches_device
 from ui_selection import FOCUSED, MESSAGES_REDESIGN_SHARD, ROOM_MENU_AB_SHARD, selection, complete
 from refresh_lifecycle import complete_lifecycle
@@ -44,11 +54,98 @@ if messages_redesign and (size not in SIZES or os.environ.get('PUBO_PREBUILT_TES
     raise SystemExit('Messages redesign requires one exact QA profile and a prebuilt Debug Simulator bundle')
 created = []
 environment = []
+
+
 def diagnostic(command, timeout):
     try:
         subprocess.run(command, timeout=timeout)
     except (subprocess.TimeoutExpired, OSError) as error:
         print('Diagnostic unavailable: ' + str(error), flush=True)
+
+
+def _drain_stream(stream, log_path):
+    with pathlib.Path(log_path).open('w', encoding='utf-8', errors='replace') as handle:
+        for line in stream:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            handle.write(line)
+
+
+def build_ui_command(identifier, bundle, selectors, prebuilt):
+    xctestrun = resolve_xctestrun()
+    if xctestrun:
+        if not prebuilt:
+            raise RuntimeError('PUBO_XCTESTRUN requires PUBO_PREBUILT_TESTS=1')
+        return [
+            'xcodebuild', 'test-without-building', '-xctestrun', xctestrun,
+            '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
+            '-resultBundlePath', str(bundle), '-parallel-testing-enabled', 'NO', *selectors,
+        ]
+    command = [
+        'xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
+        '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
+        '-derivedDataPath', 'build/debug', '-resultBundlePath', str(bundle),
+        '-parallel-testing-enabled', 'NO', *selectors, 'CODE_SIGNING_ALLOWED=NO', 'test',
+    ]
+    if prebuilt:
+        if command[-1] != 'test':
+            raise RuntimeError('Unexpected test action')
+        command[-1] = 'test-without-building'
+    return command
+
+
+def run_ui_attempt(identifier, bundle, screenshots, command, index, started, record, log_path):
+    process = None
+    back_video = None
+    tee = None
+    world_scroll_recording = False
+    try:
+        if private_back_probe or room_back_probe:
+            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
+                                           str(screenshots / ('room-native-back.mp4' if room_back_probe else 'private-native-back.mp4'))])
+        if world_scroll_probe:
+            if platform.machine() != 'x86_64' and os.environ.get('PUBO_WORLD_SCROLL_RECORD_VIDEO', '1') != '0':
+                world_scroll_recording = True
+                back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
+                                               str(screenshots / 'world-scroll.mp4')])
+        if room_menu_ab_probe:
+            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
+                                           str(screenshots / 'room-menu-ab.mp4')])
+        process = subprocess.Popen(
+            command, start_new_session=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+        )
+        if process.stdout is not None:
+            tee = threading.Thread(target=_drain_stream, args=(process.stdout, log_path), daemon=True)
+            tee.start()
+        while process.poll() is None:
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                elapsed = round(time.monotonic() - started)
+                print(f'UI runner {index}: {elapsed}s elapsed; waiting for actual test result', flush=True)
+                if elapsed >= 1800:
+                    record['tests'] = 'TIMEOUT'
+                    raise TimeoutError('UI runner exceeded 30 minutes')
+        return process.returncode, world_scroll_recording
+    finally:
+        if process is not None and process.poll() is None:
+            os.killpg(process.pid, signal.SIGINT)
+            try:
+                process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=10)
+        if tee is not None:
+            tee.join(timeout=15)
+        if back_video is not None and back_video.poll() is None:
+            back_video.send_signal(signal.SIGINT)
+            try:
+                back_video.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                back_video.kill()
+                back_video.wait(timeout=10)
+
 
 for index, (slot, template) in enumerate(selected):
     # Use fresh task-owned devices; pre-created devices supply the exact type only.
@@ -66,11 +163,11 @@ for index, (slot, template) in enumerate(selected):
     screenshots = root / 'screenshots' / str(index)
     screenshots.mkdir(parents=True, exist_ok=True)
     test_exit = 1
-    process = None
-    back_video = None
+    world_scroll_recording = False
     try:
         print('Booting fresh simulator: ' + device['model'], flush=True)
         boot(identifier, root / f'boot-{index}.json')
+        record['warmup'] = warmup_services(identifier, root / f'warmup-{index}.json')
         record['boot'] = 'READY'
         if room_menu_ab_probe:
             appearance = ['xcrun', 'simctl', 'ui', identifier, 'appearance']
@@ -137,51 +234,61 @@ for index, (slot, template) in enumerate(selected):
                 record['tests'] = 'FOCUSED_ONLY'
                 continue
         print('Simulator boot complete; starting isolated UI tests', flush=True)
-        command = ['xcodebuild', '-project', 'PUBO.xcodeproj', '-scheme', 'PUBO', '-configuration', 'Debug',
-                   '-destination', f'platform=iOS Simulator,id={identifier}', '-destination-timeout', '90',
-                   '-derivedDataPath', 'build/debug', '-resultBundlePath', str(bundle),
-                   '-parallel-testing-enabled', 'NO', '-only-testing:PUBOUITests/PUBOUITests', 'CODE_SIGNING_ALLOWED=NO', 'test']
+        selectors = ['-only-testing:PUBOUITests/PUBOUITests']
         if focused:
-            command.remove('-only-testing:PUBOUITests/PUBOUITests')
-            command[-1:-1] = ['-only-testing:PUBOUITests/' + name for name in FOCUSED]
+            selectors = ['-only-testing:PUBOUITests/' + name for name in FOCUSED]
             record['selection'] = 'regression-147-five-tests'
         if shard_selection:
             expected, selectors = shard_selection
-            command.remove('-only-testing:PUBOUITests/PUBOUITests')
-            command[-1:-1] = selectors
             record['selection'] = shard
             record['expectedTests'] = expected
         if os.environ.get('PUBO_AUTH_APPEARANCE') == '1':
-            command.remove('-only-testing:PUBOUITests/PUBOUITests')
-            command[-1:-1] = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
+            selectors = ['-only-testing:PUBOUITests/PUBOUITests/' + name for name in [
                 'testWelcomeRegistrationSheetCanCloseAndLogin',
                 'testLargeTextRegistrationKeepsFieldsAndCodeButtonReachable',
                 'testPasswordVisibilityAndAccountChangePreserveSafety',
                 'testNativeLoginAndFourTabs']]
-        if os.environ.get('PUBO_PREBUILT_TESTS') == '1':
-            if command[-1] != 'test': raise RuntimeError('Unexpected test action')
-            command[-1] = 'test-without-building'
-        if private_back_probe or room_back_probe:
-            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
-                                           str(screenshots / ('room-native-back.mp4' if room_back_probe else 'private-native-back.mp4'))])
-        if world_scroll_probe:
-            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
-                                           str(screenshots / 'world-scroll.mp4')])
-        if room_menu_ab_probe:
-            back_video = subprocess.Popen(['xcrun', 'simctl', 'io', identifier, 'recordVideo', '--codec=h264',
-                                           str(screenshots / 'room-menu-ab.mp4')])
-        process = subprocess.Popen(command, start_new_session=True)
+        prebuilt = os.environ.get('PUBO_PREBUILT_TESTS') == '1'
         started = time.monotonic()
-        while process.poll() is None:
-            try:
-                process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                elapsed = round(time.monotonic() - started)
-                print(f'UI runner {index}: {elapsed}s elapsed; waiting for actual test result', flush=True)
-                if elapsed >= 1800:
-                    record['tests'] = 'TIMEOUT'
-                    raise TimeoutError('UI runner exceeded 30 minutes')
-        test_exit = process.returncode
+        for run_attempt in range(2):
+            command = build_ui_command(identifier, bundle, selectors, prebuilt)
+            log_path = root / f'xcodebuild-ui-{index}-attempt-{run_attempt}.log'
+            test_exit, world_scroll_recording = run_ui_attempt(
+                identifier, bundle, screenshots, command, index, started, record, log_path
+            )
+            if test_exit == 0 or run_attempt == 1:
+                break
+            summary_probe = read_xcresult_summary(bundle)
+            log_text = log_path.read_text(encoding='utf-8', errors='replace') if log_path.is_file() else ''
+            matched, reason = is_pretest_ax_handshake_failure(summary_probe, log_text)
+            if not matched or (time.monotonic() - started) >= 1500:
+                break
+            print(f'[PRETEST-RECOVERY] {reason}; recreating fresh simulator (1 bounded attempt)', flush=True)
+            old_id = identifier
+            aborted_bundle = root / f'ui-{index}-aborted-code18.xcresult'
+            if aborted_bundle.exists():
+                shutil.rmtree(aborted_bundle)
+            if bundle.exists():
+                shutil.move(str(bundle), str(aborted_bundle))
+            shutil.rmtree(screenshots, ignore_errors=True)
+            screenshots.mkdir(parents=True, exist_ok=True)
+            reset_simulator_for_pretest_recovery(old_id)
+            device = create_device(slot, template, 'PUBO ' + template['name'])
+            identifier = device['udid']
+            created[-1] = device
+            (root / 'simulators.json').write_text(json.dumps(created, indent=2))
+            record['udid'] = identifier
+            record['pretestHandshakeRecovery'] = {
+                'triggered': True,
+                'abortedUdid': old_id,
+                'reason': reason,
+                'abortedResultBundle': aborted_bundle.name if aborted_bundle.exists() else None,
+            }
+            boot(identifier, root / f'boot-{index}-recovery.json')
+            record['warmupRecovery'] = warmup_services(identifier, root / f'warmup-{index}-recovery.json')
+            if room_menu_ab_probe:
+                appearance = ['xcrun', 'simctl', 'ui', identifier, 'appearance']
+                subprocess.run(appearance + ['light'], check=True, timeout=30)
         if (focused or shard_selection) and test_exit == 0:
             gate_result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary',
                 '--path', str(bundle)], capture_output=True, text=True, timeout=60, check=True)
@@ -228,15 +335,6 @@ for index, (slot, template) in enumerate(selected):
         record['error'] = type(error).__name__ + ': ' + str(error)
         raise
     finally:
-        if process is not None and process.poll() is None:
-            os.killpg(process.pid, signal.SIGINT)
-            try: process.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=10)
-        if back_video is not None and back_video.poll() is None:
-            back_video.send_signal(signal.SIGINT)
-            try: back_video.wait(timeout=30)
-            except subprocess.TimeoutExpired: back_video.kill(); back_video.wait(timeout=10)
         if bundle.exists():
             try:
                 result = subprocess.run(['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)],
@@ -256,7 +354,11 @@ for index, (slot, template) in enumerate(selected):
             scope = {'status': 'NOT_EVALUATED', 'physicalDevice': False,
                      'smoothnessAcceptance': 'NOT_EVALUATED', 'shard': shard,
                      'metricEvidence': 'Inspect raw xcresult; missing/nonfinite/empty samples are UNAVAILABLE',
-                     'recordingOverhead': 'simctl video active; simulator/host and recording affect performance'}
+                     'recordingOverhead': (
+                         'simctl video active (hardware arm64); simulator/host and recording affect performance'
+                         if world_scroll_recording
+                         else 'simctl video disabled on x86_64/opt-out host to prevent screenshot CPU starvation'
+                     )}
             (root / f'world-scroll-measurement-scope-{index}.json').write_text(json.dumps(scope, indent=2))
         if shard == 'chat-presentation-composer' or private_back_probe:
             navigation_capture = {'status': 'UNAVAILABLE', 'interpretation': 'Passive counts/lifecycle only; not native Back touch, complete navigation stack, or acceptance proof'}

@@ -19,13 +19,25 @@ enum PublicMediaDiagnostics {
     }
 }
 
+actor PublicImageDecodeBudget {
+    static let shared = PublicImageDecodeBudget()
+    private var active = 0
+    func acquire() async throws {
+        while active >= 4 { try await Task.sleep(for: .milliseconds(25)) }
+        try Task.checkCancellation()
+        active += 1
+    }
+    func release() { active = max(0, active - 1) }
+}
+
 enum PublicImageDecoder {
     private static let registered: Void = { SDImageCodersManager.shared.addCoder(SDImageAWebPCoder.shared) }()
     static func decode(_ data: Data, maxPixel: Int = 720) async throws -> UIImage {
         PublicMediaDiagnostics.emit(.decoderRegistrationStarted)
         _ = registered
         PublicMediaDiagnostics.emit(.decoderRegistrationFinished)
-        let task = Task<UIImage, Error>.detached(priority: .userInitiated) {
+        try await PublicImageDecodeBudget.shared.acquire()
+        let task = Task<UIImage, Error>.detached(priority: .utility) {
             PublicMediaDiagnostics.emit(.decodeStarted)
             defer { PublicMediaDiagnostics.emit(.decodeFinished) }
             try Task.checkCancellation()
@@ -39,7 +51,14 @@ enum PublicImageDecoder {
             guard let frame = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceShouldCacheImmediately: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel] as CFDictionary) else { throw APIError.invalidResponse }
             return UIImage(cgImage: frame)
         }
-        return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+        do {
+            let decoded = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            await PublicImageDecodeBudget.shared.release()
+            return decoded
+        } catch {
+            await PublicImageDecodeBudget.shared.release()
+            throw error
+        }
     }
     static func data(_ url: URL, limit: Int = 50 * 1024 * 1024) async throws -> Data {
         guard safeMediaURL(url.absoluteString) != nil else { throw APIError.invalidResponse }
@@ -90,12 +109,20 @@ struct PublicAnimatedAsset: View {
             else if error { Button { retry += 1 } label: { Image(systemName: "arrow.clockwise").font(.caption) }.accessibilityLabel("重试图片") }
             else { ProgressView().controlSize(.small) }
         }.frame(width: emojiHeight.map { $0 * min(4, max(0.25, (image?.size.width ?? 1) / max(1, image?.size.height ?? 1))) }, height: emojiHeight).background(GeometryReader { g in
-            Color.clear.onAppear { visible = g.frame(in: .global).intersects(UIScreen.main.bounds) }
-                .onChange(of: g.frame(in: .global)) { _, rect in visible = rect.intersects(UIScreen.main.bounds) }
+            Color.clear.onAppear {
+                let next = g.frame(in: .global).intersects(UIScreen.main.bounds)
+                if next != visible { visible = next }
+            }
+                .onChange(of: g.frame(in: .global)) { _, rect in
+                    let next = rect.intersects(UIScreen.main.bounds)
+                    if next != visible { visible = next }
+                }
         }).task(id: "\(url)-\(session.generation)-\(retry)") {
             image = nil; error = false; let epoch = session.generation
             let cacheKey = PublicPreviewCache.shared.key("image:\(emoji):" + url.absoluteString, generation: String(describing: epoch))
             if let cached = PublicPreviewCache.shared.image(cacheKey) { image = cached; return }
+            await Task.yield()
+            guard !Task.isCancelled else { return }
             do {
                 let data: Data
                 #if DEBUG

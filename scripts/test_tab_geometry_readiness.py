@@ -32,11 +32,15 @@ class TabGeometryReadinessTests(unittest.TestCase):
     def test_single_unchanged_readiness_budget(self):
         self.assertIn('waitForExistence(timeout: 20)', self.tab)
         self.assertEqual(self.tab.count('timeout: 8'), 1)
-        self.assertEqual(self.tab.count('XCTWaiter.wait('), 1)
+        self.assertEqual(self.tab.count('XCTWaiter.wait(for: [ready], timeout: 8)'), 1)
+        self.assertEqual(self.tab.count('XCTWaiter.wait(for: [selected], timeout: 5)'), 1)
+        self.assertEqual(self.tab.count('XCTWaiter.wait('), 2)
         self.assertIn('XCTAssertEqual(result, .completed', self.tab)
 
     def test_real_click_and_selected_proof_remain_required(self):
         self.assertLess(self.tab.index('guard result == .completed'), self.tab.index('button.tap()'))
+        self.assertLess(self.tab.index('button.tap()'), self.tab.index('XCTWaiter.wait(for: [selected], timeout: 5)'))
+        self.assertLess(self.tab.index('XCTWaiter.wait(for: [selected], timeout: 5)'), self.tab.index('XCTAssertTrue(button.isSelected'))
         self.assertEqual(self.tab.count('button.tap()'), 1)
         self.assertIn('XCTAssertTrue(button.isSelected', self.tab)
         for forbidden in ('coordinate(', 'app.launch()', 'app.activate()', 'sleep(', 'if button.isSelected'):
