@@ -410,7 +410,7 @@ struct ChatView: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(selection.isEmpty ? PUBOTheme.button : PUBOTheme.accent, in: Capsule())
-                        .foregroundStyle(selection.isEmpty ? PUBOTheme.secondary : Color.white)
+                        .foregroundStyle(selection.isEmpty ? PUBOTheme.secondary : PUBOTheme.adaptive(0xffffff, 0x0c1210))
                 }
                 .buttonStyle(.plain)
                 .disabled(selection.isEmpty)

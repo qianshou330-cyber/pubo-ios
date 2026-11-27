@@ -1,5 +1,19 @@
 # 修复日志
 
+## 2026-11-27 / C117 候选（基于 C116 深色实机截图目视审查，提升多选底栏「转发给好友」主按钮深色文字对比度）
+
+- **问题、复现与实测证据**：
+  - C116（`9844fcc6`，[CI 46056142222 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46056142222/attempts/1)）中大小屏均已 **100% 通过** `testPrivateSearchDateAndReactionsBothThemes`（真实长按多选 10 条上限拦截、选择好友确认转发与完成提示栏全链路，且产出全部 6 张浅/深色实机原图）。
+  - 下载并目视核验小屏全绿实机原图（产物 `15228134525`）中的 `chat-multiselect-limit-10-dark.png` 发现：深色模式下 `PUBOTheme.accent` 为高亮嫩绿 `#B4E900`，其上原固定使用 `Color.white` 导致「转发给好友 (10)」按钮文字对比度偏低（约 `1.4:1`）。
+  - 另 C116 第 1 次因无关既有动图帧采样 `testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize` 偶发同帧重合未达 34/34，第 2 次 `--failed` 重跑因 `four-tabs.yml` 产物名包含 `-a2` 后缀导致缺少对应 `sim-tests-products-...-a2` 而即时退出；本轮借全新代码提交同步落地深色对比度优化并执行干净整轮 34/34 CI 与正式未签名 IPA 打包。
+- **修改内容（零降任何既有测试/布局/OCR 门禁，未修改 `testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize`）**：
+  1. `App/Features/ChatView.swift`：`selectionBar` 中「转发给好友 (N)」激活态前景由固定 `Color.white` 改为 `PUBOTheme.adaptive(0xffffff, 0x0c1210)`（浅色保持 `#86B300` 绿底白字，深色切为 `#B4E900` 亮绿底深墨字 `#0C1210`，对比度约 `13.5:1`）。
+- **涉及文件**：`App/Features/ChatView.swift`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，全新整轮 34/34 CI、深浅双主题新实机截图复检与正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C116 候选（修正 iOS 26 确认转发弹窗嵌套 `Button` 查询歧义，并优化转发完成提示栏无障碍标识）
 
 - **问题、复现与实测证据**：
@@ -13,6 +27,16 @@
   - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **300/300**（2.720s）、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，双机 iOS 26.1 确认转发完成闭环、深浅双主题 6 张实机截图与全套 34/34 CI + 正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
+### C116 精确提交终态
+
+精确 [C116 `9844fcc6`](https://github.com/qianshou330-cyber/pubo-ios/commit/9844fcc682b346212b2a9abc9d0690954f592b78) 的 [CI 46056142222 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46056142222/attempts/1)（`2026-11-27 19:21:39Z` → `20:36:40Z`）整轮 **`failure`（32 通过、1 失败、0 取消、4 跳过**；正式 `package` 跳过）：
+
+- **通过项（32/37）**：`checks`（Swift 232/232、Python 300/300、Node 2/2）、`build-sim-tests`、`candidate-package`、`ocr-validation`、`h5-chat-reference`、`diagnostic-timeline-capture-host`、`navigation` 4/4 + `navigation-evidence`、`legacy-regression` 2/2、`chat-presentation` 4/4、**`chat-alignment (small, layout)`**（5/5 全过，产物 `15228134525`）、`chat-alignment (actions)` 2/2、`messages-redesign` 2/2、`video-poster` 2/2、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 4/4；此外大屏 `chat-alignment (large, layout)` 内本次新增的 `testPrivateSearchDateAndReactionsBothThemes`（含浅/深色 6 张截图与 10 条上限转发闭环）同样 **100% 通过**（耗时 `599.666s`）。
+- **失败项（1/37）**：
+  - `chat-alignment (large, layout)`（`140700962612`）：仅首条无关既有群聊动图用例 `testAnimatedReactionKeepsRatioAndPlaysAtLargeTextSize`（`ChatAlignmentUITests.swift:343`）在 `loops=4;playing=true` 状态下偶发前后两次采样均落于 `frame=2`（`XCTAssertNotEqual` 失败）；同分片其余 4 条用例全部通过。
+- **第 2 次尝试（保留失败历史）**：尝试 `gh run rerun 46056142222 --failed`（[attempts/2](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46056142222/attempts/2)，作业 `140728029066`，`20:38:26Z` → `20:38:36Z`）因 `four-tabs.yml` 将 `-a2` 编入预构建产物名而找不到 `sim-tests-products-...-a2` 失败，正式 `package` 跳过，不作交付。
+- **下一步**：由上方 **C117** 顺带完成目视核查发现的深色主按钮高对比优化并执行干净整轮 34/34 CI 与正式未签名 IPA 打包。
 
 ## 2026-11-27 / C115 候选（修正多选长按测试 `RichNoteText` AX 层级定位，并分离多选行首按钮与气泡点击热区、延长转发提示停留）
 
