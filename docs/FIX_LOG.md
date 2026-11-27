@@ -14,6 +14,27 @@
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，全新整轮 34/34 CI、深浅双主题新实机截图复检与正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
 
+### C117 精确提交终态
+
+精确 [C117 `500188b7`](https://github.com/qianshou330-cyber/pubo-ios/commit/500188b77b4882aa3052d5816d3b23fb4f61d1ea) 的 [CI 46065279249 第 1 次](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46065279249/attempts/1) 于 `2026-11-27 20:40:55Z` 启动、`22:04:30Z` 结束（总墙钟 **83 分 35 秒**，含正式 `package`），整轮结论 **`success`（34 通过、0 失败、0 取消、3 跳过**——全套 9/9 必选门禁、26/26 Apple Silicon 模拟器分片、双机浅/深色真实长按多选 10 条上限与好友转发端到端实测、严格 OCR 189 语料、四栏导航 89/89 实屏证据与正式 `package` 100% 全绿通过）。
+
+- **全量日志扫描（34/34 已执行作业）**：**0 份 `Complete Issue Description.txt`**、**0 处 `_UIReparentingView` 运行时警告**、**0 次 `[PRETEST-RECOVERY]` / `Code=18` 握手死亡**、**0 次 `simctl list` 超时**。
+- **通过项（34/34）**：
+  - `checks`（`140728971871`）：Swift **232/232**（含 `ChatForwardPolicyTests` 7/7、`UserQRCodeTests` 7/7）、Python **300/300**（含 `test_chat_forward_contracts.py`）、Node **2/2**；
+  - `build-sim-tests`（`140729601427`）、`ocr-validation`（`140729601441`）、`h5-chat-reference`（`140729601448`）、`diagnostic-timeline-capture-host`（`140728972138`）、`candidate-package`（`140729601407`）；
+  - **`chat-alignment` 4/4**：双机 `layout`（大屏产物 `15232048501`、小屏产物 `15231697398`）与 `actions` 2/2 全部一次通过，实证浅/深双主题真实长按 1 秒 → 多选满 10 条拦截第 11 条（橙色「最多只能选择 10 条消息」）→ 选「测试好友二」确认转发 → 顶部提示栏「已转发 10 条消息给 测试好友二」并恢复正常输入栏；
+  - **`navigation` 4/4 + `navigation-evidence`**（`140755587429`，双机各 **89 张 PNG `PASS`**）；
+  - `legacy-regression` 2/2、`chat-presentation` 4/4、`video-poster` 2/2、`messages-redesign` 2/2、`diagnostic-private-back` 2/2、`diagnostic-room-back` 2/2、`diagnostic-world-scroll` 4/4 与正式 **`package`**（[140755661501](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46065279249/job/140755661501)）。
+- **失败项**：**无（0 项）**。
+- **跳过项（3/37）**：仅 3 项手动 `workflow_dispatch` 可选诊断。
+- **双机实屏视觉复检**：已提取并目视核验大屏 `15232048501` 与小屏 `15231697398` 全部 12 张浅/深色原图与三联展示图：深色模式下「转发给好友 (10)」按钮文字已切换为深墨色 `#0C1210` 搭 `#B4E900` 品牌绿底，对比度清晰锐利；选人弹窗分区、外站账号灰显拦截与转发完成提示栏均无截断或遮挡。
+- **C117 正式未签名 IPA 独立拆包核验**：
+  - 产物：[four-tabs-iphone-unsigned-500188b77b4882aa3052d5816d3b23fb4f61d1ea（ID `15234072673`）](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46065279249/artifacts/15234072673)，到期 `2026-12-11T22:04:22Z`；
+  - 文件：`PUBO-0.10.0-148-iphoneos-arm64-unsigned.ipa`，大小 **`5,790,032` B**，SHA-256 **`407dae99f221fc37467db4246aa462221e300549af8d8c9604000e34258f1905`**；
+  - `source-sha.txt == 500188b77b4882aa3052d5816d3b23fb4f61d1ea`，`device-package.json` 为 `status: PASS`、`codesign: UNSIGNED`、`exportComplianceExempt: true`、`releaseHygiene: PASS`；
+  - 独立拆包核实 `Payload/PUBO.app/` 仅含 14 项纯生产文件（0 测试素材、0 `_CodeSignature`），`Info.plist` 确认 `ITSAppUsesNonExemptEncryption = False`、`PUBOAPNSEnvironment = production`、`MinimumOSVersion = 17.0`，Release Mach-O（`25,111,160` B）中 `FixtureTransport` / `--ui-testing` / `systemUptime` / `misskey-hub.net` 均 **0 处**，且包含 `ChatForwardSheet`（262 处）、`ChatForwardPlanner`（26 处）、`ChatSelectionState`（49 处）、`MyQRCodeView`（100 处）与 `UserQRCodeRenderer`（37 处）。
+- **未验证项**：物理 iPhone 装机后实测真实 `bolubo.com` 好友私信多选转发（含图片/视频/语音私信附件重传、合并文字超长拦截、首条受限错误提示与批量复制粘贴），以及其他真机验收项（见 `docs/RELEASE_PREFLIGHT.md`）。
+
 ## 2026-11-27 / C116 候选（修正 iOS 26 确认转发弹窗嵌套 `Button` 查询歧义，并优化转发完成提示栏无障碍标识）
 
 - **问题、复现与实测证据**：
