@@ -13,6 +13,13 @@ final class ChatContentPolicyTests: XCTestCase {
         XCTAssertEqual(ChatContentPolicy.previewLinks(text).map(\.absoluteString), ["https://example.org/z#one", "https://example.com/a", "https://example.net"])
         XCTAssertTrue(ChatContentPolicy.previewLinks(text, limit: 0).isEmpty)
     }
+    func testAdjacentCustomEmojiTokensSplitCleanly() {
+        let adjacent = ":a2o_lite_aijing1::a2o_lite_aijing1:"
+        XCTAssertEqual(ChatContentPolicy.emojiParts(adjacent), [":a2o_lite_aijing1:", ":a2o_lite_aijing1:"])
+        let mixed = "哈哈😀:a2o_lite_aijing1:你好"
+        XCTAssertEqual(ChatContentPolicy.emojiParts(mixed), ["哈哈😀", ":a2o_lite_aijing1:", "你好"])
+        XCTAssertEqual(ChatContentPolicy.emojiParts(mixed).joined(), mixed)
+    }
     func testCodeSilentAndUnsafeURLsDoNotTriggerPreview() {
         let text = "`https://example.com/code` ```\nhttps://example.com/block\n``` ?[silent](https://example.com/silent) https://user:password@example.com https://127.0.0.1/a https://192.168.1.1 https://172.20.0.1 https://example.com/ok。"
         XCTAssertEqual(ChatContentPolicy.previewLinks(text).map(\.absoluteString), ["https://example.com/ok"])

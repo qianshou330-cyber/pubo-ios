@@ -59,7 +59,8 @@ final class ChatComposerParityUITests: XCTestCase {
         let keyboardView = app.keyboards.firstMatch
         if keyboard { XCTAssertTrue(keyboardView.waitForExistence(timeout: 5)) }
         let bottom = keyboard ? keyboardView.frame.minY : app.frame.maxY
-        let ids = room ? ["room.attachments", "room.emoji", "room.send"] : ["chat.attachments", "chat.voice", "chat.emoji", "chat.send"]
+        let baseIds = room ? ["room.attachments", "room.emoji", "room.send"] : ["chat.attachments", "chat.voice", "chat.emoji", "chat.send"]
+        let ids = keyboard ? baseIds + [prefix + ".keyboard.dismiss"] : baseIds
         for id in ids {
             let button = app.buttons[id]
             XCTAssertTrue(button.waitForExistence(timeout: 5), id)
@@ -172,16 +173,54 @@ final class ChatComposerParityUITests: XCTestCase {
             let prefix = room ? "room" : "chat", draft = "草稿保留 " + kind
             open(app, room: room)
             let input = app.textViews[prefix + ".input"]
+            let sendButton = app.buttons[prefix + ".send"]
+            let dismissButton = app.buttons[prefix + ".keyboard.dismiss"]
+            XCTAssertFalse(sendButton.isEnabled, "Empty composer send button must start disabled")
             input.tap(); input.typeText(draft)
             assertComposer(app, room: room, keyboard: true)
-            XCTAssertTrue(app.buttons[prefix + ".send"].isEnabled)
+            XCTAssertTrue(sendButton.isEnabled)
             assertTimelineHorizontalInsets(app, room: room, stage: "keyboard-" + theme)
             capture(app, "chat-composer-keyboard-" + kind + "-" + theme)
+
+            // 1) Explicit keyboard dismiss button must hide keyboard and preserve draft.
+            dismissButton.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Keyboard must dismiss via explicit dismiss button")
+            XCTAssertTrue(dismissButton.waitForNonExistence(timeout: 5))
+            XCTAssertEqual(input.value as? String, draft)
+
+            // 2) Tapping blank timeline margin while keyboard is open must also dismiss keyboard.
+            input.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            XCTAssertTrue(dismissButton.waitForExistence(timeout: 5))
+            let viewport = app.scrollViews[prefix + ".timeline"]
+            viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.96)).tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Keyboard must dismiss when tapping blank timeline area")
+            XCTAssertEqual(input.value as? String, draft)
+
+            // 3) Draft must survive back navigation and re-entry.
             backToHome(app); open(app, room: room)
-            XCTAssertEqual(app.textViews[prefix + ".input"].value as? String, draft)
+            let restoredInput = app.textViews[prefix + ".input"]
+            XCTAssertEqual(restoredInput.value as? String, draft)
             assertComposer(app, room: room, keyboard: false)
             assertTimelineHorizontalInsets(app, room: room, stage: "draft-restored-" + theme)
             capture(app, "chat-composer-draft-restored-" + kind + "-" + theme)
+
+            // 4) Tapping Send while keyboard is OPEN must send cleanly, show message, and clear input.
+            restoredInput.tap()
+            assertComposer(app, room: room, keyboard: true)
+            XCTAssertTrue(sendButton.isEnabled && sendButton.isHittable)
+            sendButton.tap()
+            let delivered = app.descendants(matching: .any).matching(
+                NSPredicate(format: "(identifier BEGINSWITH %@) AND (value CONTAINS %@ OR label CONTAINS %@)", prefix + ".text.", draft, draft)
+            ).firstMatch
+            XCTAssertTrue(delivered.waitForExistence(timeout: 8), "Message must send and appear while keyboard is open")
+            let cleared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                ((restoredInput.value as? String) ?? "").isEmpty && !sendButton.isEnabled
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 5), .completed, "Input must clear and disable send after delivery")
+            capture(app, "chat-composer-sent-" + kind + "-" + theme)
+            dismissButton.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
             app.terminate()
         }
     }

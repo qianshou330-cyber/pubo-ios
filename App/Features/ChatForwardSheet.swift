@@ -138,6 +138,7 @@ struct ChatForwardSheet: View {
                 }
             }
             .puboList()
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("转发给好友")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -319,6 +320,7 @@ struct ChatForwardSheet: View {
         )
         let disabled = sending || problem != nil || combinedProblem != nil || aliveMessages.isEmpty
         Button {
+            KeyboardControl.dismiss()
             resultBanner = nil
             confirmRecipient = user
         } label: {

@@ -21,7 +21,7 @@ struct ChatMessageContent: View {
         var result: [String: URL] = [:]
         for part in parts where part.hasPrefix(":") && part.hasSuffix(":") {
             let name = String(part.dropFirst().dropLast())
-            let value = remoteEmojis[name].string ?? session.emojis.first(where: { $0["name"].string == name })?["url"].string
+            let value = remoteEmojis[name].string ?? session.emojiURLString(named: name)
             if let url = safeMediaURL(value) { result[part + url.absoluteString] = url }
         }
         return result

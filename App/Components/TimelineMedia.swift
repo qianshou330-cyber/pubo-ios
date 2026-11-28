@@ -242,7 +242,7 @@ struct ReactionImage: View {
     var emojiHeight: CGFloat = 24
     var unicodeSize: CGFloat = 18
     private var name: String { reaction.trimmingCharacters(in: CharacterSet(charactersIn: ":")).replacingOccurrences(of: "@.", with: "") }
-    private var url: URL? { safeMediaURL(emojis[name].string ?? session.emojis.first(where: { $0["name"].string == name })?["url"].string) }
+    private var url: URL? { safeMediaURL(emojis[name].string ?? session.emojiURLString(named: name)) }
     var body: some View {
         if reaction.hasPrefix(":"), let url { PublicAnimatedAsset(url: url, emoji: true, emojiHeight: emojiHeight) }
         else { Text(reaction).font(.system(size: unicodeSize)).lineLimit(1) }

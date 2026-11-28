@@ -64,7 +64,7 @@ struct RoomEditor: View {
                 if pending { Text("上次创建的结果尚未确认，请先在“我创建的”列表核对，避免重复创建。"); Button("已核对，继续") { do { try session.markPendingAction("room-create", pending: false); pending = false } catch { self.error = error.localizedDescription } } }
                 if let error { ErrorBanner(message: error) }
                 Button("保存群聊") { Task { await save() } }.disabled(busy || pending || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }.puboForm().navigationTitle(room == nil ? "创建群聊" : "修改群聊")
+            }.puboForm().scrollDismissesKeyboard(.interactively).navigationTitle(room == nil ? "创建群聊" : "修改群聊")
                 .toolbar { Button("关闭") { dismiss() }.disabled(busy) }
                 .task { if !loaded { loaded = true; name = room?["name"].string ?? ""; description = room?["description"].string ?? ""; pending = room == nil && session.hasPendingAction("room-create") } }
         }.interactiveDismissDisabled(busy)

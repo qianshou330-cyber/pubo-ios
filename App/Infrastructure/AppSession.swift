@@ -14,7 +14,11 @@ final class AppSession {
     private var changingAccount = false
     private(set) var generation = UUID()
     var meta: JSONValue = .null
-    var emojis: [JSONValue] = []
+    var emojis: [JSONValue] = [] {
+        didSet { rebuildEmojiIndex() }
+    }
+    private(set) var emojiURLsByName: [String: String] = [:]
+    private var loadingEmojis = false
     var recentEmojis: [String] = []
     var error: String?
     var restoring = true
@@ -238,15 +242,32 @@ final class AppSession {
         catch { if meta.isNull { self.error = "站点信息加载失败，请重试。" } }
     }
     func refreshEmojis() async {
-        let epoch = generation
-        if let saved = try? store?.read([JSONValue].self, account: "public", key: "emojis") { emojis = saved }
+        guard !loadingEmojis else { return }
+        loadingEmojis = true
+        defer { loadingEmojis = false }
+        if emojis.isEmpty, let saved = try? store?.read([JSONValue].self, account: "public", key: "emojis") { emojis = saved }
         do {
             let response = try await api.call("emojis")
-            guard epoch == generation else { return }
             guard case .array(let values) = response["emojis"] else { return }
             emojis = values
             try? store?.save(values, account: "public", key: "emojis")
         } catch { /* Keep known emoji data; never block account UI. */ }
+    }
+    func ensureEmojisLoaded() async {
+        if emojis.isEmpty { await refreshEmojis() }
+    }
+    func emojiURLString(named name: String) -> String? {
+        emojiURLsByName[name] ?? emojis.first(where: { $0["name"].string == name })?["url"].string
+    }
+    private func rebuildEmojiIndex() {
+        var index: [String: String] = [:]
+        index.reserveCapacity(emojis.count)
+        for item in emojis {
+            if let name = item["name"].string, let url = item["url"].string, index[name] == nil {
+                index[name] = url
+            }
+        }
+        emojiURLsByName = index
     }
     func install(token: String, allowSwitch: Bool = false, expectedID: String? = nil) async throws {
         guard !changingAccount else { throw CancellationError() }
@@ -274,6 +295,7 @@ final class AppSession {
         restoreTimelinePreferences()
         resumeStream()
         Task { await nativePush.resume() }
+        if emojis.isEmpty { Task { await refreshEmojis() } }
     }
     func call(_ path: String, _ fields: [String: JSONValue] = [:], mutation: Bool = false) async throws -> JSONValue {
         guard !changingAccount else { throw CancellationError() }
@@ -360,7 +382,7 @@ final class AppSession {
     func restoreChatPreferences() async {
         guard !chatPreferenceLoaded, let owner = user?.id else { return }
         chatPreferenceLoaded = true
-        if let local = try? store?.read(Bool.self, account: owner, key: "chat.showSenderName") {
+        if let local = try? store?.read(Bool.self, account: owner, key: "chat-show-sender-name") {
             chatShowSenderName = local; return
         }
         let epoch = generation, attempt = chatPreferenceAttempt
@@ -369,7 +391,7 @@ final class AppSession {
             guard owner == user?.id, epoch == generation, attempt == chatPreferenceAttempt else { return }
             if let show = ChatPresentationPreferences.senderName(in: value, accountID: owner) {
                 chatShowSenderName = show
-                try? store?.save(show, account: owner, key: "chat.showSenderName")
+                try? store?.save(show, account: owner, key: "chat-show-sender-name")
             }
         } catch {
             // A missing key is H5's unsynced/default state. Transient failures can
@@ -381,7 +403,7 @@ final class AppSession {
     func setChatShowSenderName(_ value: Bool) {
         guard let owner = user?.id else { return }
         chatPreferenceLoaded = true; chatPreferenceAttempt = UUID(); chatShowSenderName = value
-        try? store?.save(value, account: owner, key: "chat.showSenderName")
+        try? store?.save(value, account: owner, key: "chat-show-sender-name")
     }
 
     func restoreTimelinePreferences() {

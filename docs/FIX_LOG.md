@@ -1,5 +1,38 @@
 # 修复日志
 
+## 2026-11-28 / C118 候选（基于真机反馈全面自查并修复聊天功能 12 项缺陷：三重键盘收起、发送键可靠性与高对比、中文/第三方输入法同步、登录后自定义表情不渲染、本地设置存储键非法、历史模式发送、录音 60 秒自动收尾与辅助页键盘收起）
+
+- **问题、复现与实测证据**：
+  - 用户在真机（iOS 26 深色模式 + 搜狗中文输入法、3 条消息的短私聊会话）实测报告「键盘无法收回，发送键也无法点击发送」，同时要求全面自查并修复全部聊天功能问题。
+  - **经源码逐行审计确认 12 项真实缺陷**：
+    1. **【P0】短会话与第三方输入法键盘无法收回**（`ChatView.swift`、`RoomChatView.swift`）：`ScrollView` 仅有 `.scrollDismissesKeyboard(.interactively)` 而无 `.scrollBounceBehavior(.always)`，短消息会话无法触发拖拽；缺少点击时间线空白区收起键盘；缺少底部「收起键盘」按钮；未向 `CursorTextEditor` 绑定 `focused` 且未调用窗口级 `window.endEditing(true)`。
+    2. **【P0】发送键难以点击、触控热区弱且可用态视觉混淆**（`ChatView.swift`、`RoomChatView.swift`）：`chat.send` / `room.send` 与相邻工具按钮位于 `.buttonStyle(.borderless)` 且缺少 `.contentShape(Rectangle())`，空心描边 `paperplane` 贴近键盘顶部仅 `4pt` 间距，且禁用/可用状态在真机上出现半透明暗绿歧义。
+    3. **【P0】`CursorTextEditor` 中文/第三方输入法同步与焦点竞争**（`App/Components/CursorTextEditor.swift`）：`updateUIView` 整段持有 `updating = true` 且每次渲染无条件覆写 `isEditable`/样式，易丢失或打断搜狗/拼音等输入法上屏提交；缺少 `UITextView.textDidChangeNotification` 兜底监听、发送前 `unmarkText()` 刷出机制与 `lastAppliedFocused` 防抖保护。
+    4. **【P0】`ChatView.persist()` / `RoomChatView.persist()` 静默拦截发送**：当 `ownerID` 为 `nil` 或未与当前账号对齐时，`persist()` 直接返回 `false` 而不写入任何 `error` 提示，导致点击发送毫无反应。
+    5. **【P1】登录后自定义表情（如 `:a2o_lite_aijing1:`）渲染为原始短码文字**（`AppSession.swift`、`ChatMessageContent.swift`、`CommonViews.swift`）：真机实测截图可见 `:a2o_lite_aijing1::a2o_lite_aijing1:` 原文显示。根因为冷启动未登录时 `start()` 启动 `refreshEmojis()`，随后登录执行 `install()` 重置 `generation` 并调用 `api.cancelAll()` 取消该请求，且后续全程再无重试；另表情查找在主线程逐条线性扫描 `session.emojis`。
+    6. **【P1】「显示发送者昵称」本地偏好永远无法落盘**（`AppSession.swift`）：本地 `ProtectedStore` 严格校验键名正则 `^[a-zA-Z0-9_-]+$`，而 `restoreChatPreferences` / `setChatShowSenderName` 传入了含点号的 `"chat.showSenderName"`，每次读写均静默抛出 `APIError.invalidResponse` 被 `try?` 吞掉。
+    7. **【P1】历史上下文模式（`contextMode == true`）发送新消息导致消息不显示或污染历史窗口**（`RoomChatView.swift`、`ChatView.swift`）：群聊 `send()` 调用 `load()` 在 `contextMode == true` 时被 `guard !contextMode` 直接跳过，或与并发 `loading == true` 撞车导致新发消息消失；私聊 `send()` 直接把最新消息拼入旧历史窗口且不退出 `contextMode`。
+    8. **【P1】私聊取消「选择文件」弹出误导性红色错误提示并写入草稿**（`ChatView.swift:importFile`）：未过滤 `NSUserCancelledError` / `CocoaError.userCancelled`（群聊与 GIF 收藏页均已过滤）。
+    9. **【P1】语音录制达 60 秒自动停止后 UI 仍永久卡在红色录音态**（`VoiceRecorder.swift`、`ChatView.swift`）：`record(forDuration: 60)` 未设置 `AVAudioRecorderDelegate`，到期停录后 `recording` 永不复位；且 `start()` 异常分支未清理 `AVAudioSession`。
+    10. **【P1】聊天搜索、编辑消息、好友转发与创建群聊辅助页缺少收起键盘机制**（`ChatSearchView.swift`、`ChatMessageActions.swift`、`ChatForwardSheet.swift`、`RoomsView.swift`）。
+    11. **【P1】私聊 `markRead` 成功后未同步更新本地 `readState`**（`ChatView.swift`）：切搜索或前后台切换时对已读消息重复触发批量 `chat/messages/read` 写请求。
+    12. **【P1】私聊相册/文件/网盘附件上传缺少跨账号 `generation` 取消守卫**（`ChatView.swift`）。
+- **修改内容（零降任何既有测试/布局/OCR 门禁，严格保留 `test_c103_chat_menu_boundary.py` / `test_chat_horizontal_insets_contract.py` / `test_chat_geometry_contract.py` / `test_ui_selection.py` 合约）**：
+  1. `App/Components/CursorTextEditor.swift`：新增 `@MainActor enum KeyboardControl`（`dismiss()` 窗口级 `endEditing(true)` + `resignFirstResponder`、`flushActiveTextView(matching:)` 提交未上屏 IME 文本）；收窄 `updating` 范围、仅在变更且非组词态更新属性、以 `#selector` 监听 `UITextView.textDidChangeNotification` 兜底同步并补齐 `dismantleUIView` 与 `lastAppliedFocused` 状态机。
+  2. `App/Features/ChatView.swift` & `App/Features/RoomChatView.swift`：
+     - 三重键盘收起：时间线增加 `.scrollBounceBehavior(.always)` + 键盘展开且非多选态下 `.simultaneousGesture` 点击时间线收起 + 工具栏显式 `44×44`「收起键盘」按钮（`chat.keyboard.dismiss` / `room.keyboard.dismiss`）+ 绑定 `focused: $editingText` 与系统键盘显示/隐藏通知；
+     - 发送键与工具区升级：所有工具按钮改用 `.buttonStyle(.plain)` + `44×44` `.contentShape(Rectangle())`，底边距增至 `8pt`；`canSend` 可用态渲染品牌绿圆底高对比 `paperplane.fill`（浅色白图标 / 深色 `#0C1210`），禁用态渲染柔和半透明 `paperplane`；
+     - 发送链路与边界加固：发送及打开表情前调用 `flushComposerText()`；`persist(reportAuthError:)` 自愈 `ownerID` 且发送失败必显式报错；`contextMode` 发送成功后安全退出历史模式并回最新（群聊并即时合并刚发消息）；私聊 `importFile` 过滤用户取消并补全附件上传 `generation` 守卫、`markRead` 同步本地 `readState`、接入 `recorder.onAutoFinish` 与 `session.ensureEmojisLoaded()`。
+  3. `App/Infrastructure/AppSession.swift` & `App/Components/ChatMessageContent.swift` & `App/Components/TimelineMedia.swift` & `App/Components/CommonViews.swift`：修复 `refreshEmojis()` 防重入与登录后为空自动补拉，新增 `ensureEmojisLoaded()` 与 O(1) `emojiURLString(named:)`；修正 `chatShowSenderName` 本地键名为合法 `"chat-show-sender-name"`（保留云端 `"default:chat.showSenderName"` 不变）。
+  4. `App/Infrastructure/VoiceRecorder.swift`：增加 `AVAudioRecorderDelegate` 代理桥与 `@MainActor` `onAutoFinish` 回调及启动失败清理。
+  5. `App/Features/ChatSearchView.swift` / `App/Features/ChatMessageActions.swift` / `App/Features/ChatForwardSheet.swift` / `App/Features/RoomsView.swift`：补齐 `.scrollDismissesKeyboard(.interactively)`、搜索结果跳转/选择收件人/保存编辑前主动收起键盘及编辑页「收起键盘」工具栏按钮。
+  6. 测试与静态合约：扩展 `Tests/PUBOCoreTests/ChatContentPolicyTests.swift`（连续自定义表情短码与中英混排）、扩展 `UITests/ChatComposerParityUITests.swift`（严格保持 8 个测试方法，实测显式收起键盘按钮、点击时间线空白收起键盘并保留草稿、以及键盘展开态下直接点击发送键成功送达并清空输入）、新增 `scripts/test_chat_keyboard_and_send_contracts.py`（7 项静态合约）。
+- **涉及文件**：`App/Components/CursorTextEditor.swift`、`App/Features/ChatView.swift`、`App/Features/RoomChatView.swift`、`App/Infrastructure/AppSession.swift`、`App/Infrastructure/VoiceRecorder.swift`、`App/Components/ChatMessageContent.swift`、`App/Components/TimelineMedia.swift`、`App/Components/CommonViews.swift`、`App/Features/ChatSearchView.swift`、`App/Features/ChatMessageActions.swift`、`App/Features/ChatForwardSheet.swift`、`App/Features/RoomsView.swift`、`Tests/PUBOCoreTests/ChatContentPolicyTests.swift`、`UITests/ChatComposerParityUITests.swift`、`scripts/test_chat_keyboard_and_send_contracts.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **307/307**、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地为 Linux 环境，Swift 单元测试、双机 iOS 26 模拟器全套 UI 回归（含键盘收起与键盘展开态发送实屏截图）及正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-27 / C117 候选（基于 C116 深色实机截图目视审查，提升多选底栏「转发给好友」主按钮深色文字对比度）
 
 - **问题、复现与实测证据**：

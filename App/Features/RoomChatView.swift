@@ -59,6 +59,9 @@ struct RoomChatView: View {
     @State private var deletingMessage: RoomMessageDeletionIntent?
     @State private var deletionScreenID = UUID()
     @State private var deletionRequestID: UUID?
+    @State private var editingText = false
+    @State private var keyboardVisible = false
+    private var keyboardOpen: Bool { editingText || keyboardVisible }
     private var own: Bool { room?["ownerId"].string == session.user?.id }
     private var invited: Bool { room?["invitationExists"].bool ?? false }
     private var key: String { "room-draft-" + roomID }
@@ -87,8 +90,11 @@ struct RoomChatView: View {
                         Color.clear.frame(height: 1).id("bottom").background(GeometryReader { geo in Color.clear.preference(key: ChatBottomPreference.self, value: geo.frame(in: .named("roomScroll")).maxY) })
                     }.scrollTargetLayout().padding(.bottom, 16)
                 }.contentMargins(.horizontal, 16, for: .scrollContent)
+                    .scrollBounceBehavior(.always)
                     .accessibilityIdentifier("room.timeline")
                     .scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() }, including: section == "messages" && keyboardOpen ? .all : .subviews)
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") } else if !contextMode { unreadBelow = true } }
                     .onChange(of: scrollTarget) { _, id in if let id { positionTimeline(id) } }
@@ -116,19 +122,51 @@ struct RoomChatView: View {
                 }
             }
             if let file = draft.file { HStack { Text(file["name"].string ?? "附件").lineLimit(1); Button("移除附件") { draft.file = nil; persist() }.disabled(busy || draft.pending) } }
-            CursorTextEditor(text: $draft.text, selection: $textSelection, enabled: !busy && !draft.pending && chatProblem == nil, identifier: "room.input", placeholder: "在此输入信息")
+            CursorTextEditor(text: $draft.text, selection: $textSelection, focused: $editingText, enabled: !busy && !draft.pending && chatProblem == nil, identifier: "room.input", placeholder: "在此输入信息")
                 .overlay(alignment: .topLeading) { if draft.text.isEmpty { Text("在此输入信息").font(.subheadline).foregroundStyle(PUBOTheme.secondary.opacity(0.65)).padding(.top, 8).allowsHitTesting(false) } }
             HStack(spacing: 4) {
                 Menu {
-                    Button("从网盘选择") { choosingFile = true }
-                    Button("选择本地文件") { importingFile = true }
-                    Button("选择图片或视频") { choosingPhoto = true }
+                    Button("从网盘选择") { dismissKeyboard(); choosingFile = true }
+                    Button("选择本地文件") { dismissKeyboard(); importingFile = true }
+                    Button("选择图片或视频") { dismissKeyboard(); choosingPhoto = true }
                 } label: { Image(systemName: "photo.badge.plus").frame(width: 44, height: 44) }.compositingGroup().disabled(busy || draft.pending).accessibilityLabel("添加群聊附件").accessibilityIdentifier("room.attachments")
-                Button { choosingEmoji = true } label: { Image(systemName: "face.smiling").frame(width: 44, height: 44) }.disabled(busy || draft.pending).accessibilityLabel("插入群聊表情").accessibilityIdentifier("room.emoji")
+                Button { flushComposerText(); dismissKeyboard(); choosingEmoji = true } label: {
+                    Image(systemName: "face.smiling")
+                        .frame(width: 44, height: 44)
+                        .foregroundStyle(PUBOTheme.text)
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(busy || draft.pending).accessibilityLabel("插入群聊表情").accessibilityIdentifier("room.emoji")
                 Spacer(minLength: 0)
-                Button { Task { await send() } } label: { Group { if busy { ProgressView() } else { Image(systemName: "paperplane").font(.title3) } }.frame(width: 44, height: 44).foregroundStyle(PUBOTheme.accent) }.disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
-            }.buttonStyle(.borderless).disabled(chatProblem != nil)
-        }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
+                if keyboardOpen {
+                    Button { dismissKeyboard() } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                            .font(.system(size: 18))
+                            .foregroundStyle(PUBOTheme.secondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel("收起键盘").accessibilityIdentifier("room.keyboard.dismiss")
+                }
+                Button { Task { await send() } } label: {
+                    Group {
+                        if busy {
+                            ProgressView().tint(PUBOTheme.accent)
+                        } else if canSend {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(PUBOTheme.adaptive(0xffffff, 0x0c1210))
+                                .frame(width: 34, height: 34)
+                                .background(PUBOTheme.accent, in: Circle())
+                        } else {
+                            Image(systemName: "paperplane")
+                                .font(.title3)
+                                .foregroundStyle(PUBOTheme.secondary.opacity(0.45))
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(!canSend).accessibilityLabel("发送").accessibilityIdentifier("room.send")
+            }.disabled(chatProblem != nil)
+        }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8)
             .background(PUBOTheme.panel.ignoresSafeArea(.container, edges: .bottom))
             .overlay(alignment: .top) { PUBOTheme.divider.frame(height: 0.5) }
             .accessibilityElement(children: .contain).accessibilityIdentifier("room.composer")
@@ -150,7 +188,7 @@ struct RoomChatView: View {
                         }.clipped()
                     }
                     else if section == "members" { RoomMembersView(roomID: roomID, canInvite: own, embedded: true, owner: room.map { Record($0["owner"]) }) }
-                    else if section == "search" { List { ChatSearchView(roomID: roomID, embedded: true, selectMessage: { message in section = "messages"; Task { await openContext(message) } }) }.puboList() }
+                    else if section == "search" { List { ChatSearchView(roomID: roomID, embedded: true, selectMessage: { message in section = "messages"; Task { await openContext(message) } }) }.puboList().scrollDismissesKeyboard(.interactively) }
                     else { List {
                         Section("名称") { Text(room?["name"].string ?? "群聊") }
                         Section("描述") { Text(room?["description"].string ?? "暂无群聊简介") }
@@ -192,18 +230,29 @@ struct RoomChatView: View {
         roomContent
             .task {
                 active = true
+                Task { await session.ensureEmojisLoaded() }
                 if !restored { restored = true; ownerID = session.user?.id; if let ownerID { draft = ((try? session.store?.read(RoomDraft.self, account: ownerID, key: key)) ?? nil) ?? RoomDraft() } }
+                else if ownerID == nil { ownerID = session.user?.id }
                 session.stream.showRoom(roomID); await load(); if let initialMessage { await openContext(initialMessage) }
             }
             .task(id: session.generation) { await session.restoreChatPreferences() }
             .onChange(of: session.streamRevision) { _, _ in if active && scenePhase == .active { Task { await load() } } }
             .onChange(of: session.connectionRevision) { _, _ in if active && scenePhase == .active { Task { await load(reconcile: true) } } }
             .onReceive(session.chatEvents) { receive($0) }
-            .onChange(of: session.generation) { _, _ in invalidateMessageDeletion() }
-            .onChange(of: section) { _, value in invalidateMessageDeletion(); if value == "messages" { Task { await load(reconcile: true) } } }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                if active && section == "messages" && preview == nil && !choosingEmoji && !editing && reporting == nil && reactionTarget == nil {
+                    keyboardVisible = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                keyboardVisible = false
+            }
+            .onChange(of: session.generation) { _, _ in dismissKeyboard(); invalidateMessageDeletion() }
+            .onChange(of: section) { _, value in dismissKeyboard(); invalidateMessageDeletion(); if value == "messages" { Task { await load(reconcile: true) } } }
+            .onChange(of: chatProblem != nil) { _, blocked in if blocked { dismissKeyboard() } }
             .onChange(of: draft.text) { _, _ in persist() }
             .onChange(of: scenePhase) { _, value in if value == .active && active { Task { await load(reconcile: true) } } }
-            .onDisappear { invalidateMessageDeletion(); active = false; loadEpoch = UUID(); uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
+            .onDisappear { dismissKeyboard(); invalidateMessageDeletion(); active = false; loadEpoch = UUID(); uploadTask?.cancel(); persist(); session.stream.showRoom(nil); preview = nil }
              .sheet(isPresented: $choosingFile) { DrivePicker { file in draft.file = file; persist() } }
             .sheet(isPresented: $choosingEmoji) { ReactionPicker { TextInsertion.insert($0, into: &draft.text, selection: &textSelection) } }
             .onChange(of: reporting?.id) { _, value in
@@ -391,11 +440,29 @@ struct RoomChatView: View {
             await Task.yield(); guard active, epoch == loadEpoch else { return }; scrollRequest += 1
         } catch { if active && epoch == loadEpoch { self.error = error.localizedDescription } }
     }
-    @discardableResult private func persist() -> Bool {
-        guard let ownerID, ownerID == session.user?.id else { return false }
+    private func dismissKeyboard() {
+        editingText = false
+        keyboardVisible = false
+        KeyboardControl.dismiss()
+    }
+    private func flushComposerText() {
+        if let live = KeyboardControl.flushActiveTextView(matching: "room.input"), live != draft.text {
+            draft.text = live
+        }
+    }
+    @discardableResult private func persist(reportAuthError: Bool = false) -> Bool {
+        guard let account = session.user?.id else {
+            if reportAuthError { error = "登录状态已失效，请重新登录后发送。" }
+            return false
+        }
+        if ownerID == nil { ownerID = account }
+        guard ownerID == account else {
+            if reportAuthError { error = "当前账号状态已变化，请返回会话列表后重新进入。" }
+            return false
+        }
         if session.testMode && session.store == nil { return true }
         guard let store = session.store else { error = "无法保存待发状态，请稍后重试。"; return false }
-        do { try store.save(draft, account: ownerID, key: key); return true } catch { self.error = "群聊草稿保存失败。"; return false }
+        do { try store.save(draft, account: account, key: key); return true } catch { self.error = "群聊草稿保存失败。"; return false }
     }
     private func load(older: Bool = false, reconcile: Bool = false) async {
         if reconcile { needsReconcile = true }
@@ -441,15 +508,26 @@ struct RoomChatView: View {
         }
     }
     private func send() async {
+        flushComposerText()
         if let chatProblem { error = chatProblem; return }
         if let sendProblem { error = sendProblem; return }; guard canSend else { return }
-        busy = true; defer { busy = false }; draft.pending = true; guard persist() else { draft.pending = false; return }
+        busy = true; defer { busy = false }; draft.pending = true; guard persist(reportAuthError: true) else { draft.pending = false; return }
         do {
             var fields: [String: JSONValue] = ["toRoomId": .string(roomID)]
             if !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fields["text"] = .string(draft.text) }; if let file = draft.file { fields["fileId"] = .string(file.id) }
             let result = Record(try await session.call("chat/messages/create-to-room", fields, mutation: true))
             guard !result.id.isEmpty else { throw APIError.uncertain }
-            draft = RoomDraft(); persist(); error = nil; await load(); scrollRequest += 1
+            draft = RoomDraft(); textSelection = NSRange(location: 0, length: 0); persist(); error = nil
+            if contextMode {
+                await returnToLatest()
+                if !contextMode {
+                    messages = Records.merge(messages, [result], newestFirst: false, limit: 2000)
+                }
+            } else {
+                messages = Records.merge(messages, [result], newestFirst: false, limit: 2000)
+                await load()
+            }
+            scrollRequest += 1
         } catch { if let apiError = error as? APIError, apiError.code != "OUTCOME_UNKNOWN" { draft.pending = false; persist() }; self.error = error.localizedDescription }
     }
     private func perform(_ action: String) async {

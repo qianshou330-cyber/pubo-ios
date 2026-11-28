@@ -55,7 +55,7 @@ struct ChatMessageActions: View {
                 }
                 if !own { Button("举报这条私信") { reporting = true } }
                 if draft?.uncertain != true { Button("核对最新状态") { Task { await refresh() } }.disabled(busy) }
-            }.puboForm().navigationTitle("消息操作")
+            }.puboForm().scrollDismissesKeyboard(.interactively).navigationTitle("消息操作")
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if error != nil || feedback != nil || draft?.uncertain == true {
                         VStack(alignment: .leading, spacing: 8) {
@@ -65,7 +65,16 @@ struct ChatMessageActions: View {
                         }.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding().background(PUBOTheme.panel)
                     }
                 }
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() }.disabled(busy) } }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("关闭") { KeyboardControl.dismiss(); dismiss() }.disabled(busy) }
+                    if editingText {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { editingText = false; KeyboardControl.dismiss() } label: {
+                                Image(systemName: "keyboard.chevron.compact.down")
+                            }.accessibilityLabel("收起键盘")
+                        }
+                    }
+                }
                 .task {
                     if !loaded {
                         if let account = session.user?.id { draft = (try? session.store?.read(MessageEditDraft.self, account: account, key: key)) ?? nil }
@@ -105,6 +114,7 @@ struct ChatMessageActions: View {
     private func edit() async {
         guard !busy, let draft, !draft.uncertain, canEdit else { return }
         editingText = false
+        KeyboardControl.dismiss()
         let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty && text.unicodeScalars.count <= 2_000 else { error = "消息需要 1～2000 个字符。"; return }
         busy = true; defer { busy = false }

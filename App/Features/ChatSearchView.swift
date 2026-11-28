@@ -34,8 +34,8 @@ struct ChatSearchView: View {
                         result(row)
                     }.accessibilityIdentifier("messages.search.result." + row.id)
                 }
-                else if let selectMessage { Button { selectMessage(row) } label: { result(row) } }
-                else if let select { Button { select(row.id) } label: { result(row) } }
+                else if let selectMessage { Button { KeyboardControl.dismiss(); selectMessage(row) } label: { result(row) } }
+                else if let select { Button { KeyboardControl.dismiss(); select(row.id) } label: { result(row) } }
                 else if row["toRoomId"].isNull { NavigationLink { ChatSearchDestination(message: row) } label: { result(row) } }
                 else if let room = row["toRoomId"].string { NavigationLink { RoomChatView(roomID: room, initialMessage: row) } label: { result(row) } }
             }
@@ -52,7 +52,8 @@ struct ChatSearchView: View {
             if embedded { content }
             else {
                 List { content }.puboList()
-                    .scrollDismissesKeyboard(homeReadOnly ? .interactively : .automatic)
+                    .scrollDismissesKeyboard(.interactively)
+                    .scrollBounceBehavior(.always)
                     .navigationTitle(homeReadOnly ? "搜索聊天记录" : (roomID != nil ? "搜索本群" : (peer == nil ? "聊天搜索" : "搜索本会话")))
             }
         }.task(id: query) {
