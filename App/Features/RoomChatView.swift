@@ -94,7 +94,9 @@ struct RoomChatView: View {
                     .accessibilityIdentifier("room.timeline")
                     .scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "roomScroll").scrollDismissesKeyboard(.interactively)
                     .contentShape(Rectangle())
-                    .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() }, including: section == "messages" && keyboardOpen ? .all : .subviews)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        if section == "messages" && keyboardOpen { dismissKeyboard() }
+                    })
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") } else if !contextMode { unreadBelow = true } }
                     .onChange(of: scrollTarget) { _, id in if let id { positionTimeline(id) } }

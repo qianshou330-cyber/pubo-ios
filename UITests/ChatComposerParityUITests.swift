@@ -193,7 +193,12 @@ final class ChatComposerParityUITests: XCTestCase {
             XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
             XCTAssertTrue(dismissButton.waitForExistence(timeout: 5))
             let viewport = app.scrollViews[prefix + ".timeline"]
-            viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.96)).tap()
+            let composer = app.descendants(matching: .any).matching(identifier: prefix + ".composer").firstMatch
+            XCTAssertTrue(composer.waitForExistence(timeout: 5))
+            let visibleBottom = min(viewport.frame.maxY, composer.frame.minY)
+            let targetY = max(viewport.frame.minY + 24, visibleBottom - 36)
+            let normalizedY = max(0.05, min(0.95, (targetY - viewport.frame.minY) / max(1, viewport.frame.height)))
+            viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: normalizedY)).tap()
             XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Keyboard must dismiss when tapping blank timeline area")
             XCTAssertEqual(input.value as? String, draft)
 

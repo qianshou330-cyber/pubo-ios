@@ -100,7 +100,9 @@ struct ChatView: View {
         GeometryReader { viewport in
                 ScrollView { messageList }.contentMargins(.horizontal, 16, for: .scrollContent).scrollBounceBehavior(.always).accessibilityIdentifier("chat.timeline").scrollPosition(id: $visibleMessageID, anchor: scrollAnchor).coordinateSpace(name: "privateScroll").scrollDismissesKeyboard(.interactively)
                     .contentShape(Rectangle())
-                    .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() }, including: !searching && !selecting && keyboardOpen ? .all : .subviews)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        if !searching && !selecting && keyboardOpen { dismissKeyboard() }
+                    })
                     .onPreferenceChange(ChatBottomPreference.self) { bottom in nearBottom = bottom <= viewport.size.height + 80; if nearBottom { unreadBelow = false } }
                     .onChange(of: messages.last?.id) { old, _ in
                         if !contextMode && (old == nil || nearBottom) { positionTimeline("bottom") }

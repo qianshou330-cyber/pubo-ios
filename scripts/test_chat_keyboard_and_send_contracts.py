@@ -25,7 +25,8 @@ class ChatKeyboardAndSendContracts(unittest.TestCase):
         chat = (ROOT / 'App/Features/ChatView.swift').read_text()
         for required in [
             '.scrollBounceBehavior(.always)',
-            'TapGesture().onEnded { dismissKeyboard() }',
+            '.simultaneousGesture(TapGesture().onEnded {',
+            'if !searching && !selecting && keyboardOpen { dismissKeyboard() }',
             'UIResponder.keyboardWillShowNotification',
             'UIResponder.keyboardWillHideNotification',
             'focused: $editingText',
@@ -48,7 +49,8 @@ class ChatKeyboardAndSendContracts(unittest.TestCase):
         room = (ROOT / 'App/Features/RoomChatView.swift').read_text()
         for required in [
             '.scrollBounceBehavior(.always)',
-            'TapGesture().onEnded { dismissKeyboard() }',
+            '.simultaneousGesture(TapGesture().onEnded {',
+            'if section == "messages" && keyboardOpen { dismissKeyboard() }',
             'UIResponder.keyboardWillShowNotification',
             'UIResponder.keyboardWillHideNotification',
             'focused: $editingText',

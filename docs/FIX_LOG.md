@@ -1,5 +1,22 @@
 # 修复日志
 
+## 2026-11-28 / C119 候选（修正 UI 测试点击时间线空白坐标误落键盘区问题，并加固时间线点击收起键盘手势不依赖动态 GestureMask 切换）
+
+- **问题、复现与实测证据**：
+  - C118（`d27fce14`，[CI 46178870676](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46178870676)）中 `checks`（Swift 233/233、Python 307/307、Node 2/2）、`build-sim-tests`、`h5-chat-reference`、`candidate-package`、`legacy-regression` 2/2、`messages-redesign` 2/2、`video-poster` 2/2、`chat-presentation (states)` 2/2、`chat-alignment (large, actions)`、`diagnostic-private-back` 2/2 等 21 项作业均一次通过。
+  - `ocr-validation`（`141084265075`）189/189 语料本身已通过（`failures: []`），仅在末尾上传产物时遇 GitHub Actions 平台 `CreateArtifact` 超时。
+  - `chat-presentation (small, composer)`（`141085122688`，产物 `15278208088`）实测通过「显式收起键盘按钮」测试并输出浅/深色新 UI 实屏截图（绿色实心圆形发送键 + 独立收起键盘按钮清晰无遮挡），仅在「点时间线空白收起键盘」步骤失败：下载几何证据 `998CB4D3` / `EBC265B1` 证实，由于 `ScrollView` 外层使用 `.safeAreaInset(edge: .bottom)`，`viewport.frame` 为 `(0, 163, 402, 711)`（向下延伸至 `y=874` 穿过输入框与键盘下方），而 `composer.frame` 为 `(0, 417, 402, 112)`，导致测试代码 `viewport[0.50, 0.96]` 实际点击了 `y = 845.56`（键盘最底部栏，根本未点中时间线）。
+  - 同步排查到 `ChatView` / `RoomChatView` 使用动态 `including: ... ? .all : .subviews` 切换 `simultaneousGesture` 的 `GestureMask` 在 iOS 26 存在状态切换风险，改为常驻 `simultaneousGesture` 并在 `.onEnded` 闭包内判断状态。
+- **修改内容（零降门禁）**：
+  1. `App/Features/ChatView.swift` & `App/Features/RoomChatView.swift`：将时间线 `.simultaneousGesture(TapGesture().onEnded { ... })` 改为无动态 `including:` 切换，在回调内安全判断 `!searching && !selecting && keyboardOpen`（群聊为 `section == "messages" && keyboardOpen`）后调用 `dismissKeyboard()`。
+  2. `UITests/ChatComposerParityUITests.swift`：根据 `min(viewport.frame.maxY, composer.frame.minY) - 36` 计算 `composer` 上方真实可见时间线空白区的归一化坐标 `(dx: 0.22, dy: normalizedY)`，精确点击真实空白消息区域验证收起键盘并保留草稿。
+  3. `scripts/test_chat_keyboard_and_send_contracts.py`：同步更新手势静态合约断言。
+- **涉及文件**：`App/Features/ChatView.swift`、`App/Features/RoomChatView.swift`、`UITests/ChatComposerParityUITests.swift`、`scripts/test_chat_keyboard_and_send_contracts.py`、`docs/FIX_LOG.md`。
+- **本地验证（推送前）**：
+  - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **307/307**、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
+  - **失败**：无。
+  - **未运行/受阻**：本地无 Xcode/iOS 模拟器，全新整轮 34/34 CI、双机实屏截图复检与正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+
 ## 2026-11-28 / C118 候选（基于真机反馈全面自查并修复聊天功能 12 项缺陷：三重键盘收起、发送键可靠性与高对比、中文/第三方输入法同步、登录后自定义表情不渲染、本地设置存储键非法、历史模式发送、录音 60 秒自动收尾与辅助页键盘收起）
 
 - **问题、复现与实测证据**：
@@ -32,6 +49,10 @@
   - **通过**：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` **307/307**、`node --test scripts/isolated/test-room-message-proof.mjs` **2/2**、`git diff --check` 0 问题。
   - **失败**：无。
   - **未运行/受阻**：本地为 Linux 环境，Swift 单元测试、双机 iOS 26 模拟器全套 UI 回归（含键盘收起与键盘展开态发送实屏截图）及正式未签名 IPA 打包待推送后由 `four-tabs.yml` 验证。
+- **C118 CI 实际结果（[提交 `d27fce14`](https://github.com/qianshou330-cyber/pubo-ios/commit/d27fce144154a58b7a320d9d5793a8024a3123de) / [CI 46178870676](https://github.com/qianshou330-cyber/pubo-ios/actions/runs/46178870676)）**：
+  - **通过（21 项）**：`checks`、`build-sim-tests`、`h5-chat-reference`、`candidate-package`、`legacy-regression` 2/2、`messages-redesign` 2/2、`video-poster` 2/2、`chat-presentation (states)` 2/2、`chat-alignment (large, actions)`、`diagnostic-private-back` 2/2、`diagnostic-room-back (without-picker)`、`diagnostic-world-scroll (signposts, large)`、`navigation` 2/4。
+  - **失败（2 项）**：`ocr-validation`（189/189 语料通过，末尾 `CreateArtifact` 平台超时）；`chat-presentation (small, composer)`（显式收起键盘按钮通过，点击时间线空白步骤因 `viewport[0.50, 0.96]` 误点击 `y=845` 键盘区而失败）。
+  - **取消/未运行**：明确根因后主动取消剩余队列作业，转由 C119 修正并跑满 34/34。
 
 ## 2026-11-27 / C117 候选（基于 C116 深色实机截图目视审查，提升多选底栏「转发给好友」主按钮深色文字对比度）
 
